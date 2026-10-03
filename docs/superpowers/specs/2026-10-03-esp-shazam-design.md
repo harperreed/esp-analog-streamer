@@ -216,7 +216,7 @@ Mirrors SongRec's `src/core/fingerprinting/communication.rs` (marin-m/SongRec, l
   - `track.subtitle` (the artist)
   - `track.images.coverart`
   - `track.sections[].metadata[]`, where `title == "Album"`, for the album
-  - `track.url` for the Shazam link **(verify the field against a captured response)**
+  - `track.url` for the Shazam link (confirmed in the real capture, `test/fixtures/shazam/match.json`)
 
   No `track` object means a miss.
 
