@@ -12,6 +12,7 @@ pub mod fingerprinting {
     pub mod signature_format;
     pub mod user_agent;
 }
+pub mod policy;
 pub mod shazam;
 pub mod signal;
 pub mod time;
