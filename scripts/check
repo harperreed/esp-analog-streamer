@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+# ABOUTME: Canonical project check: formatting, lints, Mac tests, and the firmware build once it exists.
+# ABOUTME: Prints one ok/FAIL line per stage; full output lands in target/check-logs/<stage>.log.
+set -uo pipefail
+cd "$(dirname "$0")/.."
+eval "$(mise env -s bash)" # the toolchain pinned in mise.toml
+LOG_DIR=target/check-logs
+mkdir -p "$LOG_DIR"
+status=0
+
+stage() {
+  local name="$1"
+  shift
+  if "$@" >"$LOG_DIR/$name.log" 2>&1; then
+    echo "ok    $name"
+  else
+    echo "FAIL  $name   (full log: $LOG_DIR/$name.log)"
+    tail -n 40 "$LOG_DIR/$name.log" | sed 's/^/      /'
+    status=1
+  fi
+}
+
+stage fmt cargo fmt --all -- --check
+stage clippy cargo clippy --workspace --all-targets -- -D warnings
+stage test cargo test --workspace
+
+exit $status

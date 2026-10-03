@@ -1,0 +1,11 @@
+[package]
+name = "esp-shazam-core"
+version = "0.1.0"
+edition = "2021"
+license = "GPL-3.0-or-later"
+description = "Pure logic shared by the esp-shazam firmware and its Mac tools"
+publish = false
+
+[dependencies]
+
+[dev-dependencies]

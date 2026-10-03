@@ -1,0 +1,3 @@
+# Toolchain for esp-shazam. `mise install` sets it up; scripts load it with `eval "$(mise env -s bash)"`.
+[tools]
+rust = "1.93.0" # host toolchain for core, tools and tests
