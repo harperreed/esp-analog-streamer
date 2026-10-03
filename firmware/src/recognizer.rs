@@ -51,6 +51,7 @@ fn run(ring: SharedRing, store: SharedStore, config: PolicyConfig, on_change: im
     let mut policy = Policy::new(config);
     let mut second = Vec::with_capacity(SAMPLE_RATE_HZ as usize);
     let mut window = Vec::with_capacity(WINDOW_SAMPLES);
+    let mut clock_was_synced = false;
     loop {
         std::thread::sleep(TICK);
         ring.lock()
@@ -58,7 +59,13 @@ fn run(ring: SharedRing, store: SharedStore, config: PolicyConfig, on_change: im
             .copy_latest(SAMPLE_RATE_HZ as usize, &mut second);
         let level = loudness_dbfs(&second);
         let has_now = store.lock().expect("store lock").has_now();
-        match policy.tick(now_ms(), level, net::clock_synced(), has_now) {
+        let clock_synced = net::clock_synced();
+        if clock_synced && !clock_was_synced {
+            // The policy holds every ask until now; a board that never logs this never got SNTP time.
+            log::info!("clock: synced ({})", rfc3339_utc(net::unix_secs()));
+            clock_was_synced = true;
+        }
+        match policy.tick(now_ms(), level, clock_synced, has_now) {
             Decision::Idle => {}
             Decision::ClearNow => {
                 if store.lock().expect("store lock").clear_now() {
@@ -79,29 +86,35 @@ fn run(ring: SharedRing, store: SharedStore, config: PolicyConfig, on_change: im
                     song,
                 ) {
                     (Change::SetNow, Some(song)) => {
-                        log::info!("now playing: {} — {}", song.title, song.artist);
-                        store
+                        let playing = format!("{} — {}", song.title, song.artist);
+                        let identified_at = rfc3339_utc(net::unix_secs());
+                        if store
                             .lock()
                             .expect("store lock")
-                            .set_now(song, rfc3339_utc(net::unix_secs()));
-                        on_change();
+                            .set_now(song, identified_at)
+                        {
+                            log::info!("now playing: {playing}");
+                            on_change();
+                        }
                     }
                     (Change::ClearNow, _) => {
-                        store.lock().expect("store lock").clear_now();
-                        log::info!("now playing: cleared after misses");
-                        on_change();
+                        if store.lock().expect("store lock").clear_now() {
+                            log::info!("now playing: cleared after misses");
+                            on_change();
+                        }
                     }
                     _ => {}
                 }
             }
         }
         let now = now_ms();
-        let mut store = store.lock().expect("store lock");
+        let mut guard = store.lock().expect("store lock");
+        // Add in milliseconds and round once, so the end time stays put from tick to tick.
         let rate_limited_until = policy
             .rate_limited_until(now)
-            .map(|until| rfc3339_utc(net::unix_secs() + (until - now) / 1_000));
-        let state = policy.state(now, store.has_now());
-        store.set_status(state, level, rate_limited_until);
+            .map(|until| rfc3339_utc((net::unix_ms() + (until - now)) / 1_000));
+        let state = policy.state(now, guard.has_now());
+        guard.set_status(state, level, rate_limited_until);
     }
 }
 

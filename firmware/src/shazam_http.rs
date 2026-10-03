@@ -62,6 +62,10 @@ fn post(request: &Request) -> Result<(u16, Vec<u8>)> {
     conn.write_all(request.body.as_bytes())?;
     conn.initiate_response()?;
     let status = conn.status();
+    if status == 429 {
+        // The status alone starts the 300 s pause; a failed body read must not turn it into Failed.
+        return Ok((status, Vec::new()));
+    }
     let mut body = Vec::new();
     let mut buf = [0u8; 1024];
     loop {
