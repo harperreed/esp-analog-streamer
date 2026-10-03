@@ -2470,7 +2470,7 @@ git commit -m "feat(firmware): add ESP32 firmware skeleton and bring-up probe; r
 
 **Files:**
 - Create: `firmware/src/codec.rs`, `firmware/src/audio_in.rs`
-- Modify: `firmware/src/main.rs` (replace the bring-up version)
+- Modify: `firmware/src/main.rs` (replace the bring-up version), `firmware/sdkconfig.defaults` (CPU 240 MHz, ledger Ruling R11)
 - Delete: `firmware/src/board.rs` (bring-up only; its findings are in the spec)
 
 **Interfaces:**
@@ -2655,7 +2655,14 @@ pub fn spawn_capture(mut rx: I2sDriver<'static, I2sRx>) -> Result<SharedRing> {
 }
 ```
 
-- [ ] **Step 3: Replace main with a level meter**
+- [ ] **Step 3: Run the CPU at 240 MHz, and replace main with a level meter**
+
+Add to `firmware/sdkconfig.defaults` (ESP-IDF's ESP32 default is 160 MHz; Task 7 measured a 12 s fingerprint at 12.6 s on 160 MHz and 10.5 s on 240 MHz):
+```
+# Full speed: the fingerprint is CPU- and PSRAM-bound (ESP-IDF's ESP32 default is 160 MHz).
+CONFIG_ESP_DEFAULT_CPU_FREQ_MHZ_240=y
+```
+
 
 Delete `firmware/src/board.rs`. `firmware/src/main.rs`:
 ```rust
@@ -2728,7 +2735,7 @@ Expected:
 - `codec: ES8388 set up for LINE IN, PGA 0x00` in each log.
 - Tone: `pitch 1000 Hz` (±5) and a level between -30 and -3 dBFS, with `peak` under 32000.
 - Music: levels mostly between -35 and -6 dBFS.
-- Silence: level at or below -60 dBFS. That's the noise floor, and it must sit at least 10 dB below `quiet_threshold_dbfs` (-50).
+- Silence: level at or below -60 dBFS. That's the noise floor, and it must sit at least 10 dB below `quiet_threshold_dbfs` (-50). Measure it with the cable plugged in and nothing playing: loudness removes DC but not hum, so any hum counts toward the floor.
 
 If capture is silent or the pitch is wrong, check in this order:
 1. Readback errors in the log.
