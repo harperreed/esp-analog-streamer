@@ -1,21 +1,31 @@
-// ABOUTME: Firmware entry point: sets up LINE IN capture and logs level, peak and pitch once a second.
-// ABOUTME: Wi-Fi, Shazam, the web page and MQTT join in later.
+// ABOUTME: Firmware entry point: LINE IN capture, Wi-Fi, clock, and the recognizer around one song store.
+// ABOUTME: The main thread ends up supervising Wi-Fi; everything else runs on its own thread.
 
 mod audio_in;
 mod codec;
+mod config;
+mod net;
+mod recognizer;
+mod shazam_http;
 
-use std::time::Duration;
+use std::sync::{Arc, Mutex};
 
 use anyhow::Result;
+use esp_idf_svc::eventloop::EspSystemEventLoop;
 use esp_idf_svc::hal::i2c::{I2cConfig, I2cDriver};
 use esp_idf_svc::hal::peripherals::Peripherals;
 use esp_idf_svc::hal::units::FromValueType;
-use esp_shazam_core::audio::{loudness_dbfs, zero_crossing_hz};
+use esp_idf_svc::nvs::EspDefaultNvsPartition;
+use esp_shazam_core::store::SongStore;
+
+use config::CONFIG;
 
 fn main() -> Result<()> {
     esp_idf_svc::sys::link_patches();
     esp_idf_svc::log::EspLogger::initialize_default();
     let peripherals = Peripherals::take()?;
+    let sysloop = EspSystemEventLoop::take()?;
+    let nvs = EspDefaultNvsPartition::take()?;
 
     // I2S first: the codec locks onto MCLK and LRCK when its state machines restart.
     let rx = audio_in::start_i2s(
@@ -31,20 +41,26 @@ fn main() -> Result<()> {
         peripherals.pins.gpio32, // SCL (v2 boards: gpio23)
         &I2cConfig::new().baudrate(100.kHz().into()),
     )?;
-    codec::setup_line_in(&mut i2c, codec::PGA_0DB)?;
+    codec::setup_line_in(&mut i2c, CONFIG.pga_gain)?;
     let ring = audio_in::spawn_capture(rx)?;
 
-    let mut second = Vec::with_capacity(audio_in::SAMPLE_RATE_HZ as usize);
-    loop {
-        std::thread::sleep(Duration::from_secs(1));
-        ring.lock()
-            .expect("audio ring lock")
-            .copy_latest(audio_in::SAMPLE_RATE_HZ as usize, &mut second);
-        let peak = second.iter().map(|s| s.unsigned_abs()).max().unwrap_or(0);
+    let wifi = net::start_wifi(
+        peripherals.modem,
+        sysloop,
+        nvs,
+        CONFIG.wifi_ssid,
+        CONFIG.wifi_pass,
+    )?;
+    let _sntp = net::start_sntp()?;
+
+    let store: recognizer::SharedStore = Arc::new(Mutex::new(SongStore::new(20)));
+    let log_store = store.clone();
+    recognizer::spawn(ring, store, config::policy_config(), move || {
         log::info!(
-            "audio: level {:.1} dBFS, peak {peak}, pitch {:.0} Hz",
-            loudness_dbfs(&second),
-            zero_crossing_hz(&second, audio_in::SAMPLE_RATE_HZ)
+            "now_playing payload: {}",
+            log_store.lock().expect("store lock").now_json()
         );
-    }
+    })?;
+
+    net::supervise(wifi)
 }

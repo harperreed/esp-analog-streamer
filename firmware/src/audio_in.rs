@@ -8,13 +8,20 @@ use anyhow::Result;
 use esp_idf_svc::hal::cpu::Core;
 use esp_idf_svc::hal::delay::TickType;
 use esp_idf_svc::hal::gpio::{InputPin, OutputPin};
-use esp_idf_svc::hal::i2s::config::{DataBitWidth, StdConfig};
+use esp_idf_svc::hal::i2s::config::{
+    Config, DataBitWidth, SlotMode, StdClkConfig, StdConfig, StdGpioConfig, StdSlotConfig,
+};
 use esp_idf_svc::hal::i2s::{I2s, I2sDriver, I2sRx};
 use esp_idf_svc::hal::task::thread::ThreadSpawnConfiguration;
 use esp_shazam_core::audio::{stereo_to_mono, SampleRing};
 
 pub const SAMPLE_RATE_HZ: u32 = 16_000;
 pub const WINDOW_SAMPLES: usize = 12 * SAMPLE_RATE_HZ as usize;
+
+/// I2S DMA buffers of 240 frames (15 ms) each. The driver queues all but one and drops the oldest
+/// when the reader falls behind, so 16 let the capture thread wait 225 ms for the ring lock.
+/// The recognizer's 12 s snapshot holds that lock for about 90 ms; the default of 6 allowed only 75 ms.
+const DMA_BUFFER_COUNT: u32 = 16;
 
 pub type SharedRing = Arc<Mutex<SampleRing>>;
 
@@ -27,7 +34,13 @@ pub fn start_i2s<'d>(
     mclk: impl InputPin + OutputPin + 'd,
     ws: impl InputPin + OutputPin + 'd,
 ) -> Result<I2sDriver<'d, I2sRx>> {
-    let config = StdConfig::philips(SAMPLE_RATE_HZ, DataBitWidth::Bits16);
+    // StdConfig::philips with a deeper DMA queue.
+    let config = StdConfig::new(
+        Config::default().dma_buffer_count(DMA_BUFFER_COUNT),
+        StdClkConfig::from_sample_rate_hz(SAMPLE_RATE_HZ),
+        StdSlotConfig::philips_slot_default(DataBitWidth::Bits16, SlotMode::Stereo),
+        StdGpioConfig::default(),
+    );
     let mut rx = I2sDriver::<I2sRx>::new_std_rx(i2s, &config, bclk, din, Some(mclk), ws)?;
     rx.rx_enable()?; // mandatory: read() needs the channel running
     Ok(rx)

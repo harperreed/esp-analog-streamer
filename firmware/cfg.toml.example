@@ -1,0 +1,15 @@
+# Copy to firmware/cfg.toml (gitignored) and fill in. Values must not contain " or \ (a toml-cfg limit).
+# After creating cfg.toml for the first time, run `touch src/config.rs` so cargo picks it up.
+[esp-shazam-firmware]
+wifi_ssid = "your-network"
+wifi_pass = "your-password"
+mqtt_url = "mqtt://192.168.200.8:1883"
+hostname = "esp-shazam"
+pga_gain = 0
+quiet_threshold_dbfs = -60.0 # tuned at bring-up: floor about -79 dBFS (SDD Ruling R12)
+search_interval_secs = 8
+slow_search_interval_secs = 30
+recheck_interval_secs = 30
+clear_after_misses = 3
+clear_after_quiet_secs = 60
+rate_limit_backoff_secs = 300

@@ -9,10 +9,6 @@ use esp_idf_svc::hal::i2c::I2cDriver;
 
 const ADDR: u8 = 0x10;
 
-/// PGA register value for 0 dB on both channels (3 dB per step per nibble; 0x88 is +24 dB).
-/// Line level wants 0 dB: full scale is then 1.0 Vrms.
-pub const PGA_0DB: u8 = 0x00;
-
 /// (register, value) in order, up to the state-machine restart.
 const SETUP: &[(u8, u8)] = &[
     (0x00, 0x86), // soft-reset pulse: no reset pin, and an ESP32 reset leaves the codec as it was
@@ -44,6 +40,8 @@ const EXPECTED: &[(u8, u8)] = &[
 ];
 
 /// Needs MCLK, BCLK and LRCK already running: the codec locks onto them when its state machines restart.
+/// `pga_gain` goes to register 0x09, 3 dB per step per nibble: 0x00 is 0 dB on both channels, 0x88 is +24 dB.
+/// Line level wants 0 dB: full scale is then 1.0 Vrms.
 pub fn setup_line_in(i2c: &mut I2cDriver<'_>, pga_gain: u8) -> Result<()> {
     for &(reg, value) in SETUP {
         write(i2c, reg, value)?;

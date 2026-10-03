@@ -75,9 +75,9 @@ Confirmed at bring-up on 2026-10-03 by Task 8 (logs in `target/`, kept locally):
   - Idle, cable plugged in and nothing playing: typically -75 to -82 dBFS (median about -79), with brief excursions to -62/-64. Handling can hold -35 to -50 dBFS for up to 3 s in a row.
   - Those idle seconds came while Harper was switching sources, so -79 is provisional. An earlier "idle" capture at 16:54 read -64 dBFS, the same as the turned-down music, so it most likely held music.
   - The board's `quiet_threshold_dbfs` is tuned to -60 for this setup (SDD Ruling R12). Typical idle sits 15–20 dB under it and the worst idle second (-62.2) just under. The continuous source's lowest second (-57.9) stays just above, so it counts as sound.
-- **The PGA stays at 0 dB** (`codec::PGA_0DB`, SDD Ruling R12). The turntable on LINE already peaks about 9 dB under full scale, and +9 dB would put it at about -0.3 dBFS. The quieter continuous source is handled by the -60 threshold instead of more gain.
+- **The PGA stays at 0 dB** (`pga_gain = 0`, the cfg.toml default; SDD Ruling R12). The turntable on LINE already peaks about 9 dB under full scale, and +9 dB would put it at about -0.3 dBFS. The quieter continuous source is handled by the -60 threshold instead of more gain.
 - **Not measured:** the 1 kHz tone check needs the Mac on LINE IN.
-  - So rate and bit alignment aren't tone-checked. That closes at the first live Shazam match in Task 9.
+  - Live Shazam matches stand in for it. On 2026-10-03 (Task 9) the board's own captures matched three real tracks, which a wrong sample rate or garbled samples would prevent. A capture one bit late would only double every sample (+6 dB) and could still match, so the exact bit alignment rests on the register readback (`0x0C`: Philips, 16-bit).
   - The L/R interleave order is unknown too. It doesn't matter, because capture averages the two channels.
 
 Not yet confirmed:
@@ -170,6 +170,7 @@ The Mac E2E test uses it, and it saves real responses as parser fixtures.
 | Fingerprint rings | about 2.1 MB | PSRAM |
 | Audio ring | 384 KB | PSRAM |
 | 12 s snapshot | 384 KB | PSRAM |
+| I2S DMA buffers (16 × 960 bytes) | 15 KB | internal (DMA can't reach PSRAM) |
 | Signature, base64 and body | under 64 KB | heap |
 | Response | capped at 128 KB | heap |
 
@@ -285,8 +286,11 @@ One self-contained HTML page. It shows:
   - `wifi_ssid`, `wifi_pass`
   - `mqtt_url`
   - `hostname`
-  - the policy settings above
-- The firmware reads it at build time with the `toml-cfg` crate, the pattern the esp-rs std training uses **(verify the crate's current state)**.
+  - `pga_gain`, the ES8388 PGA register value (0 is 0 dB)
+  - the policy settings above, except `window_secs`: the audio ring and snapshot are sized for a fixed 12 s
+- The firmware reads it at build time with `toml-cfg` 0.2.0, the newest release on 2026-10-03 and the pattern the esp-rs std training uses.
+  - `TOML_CFG = "require_cfg_present"` in `firmware/.cargo/config.toml` turns a missing `cfg.toml`, or one without an `[esp-shazam-firmware]` table, into a build error.
+  - toml-cfg pastes each value into Rust source, so values can't contain `"` or `\`.
 
 ## Toolchain and versions
 
@@ -370,6 +374,15 @@ There are no mocks anywhere. The E2E tests use the real Shazam API and the real 
   - `search_interval_secs` stays 8 for now, against bring-up step 4's rule (which would make it 15). The policy starts that interval when the answer arrives, so the fingerprint already sits in front of it. Raising it would add idle time after each answer and push the first ask from 8 s to 15 s.
   - With 8 s at 160 MHz, asks come about 21 s apart, plus the HTTPS time. The second answer lands near 43–46 s, at the edge of success criterion 1's 45 s; with 15 s only one answer fits. Running at 240 MHz moves the second answer to about 40 s.
   - Decided (SDD Ruling R11): the firmware runs at 240 MHz (`CONFIG_ESP_DEFAULT_CPU_FREQ_MHZ_240=y`, Task 8). Faster PSRAM and flash (80 MHz) stay untested unless Task 9's timings miss the success criteria.
+  - Task 9 measured six live asks on 2026-10-03 (logs `target/recognize.log` and `target/recognize-dma6.log`, kept locally):
+    - Fingerprints of 12 s of LINE IN took 10336–10736 ms, and whole asks 11494–14620 ms. The request, TLS handshake included, added 0.8–1.4 s, except 4.1 s for the first request after one boot.
+    - The first match came 25.6 s and 28.5 s after reset, boot, Wi-Fi and SNTP included. Criterion 1's 45 s holds, so 80 MHz PSRAM and flash stay parked.
+    - While matched, asks came every 41.9–42.2 s: the 30 s re-check plus the ask itself.
+    - Matches: "DON'T WAIT 4 ME (feat. Kara Manansala) [Oliver Night Remix]" by Alexander Flood; then "Take Me Higher" by WheelUP & Tiawa, caught by the first re-check after the source changed songs; and, after a reboot, "Dinero (feat. P Wavey) [Samtheman Remix]" by IZCO.
+- **The 12 s snapshot stalls audio capture.** The recognizer copies 384 KB out of the PSRAM ring under its lock, and Task 9 measured that hold at 87–91 ms.
+  - ESP-IDF 5.5.5's I2S driver queues `dma_buffer_count - 1` DMA buffers and drops the oldest when the reader falls behind (`i2s_common.c`). The default 6 buffers of 15 ms gave 75 ms, so each ask lost about 15 ms of audio.
+  - `audio_in` now uses 16 buffers: 225 ms of slack for 9.6 KB more internal DMA RAM.
+  - Copying the window in slices, releasing the lock in between, would remove the stall instead. It needs absolute sample positions in `SampleRing`.
 - **PSRAM could be missing.** Bring-up found 8 MB, 4 MB of it usable, which settles this risk.
 - **Line level vs ADC range**: the gain gets set in bring-up step 3.
 - **The board revision could be AC101.** That means a different register set but the same `codec` interface and about the same size.

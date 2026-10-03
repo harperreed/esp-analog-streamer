@@ -16,3 +16,4 @@ ESP_IDF_TOOLS_INSTALL_DIR = "workspace"
 # ldproxy 0.3.2 logs "Running ldproxy" at info level, and rustc reports any linker stderr as a
 # warning. ldproxy 0.3.5 moved that line to debug but ships no prebuilt binary.
 LDPROXY_LOG = "warn"
+TOML_CFG = "require_cfg_present"

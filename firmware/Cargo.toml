@@ -33,6 +33,7 @@ esp-idf-svc = "=0.53.0"
 esp-idf-sys = "=0.38.1"
 esp-shazam-core = { path = "../core" }
 log = "0.4"
+toml-cfg = "0.2"
 
 [build-dependencies]
 embuild = "=0.33.5"
