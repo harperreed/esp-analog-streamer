@@ -366,7 +366,7 @@ fn ours(pcm: &[i16]) -> Vec<u8> {
 }
 
 fn upstream(pcm: &[i16]) -> Vec<u8> {
-    songrec_lib::SignatureGenerator::make_signature_from_buffer(pcm)
+    songrec::SignatureGenerator::make_signature_from_buffer(pcm)
         .encode_to_binary()
         .expect("upstream encoder failed")
 }
@@ -385,7 +385,7 @@ fn our_encoding_decodes_with_upstream_decoder() {
     let signature = SignatureGenerator::make_signature_from_buffer(&pcm);
     let uri = signature.encode_to_uri().expect("encode_to_uri failed");
     assert!(uri.starts_with("data:audio/vnd.shazam.sig;base64,"));
-    let decoded = songrec_lib::DecodedSignature::decode_from_uri(&uri).expect("upstream decode failed");
+    let decoded = songrec::DecodedSignature::decode_from_uri(&uri).expect("upstream decode failed");
     assert_eq!(decoded.sample_rate_hz, 16_000);
     assert_eq!(decoded.number_samples, pcm.len() as u32);
     // Identical re-encoding means every peak survived the round trip.

@@ -17,3 +17,6 @@ Install tools with `mise trust && mise install`, then `mise run esp-toolchain`. 
 
 ## Don't over-plan this project
 Harper stopped a planning spiral on 2026-10-03 ("lost in the planning sauce"). Write only the plan text the next task needs, and execute.
+
+## songrec-lib's library crate is named `songrec`
+The package is `songrec-lib = "=0.5.4"`, but its `[lib] name = "songrec"`, so Rust code writes `songrec::SignatureGenerator`, not `songrec_lib::`. It also pulls about 274 crates (cpal, rodio, reqwest) into the dev-dependency tree. That's fine on the Mac, and the firmware never builds it.
