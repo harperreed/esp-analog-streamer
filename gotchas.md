@@ -21,5 +21,9 @@ Harper stopped a planning spiral on 2026-10-03 ("lost in the planning sauce"). W
 ## songrec-lib's library crate is named `songrec`
 The package is `songrec-lib = "=0.5.4"`, but its `[lib] name = "songrec"`, so Rust code writes `songrec::SignatureGenerator`, not `songrec_lib::`. It also pulls about 274 crates (cpal, rodio, reqwest) into the dev-dependency tree. That's fine on the Mac, and the firmware never builds it.
 
-## Sessions started from Ghostty can't read ~/Downloads, where Metamorphoses lives
-`ls`, `ffprobe` and `open()` on anything under `~/Downloads` fail with "Operation not permitted", while `stat` works and Desktop, Documents and Music read fine. No Claude Code deny rule or sandbox is set, so this looks like macOS's per-app Files & Folders privacy setting for Ghostty (verify in System Settings > Privacy & Security). Task 3 therefore captured `test/fixtures/shazam/` from P.Y.T. (the plan's song B, found with `mdfind`) instead of Metamorphoses. The `scripts/e2e-host` and `afplay` steps in Tasks 4, 8, 9 and 12 name the Downloads path (Tasks 10 and 11 replay Task 9's) and will fail the same way. Fix: grant Ghostty access to Downloads, re-run `scripts/e2e-host` with Metamorphoses, then delete this entry.
+## Sessions started from Ghostty can't read ~/Downloads
+`ls`, `ffprobe` and `open()` on anything under `~/Downloads` fail with "Operation not permitted", while `stat` works and Desktop, Documents and Music read fine. It looks like macOS's per-app Files & Folders privacy setting for Ghostty (verify in System Settings > Privacy & Security). The test songs therefore come from `mdfind`:
+- A: "P.Y.T. (Pretty Young Thing)"
+- B: "Blame It On the Boogie"
+
+Filter the results with `grep -E '\.m4a$'`, because mdfind also returns `test/fixtures/songs/clip.wav`, which carries the song's title tag. The plan's Tasks 4–12 already do this (SDD Ruling R7).
