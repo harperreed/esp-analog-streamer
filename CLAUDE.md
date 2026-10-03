@@ -17,7 +17,7 @@ An always-listening Shazam box: Rust firmware for the Ai-Thinker ESP32-A1S Audio
 
 ## Rules for this repo
 
-- **License.** GPL-3.0-or-later, because `core::fingerprint` comes from songrec-lib. Keep SongRec's attribution in the copied files.
+- **License.** GPL-3.0-or-later, because `core::fingerprinting` comes from songrec-lib. Keep SongRec's attribution in the copied files.
 - **Pinned crates.** Pin the esp-idf crates with `=` and don't bump them casually. They moved to `esp-rs/esp-idf` on 2026-09-19.
 - **Never commit:**
   - `firmware/cfg.toml` (it holds Wi-Fi credentials)

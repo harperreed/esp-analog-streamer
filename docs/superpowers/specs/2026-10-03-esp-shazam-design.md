@@ -51,15 +51,32 @@ Not yet confirmed:
 - **PSRAM (verify).** Listings say the A1S has 8 MB. The classic ESP32 maps 4 MB directly, which is enough. The ESP-IDF boot log reports it at bring-up. Without PSRAM this design does not fit, because the fingerprint alone needs about 2.1 MB.
 - **Codec and pin revision (verify).** Three revisions exist, with different pins (source: [pschatzmann/arduino-audio-driver `src/AudioBoards/`](https://github.com/pschatzmann/arduino-audio-driver/tree/main/src/AudioBoards)):
 
-  | Revision | I2C SCL / SDA | I2S MCLK / BCLK / WS / DOUT / DIN | LINE IN detect | Codec I2C address |
-  |---|---|---|---|---|
-  | ES8388 v1 | 32 / 33 | 0 / 27 / 25 / 26 / 35 | GPIO12, active low | 0x10 |
-  | ES8388 v2 | 23 / 18 | 0 / 5 / 25 / 26 / 35 | GPIO12, active low | 0x10 |
-  | AC101 | 32 / 33 | 0 / 27 / 26 / 25 / 35 | none listed | 0x1A |
+  | Revision | I2C SCL / SDA | I2S MCLK / BCLK / WS / DOUT / DIN | Codec I2C address |
+  |---|---|---|---|
+  | ES8388 v1 | 32 / 33 | 0 / 27 / 25 / 26 / 35 | 0x10 |
+  | ES8388 v2 | 23 / 18 | 0 / 5 / 25 / 26 / 35 | 0x10 |
+  | AC101 | 32 / 33 | 0 / 27 / 26 / 25 / 35 | 0x1A |
 
-  An I2C probe of both pin sets at bring-up identifies the revision. Only that revision gets implemented. Any other probe result stops the firmware with a clear log line.
-- **LINE IN input pins (verify).** The usual wiring is mics on ES8388 LIN1/RIN1 and the LINE IN jack on LIN2/RIN2. Bring-up confirms it by checking which input shows signal while music plays.
-- Shared pins: the speaker amp enable is on GPIO21 (left off), the LED on GPIO22, and headphone detect on GPIO39. GPIO0 serves as both MCLK and a boot strapping pin; I2S takes it over after boot.
+  An I2C probe of both pin sets at bring-up identifies the revision:
+  - An ACK at 0x10 means ES8388.
+  - An ACK at 0x1A with register 0x00 reading 0x0101 means AC101, whose registers are 16-bit.
+
+  The silkscreen can't tell them apart: "2957" appears on all three. Only the revision found gets implemented. Any other probe result stops the firmware with a clear log line.
+- **LINE IN is ES8388 LIN2/RIN2** (`0x0A = 0x50`). Three sources agree: the Ai-Thinker A1S V2.3 pin table, the Audio Kit V2.2 schematic, and Ai-Thinker's SDK. Bring-up still checks that the jack shows signal.
+  - The A1S also routes its MIC2 pads to LIN2/RIN2. How much mic sound bleeds in with music on the jack hasn't been measured.
+- **No LINE IN detect pin.** GPIO12 shows up as "aux detect" in drivers, but that constant was copied from Espressif's LyraT board. On this kit GPIO12 is SD card DAT2 and the MTDI strapping pin, so firmware must not drive it. The jack's switch pins aren't wired.
+- **Other shared pins:**
+  - Speaker amp enable on GPIO21 (left off).
+  - LED on GPIO22.
+  - Headphone detect on GPIO39 (reads 0 when plugged in).
+  - GPIO0 doubles as MCLK and a boot strapping pin; I2S takes it over after boot.
+- **ES8388 facts the codec setup depends on** (source: Everest datasheet Rev 5.0 and Espressif's esp_codec_dev driver):
+  - No reset pin, and an ESP32 reset doesn't reset the codec, so setup starts with a soft reset.
+  - It powers up as I2S master (`0x08 = 0x80`) and must be switched to slave.
+  - Its ADC digital volume powers up at -96 dB (`0x10`/`0x11 = 0xC0`) and must be set to 0 dB.
+  - Full scale is 1.0 Vrms with the PGA at 0 dB, which suits line level.
+  - The ADC high-pass filter (DC removal) is on by default.
+  - There is no chip-ID register. The 0x10 ACK plus a write-then-readback of `0x08` proves it's alive.
 
 ## Architecture
 
@@ -79,11 +96,19 @@ LINE IN ─► ES8388 ─I2S 16 kHz─► audio_in ─► 12 s ring buffer (PSRA
 
 It builds on the Mac for tests and on the ESP32 for the firmware.
 
-- **`fingerprint`**: copied from songrec-lib 0.5.4 (`src/fingerprinting/{algorithm,signature_format,hanning}.rs`, GPL-3.0-or-later, by marin-m). It keeps SongRec's attribution. Besides fixing module paths, it gets two edits that change behavior:
+- **`fingerprinting`**: copied from songrec-lib 0.5.4 (`src/fingerprinting/{algorithm,signature_format,hanning,user_agent}.rs`, GPL-3.0-or-later, by marin-m). It keeps SongRec's attribution and module name, so internal paths stay unchanged. Three edits:
   1. Remove `make_signature_from_file`, which depends on rodio. Keep `make_signature_from_buffer(&[i16]) -> DecodedSignature`, which already takes 16-bit samples.
-  2. Allocate the big buffers straight on the heap. The two 256 × 1025 f32 rings are about 1 MB each, and `Box::new([[0.0; 1025]; 256])` builds the array on the stack first. ESP32 task stacks hold a few KB.
+  2. Store each 256 × 1025 f32 ring as one contiguous `Vec<[f32; 1025]>` (1 MB), not 256 separate 4 KB `Vec`s.
+     - ESP-IDF's malloc keeps allocations under 16 KB in internal RAM. 512 small rows would fill the ESP32's ~300 KB of internal RAM that Wi-Fi and TLS need.
+     - One 1 MB allocation goes to PSRAM.
+     - The math doesn't change, so the output bytes don't either.
+  3. Replace the deprecated `base64::encode` and `base64::decode` with base64 0.22's `Engine` API. Output is the same; this only removes the deprecation warnings.
+
+  The copied module carries `#[allow(clippy::all)]`, so clippy doesn't push us to restyle upstream code. Behavior-identical copying matters more than lint style here.
 
   Dependencies: chfft (the FFT songrec-lib uses), byteorder, crc32fast, base64. All are pure Rust **(verify they build for `xtensa-esp32-espidf`)**.
+
+  From reading the code: chfft allocates an 8 KB `Vec` per FFT, about 1,500 times per 12 s signature, and frees each right away.
 - **`shazam`**: builds the recognize request and parses the response.
   - It takes the signature, the wall-clock time, two UUIDs, and a user-agent string as inputs, so tests can pin them.
   - The request format is in [Shazam protocol](#shazam-protocol).
@@ -247,7 +272,13 @@ One self-contained HTML page. It shows:
 
 ## Toolchain and versions
 
-- **Rust toolchain:** `espup` 0.18.0 installs the Xtensa Rust toolchain (the `esp` channel) and LLVM. `ldproxy` links. `espflash` flashes and runs the serial monitor; esptool 5.2.0 stays as a backup.
+- **Installed by mise** (Harper's call), pinned in the repo's `mise.toml`:
+  - Rust 1.93.0 for the Mac side.
+  - cmake 3.30.2 and ninja 1.12.1, the versions ESP-IDF v5.5.5's `tools.json` pins. The Homebrew cmake is 4.3.4.
+  - Prebuilt GitHub release binaries of espup 0.18.0, espflash 4.6.0, and ldproxy 0.3.2. Compiling espflash 4.6.0 would need Rust ≥ 1.95.
+- **Xtensa Rust toolchain:** a mise task (`mise run esp-toolchain`) runs `espup install --targets esp32 --std --toolchain-version 1.98.1.0`. That version is the newest esp-rs toolchain released before esp-idf-sys 0.38.1.
+- **Building with the right toolchain:** mise exports `RUSTUP_TOOLCHAIN`, which outranks `firmware/rust-toolchain.toml`, so firmware builds run `cargo +esp`.
+- **Flashing:** `ldproxy` links and `espflash` flashes and monitors; esptool 5.2.0 stays as a backup. espflash 4.6.0 bundles an ESP-IDF 6.1 bootloader, so flashing passes the 5.5.5 `bootloader.bin` that esp-idf-sys builds next to the ELF.
 - **Crates:** esp-idf-svc 0.53.0, esp-idf-hal 0.47.0, esp-idf-sys 0.38.1 and embuild 0.33.5, all pinned with `=`.
   - Their repos were archived on 2026-09-19 when they moved into the community-maintained monorepo `esp-rs/esp-idf`.
   - esp-idf-sys 0.38.0 added "basic compatibility" for ESP-IDF 6.0.
@@ -280,8 +311,8 @@ There are no mocks anywhere. The E2E tests use the real Shazam API and the real 
   - `policy`: table-driven scenarios of time, loudness and outcome sequences, covering every rule in the listen policy.
   - `shazam` request: the URL shape, headers, and body fields match SongRec's.
   - `shazam` response: parses real responses (one match, one miss) that the Mac E2E captured into `test/fixtures/shazam/`.
-  - `fingerprint` encoding: our encoded signature decodes through songrec-lib's own `decode_from_uri` back to the same peaks.
-- **Golden test:** our `fingerprint` and songrec-lib 0.5.4's `make_signature_from_buffer` must produce identical bytes from the same PCM. Same code, same chfft, same f32, so any difference means one of our two edits broke something.
+  - `fingerprinting` encoding: our encoded signature decodes through songrec-lib's own `decode_from_uri` back to the same peaks.
+- **Golden test:** our `fingerprinting` and songrec-lib 0.5.4's `make_signature_from_buffer` must produce identical bytes from the same PCM. Same code, same chfft, same f32, so any difference means one of our three edits broke something.
   - The PCM comes from synthetic tones and chirps generated inside the test, plus the local song clip when one is present.
   - songrec-lib is pinned as a dev-dependency with `=0.5.4`.
   - If songrec-lib won't build on the Mac **(verify)**, the reference becomes an unedited copy of its three files kept under `core/tests/`.
@@ -307,7 +338,7 @@ There are no mocks anywhere. The E2E tests use the real Shazam API and the real 
    - logs PSRAM size from the ESP-IDF boot log;
    - probes I2C on both pin sets and logs the codec address and revision;
    - times one 12 s fingerprint of synthetic audio.
-3. Set up the ES8388 and I2S RX. Log loudness with music on LINE IN, pick LIN1 or LIN2, and set the PGA gain.
+3. Set up the ES8388 and I2S RX. Read back the codec registers, log loudness with music on LINE IN to confirm LIN2/RIN2 carries the jack, and set the PGA gain.
 4. If a 12 s fingerprint takes over 6 s, raise `search_interval_secs` to cover it. Switching the FFT crate is a later option, only if the numbers demand it.
 5. Build the full app, then run the device E2E.
 
@@ -332,7 +363,7 @@ There are no mocks anywhere. The E2E tests use the real Shazam API and the real 
 
 ## Licensing
 
-GPL-3.0-or-later, because `core::fingerprint` comes from songrec-lib (GPL-3.0+).
+GPL-3.0-or-later, because `core::fingerprinting` comes from songrec-lib (GPL-3.0+).
 
 ## Sources
 
