@@ -8,7 +8,7 @@ Items marked **(verify)** come from reading docs and source, not from running an
 
 ## Success criteria
 
-1. A song plays from the Mac's headphone jack into LINE IN. Within 45 s of the music starting, `GET http://esp-shazam.local/api/state` shows the right title and artist. That leaves room for three tries: 8 s of audio, then one try every 8 s.
+1. A song plays from the Mac's headphone jack into LINE IN. Within 45 s of the music starting, `GET http://esp-shazam.local/api/state` shows the right title and artist. At 240 MHz that leaves room for two tries: 8 s of audio, a ~10.5 s fingerprint and the request, then 8 s more and another fingerprint.
 2. The same song arrives as a retained message on topic `esp-shazam/now_playing` at `mqtt://192.168.200.8:1883`.
 3. When the song changes, both outputs update within 60 s. A 30 s re-check can land while the 12 s window still holds the old song, so the next re-check catches it.
 4. When the music stops, "now playing" clears within 75 s, and the board sends no Shazam requests while the input stays quiet.
@@ -107,7 +107,7 @@ It builds on the Mac for tests and on the ESP32 for the firmware.
 
   The copied module carries `#[allow(clippy::all)]`, so clippy doesn't push us to restyle upstream code. Behavior-identical copying matters more than lint style here.
 
-  Dependencies: chfft (the FFT songrec-lib uses), byteorder, crc32fast, base64. All are pure Rust **(verify they build for `xtensa-esp32-espidf`)**.
+  Dependencies: chfft (the FFT songrec-lib uses), byteorder, crc32fast, base64. All are pure Rust, and all built for `xtensa-esp32-espidf` and ran on the board at bring-up (2026-10-03).
 
   From reading the code: chfft allocates an 8 KB `Vec` per FFT, about 1,500 times per 12 s signature, and frees each right away.
 - **`shazam`**: builds the recognize request and parses the response.
@@ -334,7 +334,7 @@ There are no mocks anywhere. The E2E tests use the real Shazam API and the real 
 
 ## Bring-up sequence
 
-1. Back up the stock flash: `esptool read-flash 0 0x400000 backups/stock-flash.bin`. The `backups/` folder is gitignored.
+1. Back up the stock flash: `esptool read-flash 0 0x400000 backups/stock-flash-2026-10-03.bin` (it read reliably only at 115200 baud). The `backups/` folder is gitignored.
 2. Flash a minimal firmware that does three things:
    - logs PSRAM size from the ESP-IDF boot log;
    - probes I2C on both pin sets and logs the codec address and revision;
@@ -349,10 +349,10 @@ There are no mocks anywhere. The E2E tests use the real Shazam API and the real 
 - **The esp-idf crates are mid-move.** Versions are pinned. If the toolchain blocks progress, the fallback is C on ESP-IDF with the same module split, and switching needs Harper's approval.
 - **The classic ESP32 is slower than an S3, and its PSRAM is slower.** The fingerprint touches about 16 KB of PSRAM for every 128 samples of audio. Bring-up measured it on 2026-10-03:
   - One 12 s fingerprint of `chord_and_chirp(12)` takes **12618 ms at the default 160 MHz** (6572-byte signature). That's slower than real time. Three task-watchdog prints landed inside that window and cost about 0.16 s of it, because the probe ran on the main task on core 0.
-  - A throwaway 240 MHz build (not committed) took 10526 ms. 50% more clock cut the time by only 17%, so PSRAM access (40 MHz) dominates, not arithmetic. Watchdog backtraces sampled the 160 MHz run in peak spreading, chfft's FFT, and the code around the FFT.
+  - A throwaway 240 MHz build (not committed) took 10526 ms. 50% more clock cut the time by only 17%. That fits about 6 s that scales with the clock and about 6 s that doesn't. The log can't tell whether the fixed half is PSRAM (40 MHz) or code fetched from flash (40 MHz). Watchdog backtraces sampled the 160 MHz run in peak spreading, chfft's FFT, and the code around the FFT.
   - `search_interval_secs` stays 8 for now, against bring-up step 4's rule (which would make it 15). The policy starts that interval when the answer arrives, so the fingerprint already sits in front of it. Raising it would add idle time after each answer and push the first ask from 8 s to 15 s.
   - With 8 s at 160 MHz, asks come about 21 s apart, plus the HTTPS time. The second answer lands near 43–46 s, at the edge of success criterion 1's 45 s; with 15 s only one answer fits. Running at 240 MHz moves the second answer to about 40 s.
-  - Open for Harper: keep 160 MHz, or set `CONFIG_ESP_DEFAULT_CPU_FREQ_MHZ_240=y`. Faster PSRAM (80 MHz) is untested.
+  - Decided (SDD Ruling R11): the firmware runs at 240 MHz (`CONFIG_ESP_DEFAULT_CPU_FREQ_MHZ_240=y`, Task 8). Faster PSRAM and flash (80 MHz) stay untested unless Task 9's timings miss the success criteria.
 - **PSRAM could be missing.** Bring-up found 8 MB, 4 MB of it usable, which settles this risk.
 - **Line level vs ADC range**: the gain gets set in bring-up step 3.
 - **The board revision could be AC101.** That means a different register set but the same `codec` interface and about the same size.
