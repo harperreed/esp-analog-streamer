@@ -2805,7 +2805,7 @@ wifi_pass = "your-password"
 mqtt_url = "mqtt://192.168.200.8:1883"
 hostname = "esp-shazam"
 pga_gain = 0
-quiet_threshold_dbfs = -50.0
+quiet_threshold_dbfs = -60.0 # tuned at bring-up: floor about -79 dBFS (SDD Ruling R12)
 search_interval_secs = 8
 slow_search_interval_secs = 30
 recheck_interval_secs = 30
@@ -3240,25 +3240,25 @@ fn main() -> Result<()> {
 }
 ```
 
-- [ ] **Step 6: Flash and watch it identify a song (a few Shazam requests)**
+- [ ] **Step 6: Flash and watch it identify what's playing (a few Shazam requests)**
 
+LINE IN is wired to Harper's audio source, which plays continuously; the Mac can't play into it. `firmware/cfg.toml` already carries `quiet_threshold_dbfs = -60.0` (Ruling R12). Never print that file.
 ```bash
-old=$(osascript -e 'output volume of (get volume settings)'); osascript -e 'set volume output volume 50'
+touch firmware/src/config.rs   # make toml-cfg re-read cfg.toml
 scripts/flash
-(sleep 20; afplay -t 60 "$(mdfind -name 'P.Y.T. (Pretty Young Thing)' 2>/dev/null | grep -E '\.m4a$' | head -1)") & scripts/serial-log 160 | tee target/recognize.log
-osascript -e "set volume output volume $old"
+scripts/serial-log 120 | tee target/recognize.log
 grep -E 'wifi:|shazam:|now playing' target/recognize.log
 ```
-Use the Mac volume Task 8 recorded, if it differs from 50.
-
 Expected:
 - `wifi: connected, IP …` within about 10 s of boot.
-- No `shazam:` lines before the music starts.
-- `now playing: P.Y.T. (Pretty Young Thing) — Michael Jackson` within 45 s of the music starting, preceded by `shazam: Match …` with its fingerprint and total time.
-- `now playing: cleared after quiet` about 60 s after `afplay` stops.
-- No `shazam:` lines after that.
+- `shazam: Match …` with its fingerprint and total time, then `now playing: <title> — <artist>`, within 45 s of boot. The source is already playing, so the first ask comes 8 s after the 500 ms settle.
+- While matched, one `shazam:` re-check about every 30 s plus the fingerprint time, and no other requests.
 
-Write the fingerprint and total times into the spec's Risks section.
+Record the title and the fingerprint and total milliseconds in the report and in the spec's Risks section.
+
+If two minutes pass with only misses or failures, report the `shazam:` lines and stop with DONE_WITH_CONCERNS. Never loop requests.
+
+Clearing after quiet needs the source stopped, so Task 12 tests it with Harper.
 
 - [ ] **Step 7: Run the canonical check and commit**
 
@@ -3451,7 +3451,7 @@ Expected:
 - The content type matches `application/json; charset=utf-8`.
 - The page check prints `1`.
 
-Then play song A as in Task 9 step 6. Within 45 s, `curl -s http://esp-shazam.local/api/state | jq -r .now.title` prints a title containing "P.Y.T.". Ask Harper to open http://esp-shazam.local/ for a look.
+With the source playing, within 45 s of boot `curl -s http://esp-shazam.local/api/state | jq -r .now.title` prints the title the serial log shows. Ask Harper to open http://esp-shazam.local/ for a look.
 
 - [ ] **Step 6: Run the canonical check and commit**
 
@@ -3569,9 +3569,9 @@ In `firmware/src/main.rs`, add `mod mqtt_out;`. Replace the logging `on_change` 
 ```bash
 scripts/flash
 sleep 25
-mosquitto_sub -h 192.168.200.8 -t esp-shazam/now_playing -v -C 1 -W 15   # expect: esp-shazam/now_playing null
+mosquitto_sub -h 192.168.200.8 -t esp-shazam/now_playing -v -C 1 -W 15   # expect: null, or the song already playing
 ```
-Play song A as in Task 9 step 6. Within 45 s, the same `mosquitto_sub` prints the song's JSON with a title containing "P.Y.T.".
+With the source playing, within 45 s of boot the same `mosquitto_sub` prints the song's JSON. Its `key` must match `curl -s http://esp-shazam.local/api/state | jq -r .now.key`.
 
 - [ ] **Step 4: Broker restart under a running board (Review Focus 4)**
 
@@ -3610,130 +3610,120 @@ git commit -m "feat(firmware): publish now playing to MQTT, retained, on change 
 
 ### Task 12: Device end-to-end test, Wi-Fi drop check, README
 
+LINE IN is wired to Harper's audio source, which plays continuously and which nothing on the Mac controls. The device test therefore works with whatever plays (ledger Ruling R13).
+
 **Files:**
 - Create: `scripts/e2e-device`
 - Modify: `README.md`, `gotchas.md`, the spec's Hardware section (anything bring-up confirmed)
 
 **Interfaces:**
-- Consumes: the running board (Tasks 7–11), `GET /api/state`, MQTT topic `esp-shazam/now_playing`, and the Mac headphone jack cabled to LINE IN.
-- Produces: `scripts/e2e-device <song-a> "<title-a>" <song-b> "<title-b>"`, which checks success criteria 1–4 against the real board, Shazam and broker.
-
-**Songs:**
-- A: `P.Y.T. (Pretty Young Thing)` (Michael Jackson), found with `mdfind -name 'P.Y.T. (Pretty Young Thing)' 2>/dev/null | grep -E '\.m4a$' | head -1`, title `P.Y.T.`.
-- B: `Blame It On the Boogie` (The Jacksons), found with `mdfind -name 'Blame It On the Boogie' 2>/dev/null | grep -E '\.m4a$' | head -1`, title `Blame It On the Boogie`.
-- The `.m4a` filter matters: mdfind also returns `test/fixtures/songs/clip.wav`, which ffmpeg tagged with the song's title. `~/Downloads` is unreadable from this session (Ruling R7).
-- If B isn't on disk, use any other track Shazam matched in a quick `scripts/e2e-host` run.
+- Consumes: the running board (Tasks 7–11), `GET /api/state`, MQTT topic `esp-shazam/now_playing`, and `scripts/serial-log`, which resets the board.
+- Produces: `scripts/e2e-device [--expect "<title>"] [--song-change] [--silence-check]`. It checks:
+  - success criterion 1: identification within 60 s of a reset (boot, Wi-Fi and clock included),
+  - criterion 2: MQTT matches,
+  - optionally criterion 3, a song change,
+  - optionally criterion 4, clearing after silence (needs a human).
 
 - [ ] **Step 1: Write the script**
 
 `scripts/e2e-device` (then `chmod +x scripts/e2e-device`):
 ```bash
 #!/usr/bin/env bash
-# ABOUTME: Device end-to-end test: plays songs into LINE IN and checks the board names them on HTTP and MQTT.
-# ABOUTME: Covers first match, song change, and clearing after the music stops, with timings.
+# ABOUTME: Device end-to-end test against whatever plays into LINE IN: reset, identify, MQTT, then optional checks.
+# ABOUTME: Usage: scripts/e2e-device [--expect "<title>"] [--song-change] [--silence-check]; the source must be playing.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-if [ $# -ne 4 ]; then
-  echo "usage: scripts/e2e-device <song-a> \"<title-a>\" <song-b> \"<title-b>\"" >&2
-  exit 2
-fi
-song_a="$1"; title_a="$2"; song_b="$3"; title_b="$4"
 board="${BOARD_URL:-http://esp-shazam.local}"
 broker="${MQTT_HOST:-192.168.200.8}"
 topic="esp-shazam/now_playing"
+expect="" song_change=0 silence=0
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --expect) expect="${2:?--expect needs a title}"; shift 2 ;;
+    --song-change) song_change=1; shift ;;
+    --silence-check) silence=1; shift ;;
+    *) echo "usage: scripts/e2e-device [--expect \"<title>\"] [--song-change] [--silence-check]" >&2; exit 2 ;;
+  esac
+done
 
 state() { curl -s --max-time 3 "$board/api/state" || echo '{}'; }
+now_field() { state | jq -r ".now.$1 // empty"; }
 mqtt_now() { mosquitto_sub -h "$broker" -t "$topic" -C 1 -W 10 2>/dev/null || true; }
-
-# Waits up to $1 seconds for /api/state .now.title to contain $2. Prints the title.
-wait_for_title() {
-  local limit="$1" want="$2" start title
-  start=$(date +%s)
-  while [ $(( $(date +%s) - start )) -le "$limit" ]; do
-    title=$(state | jq -r '.now.title // empty')
-    if [ -n "$title" ] && grep -i -F -q -- "$want" <<<"$title"; then
-      echo "$title"
-      return 0
-    fi
+# Waits up to $1 seconds for the shell condition in $2 to hold.
+wait_for() {
+  local limit="$1" t0
+  t0=$(date +%s)
+  while [ $(( $(date +%s) - t0 )) -le "$limit" ]; do
+    if eval "$2"; then return 0; fi
     sleep 2
   done
   return 1
 }
 
-# The Mac's output volume sets the LINE IN level; Task 8 calibrated at 50.
-old_volume=$(osascript -e 'output volume of (get volume settings)')
-player=""
-cleanup() {
-  if [ -n "$player" ]; then kill "$player" 2>/dev/null || true; fi
-  osascript -e "set volume output volume $old_volume"
-}
-trap cleanup EXIT
-osascript -e 'set volume output volume 50'
-
-state | jq -e '.state' >/dev/null || { echo "FAIL: no /api/state at $board"; exit 1; }
-[ "$(state | jq -r '.state')" = "quiet" ] || echo "note: board not quiet at start ($(state | jq -r '.state'))"
-
-echo "== song A: $(basename "$song_a")"
-afplay "$song_a" & player=$!
+echo "== reset the board (the source must already be playing)"
+scripts/serial-log 1 >/dev/null
 t0=$(date +%s)
-got=$(wait_for_title 45 "$title_a") || { echo "FAIL: \"$title_a\" not in /api/state within 45 s"; state | jq .; exit 1; }
-echo "ok    identified \"$got\" after $(( $(date +%s) - t0 )) s"
-mqtt_now | grep -i -F -q -- "$title_a" || { echo "FAIL: MQTT lacks \"$title_a\""; exit 1; }
-echo "ok    MQTT retained \"$title_a\""
+wait_for 60 '[ -n "$(now_field key)" ]' || { echo "FAIL: nothing identified within 60 s of reset"; state; exit 1; }
+key=$(now_field key)
+echo "ok    identified \"$(now_field title)\" by $(now_field artist) after $(( $(date +%s) - t0 )) s (boot, Wi-Fi and clock included)"
+if [ -n "$expect" ]; then
+  grep -i -F -q -- "$expect" <<<"$(now_field title)" || { echo "FAIL: expected a title containing \"$expect\""; exit 1; }
+fi
+mqtt_now | jq -e --arg k "$key" '.key == $k' >/dev/null || { echo "FAIL: MQTT now_playing doesn't match /api/state"; exit 1; }
+echo "ok    MQTT retained the same song"
 
-echo "== song B: $(basename "$song_b")"
-kill "$player"; afplay "$song_b" & player=$!
-t0=$(date +%s)
-got=$(wait_for_title 60 "$title_b") || { echo "FAIL: song change not seen within 60 s"; state | jq .; exit 1; }
-echo "ok    changed to \"$got\" after $(( $(date +%s) - t0 )) s"
-mqtt_now | grep -i -F -q -- "$title_b" || { echo "FAIL: MQTT lacks \"$title_b\""; exit 1; }
-state | jq -e --arg a "$title_a" '.history[1].title | ascii_downcase | contains($a | ascii_downcase)' >/dev/null \
-  || { echo "FAIL: history[1] is not song A"; state | jq '.history'; exit 1; }
-echo "ok    history lists B then A"
+if [ "$song_change" = 1 ]; then
+  echo "== song change (waits up to 10 min for the next track)"
+  wait_for 600 '[ -n "$(now_field key)" ] && [ "$(now_field key)" != "$key" ]' \
+    || { echo "FAIL: no song change seen in 10 min"; exit 1; }
+  echo "ok    changed to \"$(now_field title)\""
+  state | jq -e --arg k "$key" '.history[1].key == $k' >/dev/null || { echo "FAIL: history[1] is not the previous song"; exit 1; }
+  echo "ok    history lists the new song, then the previous one"
+fi
 
-echo "== silence"
-kill "$player"; player=""
-t0=$(date +%s)
-while [ $(( $(date +%s) - t0 )) -le 75 ] && [ "$(state | jq -r '.now')" != "null" ]; do sleep 2; done
-[ "$(state | jq -r '.now')" = "null" ] || { echo "FAIL: now playing still set 75 s after the music stopped"; exit 1; }
-echo "ok    cleared after $(( $(date +%s) - t0 )) s"
-[ "$(mqtt_now)" = "null" ] || { echo "FAIL: MQTT still holds a song"; exit 1; }
-echo "ok    MQTT retained null"
+if [ "$silence" = 1 ]; then
+  echo "== silence: stop the source now, then press Enter"
+  read -r _
+  t0=$(date +%s)
+  wait_for 75 '[ "$(state | jq -r .now)" = "null" ]' \
+    || { echo "FAIL: now playing still set 75 s after the source stopped"; exit 1; }
+  echo "ok    cleared after $(( $(date +%s) - t0 )) s"
+  [ "$(mqtt_now)" = "null" ] || { echo "FAIL: MQTT still holds a song"; exit 1; }
+  echo "ok    MQTT retained null"
+fi
 
 echo "PASS e2e-device"
 ```
 
-- [ ] **Step 2: Run it (about 6 Shazam requests)**
+- [ ] **Step 2: Run it against the playing source**
 
-Board flashed with the full app and on Wi-Fi; Mac headphone jack cabled to LINE IN.
-
-Run: `scripts/e2e-device "$(mdfind -name 'P.Y.T. (Pretty Young Thing)' 2>/dev/null | grep -E '\.m4a$' | head -1)" "P.Y.T." "$(mdfind -name 'Blame It On the Boogie' 2>/dev/null | grep -E '\.m4a$' | head -1)" "Blame It On the Boogie"`
+Run `scripts/e2e-device --song-change`. It sends a few Shazam requests per song, and the song-change wait can take up to 10 minutes. Close any serial monitor first, because the script resets the board over the port.
 
 Expected:
-- `ok    identified "P.Y.T. ..." after N s` with N ≤ 45
-- `ok    changed to ...` with ≤ 60 s
-- `ok    cleared after M s` with M ≤ 75
+- `ok    identified "…" … after N s` with N ≤ 60
+- `ok    MQTT retained the same song`
+- `ok    changed to "…"` and `ok    history lists …`
 - `PASS e2e-device`
 
-- [ ] **Step 3: Wi-Fi drop check (needs Harper)**
+If the source plays one long track and no change comes within 10 minutes, report that rather than looping.
 
-1. Keep `espflash monitor --port /dev/cu.usbserial-0001` running.
-2. Ask Harper to cut the board's Wi-Fi for about 30 s. Blocking its MAC (70:4b:ca:87:18:3c) in the router, or toggling the 2.4 GHz radio, both work.
+- [ ] **Step 3: Checks that need Harper (list them in the report; don't fake them)**
 
-Expected in the monitor:
-- `wifi: disconnected` (Task 9's log line), then `wifi: reconnected` within about 10 s of service returning.
-- No reset (`rst:` line).
-
-Then re-run step 2's command. It must pass again with no reflash.
+1. **Silence:** Harper runs `scripts/e2e-device --silence-check` and stops the source when prompted. Expected: cleared within 75 s, MQTT `null`.
+2. **Wi-Fi drop:**
+   - Keep `espflash monitor --port /dev/cu.usbserial-0001` running.
+   - Harper cuts the board's Wi-Fi for about 30 s: block MAC 70:4b:ca:87:18:3c in the router, or toggle 2.4 GHz.
+   - Expected: `wifi: disconnected`, then `wifi: reconnected` within about 10 s of service returning, and no reset (`rst:` line).
+   - Then `scripts/e2e-device` passes again with no reflash.
 
 - [ ] **Step 4: Finish the README and record what bring-up learned**
 
-`README.md`: replace with the following, filling the codec revision and LINE IN pins with what Task 7/8 found:
+`README.md`: replace with the following. Fill in what Tasks 7–9 found where it says so.
 ````markdown
 # esp-shazam
 
-An always-listening Shazam box. Rust firmware for the Ai-Thinker ESP32-A1S Audio Kit listens to LINE IN, fingerprints the audio on the board (SongRec's algorithm), asks Shazam, and publishes the song.
+An always-listening Shazam box. Rust firmware for the Ai-Thinker ESP32-A1S Audio Kit (ES8388 v1) listens to LINE IN, fingerprints the audio on the board (SongRec's algorithm), asks Shazam, and publishes the song.
 
 - Web page: http://esp-shazam.local/
 - JSON: `GET http://esp-shazam.local/api/state`
@@ -3744,27 +3734,29 @@ An always-listening Shazam box. Rust firmware for the Ai-Thinker ESP32-A1S Audio
 ```bash
 mise trust && mise install && mise run esp-toolchain  # toolchain, pinned in mise.toml
 cp firmware/cfg.toml.example firmware/cfg.toml        # then fill in Wi-Fi and MQTT
-scripts/check                                    # fmt, clippy, Mac tests, firmware build
-scripts/flash                                    # flash and open the serial monitor
+scripts/check                                         # fmt, clippy, Mac tests, firmware build
+scripts/flash --monitor                               # flash and open the serial monitor
 ```
+
+Line-level sources only: set a turntable's output to LINE (fixed), not VARIABLE.
 
 ## Tests
 
 - `scripts/check`: canonical check
 - `scripts/e2e-host <song> "<title>"`: real Shazam from the Mac
-- `scripts/e2e-device <song-a> "<title-a>" <song-b> "<title-b>"`: the board end to end (needs a cable from the Mac headphone jack to LINE IN)
+- `scripts/e2e-device [--expect "<title>"] [--song-change] [--silence-check]`: the board end to end, against whatever plays into LINE IN
 
 Design and hardware notes: `docs/superpowers/specs/2026-10-03-esp-shazam-design.md`.
 
 Licensed GPL-3.0-or-later (the fingerprint code comes from SongRec).
 ````
 
-Update the spec's Hardware section so every "(verify)" item bring-up settled shows its measured value. Add new hardware surprises to `gotchas.md`.
+Update the spec's Hardware section so every "(verify)" item that bring-up settled shows its measured value. Add new hardware surprises to `gotchas.md`.
 
 - [ ] **Step 5: Run the canonical check and commit**
 
 Run: `scripts/check`. Expected: all `ok`.
 ```bash
 git add scripts/e2e-device README.md gotchas.md docs/superpowers/specs/2026-10-03-esp-shazam-design.md
-git commit -m "test: add device end-to-end test and finish the README"
+git commit -m "test: add the device end-to-end test and finish the README"
 ```
