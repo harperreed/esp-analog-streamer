@@ -44,24 +44,25 @@ Confirmed on Harper's board with esptool 5.2.0:
 - Flash: 4 MB (manufacturer 0x5e, device 0x4016).
 - MAC: 70:4b:ca:87:18:3c.
 - USB: the UART micro-USB port goes to a CP2102 (0x10C4:0xEA60). macOS 26 drives it with the built-in AppleUSBSLCOM driver, so the board shows up as `/dev/cu.usbserial-0001`. Auto-reset over RTS works, so flashing needs no button presses. The other micro-USB port carries power only.
-- Stock firmware: Ai-Thinker v1.1.0 (ESP-IDF v3.3.2, built 2021-06-08) with a single 1 MB factory partition. It gets backed up before the first flash.
+- Stock firmware: Ai-Thinker v1.1.0 (ESP-IDF v3.3.2, built 2021-06-08) with a single 1 MB factory partition. Backed up to `backups/stock-flash-2026-10-03.bin` before the first flash; `gotchas.md` has its sha256 and the restore command.
 
-Not yet confirmed:
+Confirmed at bring-up on 2026-10-03 by the Task 7 probe on ESP-IDF v5.5.5 (log in `target/bringup.log`):
 
-- **PSRAM (verify).** Listings say the A1S has 8 MB. The classic ESP32 maps 4 MB directly, which is enough. The ESP-IDF boot log reports it at bring-up. Without PSRAM this design does not fit, because the fingerprint alone needs about 2.1 MB.
-- **Codec and pin revision (verify).** Three revisions exist, with different pins (source: [pschatzmann/arduino-audio-driver `src/AudioBoards/`](https://github.com/pschatzmann/arduino-audio-driver/tree/main/src/AudioBoards)):
+- **PSRAM: 8 MB chip, 4 MB usable.** The boot log says "Found 8MB PSRAM device" at 40 MHz, then "Virtual address not enough for PSRAM, map as much as we can. 4MB is mapped". 4096 KB joins the heap; 4093 KB is free at boot. That covers the fingerprint's 2.1 MB.
+- **Codec: ES8388 v1** (the first row of the table below). 0x10 ACKed on SDA 33 / SCL 32. Register 0x08 read 0x00, not the 0x80 power-up value: the codec kept older settings through the ESP32 reset, as expected.
+- **CPU clock: 160 MHz.** That's ESP-IDF's default (`CONFIG_ESP_DEFAULT_CPU_FREQ_MHZ=160`), and `sdkconfig.defaults` doesn't change it. See Risks for what 240 MHz buys.
+- **Revisions and pins.** Three revisions exist, with different pins (source: [pschatzmann/arduino-audio-driver `src/AudioBoards/`](https://github.com/pschatzmann/arduino-audio-driver/tree/main/src/AudioBoards)):
 
   | Revision | I2C SCL / SDA | I2S MCLK / BCLK / WS / DOUT / DIN | Codec I2C address |
   |---|---|---|---|
-  | ES8388 v1 | 32 / 33 | 0 / 27 / 25 / 26 / 35 | 0x10 |
+  | ES8388 v1 (this board) | 32 / 33 | 0 / 27 / 25 / 26 / 35 | 0x10 |
   | ES8388 v2 | 23 / 18 | 0 / 5 / 25 / 26 / 35 | 0x10 |
   | AC101 | 32 / 33 | 0 / 27 / 26 / 25 / 35 | 0x1A |
 
-  An I2C probe of both pin sets at bring-up identifies the revision:
-  - An ACK at 0x10 means ES8388.
-  - An ACK at 0x1A with register 0x00 reading 0x0101 means AC101, whose registers are 16-bit.
+  The probe tried 0x10 and then 0x1A on the v1 pins, then 0x10 on the v2 pins. The silkscreen can't tell the revisions apart: "2957" appears on all three. Only the revision found (ES8388 v1) gets implemented. Any other probe result stops the firmware with a clear log line.
 
-  The silkscreen can't tell them apart: "2957" appears on all three. Only the revision found gets implemented. Any other probe result stops the firmware with a clear log line.
+Not yet confirmed:
+
 - **LINE IN is ES8388 LIN2/RIN2** (`0x0A = 0x50`). Three sources agree: the Ai-Thinker A1S V2.3 pin table, the Audio Kit V2.2 schematic, and Ai-Thinker's SDK. Bring-up still checks that the jack shows signal.
   - The A1S also routes its MIC2 pads to LIN2/RIN2. How much mic sound bleeds in with music on the jack hasn't been measured.
 - **No LINE IN detect pin.** GPIO12 shows up as "aux detect" in drivers, but that constant was copied from Espressif's LyraT board. On this kit GPIO12 is SD card DAT2 and the MTDI strapping pin, so firmware must not drive it. The jack's switch pins aren't wired.
@@ -155,7 +156,7 @@ The Mac E2E test uses it, and it saves real responses as parser fixtures.
 | Signature, base64 and body | under 64 KB | heap |
 | Response | capped at 128 KB | heap |
 
-Large allocations go to PSRAM through ESP-IDF's malloc (`CONFIG_SPIRAM_USE_MALLOC`) **(verify the size threshold)**. Wi-Fi and TLS keep internal RAM.
+Large allocations go to PSRAM through ESP-IDF's malloc (`CONFIG_SPIRAM_USE_MALLOC`). Confirmed at bring-up: with `CONFIG_SPIRAM_MALLOC_ALWAYSINTERNAL=16384`, the probe's 384,000-byte test buffer took 376 KB of PSRAM, and the 2.1 MB fingerprint ran with only 344 KB of internal RAM free. Wi-Fi and TLS keep internal RAM.
 
 Flash gets one factory app partition sized for the binary, with no OTA.
 
@@ -339,15 +340,20 @@ There are no mocks anywhere. The E2E tests use the real Shazam API and the real 
    - probes I2C on both pin sets and logs the codec address and revision;
    - times one 12 s fingerprint of synthetic audio.
 3. Set up the ES8388 and I2S RX. Read back the codec registers, log loudness with music on LINE IN to confirm LIN2/RIN2 carries the jack, and set the PGA gain.
-4. If a 12 s fingerprint takes over 6 s, raise `search_interval_secs` to cover it. Switching the FFT crate is a later option, only if the numbers demand it.
+4. If a 12 s fingerprint takes over 6 s, raise `search_interval_secs` to cover it. Switching the FFT crate is a later option, only if the numbers demand it. (Measured 12.6 s; the interval was not raised. Risks explains why, and the CPU-clock question is open.)
 5. Build the full app, then run the device E2E.
 
 ## Risks
 
 - **Shazam's API is unofficial**, and SongRec already handles 429s, so rate limits are real. The policy limits requests, backs off on 429, and the code follows SongRec's request shape.
 - **The esp-idf crates are mid-move.** Versions are pinned. If the toolchain blocks progress, the fallback is C on ESP-IDF with the same module split, and switching needs Harper's approval.
-- **The classic ESP32 is slower than an S3, and its PSRAM is slower.** The fingerprint touches about 16 KB of PSRAM for every 128 samples of audio. Bring-up step 2 measures it.
-- **PSRAM could be missing.** That would break the design, and bring-up step 2 finds out first.
+- **The classic ESP32 is slower than an S3, and its PSRAM is slower.** The fingerprint touches about 16 KB of PSRAM for every 128 samples of audio. Bring-up measured it on 2026-10-03:
+  - One 12 s fingerprint of `chord_and_chirp(12)` takes **12618 ms at the default 160 MHz** (6572-byte signature). That's slower than real time. Three task-watchdog prints landed inside that window and cost about 0.16 s of it, because the probe ran on the main task on core 0.
+  - A throwaway 240 MHz build (not committed) took 10526 ms. 50% more clock cut the time by only 17%, so PSRAM access (40 MHz) dominates, not arithmetic. Watchdog backtraces sampled the 160 MHz run in peak spreading, chfft's FFT, and the code around the FFT.
+  - `search_interval_secs` stays 8 for now, against bring-up step 4's rule (which would make it 15). The policy starts that interval when the answer arrives, so the fingerprint already sits in front of it. Raising it would add idle time after each answer and push the first ask from 8 s to 15 s.
+  - With 8 s at 160 MHz, asks come about 21 s apart, plus the HTTPS time. The second answer lands near 43–46 s, at the edge of success criterion 1's 45 s; with 15 s only one answer fits. Running at 240 MHz moves the second answer to about 40 s.
+  - Open for Harper: keep 160 MHz, or set `CONFIG_ESP_DEFAULT_CPU_FREQ_MHZ_240=y`. Faster PSRAM (80 MHz) is untested.
+- **PSRAM could be missing.** Bring-up found 8 MB, 4 MB of it usable, which settles this risk.
 - **Line level vs ADC range**: the gain gets set in bring-up step 3.
 - **The board revision could be AC101.** That means a different register set but the same `codec` interface and about the same size.
 

@@ -1,0 +1,41 @@
+[package]
+name = "esp-shazam-firmware"
+version = "0.1.0"
+edition = "2021"
+resolver = "2"
+rust-version = "1.82"
+license = "GPL-3.0-or-later"
+publish = false
+
+[[bin]]
+name = "esp-shazam"
+path = "src/main.rs" # cargo defaults to src/main.rs only when the bin is named after the package
+harness = false # no test harness on the device
+
+[profile.release]
+opt-level = "s"
+
+# The fingerprint is the hot path: optimize it for speed, everything else for size.
+[profile.release.package.esp-shazam-core]
+opt-level = 3
+
+[profile.release.package.chfft]
+opt-level = 3
+
+[profile.dev]
+debug = true
+opt-level = "z"
+
+[dependencies]
+anyhow = "1"
+esp-idf-hal = "=0.47.0"
+esp-idf-svc = "=0.53.0"
+esp-idf-sys = "=0.38.1"
+esp-shazam-core = { path = "../core" }
+log = "0.4"
+
+[build-dependencies]
+embuild = "=0.33.5"
+
+# Its own workspace: the host workspace at the repo root excludes firmware/.
+[workspace]

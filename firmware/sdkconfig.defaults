@@ -1,0 +1,21 @@
+# Rust needs more stack than C's defaults.
+CONFIG_ESP_MAIN_TASK_STACK_SIZE=16384
+CONFIG_ESP_SYSTEM_EVENT_TASK_STACK_SIZE=4096
+CONFIG_FREERTOS_IDLE_TASK_STACKSIZE=4096
+CONFIG_PTHREAD_TASK_STACK_SIZE_DEFAULT=4096
+
+# The ESP32-A1S has 4 MB of flash.
+CONFIG_ESPTOOLPY_FLASHSIZE_4MB=y
+
+# Rev v3.1 silicon has the PSRAM cache fix in hardware (Rust code never gets the compiler workaround).
+CONFIG_ESP32_REV_MIN_3=y
+
+# External PSRAM. Allocations of 16 KB and up (fingerprint rings, audio ring) go there.
+CONFIG_SPIRAM=y
+CONFIG_SPIRAM_USE_MALLOC=y
+CONFIG_SPIRAM_MALLOC_ALWAYSINTERNAL=16384
+# Boot and report missing PSRAM instead of refusing to start.
+CONFIG_SPIRAM_IGNORE_NOTFOUND=y
+
+# A fingerprint keeps core 1 busy for seconds; watch only core 0's idle task.
+# CONFIG_ESP_TASK_WDT_CHECK_IDLE_TASK_CPU1 is not set

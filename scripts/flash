@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+# ABOUTME: Builds the release firmware and flashes it with the ESP-IDF 5.5.5 bootloader and partitions.csv.
+# ABOUTME: Usage: scripts/flash [--monitor]. Port: $ESPFLASH_PORT, default /dev/cu.usbserial-0001.
+set -euo pipefail
+cd "$(dirname "$0")/../firmware"
+mise_env="$(mise env -s bash)" || { echo "FAIL  mise   (run: mise trust && mise install)"; exit 1; }
+eval "$mise_env" # cmake, ninja, ldproxy, espflash from mise.toml
+if [ -f "$HOME/export-esp.sh" ]; then . "$HOME/export-esp.sh"; fi
+# +esp outranks the RUSTUP_TOOLCHAIN that mise exports
+cargo +esp build --release
+out=target/xtensa-esp32-espidf/release
+# espflash's bundled bootloader comes from IDF 6.1; esp-idf-sys builds the 5.5.5 one next to the ELF.
+args=(--port "${ESPFLASH_PORT:-/dev/cu.usbserial-0001}" --chip esp32 --flash-size 4mb
+      --partition-table partitions.csv --bootloader "$out/bootloader.bin")
+if [ "${1:-}" = "--monitor" ]; then args+=(--monitor); fi
+espflash flash "${args[@]}" "$out/esp-shazam"

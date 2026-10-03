@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+# ABOUTME: Resets the board and prints its serial output for N seconds (default 20), for scripted checks.
+# ABOUTME: Non-interactive stand-in for `espflash monitor`; uv supplies pyserial on the fly.
+set -euo pipefail
+secs="${1:-20}"
+port="${ESPFLASH_PORT:-/dev/cu.usbserial-0001}"
+exec uv run --quiet --with pyserial python3 - "$port" "$secs" <<'PY'
+import serial, sys, time
+port = serial.Serial(sys.argv[1], 115200, timeout=0.2)
+port.dtr = False   # IO0 high: normal boot
+port.rts = True    # EN low: hold in reset
+time.sleep(0.1)
+port.rts = False   # release reset
+end = time.time() + float(sys.argv[2])
+while time.time() < end:
+    chunk = port.read(4096)
+    if chunk:
+        sys.stdout.write(chunk.decode("utf-8", "replace"))
+        sys.stdout.flush()
+PY

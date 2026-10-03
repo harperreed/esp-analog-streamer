@@ -19,6 +19,7 @@ An always-listening Shazam box: Rust firmware for the Ai-Thinker ESP32-A1S Audio
 
 - **License.** GPL-3.0-or-later, because `core::fingerprinting` comes from songrec-lib. Keep SongRec's attribution in the copied files.
 - **Pinned crates.** Pin the esp-idf crates with `=` and don't bump them casually. They moved to `esp-rs/esp-idf` on 2026-09-19.
+- **Toolchain from mise.** Run `mise trust && mise install`, then `mise run esp-toolchain`. Never install tools with brew, `rustup toolchain install` or `cargo install`. Build firmware with `cargo +esp` (or `scripts/flash`), because mise's `RUSTUP_TOOLCHAIN` outranks `firmware/rust-toolchain.toml`.
 - **Never commit:**
   - `firmware/cfg.toml` (it holds Wi-Fi credentials)
   - anything under `test/fixtures/songs/`

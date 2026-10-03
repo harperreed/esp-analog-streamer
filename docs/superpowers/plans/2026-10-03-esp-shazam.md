@@ -1,9 +1,9 @@
 # esp-shazam Implementation Plan
 
 ## Now
-- Step: Executing Tasks 1–8 subagent-driven; Tasks 9–12 get written into this plan while they run
-- Next: Task 1 (workspace, canonical check, time formatting)
-- Open: none
+- Step: Task 7 done (toolchain, stock-flash backup, firmware skeleton, bring-up probe): PSRAM 8 MB (4 MB mapped), codec ES8388 v1, fingerprint 12618 ms at 160 MHz
+- Next: Task 8 (ES8388 setup and LINE IN capture), on the v1 pins
+- Open: Task 7 did not apply step 6's "over 6000 ms" rule; `search_interval_secs` stays 8, because the interval starts after the answer (spec Risks). Keep the CPU at 160 MHz, or set `CONFIG_ESP_DEFAULT_CPU_FREQ_MHZ_240=y`? A throwaway 240 MHz build measured 10526 ms.
 - Approved: "On the board (Recommended)" (2026-10-03), fingerprint computed on the board
 - Approved: "Always listening" (2026-10-03), trigger
 - Approved: "Web page on the board", "MQTT, and json endpoint" (2026-10-03), outputs
