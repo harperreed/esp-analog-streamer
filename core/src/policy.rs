@@ -412,4 +412,115 @@ mod tests {
         b.policy.tick(250, QUIET, true, true);
         assert_eq!(b.policy.state(250, true), State::Quiet);
     }
+
+    #[test]
+    fn a_match_breaks_the_miss_streak() {
+        let mut b = Board::new();
+        b.matched("k1");
+        for _ in 0..2 {
+            b.run_until_ask(LOUD, 900_000).expect("expected an ask");
+            assert_eq!(b.answer(Outcome::Miss), Change::Keep);
+        }
+        b.run_until_ask(LOUD, 900_000).expect("expected an ask");
+        assert_eq!(b.answer(Outcome::Match { key: "k1".into() }), Change::Keep);
+        for _ in 0..2 {
+            b.run_until_ask(LOUD, 900_000).expect("expected an ask");
+            assert_eq!(b.answer(Outcome::Miss), Change::Keep);
+        }
+        assert_eq!(b.now_key.as_deref(), Some("k1"));
+    }
+
+    #[test]
+    fn failures_while_matched_retry_every_30s_and_are_not_misses() {
+        let mut b = Board::new();
+        b.matched("k1"); // answered at 8_000
+        let mut asks = vec![];
+        for _ in 0..3 {
+            asks.push(b.run_until_ask(LOUD, 900_000).expect("expected an ask"));
+            assert_eq!(b.answer(Outcome::Failed), Change::Keep);
+        }
+        assert_eq!(asks, vec![38_000, 68_000, 98_000]);
+        b.run_until_ask(LOUD, 900_000).expect("expected an ask");
+        assert_eq!(
+            b.answer(Outcome::Miss),
+            Change::Keep,
+            "three failures must not count as misses"
+        );
+        assert_eq!(b.now_key.as_deref(), Some("k1"));
+    }
+
+    #[test]
+    fn a_rate_limit_is_not_a_miss() {
+        let mut b = Board::new();
+        b.matched("k1");
+        b.run_until_ask(LOUD, 100_000).expect("expected an ask");
+        assert_eq!(b.answer(Outcome::Miss), Change::Keep); // 1 miss
+        b.run_until_ask(LOUD, 100_000).expect("expected an ask");
+        b.answer(Outcome::RateLimited);
+        b.run_until_ask(LOUD, 900_000).expect("expected an ask");
+        assert_eq!(b.answer(Outcome::Miss), Change::Keep, "2nd miss, not 3rd");
+    }
+
+    #[test]
+    fn rate_limit_while_searching_resumes_searching() {
+        let mut b = Board::new();
+        assert_eq!(b.run_until_ask(LOUD, 60_000), Some(8_000));
+        assert_eq!(b.answer(Outcome::RateLimited), Change::Keep);
+        assert_eq!(b.run_until_ask(LOUD, 307_999), None);
+        assert_eq!(b.run_until_ask(LOUD, 400_000), Some(308_000));
+        b.answer(Outcome::Miss);
+        assert_eq!(b.run_until_ask(LOUD, 400_000), Some(316_000));
+    }
+
+    #[test]
+    fn a_quiet_gap_does_not_end_a_rate_limit() {
+        let mut b = Board::new();
+        b.matched("k1");
+        assert_eq!(b.run_until_ask(LOUD, 100_000), Some(38_000));
+        b.answer(Outcome::RateLimited); // paused until 338_000
+        assert_eq!(b.run_until_ask(QUIET, 50_000), None);
+        // Coming back loud restarts the 8 s wait, but the pause still holds.
+        assert_eq!(b.run_until_ask(LOUD, 337_999), None);
+        assert_eq!(b.run_until_ask(LOUD, 400_000), Some(338_000));
+    }
+
+    #[test]
+    fn quiet_must_be_continuous_to_clear_now() {
+        let mut b = Board::new();
+        b.matched("k1"); // clock 8_250
+        assert_eq!(b.run_until_ask(QUIET, 48_000), None); // about 40 s quiet
+        b.run_until_ask(LOUD, b.now_ms); // one loud tick
+        assert_eq!(b.run_until_ask(QUIET, b.now_ms + 40_000), None); // 40 s more
+        assert_eq!(
+            b.now_key.as_deref(),
+            Some("k1"),
+            "80 s of quiet in total, never 60 s in a row"
+        );
+    }
+
+    #[test]
+    fn no_clear_now_without_a_song() {
+        let mut p = Policy::new(PolicyConfig::default());
+        assert_eq!(p.tick(0, QUIET, true, false), Decision::Idle);
+        assert_eq!(p.tick(61_000, QUIET, true, false), Decision::Idle);
+        assert_eq!(p.tick(61_250, QUIET, true, true), Decision::ClearNow);
+    }
+
+    #[test]
+    fn clearing_after_misses_starts_the_search_count_over() {
+        let mut b = Board::new();
+        b.matched("k1");
+        for _ in 0..3 {
+            b.run_until_ask(LOUD, 900_000).expect("expected an ask");
+            b.answer(Outcome::Miss);
+        }
+        assert_eq!(b.now_key, None);
+        let mut asks = vec![];
+        for _ in 0..6 {
+            asks.push(b.run_until_ask(LOUD, 900_000).expect("expected an ask"));
+            b.answer(Outcome::Miss);
+        }
+        let gaps: Vec<u64> = asks.windows(2).map(|w| w[1] - w[0]).collect();
+        assert_eq!(gaps, vec![8_000, 8_000, 8_000, 8_000, 30_000]);
+    }
 }
