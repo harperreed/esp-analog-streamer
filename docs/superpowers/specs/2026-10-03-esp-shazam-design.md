@@ -8,7 +8,7 @@ Items marked **(verify)** come from reading docs and source, not from running an
 
 ## Success criteria
 
-1. A song plays from the Mac's headphone jack into LINE IN. Within 45 s of the music starting, `GET http://esp-shazam.local/api/state` shows the right title and artist. At 240 MHz that leaves room for two tries: 8 s of audio, a ~10.5 s fingerprint and the request, then 8 s more and another fingerprint.
+1. A song plays into LINE IN (Harper's turntable or continuous source). Within 45 s of the music starting, `GET http://esp-shazam.local/api/state` shows the right title and artist. At 240 MHz that leaves room for two tries: 8 s of audio, a ~10.5 s fingerprint and the request, then 8 s more and another fingerprint.
 2. The same song arrives as a retained message on topic `esp-shazam/now_playing` at `mqtt://192.168.200.8:1883`.
 3. When the song changes, both outputs update within 60 s. A 30 s re-check can land while the 12 s window still holds the old song, so the next re-check catches it.
 4. When the music stops, "now playing" clears within 75 s, and the board sends no Shazam requests while the input stays quiet.
@@ -72,11 +72,13 @@ Confirmed at bring-up on 2026-10-03 by Task 8 (logs in `target/`, kept locally):
 - **Levels at PGA 0 dB** (`0x09 = 0x00`), one log line per second:
   - Turntable on LINE: -22.5 to -28.2 dBFS, with peaks up to 11186 (-9.3 dBFS). That's only 3 s, at 17:18, before the record stopped. A minute earlier the same music clipped at +24 dB.
   - Harper's continuous source at 17:23 (45 s): median -43.5 dBFS (-49.7 to -41.8), peaks up to 1027.
-  - Idle, cable plugged in and nothing playing: -75 to -82 dBFS, median about -79, plus handling thumps up to -35 dBFS for a second or two.
+  - Idle, cable plugged in and nothing playing: typically -75 to -82 dBFS (median about -79), with brief excursions to -62/-64. Handling can hold -35 to -50 dBFS for up to 3 s in a row.
   - Those idle seconds came while Harper was switching sources, so -79 is provisional. An earlier "idle" capture at 16:54 read -64 dBFS, the same as the turned-down music, so it most likely held music.
-  - Either way the floor sits at least 14 dB below `quiet_threshold_dbfs` (-50), which meets the 10 dB margin.
-- **The PGA stays at 0 dB** (`codec::PGA_0DB`). The turntable on LINE already peaks about 9 dB under full scale. The continuous source's -43.5 median is above the plan's -45 rule for raising the PGA, but it sits only 6.5 dB over the quiet threshold.
-- **Not measured:** the 1 kHz tone check needs the Mac on LINE IN, so the L/R interleave order is still unknown. It doesn't matter yet, because capture averages the two channels.
+  - The board's `quiet_threshold_dbfs` is tuned to -60 for this setup (SDD Ruling R12). Typical idle sits 15–20 dB under it and the worst idle second (-62.2) just under. The continuous source's lowest second (-57.9) stays just above, so it counts as sound.
+- **The PGA stays at 0 dB** (`codec::PGA_0DB`, SDD Ruling R12). The turntable on LINE already peaks about 9 dB under full scale, and +9 dB would put it at about -0.3 dBFS. The quieter continuous source is handled by the -60 threshold instead of more gain.
+- **Not measured:** the 1 kHz tone check needs the Mac on LINE IN.
+  - So rate and bit alignment aren't tone-checked. That closes at the first live Shazam match in Task 9.
+  - The L/R interleave order is unknown too. It doesn't matter, because capture averages the two channels.
 
 Not yet confirmed:
 
@@ -181,7 +183,7 @@ Pure logic in `core::policy`. Every number below is a `cfg.toml` setting with th
 
 | Setting | Default | Why |
 |---|---|---|
-| `quiet_threshold_dbfs` | -50 | Tune at bring-up against the LINE IN noise floor |
+| `quiet_threshold_dbfs` | -50 | Tune at bring-up against the LINE IN noise floor. This board runs -60 (floor about -79 dBFS, SDD Ruling R12) |
 | `window_secs` | 12 | SongRec's buffer length |
 | `search_interval_secs` | 8 | SongRec's default `request_interval_secs_v3` |
 | `slow_search_interval_secs` | 30 | After 5 misses in a row |
@@ -334,7 +336,7 @@ There are no mocks anywhere. The E2E tests use the real Shazam API and the real 
   - If songrec-lib won't build on the Mac **(verify)**, the reference becomes an unedited copy of its three files kept under `core/tests/`.
 - **Mac E2E** (`scripts/e2e-host <clip> "<expected title>"`): runs `shazam-file` against the real Shazam.
 - **Device E2E** (`scripts/e2e-device <song> "<expected title>"`):
-  1. `afplay` plays the song through the headphone jack into LINE IN.
+  1. Whatever plays into LINE IN (Harper's source) is the music. The script resets the board first. `afplay` can't reach LINE IN, which is wired to the source (SDD Ruling R13).
   2. Poll `/api/state` until the title appears, with a 45 s timeout (success criterion 1).
   3. `mosquitto_sub` must deliver the same title on `esp-shazam/now_playing`.
   4. Stop playback and confirm `now` clears within 75 s (success criterion 4).
