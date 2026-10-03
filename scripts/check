@@ -3,7 +3,8 @@
 # ABOUTME: Prints one ok/FAIL line per stage; full output lands in target/check-logs/<stage>.log.
 set -uo pipefail
 cd "$(dirname "$0")/.."
-eval "$(mise env -s bash)" # the toolchain pinned in mise.toml
+mise_env="$(mise env -s bash)" || { echo "FAIL  mise   (run: mise trust && mise install)"; exit 1; }
+eval "$mise_env" # the toolchain pinned in mise.toml
 LOG_DIR=target/check-logs
 mkdir -p "$LOG_DIR"
 status=0
