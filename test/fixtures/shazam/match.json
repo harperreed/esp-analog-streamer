@@ -1,0 +1,226 @@
+{
+  "matches": [
+    {
+      "id": "42020591",
+      "offset": 113.759734375,
+      "timeskew": 0.0026952028,
+      "frequencyskew": 0.0028635263
+    },
+    {
+      "id": "201315914",
+      "offset": 113.616078125,
+      "timeskew": 0.00083231926,
+      "frequencyskew": 0.0006445646
+    },
+    {
+      "id": "278070012",
+      "offset": 113.70828906199999,
+      "timeskew": 0.0021722317,
+      "frequencyskew": 0.0021771193
+    },
+    {
+      "id": "319532425",
+      "offset": 113.200328125,
+      "timeskew": 0.0009754896,
+      "frequencyskew": 0.0016123056
+    },
+    {
+      "id": "291548081",
+      "offset": 134.215171875,
+      "timeskew": 0.00344038,
+      "frequencyskew": 0.0018543005
+    }
+  ],
+  "location": {
+    "latitude": 45.0,
+    "longitude": 2.0,
+    "altitude": 300.0,
+    "accuracy": 0.01
+  },
+  "timestamp": 55392877,
+  "timezone": "Europe/Paris",
+  "track": {
+    "layout": "5",
+    "type": "MUSIC",
+    "key": "5170604",
+    "title": "P.Y.T. (Pretty Young Thing)",
+    "subtitle": "Michael Jackson",
+    "images": {
+      "background": "https://is1-ssl.mzstatic.com/image/thumb/AMCArtistImages221/v4/0f/c1/4a/0fc14ab9-c39f-2998-c322-eaa5150f4213/2227190d-5956-482e-9b74-8938608da2cf_ami-identity-4b367186a2afafa6edb19b6265cb8a50-2024-08-29T13-50-11.539Z_cropped.png/800x800cc.jpg",
+      "coverart": "https://is1-ssl.mzstatic.com/image/thumb/Music115/v4/32/4f/fd/324ffda2-9e51-8f6a-0c2d-c6fd2b41ac55/074643811224.jpg/400x400cc.jpg",
+      "coverarthq": "https://is1-ssl.mzstatic.com/image/thumb/Music115/v4/32/4f/fd/324ffda2-9e51-8f6a-0c2d-c6fd2b41ac55/074643811224.jpg/400x400cc.jpg",
+      "joecolor": "b:0d0f11p:f2f5dbs:e0e7d5t:c4c7b2q:b6bbae"
+    },
+    "display": {
+      "actions": [
+        {
+          "name": "display:updateshazam",
+          "type": "webview",
+          "uri": "https://www.shazam.com/inapp/updatenow/5170604"
+        }
+      ]
+    },
+    "share": {
+      "subject": "P.Y.T. (Pretty Young Thing) - Michael Jackson",
+      "text": "P.Y.T. (Pretty Young Thing) by Michael Jackson",
+      "href": "https://www.shazam.com/track/5170604/p-y-t-pretty-young-thing",
+      "image": "https://is1-ssl.mzstatic.com/image/thumb/Music115/v4/32/4f/fd/324ffda2-9e51-8f6a-0c2d-c6fd2b41ac55/074643811224.jpg/400x400cc.jpg",
+      "twitter": "I used @Shazam to discover P.Y.T. (Pretty Young Thing) by Michael Jackson.",
+      "html": "https://www.shazam.com/snippets/email-share/5170604?lang=en&country=US",
+      "avatar": "https://is1-ssl.mzstatic.com/image/thumb/AMCArtistImages221/v4/0f/c1/4a/0fc14ab9-c39f-2998-c322-eaa5150f4213/2227190d-5956-482e-9b74-8938608da2cf_ami-identity-4b367186a2afafa6edb19b6265cb8a50-2024-08-29T13-50-11.539Z_cropped.png/800x800cc.jpg",
+      "snapchat": "https://www.shazam.com/partner/sc/track/5170604"
+    },
+    "hub": {
+      "type": "APPLEMUSIC",
+      "image": "https://images.shazam.com/static/icons/hub/android/v5/applemusic_{scalefactor}.png",
+      "actions": [
+        {
+          "name": "apple",
+          "type": "applemusicplay",
+          "id": "269573447"
+        },
+        {
+          "name": "apple",
+          "type": "uri",
+          "uri": "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview211/v4/b4/b4/24/b4b42455-0fcc-7e16-52ad-f896de9bc88d/mzaf_16774060566295780706.plus.aac.ep.m4a"
+        }
+      ],
+      "providers": [
+        {
+          "caption": "Open in Spotify",
+          "images": {
+            "overflow": "https://images.shazam.com/static/icons/hub/android/v5/spotify-overflow_{scalefactor}.png",
+            "default": "https://images.shazam.com/static/icons/hub/android/v5/spotify_{scalefactor}.png"
+          },
+          "actions": [
+            {
+              "name": "hub:spotify:searchdeeplink",
+              "type": "uri",
+              "uri": "spotify:search:P.Y.T.%20%28Pretty%20Young%20Thing%29%20Michael%20Jackson"
+            }
+          ],
+          "type": "SPOTIFY"
+        },
+        {
+          "caption": "Open in YouTube Music",
+          "images": {
+            "overflow": "https://images.shazam.com/static/icons/hub/android/v5/youtubemusic-overflow_{scalefactor}.png",
+            "default": "https://images.shazam.com/static/icons/hub/android/v5/youtubemusic_{scalefactor}.png"
+          },
+          "actions": [
+            {
+              "name": "hub:youtubemusic:androiddeeplink",
+              "type": "uri",
+              "uri": "https://music.youtube.com/search?q=P.Y.T.+%28Pretty+Young+Thing%29+Michael+Jackson&feature=shazam"
+            }
+          ],
+          "type": "YOUTUBEMUSIC"
+        },
+        {
+          "caption": "Open in Deezer",
+          "images": {
+            "overflow": "https://images.shazam.com/static/icons/hub/android/v5/deezer-overflow_{scalefactor}.png",
+            "default": "https://images.shazam.com/static/icons/hub/android/v5/deezer_{scalefactor}.png"
+          },
+          "actions": [
+            {
+              "name": "hub:deezer:searchdeeplink",
+              "type": "uri",
+              "uri": "deezer-query://www.deezer.com/play?query=%7Btrack%3A%27P.Y.T.+%28Pretty+Young+Thing%29%27%20artist%3A%27Michael+Jackson%27%7D"
+            }
+          ],
+          "type": "DEEZER"
+        }
+      ],
+      "explicit": false,
+      "displayname": "APPLE MUSIC",
+      "options": [
+        {
+          "caption": "OPEN",
+          "actions": [
+            {
+              "name": "hub:applemusic:deeplink",
+              "type": "intent",
+              "uri": "intent://music.apple.com/us/album/p-y-t-pretty-young-thing/269572838?i=269573447&mttnagencyid=s2n&mttnsiteid=125115&mttn3pid=Apple-Shazam&mttnsub1=Shazam_android_am&mttnsub2=5348615A-616D-3235-3830-44754D6D5973&itscg=30201&app=music&itsct=Shazam_android_am#Intent;scheme=http;package=com.apple.android.music;action=android.intent.action.VIEW;end"
+            },
+            {
+              "name": "hub:applemusic:connect",
+              "type": "applemusicconnect",
+              "id": "269573447",
+              "uri": "https://unsupported.shazam.com"
+            },
+            {
+              "name": "hub:applemusic:androidstore",
+              "type": "uri",
+              "uri": "https://play.google.com/store/apps/details?id=com.apple.android.music&referrer=utm_source=https%3A%2F%2Fmusic.apple.com%2Fsubscribe%3Fmttnagencyid%3Ds2n%26mttnsiteid%3D125115%26mttn3pid%3DApple-Shazam%26mttnsub1%3DShazam_android_am%26mttnsub2%3D5348615A-616D-3235-3830-44754D6D5973%26itscg%3D30201%26app%3Dmusic%26itsct%3DShazam_android_am"
+            }
+          ],
+          "beacondata": {
+            "type": "open",
+            "providername": "applemusic"
+          },
+          "image": "https://images.shazam.com/static/icons/hub/android/v5/overflow-open-option_{scalefactor}.png",
+          "type": "open",
+          "listcaption": "Open in Apple Music",
+          "overflowimage": "https://images.shazam.com/static/icons/hub/android/v5/applemusic-overflow_{scalefactor}.png",
+          "colouroverflowimage": false,
+          "providername": "applemusic"
+        }
+      ]
+    },
+    "sections": [
+      {
+        "type": "SONG",
+        "metapages": [
+          {
+            "image": "https://is1-ssl.mzstatic.com/image/thumb/AMCArtistImages221/v4/0f/c1/4a/0fc14ab9-c39f-2998-c322-eaa5150f4213/2227190d-5956-482e-9b74-8938608da2cf_ami-identity-4b367186a2afafa6edb19b6265cb8a50-2024-08-29T13-50-11.539Z_cropped.png/800x800cc.jpg",
+            "caption": "Michael Jackson"
+          },
+          {
+            "image": "https://is1-ssl.mzstatic.com/image/thumb/Music115/v4/32/4f/fd/324ffda2-9e51-8f6a-0c2d-c6fd2b41ac55/074643811224.jpg/400x400cc.jpg",
+            "caption": "P.Y.T. (Pretty Young Thing)"
+          }
+        ],
+        "tabname": "Song",
+        "metadata": [
+          {
+            "title": "Album",
+            "text": "Thriller"
+          },
+          {
+            "title": "Label",
+            "text": "Epic"
+          },
+          {
+            "title": "Released",
+            "text": "1982"
+          }
+        ]
+      },
+      {
+        "type": "RELATED",
+        "url": "https://cdn.shazam.com/shazam/v3/en/US/android/-/tracks/track-similarities-id-5170604?startFrom=0&pageSize=20&connected=",
+        "tabname": "Related"
+      }
+    ],
+    "url": "https://www.shazam.com/track/5170604/p-y-t-pretty-young-thing",
+    "artists": [
+      {
+        "id": "42",
+        "adamid": "32940"
+      }
+    ],
+    "genres": {
+      "primary": "Pop"
+    },
+    "urlparams": {
+      "{tracktitle}": "P.Y.T.+%28Pretty+Young+Thing%29",
+      "{trackartist}": "Michael+Jackson"
+    },
+    "highlightsurls": {},
+    "relatedtracksurl": "https://cdn.shazam.com/shazam/v3/en/US/android/-/tracks/track-similarities-id-5170604?startFrom=0&pageSize=20&connected=",
+    "albumadamid": "269572838",
+    "isrc": "USSM19902993"
+  },
+  "tagid": "c64dbd65-d9ca-475d-b14a-4819f0cb1a5a"
+}

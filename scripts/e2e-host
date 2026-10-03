@@ -1,0 +1,48 @@
+#!/usr/bin/env bash
+# ABOUTME: Mac end-to-end test: fingerprints a real song clip and checks that the real Shazam names it.
+# ABOUTME: Refreshes test/fixtures/shazam/ (real responses, lyrics stripped) that the parser tests read.
+set -euo pipefail
+cd "$(dirname "$0")/.."
+mise_env="$(mise env -s bash)" || { echo "FAIL  mise   (run: mise trust && mise install)"; exit 1; }
+eval "$mise_env" # the toolchain pinned in mise.toml
+
+if [ $# -ne 2 ]; then
+  echo "usage: scripts/e2e-host <song-file> \"<expected title>\"" >&2
+  exit 2
+fi
+song="$1"
+expected="$2"
+songs=test/fixtures/songs
+fixtures=test/fixtures/shazam
+mkdir -p "$songs" "$fixtures"
+
+# 12 s from the middle of the song, and 12 s of white noise, both 16 kHz mono 16-bit.
+duration=$(ffprobe -v error -show_entries format=duration -of csv=p=0 "$song")
+start=$(awk -v d="$duration" 'BEGIN { s = d / 2 - 6; if (s < 0) s = 0; print s }')
+ffmpeg -v error -y -ss "$start" -t 12 -i "$song" -ac 1 -ar 16000 -sample_fmt s16 "$songs/clip.wav"
+ffmpeg -v error -y -f lavfi -i "anoisesrc=d=12:c=white:r=16000:a=0.3" -ac 1 -sample_fmt s16 "$songs/noise.wav"
+
+cargo build -q -p esp-shazam-tools
+tool=target/debug/shazam-file
+
+# Keep copyrighted lyrics out of git; the parser never reads them.
+strip_lyrics() {
+  jq 'if (.track.sections | type) == "array"
+      then .track.sections |= map(select(.type != "LYRICS")) else . end' "$1" > "$1.tmp"
+  mv "$1.tmp" "$1"
+}
+
+echo "== song clip"
+"$tool" "$songs/clip.wav" --save-response "$fixtures/match.json"
+strip_lyrics "$fixtures/match.json"
+jq -e '.track.title' "$fixtures/match.json" >/dev/null || { echo "FAIL: Shazam found no track in the song clip"; exit 1; }
+jq -n --arg title "$expected" '{title: $title}' > "$fixtures/match.expected.json"
+
+echo "== white noise"
+"$tool" "$songs/noise.wav" --save-response "$fixtures/miss.json"
+jq -e 'has("track") | not' "$fixtures/miss.json" >/dev/null || { echo "FAIL: white noise matched a track"; exit 1; }
+
+echo "== golden test on the song clip"
+cargo test -q -p esp-shazam-core --test golden -- --ignored
+
+echo "PASS e2e-host"

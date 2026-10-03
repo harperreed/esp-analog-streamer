@@ -1,0 +1,16 @@
+[package]
+name = "esp-shazam-tools"
+version = "0.1.0"
+edition = "2021"
+license = "GPL-3.0-or-later"
+publish = false
+
+[[bin]]
+name = "shazam-file"
+path = "src/main.rs"
+
+[dependencies]
+anyhow = "1"
+esp-shazam-core = { path = "../core" }
+hound = "3.5"
+ureq = "3"
