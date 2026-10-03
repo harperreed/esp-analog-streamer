@@ -1,9 +1,9 @@
 # esp-shazam Implementation Plan
 
 ## Now
-- Step: Task 8 (ES8388 setup and LINE IN capture) on the v1 pins, CPU at 240 MHz (SDD Ruling R11)
+- Step: Task 8 done: ES8388 captures LINE IN on LIN2/RIN2 at PGA 0 dB, CPU at 240 MHz (levels in the spec's Hardware section)
 - Next: Task 9 (Wi-Fi, clock, recognizer); firmware/cfg.toml exists (gitignored)
-- Open: none (R10 kept search_interval at 8 s; R11 set 240 MHz)
+- Open: LINE IN is wired to Harper's turntable, but Task 12's E2E plays songs with afplay through the Mac. Also, Harper's continuous source reads -43.5 dBFS at PGA 0 dB while the turntable on LINE reads -22 to -28, so the PGA should match the source the board will actually hear.
 - Approved: "On the board (Recommended)" (2026-10-03), fingerprint computed on the board
 - Approved: "Always listening" (2026-10-03), trigger
 - Approved: "Web page on the board", "MQTT, and json endpoint" (2026-10-03), outputs

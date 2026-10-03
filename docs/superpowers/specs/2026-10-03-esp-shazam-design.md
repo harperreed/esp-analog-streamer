@@ -50,7 +50,7 @@ Confirmed at bring-up on 2026-10-03 by the Task 7 probe on ESP-IDF v5.5.5 (log i
 
 - **PSRAM: 8 MB chip, 4 MB usable.** The boot log says "Found 8MB PSRAM device" at 40 MHz, then "Virtual address not enough for PSRAM, map as much as we can. 4MB is mapped". 4096 KB joins the heap; 4093 KB is free at boot. That covers the fingerprint's 2.1 MB.
 - **Codec: ES8388 v1** (the first row of the table below). 0x10 ACKed on SDA 33 / SCL 32. Register 0x08 read 0x00, not the 0x80 power-up value: the codec kept older settings through the ESP32 reset, as expected.
-- **CPU clock: 160 MHz.** That's ESP-IDF's default (`CONFIG_ESP_DEFAULT_CPU_FREQ_MHZ=160`), and `sdkconfig.defaults` doesn't change it. See Risks for what 240 MHz buys.
+- **CPU clock: 160 MHz** during this probe, ESP-IDF's default (`CONFIG_ESP_DEFAULT_CPU_FREQ_MHZ=160`). Task 8 moved the firmware to 240 MHz; see Risks for what that buys.
 - **Revisions and pins.** Three revisions exist, with different pins (source: [pschatzmann/arduino-audio-driver `src/AudioBoards/`](https://github.com/pschatzmann/arduino-audio-driver/tree/main/src/AudioBoards)):
 
   | Revision | I2C SCL / SDA | I2S MCLK / BCLK / WS / DOUT / DIN | Codec I2C address |
@@ -61,10 +61,25 @@ Confirmed at bring-up on 2026-10-03 by the Task 7 probe on ESP-IDF v5.5.5 (log i
 
   The probe tried 0x10 and then 0x1A on the v1 pins, then 0x10 on the v2 pins. The silkscreen can't tell the revisions apart: "2957" appears on all three. Only the revision found (ES8388 v1) gets implemented. Any other probe result stops the firmware with a clear log line.
 
+Confirmed at bring-up on 2026-10-03 by Task 8 (logs in `target/`, kept locally):
+
+- **CPU clock: 240 MHz** (`CONFIG_ESP_DEFAULT_CPU_FREQ_MHZ_240=y`, SDD Ruling R11). The boot log says "cpu freq: 240000000 Hz".
+- **The codec setup reads back as written**, including `0x0A = 0x50`, `0x09` (PGA), `0x10`/`0x11 = 0x00` and `0x08 = 0x00`.
+- **LINE IN feeds ES8388 LIN2/RIN2** (`0x0A = 0x50`), as the A1S pin table, the Audio Kit schematic and Ai-Thinker's SDK say.
+  - With music on the jack, LIN2/RIN2 carried it, while LIN1/RIN1 read only the ADC's own noise: -86 dBFS of white noise at PGA 0 dB.
+  - Turning the codec's mic bias off changed nothing on LIN2, so the A1S's MIC2 pads add no measurable sound.
+- **LINE IN is wired to Harper's turntable**, not the Mac. The turntable's output must be on LINE (fixed level). On VARIABLE, turned down, music arrived at about -64 dBFS, under the -50 quiet threshold.
+- **Levels at PGA 0 dB** (`0x09 = 0x00`), one log line per second:
+  - Turntable on LINE: -22.5 to -28.2 dBFS, with peaks up to 11186 (-9.3 dBFS). That's only 3 s, at 17:18, before the record stopped. A minute earlier the same music clipped at +24 dB.
+  - Harper's continuous source at 17:23 (45 s): median -43.5 dBFS (-49.7 to -41.8), peaks up to 1027.
+  - Idle, cable plugged in and nothing playing: -75 to -82 dBFS, median about -79, plus handling thumps up to -35 dBFS for a second or two.
+  - Those idle seconds came while Harper was switching sources, so -79 is provisional. An earlier "idle" capture at 16:54 read -64 dBFS, the same as the turned-down music, so it most likely held music.
+  - Either way the floor sits at least 14 dB below `quiet_threshold_dbfs` (-50), which meets the 10 dB margin.
+- **The PGA stays at 0 dB** (`codec::PGA_0DB`). The turntable on LINE already peaks about 9 dB under full scale. The continuous source's -43.5 median is above the plan's -45 rule for raising the PGA, but it sits only 6.5 dB over the quiet threshold.
+- **Not measured:** the 1 kHz tone check needs the Mac on LINE IN, so the L/R interleave order is still unknown. It doesn't matter yet, because capture averages the two channels.
+
 Not yet confirmed:
 
-- **LINE IN is ES8388 LIN2/RIN2** (`0x0A = 0x50`). Three sources agree: the Ai-Thinker A1S V2.3 pin table, the Audio Kit V2.2 schematic, and Ai-Thinker's SDK. Bring-up still checks that the jack shows signal.
-  - The A1S also routes its MIC2 pads to LIN2/RIN2. How much mic sound bleeds in with music on the jack hasn't been measured.
 - **No LINE IN detect pin.** GPIO12 shows up as "aux detect" in drivers, but that constant was copied from Espressif's LyraT board. On this kit GPIO12 is SD card DAT2 and the MTDI strapping pin, so firmware must not drive it. The jack's switch pins aren't wired.
 - **Other shared pins:**
   - Speaker amp enable on GPIO21 (left off).

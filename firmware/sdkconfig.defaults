@@ -19,3 +19,6 @@ CONFIG_SPIRAM_IGNORE_NOTFOUND=y
 
 # A fingerprint keeps core 1 busy for seconds; watch only core 0's idle task.
 # CONFIG_ESP_TASK_WDT_CHECK_IDLE_TASK_CPU1 is not set
+
+# Full speed: the fingerprint is CPU- and PSRAM-bound (ESP-IDF's ESP32 default is 160 MHz).
+CONFIG_ESP_DEFAULT_CPU_FREQ_MHZ_240=y
