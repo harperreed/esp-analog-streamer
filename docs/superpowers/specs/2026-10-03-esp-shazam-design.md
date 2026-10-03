@@ -180,12 +180,12 @@ Flash gets one factory app partition sized for the binary, with no OTA.
 
 ## Listen policy
 
-Pure logic in `core::policy`. Every number below is a `cfg.toml` setting with this default:
+Pure logic in `core::policy`. Every number below except `window_secs` is a `cfg.toml` setting with this default. `window_secs` is fixed at 12 s (SDD Ruling R14):
 
 | Setting | Default | Why |
 |---|---|---|
 | `quiet_threshold_dbfs` | -50 | Tune at bring-up against the LINE IN noise floor. This board runs -60 (floor about -79 dBFS, SDD Ruling R12) |
-| `window_secs` | 12 | SongRec's buffer length |
+| `window_secs` | 12 | SongRec's buffer length (fixed: the ring size is a compile-time constant) |
 | `search_interval_secs` | 8 | SongRec's default `request_interval_secs_v3` |
 | `slow_search_interval_secs` | 30 | After 5 misses in a row |
 | `recheck_interval_secs` | 30 | Catches song changes while matched |
@@ -262,6 +262,7 @@ Mirrors SongRec's `src/core/fingerprinting/communication.rs` (marin-m/SongRec, l
 ```
 
 - `state` is one of `quiet`, `searching`, `matched`, or `rate_limited`.
+- `level_dbfs` and `state` update every 250 ms between asks. They hold still during each ask (~12 s, while the board fingerprints and calls Shazam), because the recognizer thread measures them (SDD Ruling R16).
 - `now` is `null` when nothing is playing.
 - `identified_at` is when the song first became `now`. Later re-checks of the same key don't change it.
 - `history` lists every song that became `now`, newest first, so the current song is `history[0]`. It lives in RAM and empties on reboot.
