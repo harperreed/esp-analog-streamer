@@ -10,13 +10,13 @@
       "id": "201315914",
       "offset": 113.616078125,
       "timeskew": 0.00083231926,
-      "frequencyskew": 0.0006445646
+      "frequencyskew": 0.00076544285
     },
     {
       "id": "278070012",
-      "offset": 113.70828906199999,
-      "timeskew": 0.0021722317,
-      "frequencyskew": 0.0021771193
+      "offset": 113.70984375,
+      "timeskew": 0.0021697283,
+      "frequencyskew": 0.0020157099
     },
     {
       "id": "319532425",
@@ -37,7 +37,7 @@
     "altitude": 300.0,
     "accuracy": 0.01
   },
-  "timestamp": 55392877,
+  "timestamp": 56914530,
   "timezone": "Europe/Paris",
   "track": {
     "layout": "5",
@@ -222,5 +222,5 @@
     "albumadamid": "269572838",
     "isrc": "USSM19902993"
   },
-  "tagid": "c64dbd65-d9ca-475d-b14a-4819f0cb1a5a"
+  "tagid": "ce620328-8a40-41e5-a67d-01d4b5835097"
 }

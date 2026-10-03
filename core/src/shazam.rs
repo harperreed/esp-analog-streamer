@@ -1,7 +1,8 @@
 // ABOUTME: Builds Shazam recognize requests and parses their responses.
 // ABOUTME: Mirrors SongRec's communication.rs; callers pass in time, UUIDs and user agent so tests can pin them.
 
-use serde_json::json;
+use serde::Serialize;
+use serde_json::{json, Value};
 
 const RECOGNIZE_URL: &str = "https://amp.shazam.com/discovery/v5/en/US/android/-/tag/";
 const RECOGNIZE_QUERY: &str =
@@ -72,6 +73,62 @@ pub fn user_agent(index: usize) -> &'static str {
     agents[index % agents.len()]
 }
 
+/// The song fields esp-shazam reports. Field paths follow SongRec's http_task.rs.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+pub struct Song {
+    pub key: String,
+    pub title: String,
+    pub artist: String,
+    pub album: Option<String>,
+    pub cover_url: Option<String>,
+    pub shazam_url: Option<String>,
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub enum ParseError {
+    NotJson,
+    NotAnObject,
+    MissingField(&'static str),
+}
+
+impl std::fmt::Display for ParseError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ParseError::NotJson => write!(f, "response is not JSON"),
+            ParseError::NotAnObject => write!(f, "response JSON is not an object"),
+            ParseError::MissingField(field) => write!(f, "response track lacks {field}"),
+        }
+    }
+}
+
+impl std::error::Error for ParseError {}
+
+/// `Ok(None)` is a miss: valid JSON object without a `track`.
+pub fn parse_response(body: &[u8]) -> Result<Option<Song>, ParseError> {
+    let value: Value = serde_json::from_slice(body).map_err(|_| ParseError::NotJson)?;
+    let object = value.as_object().ok_or(ParseError::NotAnObject)?;
+    let Some(track) = object.get("track") else {
+        return Ok(None);
+    };
+    let text = |v: &Value| v.as_str().map(str::to_owned);
+    let album = track["sections"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter(|section| section["type"] == "SONG")
+        .flat_map(|section| section["metadata"].as_array().into_iter().flatten())
+        .find(|item| item["title"] == "Album")
+        .and_then(|item| text(&item["text"]));
+    Ok(Some(Song {
+        key: text(&track["key"]).ok_or(ParseError::MissingField("track.key"))?,
+        title: text(&track["title"]).ok_or(ParseError::MissingField("track.title"))?,
+        artist: text(&track["subtitle"]).ok_or(ParseError::MissingField("track.subtitle"))?,
+        album,
+        cover_url: text(&track["images"]["coverart"]),
+        shazam_url: text(&track["url"]),
+    }))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -132,5 +189,76 @@ mod tests {
         assert_eq!(user_agent(0), USER_AGENTS[0]);
         assert_eq!(user_agent(100), USER_AGENTS[0]);
         assert_eq!(user_agent(199), USER_AGENTS[99]);
+    }
+
+    #[test]
+    fn html_error_page_is_not_json() {
+        assert_eq!(
+            parse_response(b"<html><body>502 Bad Gateway</body></html>"),
+            Err(ParseError::NotJson)
+        );
+    }
+
+    #[test]
+    fn empty_body_is_not_json() {
+        assert_eq!(parse_response(b""), Err(ParseError::NotJson));
+    }
+
+    #[test]
+    fn json_that_is_not_an_object_is_rejected() {
+        assert_eq!(parse_response(b"[]"), Err(ParseError::NotAnObject));
+    }
+
+    #[test]
+    fn object_without_track_is_a_miss() {
+        assert_eq!(
+            parse_response(br#"{"matches": [], "retryms": 12000}"#),
+            Ok(None)
+        );
+    }
+
+    #[test]
+    fn track_without_title_is_rejected() {
+        let body = br#"{"track": {"key": "1", "subtitle": "Artist"}}"#;
+        assert_eq!(
+            parse_response(body),
+            Err(ParseError::MissingField("track.title"))
+        );
+    }
+
+    #[test]
+    fn minimal_non_ascii_track_parses() {
+        let body = r#"{"track": {"key": "42", "title": "Beyoncé", "subtitle": "夜に駆ける"}}"#;
+        assert_eq!(
+            parse_response(body.as_bytes()),
+            Ok(Some(Song {
+                key: "42".into(),
+                title: "Beyoncé".into(),
+                artist: "夜に駆ける".into(),
+                album: None,
+                cover_url: None,
+                shazam_url: None,
+            }))
+        );
+    }
+
+    #[test]
+    fn album_cover_and_link_come_from_their_paths() {
+        let body = r#"{"track": {"key": "1", "title": "T", "subtitle": "A",
+            "url": "https://www.shazam.com/track/1/t",
+            "images": {"coverart": "https://is1-ssl.mzstatic.com/x.jpg"},
+            "sections": [{"type": "LYRICS"},
+                         {"type": "SONG", "metadata": [{"title": "Label", "text": "L"},
+                                                       {"title": "Album", "text": "The Album"}]}]}}"#;
+        let song = parse_response(body.as_bytes()).unwrap().unwrap();
+        assert_eq!(song.album.as_deref(), Some("The Album"));
+        assert_eq!(
+            song.cover_url.as_deref(),
+            Some("https://is1-ssl.mzstatic.com/x.jpg")
+        );
+        assert_eq!(
+            song.shazam_url.as_deref(),
+            Some("https://www.shazam.com/track/1/t")
+        );
     }
 }

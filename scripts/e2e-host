@@ -2,19 +2,23 @@
 # ABOUTME: Mac end-to-end test: fingerprints a real song clip and checks that the real Shazam names it.
 # ABOUTME: Refreshes test/fixtures/shazam/ (real responses, lyrics stripped) that the parser tests read.
 set -euo pipefail
-cd "$(dirname "$0")/.."
-mise_env="$(mise env -s bash)" || { echo "FAIL  mise   (run: mise trust && mise install)"; exit 1; }
-eval "$mise_env" # the toolchain pinned in mise.toml
 
 if [ $# -ne 2 ]; then
   echo "usage: scripts/e2e-host <song-file> \"<expected title>\"" >&2
   exit 2
 fi
-song="$1"
+[ -f "$1" ] || { echo "FAIL: no such song file: $1" >&2; exit 2; }
+song="$(cd "$(dirname "$1")" && pwd)/$(basename "$1")" # absolute, because of the cd below
 expected="$2"
+
+cd "$(dirname "$0")/.."
+mise_env="$(mise env -s bash)" || { echo "FAIL  mise   (run: mise trust && mise install)"; exit 1; }
+eval "$mise_env" # the toolchain pinned in mise.toml
+
 songs=test/fixtures/songs
 fixtures=test/fixtures/shazam
-mkdir -p "$songs" "$fixtures"
+scratch=target/e2e # a response waits here until its checks pass, so a failed run never touches the fixtures
+mkdir -p "$songs" "$fixtures" "$scratch"
 
 # 12 s from the middle of the song, and 12 s of white noise, both 16 kHz mono 16-bit.
 duration=$(ffprobe -v error -show_entries format=duration -of csv=p=0 "$song")
@@ -32,15 +36,32 @@ strip_lyrics() {
   mv "$1.tmp" "$1"
 }
 
+# Stripping only knows today's response shape; this catches lyrics that turn up somewhere else.
+require_no_lyrics() {
+  if grep -qi lyric "$1"; then
+    echo "FAIL: $1 still mentions \"lyric\" after stripping; not saving it as a fixture (fix strip_lyrics)"
+    exit 1
+  fi
+}
+
 echo "== song clip"
-"$tool" "$songs/clip.wav" --save-response "$fixtures/match.json"
-strip_lyrics "$fixtures/match.json"
-jq -e '.track.title' "$fixtures/match.json" >/dev/null || { echo "FAIL: Shazam found no track in the song clip"; exit 1; }
-jq -n --arg title "$expected" '{title: $title}' > "$fixtures/match.expected.json"
+out=$("$tool" "$songs/clip.wav" --save-response "$scratch/match.json")
+echo "$out"
+strip_lyrics "$scratch/match.json"
+grep -q -- '^MATCH ' <<<"$out" && grep -i -F -q -- "$expected" <<<"$out" \
+  || { echo "FAIL: expected a match containing \"$expected\""; exit 1; }
+require_no_lyrics "$scratch/match.json"
+jq -n --arg title "$expected" '{title: $title}' > "$scratch/match.expected.json"
+mv "$scratch/match.json" "$scratch/match.expected.json" "$fixtures/"
 
 echo "== white noise"
-"$tool" "$songs/noise.wav" --save-response "$fixtures/miss.json"
-jq -e 'has("track") | not' "$fixtures/miss.json" >/dev/null || { echo "FAIL: white noise matched a track"; exit 1; }
+"$tool" "$songs/noise.wav" --save-response "$scratch/miss.json"
+jq -e 'has("track") | not' "$scratch/miss.json" >/dev/null || { echo "FAIL: white noise matched a track"; exit 1; }
+require_no_lyrics "$scratch/miss.json"
+mv "$scratch/miss.json" "$fixtures/"
+
+echo "== parser tests on the saved responses"
+cargo test -q -p esp-shazam-core --test shazam_fixtures
 
 echo "== golden test on the song clip"
 cargo test -q -p esp-shazam-core --test golden -- --ignored

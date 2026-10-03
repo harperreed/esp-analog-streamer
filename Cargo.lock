@@ -456,6 +456,7 @@ dependencies = [
  "chfft",
  "crc32fast",
  "hound",
+ "serde",
  "serde_json",
  "songrec-lib",
 ]

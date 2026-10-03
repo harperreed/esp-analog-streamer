@@ -47,6 +47,10 @@ fn main() -> Result<()> {
     if status != 200 {
         bail!("Shazam answered HTTP {status}");
     }
+    match shazam::parse_response(&body)? {
+        Some(song) => println!("MATCH {} — {}", song.title, song.artist),
+        None => println!("NO MATCH"),
+    }
     Ok(())
 }
 
@@ -86,7 +90,8 @@ fn unix_ms() -> Result<u64> {
     Ok(SystemTime::now().duration_since(UNIX_EPOCH)?.as_millis() as u64)
 }
 
-/// POSTs over HTTPS (ureq speaks HTTP/1.1 only, matching SongRec's forced HTTP/1.1).
+/// POSTs over HTTPS. ureq speaks HTTP/1.1 only, and SongRec's reqwest is built without
+/// its `http2` feature, so both send HTTP/1.1.
 /// 4xx and 5xx come back as statuses, not errors, so the caller sees 429s.
 fn send(request: &shazam::Request) -> Result<(u16, Vec<u8>)> {
     let agent: ureq::Agent = ureq::Agent::config_builder()
@@ -102,4 +107,37 @@ fn send(request: &shazam::Request) -> Result<(u16, Vec<u8>)> {
     let status = response.status().as_u16();
     let body = response.body_mut().read_to_vec()?;
     Ok((status, body))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// `before` samples of 1, then a full window of 2s, then `after` samples of 3.
+    fn marked(before: usize, after: usize) -> Vec<i16> {
+        [vec![1; before], vec![2; WINDOW_SAMPLES], vec![3; after]].concat()
+    }
+
+    #[test]
+    fn input_shorter_than_the_window_is_used_whole() {
+        let pcm: Vec<i16> = (0..5 * 16_000).map(|i| i as i16).collect();
+        assert_eq!(middle_window(&pcm), &pcm[..]);
+    }
+
+    #[test]
+    fn input_exactly_the_window_long_is_used_whole() {
+        let pcm: Vec<i16> = (0..WINDOW_SAMPLES).map(|i| i as i16).collect();
+        assert_eq!(middle_window(&pcm), &pcm[..]);
+    }
+
+    #[test]
+    fn longer_input_yields_the_centered_window() {
+        let pcm = marked(16_000, 16_000); // 1 s spare on each side
+        let window = middle_window(&pcm);
+        assert_eq!(window.len(), WINDOW_SAMPLES);
+        assert!(
+            window.iter().all(|&s| s == 2),
+            "window reaches outside the middle 12 s"
+        );
+    }
 }
