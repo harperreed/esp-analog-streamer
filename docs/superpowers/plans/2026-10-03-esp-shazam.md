@@ -2751,3 +2751,1009 @@ git rm firmware/src/board.rs
 git add firmware/src gotchas.md docs/superpowers
 git commit -m "feat(firmware): set up the ES8388 for LINE IN and capture 16 kHz mono into a ring"
 ```
+---
+
+### Task 9: Wi-Fi, clock, and the recognizer thread
+
+The board identifies songs on its own and logs them over serial. The web page and MQTT come in Tasks 10 and 11.
+
+**Files:**
+- Create in `firmware/`:
+  - `src/config.rs`, `cfg.toml.example`
+  - `src/net.rs`, `src/shazam_http.rs`, `src/recognizer.rs`
+- Modify in `firmware/`: `Cargo.toml` (add toml-cfg), `.cargo/config.toml` (`TOML_CFG`), `src/main.rs`
+- Harper creates `firmware/cfg.toml` from the example. It holds the Wi-Fi password and stays gitignored. Don't print it, and don't commit it.
+
+**Interfaces:**
+- Consumes:
+  - `audio_in::{start_i2s, spawn_capture, SharedRing, SAMPLE_RATE_HZ, WINDOW_SAMPLES}` and `codec::setup_line_in` (Task 8).
+  - From core: `policy::*` (Task 5), `store::SongStore` (Task 6), and `shazam::{build_request, sample_ms, uuid_v4, user_agent, RequestContext, parse_response, Song}` (Tasks 3–4).
+  - `time::rfc3339_utc` (Task 1) and `fingerprinting::algorithm::SignatureGenerator` (Task 2).
+- Produces:
+  - `config::CONFIG` (fields below) and `config::policy_config() -> PolicyConfig`
+  - `net::start_wifi(...)`, `net::supervise(wifi) -> !`, `net::start_sntp()`, `net::clock_synced() -> bool`, `net::unix_secs()`, `net::unix_ms()`
+  - `shazam_http::recognize(&Request) -> (Outcome, Option<Song>)`
+  - `recognizer::SharedStore = Arc<Mutex<SongStore>>`
+  - `recognizer::spawn(ring, store, config, on_change: impl Fn() + Send + 'static) -> anyhow::Result<()>`
+
+- [ ] **Step 1: Config from cfg.toml**
+
+`firmware/Cargo.toml` `[dependencies]` gains `toml-cfg = "0.2"`.
+
+`firmware/.cargo/config.toml` `[env]` gains this line. It turns a missing `cfg.toml` into a build error instead of silent defaults:
+```toml
+TOML_CFG = "require_cfg_present"
+```
+
+`firmware/cfg.toml.example`:
+```toml
+# Copy to firmware/cfg.toml (gitignored) and fill in. Values must not contain " or \ (a toml-cfg limit).
+# After creating cfg.toml for the first time, run `touch src/config.rs` so cargo picks it up.
+[esp-shazam-firmware]
+wifi_ssid = "your-network"
+wifi_pass = "your-password"
+mqtt_url = "mqtt://192.168.200.8:1883"
+hostname = "esp-shazam"
+pga_gain = 0
+quiet_threshold_dbfs = -50.0
+search_interval_secs = 8
+slow_search_interval_secs = 30
+recheck_interval_secs = 30
+clear_after_quiet_secs = 60
+rate_limit_backoff_secs = 300
+```
+Use whatever `pga_gain` and `quiet_threshold_dbfs` Task 8 recorded in the spec, if they differ from these.
+
+`firmware/src/config.rs`:
+```rust
+// ABOUTME: Build-time settings from firmware/cfg.toml (gitignored): Wi-Fi, MQTT, codec gain, listen-policy timings.
+// ABOUTME: Defaults match the spec; cfg.toml.example lists every key.
+
+use esp_shazam_core::policy::PolicyConfig;
+
+#[toml_cfg::toml_config]
+pub struct Config {
+    #[default("")]
+    wifi_ssid: &'static str,
+    #[default("")]
+    wifi_pass: &'static str,
+    #[default("")]
+    mqtt_url: &'static str,
+    #[default("esp-shazam")]
+    hostname: &'static str,
+    #[default(0)]
+    pga_gain: u8,
+    #[default(-50.0)]
+    quiet_threshold_dbfs: f32,
+    #[default(8)]
+    search_interval_secs: u32,
+    #[default(30)]
+    slow_search_interval_secs: u32,
+    #[default(30)]
+    recheck_interval_secs: u32,
+    #[default(60)]
+    clear_after_quiet_secs: u32,
+    #[default(300)]
+    rate_limit_backoff_secs: u32,
+}
+
+/// The listen policy with cfg.toml's timings; counts the spec doesn't expose stay at their defaults.
+pub fn policy_config() -> PolicyConfig {
+    let secs = |s: u32| u64::from(s) * 1_000;
+    PolicyConfig {
+        quiet_threshold_dbfs: CONFIG.quiet_threshold_dbfs,
+        search_interval_ms: secs(CONFIG.search_interval_secs),
+        slow_search_interval_ms: secs(CONFIG.slow_search_interval_secs),
+        recheck_interval_ms: secs(CONFIG.recheck_interval_secs),
+        clear_after_quiet_ms: secs(CONFIG.clear_after_quiet_secs),
+        rate_limit_backoff_ms: secs(CONFIG.rate_limit_backoff_secs),
+        ..PolicyConfig::default()
+    }
+}
+```
+Ask Harper to create `firmware/cfg.toml` from the example and fill in the Wi-Fi name and password. Wait until `test -f firmware/cfg.toml && git check-ignore -q firmware/cfg.toml` succeeds.
+
+- [ ] **Step 2: Wi-Fi supervisor and clock**
+
+`firmware/src/net.rs`:
+```rust
+// ABOUTME: Wi-Fi station with a reconnect supervisor, plus SNTP wall-clock time.
+// ABOUTME: ESP-IDF never reconnects by itself, so `supervise` owns the link on the main thread.
+
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
+
+use anyhow::{anyhow, Result};
+use esp_idf_svc::eventloop::EspSystemEventLoop;
+use esp_idf_svc::hal::modem::WifiModemPeripheral;
+use esp_idf_svc::nvs::EspDefaultNvsPartition;
+use esp_idf_svc::sntp::EspSntp;
+use esp_idf_svc::wifi::{AuthMethod, BlockingWifi, ClientConfiguration, Configuration, EspWifi};
+
+/// Before SNTP sets it, the clock starts at 1970. Anything earlier than 2026-01-01T00:00:00Z means "not synced".
+const CLOCK_SANE_AFTER_SECS: u64 = 1_767_225_600;
+
+pub fn unix_ms() -> u64 {
+    SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_millis() as u64).unwrap_or(0)
+}
+
+pub fn unix_secs() -> u64 {
+    unix_ms() / 1_000
+}
+
+/// True once SNTP has set the wall clock; Shazam requests carry a timestamp.
+pub fn clock_synced() -> bool {
+    unix_secs() > CLOCK_SANE_AFTER_SECS
+}
+
+/// Starts Wi-Fi and tries one connect. A failed first connect is logged, not fatal: `supervise` keeps trying.
+pub fn start_wifi(
+    modem: impl WifiModemPeripheral + 'static,
+    sysloop: EspSystemEventLoop,
+    nvs: EspDefaultNvsPartition,
+    ssid: &str,
+    pass: &str,
+) -> Result<BlockingWifi<EspWifi<'static>>> {
+    let mut wifi = BlockingWifi::wrap(EspWifi::new(modem, sysloop.clone(), Some(nvs))?, sysloop)?;
+    wifi.set_configuration(&Configuration::Client(ClientConfiguration {
+        ssid: ssid.try_into().map_err(|_| anyhow!("wifi_ssid is longer than 32 bytes"))?,
+        password: pass.try_into().map_err(|_| anyhow!("wifi_pass is longer than 64 bytes"))?,
+        auth_method: if pass.is_empty() { AuthMethod::None } else { AuthMethod::WPA2Personal },
+        ..Default::default()
+    }))?;
+    wifi.start()?;
+    connect(&mut wifi);
+    Ok(wifi)
+}
+
+fn connect(wifi: &mut BlockingWifi<EspWifi<'static>>) -> bool {
+    match wifi.connect().and_then(|()| wifi.wait_netif_up()) {
+        Ok(()) => {
+            match wifi.wifi().sta_netif().get_ip_info() {
+                Ok(info) => log::info!("wifi: connected, IP {}", info.ip),
+                Err(e) => log::info!("wifi: connected (IP unknown: {e})"),
+            }
+            true
+        }
+        Err(e) => {
+            log::warn!("wifi: connect failed: {e}");
+            false
+        }
+    }
+}
+
+/// Never returns. Checks the link every 5 s and reconnects when it has dropped.
+pub fn supervise(mut wifi: BlockingWifi<EspWifi<'static>>) -> ! {
+    let mut was_up = wifi.is_connected().unwrap_or(false);
+    loop {
+        std::thread::sleep(Duration::from_secs(5));
+        if wifi.is_connected().unwrap_or(false) {
+            was_up = true;
+            continue;
+        }
+        if was_up {
+            log::warn!("wifi: disconnected");
+            was_up = false;
+        }
+        if connect(&mut wifi) {
+            log::info!("wifi: reconnected");
+            was_up = true;
+        }
+    }
+}
+
+/// Keep the returned handle alive: dropping it stops SNTP.
+pub fn start_sntp() -> Result<EspSntp<'static>> {
+    Ok(EspSntp::new_default()?)
+}
+```
+
+- [ ] **Step 3: The Shazam HTTPS call**
+
+`firmware/src/shazam_http.rs`:
+```rust
+// ABOUTME: Sends a Shazam recognize request over HTTPS and turns the reply into a listen-policy Outcome.
+// ABOUTME: Verifies TLS against the ESP-IDF certificate bundle and reads at most 128 KB of body.
+
+use std::time::Duration;
+
+use anyhow::{bail, Result};
+use esp_idf_svc::http::client::{Configuration, EspHttpConnection};
+use esp_idf_svc::http::Method;
+use esp_shazam_core::policy::Outcome;
+use esp_shazam_core::shazam::{parse_response, Request, Song};
+
+const MAX_BODY_BYTES: usize = 128 * 1024;
+
+/// What Shazam said, as the policy sees it, plus the song on a match.
+pub fn recognize(request: &Request) -> (Outcome, Option<Song>) {
+    match post(request) {
+        Ok((200, body)) => match parse_response(&body) {
+            Ok(Some(song)) => (Outcome::Match { key: song.key.clone() }, Some(song)),
+            Ok(None) => (Outcome::Miss, None),
+            Err(e) => {
+                log::warn!("shazam: unusable 200 response ({e}), {} bytes", body.len());
+                (Outcome::Failed, None)
+            }
+        },
+        Ok((429, _)) => {
+            log::warn!("shazam: rate-limited (HTTP 429)");
+            (Outcome::RateLimited, None)
+        }
+        Ok((status, body)) => {
+            log::warn!("shazam: HTTP {status}, {} bytes", body.len());
+            (Outcome::Failed, None)
+        }
+        Err(e) => {
+            log::warn!("shazam: request failed: {e:#}");
+            (Outcome::Failed, None)
+        }
+    }
+}
+
+fn post(request: &Request) -> Result<(u16, Vec<u8>)> {
+    let mut conn = EspHttpConnection::new(&Configuration {
+        crt_bundle_attach: Some(esp_idf_svc::sys::esp_crt_bundle_attach),
+        timeout: Some(Duration::from_secs(20)),
+        buffer_size: Some(4096),
+        buffer_size_tx: Some(1024), // the request line carries a ~250-byte URL
+        ..Default::default()
+    })?;
+    let length = request.body.len().to_string();
+    let mut headers: Vec<(&str, &str)> = request.headers.iter().map(|(k, v)| (*k, v.as_str())).collect();
+    // Without Content-Length, esp_http_client sends the body chunked.
+    headers.push(("Content-Length", length.as_str()));
+    conn.initiate_request(Method::Post, &request.url, &headers)?;
+    conn.write_all(request.body.as_bytes())?;
+    conn.initiate_response()?;
+    let status = conn.status();
+    let mut body = Vec::new();
+    let mut buf = [0u8; 1024];
+    loop {
+        let n = conn.read(&mut buf)?;
+        if n == 0 {
+            break;
+        }
+        if body.len() + n > MAX_BODY_BYTES {
+            bail!("response larger than {MAX_BODY_BYTES} bytes");
+        }
+        body.extend_from_slice(&buf[..n]);
+    }
+    Ok((status, body))
+}
+```
+
+- [ ] **Step 4: The recognizer thread**
+
+`firmware/src/recognizer.rs`:
+```rust
+// ABOUTME: The recognizer thread: every 250 ms it feeds loudness to the listen policy; when the policy says ask,
+// ABOUTME: it fingerprints the last 12 s, asks Shazam, and applies the answer to the song store.
+
+use std::sync::{Arc, Mutex};
+use std::time::{Duration, Instant};
+
+use anyhow::Result;
+use esp_idf_svc::hal::cpu::Core;
+use esp_idf_svc::hal::task::thread::ThreadSpawnConfiguration;
+use esp_shazam_core::audio::loudness_dbfs;
+use esp_shazam_core::fingerprinting::algorithm::SignatureGenerator;
+use esp_shazam_core::policy::{Change, Decision, Outcome, Policy, PolicyConfig};
+use esp_shazam_core::shazam::{self, RequestContext, Song};
+use esp_shazam_core::store::SongStore;
+use esp_shazam_core::time::rfc3339_utc;
+
+use crate::audio_in::{SharedRing, SAMPLE_RATE_HZ, WINDOW_SAMPLES};
+use crate::{net, shazam_http};
+
+pub type SharedStore = Arc<Mutex<SongStore>>;
+
+const TICK: Duration = Duration::from_millis(250);
+
+/// Runs on core 1, leaving core 0 to Wi-Fi and audio while a fingerprint takes seconds.
+/// `on_change` runs after every change to "now" (a new song or a clear).
+pub fn spawn(
+    ring: SharedRing,
+    store: SharedStore,
+    config: PolicyConfig,
+    on_change: impl Fn() + Send + 'static,
+) -> Result<()> {
+    ThreadSpawnConfiguration {
+        name: Some(c"recognizer"),
+        priority: 5,
+        pin_to_core: Some(Core::Core1),
+        ..Default::default()
+    }
+    .set()?;
+    // Fingerprint, JSON and the TLS handshake all run on this stack.
+    let spawned = std::thread::Builder::new()
+        .stack_size(32 * 1024)
+        .spawn(move || run(ring, store, config, on_change));
+    ThreadSpawnConfiguration::default().set()?;
+    spawned?;
+    Ok(())
+}
+
+fn run(ring: SharedRing, store: SharedStore, config: PolicyConfig, on_change: impl Fn()) {
+    let boot = Instant::now();
+    let now_ms = || boot.elapsed().as_millis() as u64;
+    let mut policy = Policy::new(config);
+    let mut second = Vec::with_capacity(SAMPLE_RATE_HZ as usize);
+    let mut window = Vec::with_capacity(WINDOW_SAMPLES);
+    loop {
+        std::thread::sleep(TICK);
+        ring.lock().expect("audio ring lock").copy_latest(SAMPLE_RATE_HZ as usize, &mut second);
+        let level = loudness_dbfs(&second);
+        let has_now = store.lock().expect("store lock").has_now();
+        match policy.tick(now_ms(), level, net::clock_synced(), has_now) {
+            Decision::Idle => {}
+            Decision::ClearNow => {
+                if store.lock().expect("store lock").clear_now() {
+                    log::info!("now playing: cleared after quiet");
+                    on_change();
+                }
+            }
+            Decision::Ask => {
+                ring.lock().expect("audio ring lock").copy_latest(WINDOW_SAMPLES, &mut window);
+                let (outcome, song) = ask_shazam(&window);
+                let current_key = store.lock().expect("store lock").now_key().map(str::to_owned);
+                match (policy.on_outcome(now_ms(), &outcome, current_key.as_deref()), song) {
+                    (Change::SetNow, Some(song)) => {
+                        log::info!("now playing: {} — {}", song.title, song.artist);
+                        store.lock().expect("store lock").set_now(song, rfc3339_utc(net::unix_secs()));
+                        on_change();
+                    }
+                    (Change::ClearNow, _) => {
+                        store.lock().expect("store lock").clear_now();
+                        log::info!("now playing: cleared after misses");
+                        on_change();
+                    }
+                    _ => {}
+                }
+            }
+        }
+        let now = now_ms();
+        let mut store = store.lock().expect("store lock");
+        let rate_limited_until = policy
+            .rate_limited_until(now)
+            .map(|until| rfc3339_utc(net::unix_secs() + (until - now) / 1_000));
+        let state = policy.state(now, store.has_now());
+        store.set_status(state, level, rate_limited_until);
+    }
+}
+
+fn ask_shazam(window: &[i16]) -> (Outcome, Option<Song>) {
+    let started = Instant::now();
+    let signature = SignatureGenerator::make_signature_from_buffer(window);
+    let uri = match signature.encode_to_uri() {
+        Ok(uri) => uri,
+        Err(e) => {
+            log::error!("shazam: encoding the signature failed: {e}");
+            return (Outcome::Failed, None);
+        }
+    };
+    let fingerprint_ms = started.elapsed().as_millis();
+    let uuid_a = shazam::uuid_v4(random_bytes());
+    let uuid_b = shazam::uuid_v4(random_bytes());
+    let ctx = RequestContext {
+        unix_ms: net::unix_ms(),
+        uuid_a: &uuid_a,
+        uuid_b: &uuid_b,
+        user_agent: shazam::user_agent(usize::from(random_bytes()[0])),
+    };
+    let request = shazam::build_request(
+        &uri,
+        shazam::sample_ms(signature.number_samples, signature.sample_rate_hz),
+        &ctx,
+    );
+    let answer = shazam_http::recognize(&request);
+    log::info!(
+        "shazam: {:?} (fingerprint {fingerprint_ms} ms, total {} ms)",
+        answer.0,
+        started.elapsed().as_millis()
+    );
+    answer
+}
+
+fn random_bytes() -> [u8; 16] {
+    let mut bytes = [0u8; 16];
+    // SAFETY: esp_fill_random writes exactly `len` bytes into the buffer.
+    unsafe { esp_idf_svc::sys::esp_fill_random(bytes.as_mut_ptr().cast(), bytes.len()) };
+    bytes
+}
+```
+If `esp_fill_random` isn't in the generated bindings, declare it yourself:
+```rust
+unsafe extern "C" { fn esp_fill_random(buf: *mut core::ffi::c_void, len: usize); }
+```
+The C symbol exists on ESP-IDF.
+
+- [ ] **Step 5: Wire it up in main**
+
+`firmware/src/main.rs`:
+```rust
+// ABOUTME: Firmware entry point: LINE IN capture, Wi-Fi, clock, and the recognizer around one song store.
+// ABOUTME: The main thread ends up supervising Wi-Fi; everything else runs on its own thread.
+
+mod audio_in;
+mod codec;
+mod config;
+mod net;
+mod recognizer;
+mod shazam_http;
+
+use std::sync::{Arc, Mutex};
+
+use anyhow::Result;
+use esp_idf_svc::eventloop::EspSystemEventLoop;
+use esp_idf_svc::hal::i2c::{I2cConfig, I2cDriver};
+use esp_idf_svc::hal::peripherals::Peripherals;
+use esp_idf_svc::hal::units::FromValueType;
+use esp_idf_svc::nvs::EspDefaultNvsPartition;
+use esp_shazam_core::store::SongStore;
+
+use config::CONFIG;
+
+fn main() -> Result<()> {
+    esp_idf_svc::sys::link_patches();
+    esp_idf_svc::log::EspLogger::initialize_default();
+    let peripherals = Peripherals::take()?;
+    let sysloop = EspSystemEventLoop::take()?;
+    let nvs = EspDefaultNvsPartition::take()?;
+
+    // I2S first: the codec locks onto MCLK and LRCK when its state machines restart.
+    let rx = audio_in::start_i2s(
+        peripherals.i2s0,
+        peripherals.pins.gpio27, // BCLK (v2 boards: gpio5)
+        peripherals.pins.gpio35, // DIN
+        peripherals.pins.gpio0,  // MCLK
+        peripherals.pins.gpio25, // WS
+    )?;
+    let mut i2c = I2cDriver::new(
+        peripherals.i2c0,
+        peripherals.pins.gpio33, // SDA (v2 boards: gpio18)
+        peripherals.pins.gpio32, // SCL (v2 boards: gpio23)
+        &I2cConfig::new().baudrate(100.kHz().into()),
+    )?;
+    codec::setup_line_in(&mut i2c, CONFIG.pga_gain)?;
+    let ring = audio_in::spawn_capture(rx)?;
+
+    let wifi = net::start_wifi(peripherals.modem, sysloop, nvs, CONFIG.wifi_ssid, CONFIG.wifi_pass)?;
+    let _sntp = net::start_sntp()?;
+
+    let store: recognizer::SharedStore = Arc::new(Mutex::new(SongStore::new(20)));
+    let log_store = store.clone();
+    recognizer::spawn(ring, store, config::policy_config(), move || {
+        log::info!("now_playing payload: {}", log_store.lock().expect("store lock").now_json());
+    })?;
+
+    net::supervise(wifi)
+}
+```
+
+- [ ] **Step 6: Flash and watch it identify a song (a few Shazam requests)**
+
+```bash
+old=$(osascript -e 'output volume of (get volume settings)'); osascript -e 'set volume output volume 50'
+scripts/flash
+(sleep 20; afplay -t 60 "$HOME/Downloads/24bit WAV IARC0029 Jeff Parker - Suite for Max Brown/05 Metamorphoses.wav") & scripts/serial-log 160 | tee target/recognize.log
+osascript -e "set volume output volume $old"
+grep -E 'wifi:|shazam:|now playing' target/recognize.log
+```
+Use the Mac volume Task 8 recorded, if it differs from 50.
+
+Expected:
+- `wifi: connected, IP …` within about 10 s of boot.
+- No `shazam:` lines before the music starts.
+- `now playing: Metamorphoses — Jeff Parker` within 45 s of the music starting, preceded by `shazam: Match …` with its fingerprint and total time.
+- `now playing: cleared after quiet` about 60 s after `afplay` stops.
+- No `shazam:` lines after that.
+
+Write the fingerprint and total times into the spec's Risks section.
+
+- [ ] **Step 7: Run the canonical check and commit**
+
+Run: `scripts/check`. Expected: all `ok`.
+```bash
+git add firmware/Cargo.toml firmware/Cargo.lock firmware/.cargo/config.toml firmware/cfg.toml.example firmware/src docs/superpowers
+git commit -m "feat(firmware): recognize songs on the board: Wi-Fi, clock, Shazam over HTTPS, listen policy"
+```
+`git status` must not list `firmware/cfg.toml`; it is gitignored.
+
+---
+
+### Task 10: Web page, JSON endpoint, and mDNS
+
+**Files:**
+- Create: `firmware/src/web.rs`, `firmware/src/index.html`
+- Modify:
+  - `firmware/src/net.rs` (add `start_mdns`)
+  - `firmware/src/main.rs`
+  - `firmware/Cargo.toml` (the mdns component)
+
+**Interfaces:**
+- Consumes: `recognizer::SharedStore` and `SongStore::state_json()` (Tasks 6 and 9), and `config::CONFIG.hostname` (Task 9).
+- Produces:
+  - `web::start(store: SharedStore) -> anyhow::Result<EspHttpServer<'static>>`, serving `GET /` and `GET /api/state`.
+  - `net::start_mdns(hostname: &str) -> anyhow::Result<EspMdns>`, which publishes `<hostname>.local` and `_http._tcp` on port 80.
+
+- [ ] **Step 1: Pull in the mDNS component**
+
+Append to `firmware/Cargo.toml`. The `espressif/mdns` managed component is what turns on `esp_idf_svc::mdns`:
+```toml
+[[package.metadata.esp-idf-sys.extra_components]]
+remote_component = { name = "espressif/mdns", version = "1.8.2" }
+```
+- The first build fetches the component over the network.
+- If it produces a lock file (`components_esp32.lock`) in `firmware/`, commit it.
+- If it creates `firmware/managed_components/`, gitignore that directory.
+
+Add to `firmware/src/net.rs` (it needs `use esp_idf_svc::mdns::EspMdns;`):
+```rust
+/// Publishes `<hostname>.local` and an HTTP service on port 80. Keep the handle alive.
+pub fn start_mdns(hostname: &str) -> Result<EspMdns> {
+    let mut mdns = EspMdns::take()?;
+    mdns.set_hostname(hostname)?;
+    mdns.set_instance_name("esp-shazam")?;
+    mdns.add_service(Some("esp-shazam"), "_http", "_tcp", 80, &[("path", "/")])?;
+    Ok(mdns)
+}
+```
+
+- [ ] **Step 2: The HTTP server**
+
+`firmware/src/web.rs`:
+```rust
+// ABOUTME: HTTP server: the now-playing page at / and the JSON state at /api/state.
+// ABOUTME: Both read the one song store; the page polls the JSON every 3 s.
+
+use anyhow::{anyhow, Result};
+use esp_idf_svc::http::server::{Configuration, EspHttpServer};
+use esp_idf_svc::http::Method;
+use esp_idf_svc::io::Write;
+
+use crate::recognizer::SharedStore;
+
+const INDEX_HTML: &str = include_str!("index.html");
+
+/// Keep the returned server alive: dropping it stops serving.
+pub fn start(store: SharedStore) -> Result<EspHttpServer<'static>> {
+    // Handlers serialize up to 20 history entries; the default 6 KB stack is tight for that.
+    let mut server = EspHttpServer::new(&Configuration { stack_size: 10 * 1024, ..Default::default() })?;
+    server.fn_handler::<anyhow::Error, _>("/", Method::Get, |request| {
+        request
+            .into_response(200, Some("OK"), &[("Content-Type", "text/html; charset=utf-8")])?
+            .write_all(INDEX_HTML.as_bytes())?;
+        Ok(())
+    })?;
+    server.fn_handler::<anyhow::Error, _>("/api/state", Method::Get, move |request| {
+        let body = store.lock().map_err(|_| anyhow!("song store lock poisoned"))?.state_json();
+        request
+            .into_response(
+                200,
+                Some("OK"),
+                &[("Content-Type", "application/json; charset=utf-8"), ("Cache-Control", "no-store")],
+            )?
+            .write_all(body.as_bytes())?;
+        Ok(())
+    })?;
+    Ok(server)
+}
+```
+If `?` can't convert `EspIOError` into `anyhow::Error`, use `esp_idf_svc::io::EspIOError` as the handler's error type and map the lock error with `EspIOError(EspError::from_infallible::<{ esp_idf_svc::sys::ESP_FAIL }>())`. Don't use `unwrap`.
+
+- [ ] **Step 3: The page**
+
+`firmware/src/index.html` (self-contained: no external scripts or styles; cover art loads from Shazam's CDN):
+```html
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>esp-shazam</title>
+<style>
+  :root { color-scheme: light dark; --bg: #f6f5f2; --fg: #1b1b1b; --muted: #6b6b6b; --card: #ffffff; --accent: #0a66d8; }
+  @media (prefers-color-scheme: dark) { :root { --bg: #121212; --fg: #ececec; --muted: #9a9a9a; --card: #1d1d1d; --accent: #6aa8ff; } }
+  [hidden] { display: none !important; }
+  body { margin: 0; font: 16px/1.45 system-ui, sans-serif; background: var(--bg); color: var(--fg); }
+  main { max-width: 34rem; margin: 0 auto; padding: 1.5rem 1rem; }
+  .now { display: flex; gap: 1rem; align-items: center; background: var(--card); border-radius: 12px; padding: 1rem; }
+  .now img { width: 96px; height: 96px; border-radius: 8px; object-fit: cover; background: var(--muted); flex: none; }
+  .title { font-size: 1.3rem; font-weight: 600; }
+  .muted { color: var(--muted); font-size: .9rem; }
+  h2 { font-size: 1rem; margin-top: 2rem; }
+  ol { padding-left: 1.2rem; }
+  li { margin: .35rem 0; }
+  a { color: var(--accent); }
+</style>
+</head>
+<body>
+<main>
+  <p class="muted" id="status">connecting…</p>
+  <section class="now" id="now" hidden>
+    <img id="cover" alt="">
+    <div>
+      <div class="title" id="title"></div>
+      <div id="artist"></div>
+      <div class="muted" id="album"></div>
+      <a id="link" target="_blank" rel="noopener">Open in Shazam</a>
+    </div>
+  </section>
+  <p class="muted" id="idle">Nothing playing.</p>
+  <h2 class="muted">Earlier</h2>
+  <ol id="history"></ol>
+</main>
+<script>
+const $ = (id) => document.getElementById(id);
+async function refresh() {
+  try {
+    const s = await (await fetch('/api/state', { cache: 'no-store' })).json();
+    const paused = s.rate_limited_until ? ` · paused until ${s.rate_limited_until}` : '';
+    $('status').textContent = `${s.state.replace('_', ' ')} · ${s.level_dbfs.toFixed(1)} dBFS${paused}`;
+    const n = s.now;
+    $('now').hidden = !n;
+    $('idle').hidden = Boolean(n);
+    if (n) {
+      $('title').textContent = n.title;
+      $('artist').textContent = n.artist;
+      $('album').textContent = n.album || '';
+      if (n.cover_url) { $('cover').src = n.cover_url; } else { $('cover').removeAttribute('src'); }
+      $('link').hidden = !n.shazam_url;
+      if (n.shazam_url) { $('link').href = n.shazam_url; }
+    }
+    $('history').replaceChildren(...s.history.map((h) => {
+      const li = document.createElement('li');
+      li.textContent = `${h.title} — ${h.artist} (${h.identified_at.replace('T', ' ').replace('Z', ' UTC')})`;
+      return li;
+    }));
+  } catch (e) {
+    $('status').textContent = 'board unreachable, retrying…';
+  }
+}
+refresh();
+setInterval(refresh, 3000);
+</script>
+</body>
+</html>
+```
+Every song field goes through `textContent`, never `innerHTML`, so titles can't inject markup.
+
+- [ ] **Step 4: Wire it up**
+
+In `firmware/src/main.rs`:
+- add `mod web;`
+- right after `let _sntp = net::start_sntp()?;`, add `let _mdns = net::start_mdns(CONFIG.hostname)?;`
+- after creating the store, and before `recognizer::spawn`, add `let _server = web::start(store.clone())?;`
+
+All three handles must stay bound until `net::supervise(wifi)`, which never returns.
+
+- [ ] **Step 5: Flash and check both routes**
+
+```bash
+scripts/flash
+sleep 20
+curl -s --max-time 5 http://esp-shazam.local/api/state | jq .
+curl -sI --max-time 5 http://esp-shazam.local/api/state | grep -i '^content-type: application/json; charset=utf-8'
+curl -s --max-time 5 http://esp-shazam.local/ | grep -c -F '<meta charset="utf-8">'
+```
+Expected:
+- The JSON has the spec's shape: `state`, `level_dbfs`, `rate_limited_until`, `now`, `history`.
+- The content type matches `application/json; charset=utf-8`.
+- The page check prints `1`.
+
+Then play song A as in Task 9 step 6. Within 45 s, `curl -s http://esp-shazam.local/api/state | jq -r .now.title` prints a title containing "Metamorphoses". Ask Harper to open http://esp-shazam.local/ for a look.
+
+- [ ] **Step 6: Run the canonical check and commit**
+
+Run: `scripts/check`. Expected: all `ok`.
+```bash
+git add firmware/Cargo.toml firmware/Cargo.lock firmware/src .gitignore
+# plus firmware/components_esp32.lock if the build created it
+git commit -m "feat(firmware): serve the now-playing page and /api/state; advertise esp-shazam.local"
+```
+
+---
+
+### Task 11: MQTT publishing
+
+**Files:**
+- Create: `firmware/src/mqtt_out.rs`
+- Modify: `firmware/src/main.rs`
+
+**Interfaces:**
+- Consumes: `recognizer::SharedStore`, `SongStore::now_json()`, `CONFIG.mqtt_url`, and `recognizer::spawn`'s `on_change` hook (Task 9).
+- Produces:
+  - `mqtt_out::start(url: &str, store: SharedStore) -> anyhow::Result<Publisher>`
+  - `Publisher::publish_now(&self)`: never blocks. A blank URL gives a Publisher that does nothing.
+  - `mqtt_out::TOPIC = "esp-shazam/now_playing"`
+
+- [ ] **Step 1: The publisher**
+
+`firmware/src/mqtt_out.rs`:
+```rust
+// ABOUTME: Publishes the current song to MQTT, retained, whenever it changes and on every (re)connect.
+// ABOUTME: Recognition and the web page never wait on the broker; a dead broker only delays publishes.
+
+use std::sync::mpsc;
+use std::time::Duration;
+
+use anyhow::Result;
+use esp_idf_svc::mqtt::client::{EspMqttClient, EventPayload, MqttClientConfiguration, QoS};
+
+use crate::recognizer::SharedStore;
+
+pub const TOPIC: &str = "esp-shazam/now_playing";
+
+/// Asks the MQTT thread to publish the store's current `now`. Cheap to clone; never blocks.
+#[derive(Clone)]
+pub struct Publisher(Option<mpsc::Sender<()>>);
+
+impl Publisher {
+    pub fn publish_now(&self) {
+        if let Some(tx) = &self.0 {
+            let _ = tx.send(()); // only fails if the MQTT thread is gone, which already logged why
+        }
+    }
+}
+
+/// An empty `url` disables MQTT.
+pub fn start(url: &str, store: SharedStore) -> Result<Publisher> {
+    if url.is_empty() {
+        log::info!("mqtt: disabled (mqtt_url is empty)");
+        return Ok(Publisher(None));
+    }
+    let (mut client, mut connection) = EspMqttClient::new(
+        url,
+        &MqttClientConfiguration {
+            client_id: Some("esp-shazam"),
+            keep_alive_interval: Some(Duration::from_secs(30)),
+            reconnect_timeout: Some(Duration::from_secs(5)),
+            ..Default::default()
+        },
+    )?;
+    let (tx, rx) = mpsc::channel::<()>();
+
+    // esp-mqtt stalls unless its events are pumped. Every connect asks for a publish,
+    // so the retained value is right even after a broker restart.
+    let on_connect = tx.clone();
+    std::thread::Builder::new().stack_size(6 * 1024).spawn(move || {
+        while let Ok(event) = connection.next() {
+            match event.payload() {
+                EventPayload::Connected(_) => {
+                    log::info!("mqtt: connected");
+                    let _ = on_connect.send(());
+                }
+                EventPayload::Disconnected => log::warn!("mqtt: disconnected"),
+                EventPayload::Error(e) => log::warn!("mqtt: {e:?}"),
+                _ => {}
+            }
+        }
+        log::warn!("mqtt: event loop ended");
+    })?;
+
+    std::thread::Builder::new().stack_size(6 * 1024).spawn(move || {
+        while rx.recv().is_ok() {
+            let payload = store.lock().expect("store lock").now_json();
+            // enqueue keeps a QoS 1 message while the broker is away; esp-mqtt sends it on reconnect.
+            match client.enqueue(TOPIC, QoS::AtLeastOnce, true, payload.as_bytes()) {
+                Ok(_) => log::info!("mqtt: queued {TOPIC} = {payload}"),
+                Err(e) => log::warn!("mqtt: enqueue failed: {e}"),
+            }
+        }
+    })?;
+    Ok(Publisher(Some(tx)))
+}
+```
+
+- [ ] **Step 2: Wire it up**
+
+In `firmware/src/main.rs`, add `mod mqtt_out;`. Replace the logging `on_change` closure with the publisher (keep the web server and mDNS lines from Task 10):
+```rust
+    let publisher = mqtt_out::start(CONFIG.mqtt_url, store.clone())?;
+    recognizer::spawn(ring, store, config::policy_config(), move || publisher.publish_now())?;
+```
+`store.clone()` for `web::start` must happen before `store` moves into `recognizer::spawn`.
+
+- [ ] **Step 3: Flash and check the retained topic**
+
+```bash
+scripts/flash
+sleep 25
+mosquitto_sub -h 192.168.200.8 -t esp-shazam/now_playing -v -C 1 -W 15   # expect: esp-shazam/now_playing null
+```
+Play song A as in Task 9 step 6. Within 45 s, the same `mosquitto_sub` prints the song's JSON with a title containing "Metamorphoses".
+
+- [ ] **Step 4: Broker restart under a running board (Review Focus 4)**
+
+A local broker you control stands in for Harper's broker. Only the `mqtt_url` line of `cfg.toml` changes, and the line gets restored afterwards. Never print the file.
+```bash
+mac_ip=$(ipconfig getifaddr en0)
+printf 'listener 1884 0.0.0.0\nallow_anonymous true\n' > target/mosquitto-test.conf
+/opt/homebrew/sbin/mosquitto -c target/mosquitto-test.conf & broker=$!
+sed -i '' "s#^mqtt_url = .*#mqtt_url = \"mqtt://$mac_ip:1884\"#" firmware/cfg.toml
+touch firmware/src/config.rs && scripts/flash
+sleep 25
+mosquitto_sub -h "$mac_ip" -p 1884 -t esp-shazam/now_playing -C 1 -W 15   # expect: null
+kill "$broker"; sleep 20
+curl -s --max-time 5 http://esp-shazam.local/api/state | jq -r .state      # the web keeps answering
+/opt/homebrew/sbin/mosquitto -c target/mosquitto-test.conf & broker=$!      # fresh broker: no retained messages
+sleep 20
+mosquitto_sub -h "$mac_ip" -p 1884 -t esp-shazam/now_playing -C 1 -W 15   # expect: null again, republished on connect
+kill "$broker"
+sed -i '' 's#^mqtt_url = .*#mqtt_url = "mqtt://192.168.200.8:1883"#' firmware/cfg.toml
+touch firmware/src/config.rs && scripts/flash
+```
+If macOS asks whether mosquitto may accept incoming connections, Harper has to click Allow.
+
+Pass criteria:
+- The board's serial log shows `mqtt: disconnected`, then `mqtt: connected`. Check it with `scripts/serial-log` in a second run if needed.
+- The second `mosquitto_sub` receives the payload from a broker that started empty.
+
+- [ ] **Step 5: Run the canonical check and commit**
+
+Run: `scripts/check`. Expected: all `ok`.
+```bash
+git add firmware/src
+git commit -m "feat(firmware): publish now playing to MQTT, retained, on change and on reconnect"
+```
+---
+
+### Task 12: Device end-to-end test, Wi-Fi drop check, README
+
+**Files:**
+- Create: `scripts/e2e-device`
+- Modify: `README.md`, `gotchas.md`, the spec's Hardware section (anything bring-up confirmed)
+
+**Interfaces:**
+- Consumes: the running board (Tasks 7–11), `GET /api/state`, MQTT topic `esp-shazam/now_playing`, and the Mac headphone jack cabled to LINE IN.
+- Produces: `scripts/e2e-device <song-a> "<title-a>" <song-b> "<title-b>"`, which checks success criteria 1–4 against the real board, Shazam and broker.
+
+**Songs:**
+- A: Jeff Parker's "Metamorphoses" WAV (Task 3), title `Metamorphoses`.
+- B: `P.Y.T. (Pretty Young Thing)`, found with `mdfind -name 'P.Y.T. (Pretty Young Thing)' | head -1`, title `P.Y.T.`.
+- If B isn't on disk, use any other track Shazam matched in a quick `scripts/e2e-host` run.
+
+- [ ] **Step 1: Write the script**
+
+`scripts/e2e-device` (then `chmod +x scripts/e2e-device`):
+```bash
+#!/usr/bin/env bash
+# ABOUTME: Device end-to-end test: plays songs into LINE IN and checks the board names them on HTTP and MQTT.
+# ABOUTME: Covers first match, song change, and clearing after the music stops, with timings.
+set -euo pipefail
+cd "$(dirname "$0")/.."
+
+if [ $# -ne 4 ]; then
+  echo "usage: scripts/e2e-device <song-a> \"<title-a>\" <song-b> \"<title-b>\"" >&2
+  exit 2
+fi
+song_a="$1"; title_a="$2"; song_b="$3"; title_b="$4"
+board="${BOARD_URL:-http://esp-shazam.local}"
+broker="${MQTT_HOST:-192.168.200.8}"
+topic="esp-shazam/now_playing"
+
+state() { curl -s --max-time 3 "$board/api/state" || echo '{}'; }
+mqtt_now() { mosquitto_sub -h "$broker" -t "$topic" -C 1 -W 10 2>/dev/null || true; }
+
+# Waits up to $1 seconds for /api/state .now.title to contain $2. Prints the title.
+wait_for_title() {
+  local limit="$1" want="$2" start title
+  start=$(date +%s)
+  while [ $(( $(date +%s) - start )) -le "$limit" ]; do
+    title=$(state | jq -r '.now.title // empty')
+    if [ -n "$title" ] && grep -i -F -q -- "$want" <<<"$title"; then
+      echo "$title"
+      return 0
+    fi
+    sleep 2
+  done
+  return 1
+}
+
+# The Mac's output volume sets the LINE IN level; Task 8 calibrated at 50.
+old_volume=$(osascript -e 'output volume of (get volume settings)')
+player=""
+cleanup() {
+  if [ -n "$player" ]; then kill "$player" 2>/dev/null || true; fi
+  osascript -e "set volume output volume $old_volume"
+}
+trap cleanup EXIT
+osascript -e 'set volume output volume 50'
+
+state | jq -e '.state' >/dev/null || { echo "FAIL: no /api/state at $board"; exit 1; }
+[ "$(state | jq -r '.state')" = "quiet" ] || echo "note: board not quiet at start ($(state | jq -r '.state'))"
+
+echo "== song A: $(basename "$song_a")"
+afplay "$song_a" & player=$!
+t0=$(date +%s)
+got=$(wait_for_title 45 "$title_a") || { echo "FAIL: \"$title_a\" not in /api/state within 45 s"; state | jq .; exit 1; }
+echo "ok    identified \"$got\" after $(( $(date +%s) - t0 )) s"
+mqtt_now | grep -i -F -q -- "$title_a" || { echo "FAIL: MQTT lacks \"$title_a\""; exit 1; }
+echo "ok    MQTT retained \"$title_a\""
+
+echo "== song B: $(basename "$song_b")"
+kill "$player"; afplay "$song_b" & player=$!
+t0=$(date +%s)
+got=$(wait_for_title 60 "$title_b") || { echo "FAIL: song change not seen within 60 s"; state | jq .; exit 1; }
+echo "ok    changed to \"$got\" after $(( $(date +%s) - t0 )) s"
+mqtt_now | grep -i -F -q -- "$title_b" || { echo "FAIL: MQTT lacks \"$title_b\""; exit 1; }
+state | jq -e --arg a "$title_a" '.history[1].title | ascii_downcase | contains($a | ascii_downcase)' >/dev/null \
+  || { echo "FAIL: history[1] is not song A"; state | jq '.history'; exit 1; }
+echo "ok    history lists B then A"
+
+echo "== silence"
+kill "$player"; player=""
+t0=$(date +%s)
+while [ $(( $(date +%s) - t0 )) -le 75 ] && [ "$(state | jq -r '.now')" != "null" ]; do sleep 2; done
+[ "$(state | jq -r '.now')" = "null" ] || { echo "FAIL: now playing still set 75 s after the music stopped"; exit 1; }
+echo "ok    cleared after $(( $(date +%s) - t0 )) s"
+[ "$(mqtt_now)" = "null" ] || { echo "FAIL: MQTT still holds a song"; exit 1; }
+echo "ok    MQTT retained null"
+
+echo "PASS e2e-device"
+```
+
+- [ ] **Step 2: Run it (about 6 Shazam requests)**
+
+Board flashed with the full app and on Wi-Fi; Mac headphone jack cabled to LINE IN.
+
+Run: `scripts/e2e-device "$HOME/Downloads/24bit WAV IARC0029 Jeff Parker - Suite for Max Brown/05 Metamorphoses.wav" "Metamorphoses" "$(mdfind -name 'P.Y.T. (Pretty Young Thing)' | head -1)" "P.Y.T."`
+
+Expected:
+- `ok    identified "Metamorphoses" after N s` with N ≤ 45
+- `ok    changed to ...` with ≤ 60 s
+- `ok    cleared after M s` with M ≤ 75
+- `PASS e2e-device`
+
+- [ ] **Step 3: Wi-Fi drop check (needs Harper)**
+
+1. Keep `espflash monitor --port /dev/cu.usbserial-0001` running.
+2. Ask Harper to cut the board's Wi-Fi for about 30 s. Blocking its MAC (70:4b:ca:87:18:3c) in the router, or toggling the 2.4 GHz radio, both work.
+
+Expected in the monitor:
+- `wifi: disconnected` (Task 9's log line), then `wifi: reconnected` within about 10 s of service returning.
+- No reset (`rst:` line).
+
+Then re-run step 2's command. It must pass again with no reflash.
+
+- [ ] **Step 4: Finish the README and record what bring-up learned**
+
+`README.md`: replace with the following, filling the codec revision and LINE IN pins with what Task 7/8 found:
+````markdown
+# esp-shazam
+
+An always-listening Shazam box. Rust firmware for the Ai-Thinker ESP32-A1S Audio Kit listens to LINE IN, fingerprints the audio on the board (SongRec's algorithm), asks Shazam, and publishes the song.
+
+- Web page: http://esp-shazam.local/
+- JSON: `GET http://esp-shazam.local/api/state`
+- MQTT: `esp-shazam/now_playing` (retained; the song as JSON, or `null`)
+
+## Build and flash
+
+```bash
+mise trust && mise install && mise run esp-toolchain  # toolchain, pinned in mise.toml
+cp firmware/cfg.toml.example firmware/cfg.toml        # then fill in Wi-Fi and MQTT
+scripts/check                                    # fmt, clippy, Mac tests, firmware build
+scripts/flash                                    # flash and open the serial monitor
+```
+
+## Tests
+
+- `scripts/check`: canonical check
+- `scripts/e2e-host <song> "<title>"`: real Shazam from the Mac
+- `scripts/e2e-device <song-a> "<title-a>" <song-b> "<title-b>"`: the board end to end (needs a cable from the Mac headphone jack to LINE IN)
+
+Design and hardware notes: `docs/superpowers/specs/2026-10-03-esp-shazam-design.md`.
+
+Licensed GPL-3.0-or-later (the fingerprint code comes from SongRec).
+````
+
+Update the spec's Hardware section so every "(verify)" item bring-up settled shows its measured value. Add new hardware surprises to `gotchas.md`.
+
+- [ ] **Step 5: Run the canonical check and commit**
+
+Run: `scripts/check`. Expected: all `ok`.
+```bash
+git add scripts/e2e-device README.md gotchas.md docs/superpowers/specs/2026-10-03-esp-shazam-design.md
+git commit -m "test: add device end-to-end test and finish the README"
+```
