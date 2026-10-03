@@ -1085,8 +1085,8 @@ Then add `cargo test -q -p esp-shazam-core --test shazam_fixtures` right before 
 
 - [ ] **Step 6: Run the Mac E2E once more (2 requests), then the canonical check**
 
-Run: `scripts/e2e-host "$HOME/Downloads/24bit WAV IARC0029 Jeff Parker - Suite for Max Brown/05 Metamorphoses.wav" "Metamorphoses"`
-Expected: `MATCH Metamorphoses — Jeff Parker` (or Shazam's spelling of it), `NO MATCH` for the noise, then `PASS e2e-host`.
+Run: `scripts/e2e-host "$(mdfind -name 'P.Y.T. (Pretty Young Thing)' 2>/dev/null | grep -E '\.m4a$' | head -1)" "P.Y.T."`
+Expected: `MATCH P.Y.T. (Pretty Young Thing) — Michael Jackson` (or Shazam's spelling of it), `NO MATCH` for the noise, then `PASS e2e-host`. Songs come from mdfind because this session can't read `~/Downloads` (ledger Ruling R7).
 
 Run: `scripts/check`. Expected: all `ok`.
 
@@ -2719,7 +2719,7 @@ ffmpeg -v error -y -f lavfi -i "sine=frequency=1000:sample_rate=44100:duration=1
 old=$(osascript -e 'output volume of (get volume settings)'); osascript -e 'set volume output volume 50'
 scripts/flash
 (sleep 6; afplay target/tone-1k.wav) & scripts/serial-log 25 | tee target/tone.log
-(sleep 6; afplay -t 15 "$HOME/Downloads/24bit WAV IARC0029 Jeff Parker - Suite for Max Brown/05 Metamorphoses.wav") & scripts/serial-log 25 | tee target/music.log
+(sleep 6; afplay -t 15 "$(mdfind -name 'P.Y.T. (Pretty Young Thing)' 2>/dev/null | grep -E '\.m4a$' | head -1)") & scripts/serial-log 25 | tee target/music.log
 scripts/serial-log 15 | tee target/silence.log
 osascript -e "set volume output volume $old"
 grep -E 'codec:|audio:' target/tone.log target/music.log target/silence.log
@@ -3238,7 +3238,7 @@ fn main() -> Result<()> {
 ```bash
 old=$(osascript -e 'output volume of (get volume settings)'); osascript -e 'set volume output volume 50'
 scripts/flash
-(sleep 20; afplay -t 60 "$HOME/Downloads/24bit WAV IARC0029 Jeff Parker - Suite for Max Brown/05 Metamorphoses.wav") & scripts/serial-log 160 | tee target/recognize.log
+(sleep 20; afplay -t 60 "$(mdfind -name 'P.Y.T. (Pretty Young Thing)' 2>/dev/null | grep -E '\.m4a$' | head -1)") & scripts/serial-log 160 | tee target/recognize.log
 osascript -e "set volume output volume $old"
 grep -E 'wifi:|shazam:|now playing' target/recognize.log
 ```
@@ -3247,7 +3247,7 @@ Use the Mac volume Task 8 recorded, if it differs from 50.
 Expected:
 - `wifi: connected, IP …` within about 10 s of boot.
 - No `shazam:` lines before the music starts.
-- `now playing: Metamorphoses — Jeff Parker` within 45 s of the music starting, preceded by `shazam: Match …` with its fingerprint and total time.
+- `now playing: P.Y.T. (Pretty Young Thing) — Michael Jackson` within 45 s of the music starting, preceded by `shazam: Match …` with its fingerprint and total time.
 - `now playing: cleared after quiet` about 60 s after `afplay` stops.
 - No `shazam:` lines after that.
 
@@ -3444,7 +3444,7 @@ Expected:
 - The content type matches `application/json; charset=utf-8`.
 - The page check prints `1`.
 
-Then play song A as in Task 9 step 6. Within 45 s, `curl -s http://esp-shazam.local/api/state | jq -r .now.title` prints a title containing "Metamorphoses". Ask Harper to open http://esp-shazam.local/ for a look.
+Then play song A as in Task 9 step 6. Within 45 s, `curl -s http://esp-shazam.local/api/state | jq -r .now.title` prints a title containing "P.Y.T.". Ask Harper to open http://esp-shazam.local/ for a look.
 
 - [ ] **Step 6: Run the canonical check and commit**
 
@@ -3564,7 +3564,7 @@ scripts/flash
 sleep 25
 mosquitto_sub -h 192.168.200.8 -t esp-shazam/now_playing -v -C 1 -W 15   # expect: esp-shazam/now_playing null
 ```
-Play song A as in Task 9 step 6. Within 45 s, the same `mosquitto_sub` prints the song's JSON with a title containing "Metamorphoses".
+Play song A as in Task 9 step 6. Within 45 s, the same `mosquitto_sub` prints the song's JSON with a title containing "P.Y.T.".
 
 - [ ] **Step 4: Broker restart under a running board (Review Focus 4)**
 
@@ -3612,8 +3612,9 @@ git commit -m "feat(firmware): publish now playing to MQTT, retained, on change 
 - Produces: `scripts/e2e-device <song-a> "<title-a>" <song-b> "<title-b>"`, which checks success criteria 1–4 against the real board, Shazam and broker.
 
 **Songs:**
-- A: Jeff Parker's "Metamorphoses" WAV (Task 3), title `Metamorphoses`.
-- B: `P.Y.T. (Pretty Young Thing)`, found with `mdfind -name 'P.Y.T. (Pretty Young Thing)' | head -1`, title `P.Y.T.`.
+- A: `P.Y.T. (Pretty Young Thing)` (Michael Jackson), found with `mdfind -name 'P.Y.T. (Pretty Young Thing)' 2>/dev/null | grep -E '\.m4a$' | head -1`, title `P.Y.T.`.
+- B: `Blame It On the Boogie` (The Jacksons), found with `mdfind -name 'Blame It On the Boogie' 2>/dev/null | grep -E '\.m4a$' | head -1`, title `Blame It On the Boogie`.
+- The `.m4a` filter matters: mdfind also returns `test/fixtures/songs/clip.wav`, which ffmpeg tagged with the song's title. `~/Downloads` is unreadable from this session (Ruling R7).
 - If B isn't on disk, use any other track Shazam matched in a quick `scripts/e2e-host` run.
 
 - [ ] **Step 1: Write the script**
@@ -3700,10 +3701,10 @@ echo "PASS e2e-device"
 
 Board flashed with the full app and on Wi-Fi; Mac headphone jack cabled to LINE IN.
 
-Run: `scripts/e2e-device "$HOME/Downloads/24bit WAV IARC0029 Jeff Parker - Suite for Max Brown/05 Metamorphoses.wav" "Metamorphoses" "$(mdfind -name 'P.Y.T. (Pretty Young Thing)' | head -1)" "P.Y.T."`
+Run: `scripts/e2e-device "$(mdfind -name 'P.Y.T. (Pretty Young Thing)' 2>/dev/null | grep -E '\.m4a$' | head -1)" "P.Y.T." "$(mdfind -name 'Blame It On the Boogie' 2>/dev/null | grep -E '\.m4a$' | head -1)" "Blame It On the Boogie"`
 
 Expected:
-- `ok    identified "Metamorphoses" after N s` with N ≤ 45
+- `ok    identified "P.Y.T. ..." after N s` with N ≤ 45
 - `ok    changed to ...` with ≤ 60 s
 - `ok    cleared after M s` with M ≤ 75
 - `PASS e2e-device`
