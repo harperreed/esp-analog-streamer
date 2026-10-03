@@ -41,7 +41,7 @@ The `firmware` crate is an esp-idf-svc app that wires the codec, I2S capture, Wi
 
 - **Board:** Ai-Thinker ESP32-Audio-Kit, ESP32-D0WD-V3 rev v3.1, 4 MB flash. Serial port `/dev/cu.usbserial-0001`.
 - **The toolchain comes from mise** (Harper's call). Tools are pinned in `mise.toml`; install them with `mise install`, never with brew, `rustup toolchain install` or `cargo install`.
-  - Scripts begin with `eval "$(mise env -s bash)"` so they get the pinned tools in any shell.
+  - Scripts begin by loading `mise env -s bash` and exit with `FAIL  mise` if that fails, so they never run on unpinned tools.
   - mise exports `RUSTUP_TOOLCHAIN`, which outranks `firmware/rust-toolchain.toml`. Firmware builds therefore run `cargo +esp ...`.
 - **Target and versions:**
   - Target `xtensa-esp32-espidf`, ESP-IDF `v5.5.5`.
@@ -214,7 +214,8 @@ Expected: PASS (1 test).
 # ABOUTME: Prints one ok/FAIL line per stage; full output lands in target/check-logs/<stage>.log.
 set -uo pipefail
 cd "$(dirname "$0")/.."
-eval "$(mise env -s bash)" # the toolchain pinned in mise.toml
+mise_env="$(mise env -s bash)" || { echo "FAIL  mise   (run: mise trust && mise install)"; exit 1; }
+eval "$mise_env" # the toolchain pinned in mise.toml
 LOG_DIR=target/check-logs
 mkdir -p "$LOG_DIR"
 status=0
@@ -804,7 +805,8 @@ The ureq 3 calls above (`Agent::config_builder`, `http_status_as_error`, `timeou
 # ABOUTME: Refreshes test/fixtures/shazam/ (real responses, lyrics stripped) that the parser tests read.
 set -euo pipefail
 cd "$(dirname "$0")/.."
-eval "$(mise env -s bash)" # the toolchain pinned in mise.toml
+mise_env="$(mise env -s bash)" || { echo "FAIL  mise   (run: mise trust && mise install)"; exit 1; }
+eval "$mise_env" # the toolchain pinned in mise.toml
 
 if [ $# -ne 2 ]; then
   echo "usage: scripts/e2e-host <song-file> \"<expected title>\"" >&2
@@ -2378,7 +2380,8 @@ fn log_memory(when: &str) -> usize {
 # ABOUTME: Usage: scripts/flash [--monitor]. Port: $ESPFLASH_PORT, default /dev/cu.usbserial-0001.
 set -euo pipefail
 cd "$(dirname "$0")/../firmware"
-eval "$(mise env -s bash)" # cmake, ninja, ldproxy, espflash from mise.toml
+mise_env="$(mise env -s bash)" || { echo "FAIL  mise   (run: mise trust && mise install)"; exit 1; }
+eval "$mise_env" # cmake, ninja, ldproxy, espflash from mise.toml
 if [ -f "$HOME/export-esp.sh" ]; then . "$HOME/export-esp.sh"; fi
 # +esp outranks the RUSTUP_TOOLCHAIN that mise exports
 cargo +esp build --release
