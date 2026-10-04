@@ -3611,6 +3611,57 @@ git commit -m "feat(firmware): publish now playing to MQTT, retained, on change 
 ```
 ---
 
+### Task 11b: PSRAM and flash at 80 MHz (SDD Ruling R20)
+
+Task 11's RAM fix moved the fingerprint's FFT buffers into 40 MHz PSRAM. That fixed the 860-byte internal-RAM low, but a fingerprint now takes about 16.5 s, up from 10.5 s. The re-check cycle grows to about 48 s, so the worst-case song change (about 65 s) and clear (about 78 s) overshoot success criteria 3 and 4.
+
+Ruling R11 parked PSRAM and flash at 80 MHz until timings missed, and they now miss.
+- It isn't a security change.
+- A failed boot is recoverable over the ROM bootloader: reflash at 40 MHz.
+
+**Files:**
+- Modify: `firmware/sdkconfig.defaults`, `scripts/flash`, the spec's Hardware and Risks sections, `gotchas.md`, this plan's `## Now`
+
+**Interfaces:**
+- Consumes: the Task 11 firmware.
+- Produces: the same firmware, with flash and PSRAM at 80 MHz, if the board proves stable.
+
+- [ ] **Step 1: Switch both clocks to 80 MHz**
+
+`firmware/sdkconfig.defaults` gains these lines. Both keys exist in ESP-IDF v5.5.5: `spi_flash/esp32/Kconfig.flash_freq`, and `esp_psram/esp32/Kconfig.spiram`, where `SPIRAM_SPEED_80M` depends on `ESPTOOLPY_FLASHFREQ_80M`.
+```
+# Flash and PSRAM at 80 MHz: the fingerprint's FFT buffers live in PSRAM (Task 11), so its speed is PSRAM-bound.
+CONFIG_ESPTOOLPY_FLASHFREQ_80M=y
+CONFIG_SPIRAM_SPEED_80M=y
+```
+In `scripts/flash`, add `--flash-freq 80mhz` to the espflash arguments, so the image header matches the bootloader.
+
+- [ ] **Step 2: Prove it on the board (about 8 Shazam requests)**
+
+1. Flash.
+2. Confirm boot: the serial log shows the 2nd stage bootloader and `SPI Speed : 80MHz`. Then confirm the app reports PSRAM, and that nothing panics or resets during a 5-minute run with the source playing.
+3. Use the same throwaway diagnostic Task 11 used (kept uncommitted). Over at least 5 asks with a 3 s `curl -4` `/api/state` poller running, record:
+   - fingerprint ms
+   - min free internal RAM
+   - the largest internal block before TLS
+   - TLS failures
+4. Acceptance: no boot failure, panic or reset; 0 TLS failures; min free internal at least 10 KB; fingerprint meaningfully faster than 16.5 s.
+
+If acceptance fails, revert both lines and the flag, reflash at 40 MHz, confirm the board runs, and report the numbers. The controller then rules on tuning instead (for example `clear_after_quiet_secs` 55, `recheck_interval_secs` 24).
+
+- [ ] **Step 3: Record and commit**
+
+1. Update the spec's Hardware (clock rates) and Risks (timings) sections, `gotchas.md`, and the plan's `## Now`.
+2. Park the board in its bootloader.
+3. Run `scripts/check`: all `ok`.
+4. Commit by name:
+   ```bash
+   git add firmware/sdkconfig.defaults scripts/flash gotchas.md docs/superpowers
+   git commit -m "perf(firmware): run flash and PSRAM at 80 MHz"
+   ```
+
+---
+
 ### Task 12: Device end-to-end test, Wi-Fi drop check, README
 
 LINE IN is wired to Harper's audio source, which plays continuously and which nothing on the Mac controls. The device test therefore works with whatever plays (ledger Ruling R13).
