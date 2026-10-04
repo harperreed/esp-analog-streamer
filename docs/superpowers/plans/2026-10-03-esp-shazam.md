@@ -1,10 +1,10 @@
 # esp-shazam Implementation Plan
 
 ## Now
-- Step: Task 15 (`/stream.wav` on port 8000) is complete (d551902..cde2d7d): review and fix-round re-review clean, device checks passed, and modem sleep is off (SDD R27). The clean image runs at 192.168.200.224 with Shazam off, not parked. On the Mac's path (Wi-Fi, then Tailscale, or the routed en0 path) streams still drop after 3-22 s in bad stretches, with round trips swinging from 10-20 ms to 37-80 ms and spikes to 1 s. Now waiting on Harper's phone test on the board's own Wi-Fi. Task 14b is complete (d7e7d0e..b06e6a0; review approved, 5 minor notes). Capture works on the board with 32-bit slots, APLL MCLK, no lost buffers and a 45 ms I2S queue. With the flag off, the page reads "Shazam is off · <level> dBFS" and the level is live. `cfg.toml` has `shazam_enabled = false`. Navigator was initialized (76a45b7), with the judge on (2f1520c). Task 14a is complete (9d02a98, 615d277, 8ac51b4; review approved).
-- Next: Harper listens to the stream (does it sound right, and is left on the left?), then 16 (`/stream.flac`), Task 12 (device E2E and README), then the final whole-branch review.
+- Step: Task 16 (`/stream.flac`), moved ahead of Task 15b's tuning at Harper's call. Task 15 (`/stream.wav` on port 8000) is complete (d551902..cde2d7d): review and fix-round re-review clean, device checks passed, and modem sleep is off (SDD R27). The clean image runs at 192.168.200.224 with Shazam off, not parked. Harper's test on 2026-10-04: VLC on the Mac played about 12 s, then stopped. The controller reproduced it: audio arrived slower than real time, VLC ran dry, and the board dropped the listener 2 s behind. The WAV itself and its HTTP framing are fine. The phone's browser shows no player, because Safari's player needs byte ranges, which an endless WAV can't serve. Task 14b is complete (d7e7d0e..b06e6a0; review approved, 5 minor notes). Capture works on the board with 32-bit slots, APLL MCLK, no lost buffers and a 45 ms I2S queue. With the flag off, the page reads "Shazam is off · <level> dBFS" and the level is live. `cfg.toml` has `shazam_enabled = false`. Navigator was initialized (76a45b7), with the judge on (2f1520c). Task 14a is complete (9d02a98, 615d277, 8ac51b4; review approved).
+- Next: Task 15b (send-buffer tuning, sized by measurements on the FLAC stream; SDD R29), Harper listens in VLC on the Mac (does it sound right, and is left on the left?), Task 12 (device E2E and README), then the final whole-branch review.
 - Open (Harper):
-  - Listen to `http://esp-shazam.local:8000/stream.wav` (or `http://192.168.200.224:8000/stream.wav`) from a device on the board's own network, such as a phone with VLC. Does it play without stopping, does it sound right, and is left on the left?
+  - Should a phone browser play the stream? An endless WAV or FLAC can't do that in Safari, which needs HLS (a separate feature). VLC on the phone would work without it.
   - Shazam and the stream don't fit in internal RAM together: one listener costs 17-25 KB and two 41-55 KB, against about 9-10 KB spare with Shazam on once the idle stream server (5.7-5.8 KB) is counted. Candidate fixes: Wi-Fi and lwIP buffers in PSRAM (untested), or mbedTLS in PSRAM (a security call).
   - The code default of `shazam_enabled` is still `true`; only `cfg.toml` turns it off. Flip the default too?
   - Task 12 was written around Shazam matches. With Shazam off, it should test the stream instead. Keep a Shazam-on scenario in it, or not?
@@ -28,6 +28,7 @@
 - Direction: "i see you are still doing the ingerprinting. i thought we had talked about putting that behind a feature flag and focusing on the streaming" (2026-10-04), Shazam off on the board, the stream first (SDD R26)
 - Approved: "let's do 15" (2026-10-04), skip finishing 14b's report and clean flash; go to Task 15
 - Approved: "Yes, flash now" (2026-10-04), flash Task 15's fix round (modem sleep off) and run its device checks
+- Approved: "why not just do the flac part, and then we can tune it from there" (2026-10-04), Task 16 (FLAC) before Task 15b's send-buffer tuning
 - Compactions: 1
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
