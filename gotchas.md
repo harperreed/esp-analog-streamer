@@ -165,3 +165,9 @@ After a zero-window probe, lwIP's `snd_nxt` is one byte past what the peer has, 
 
 ## Formatting a float to a precision takes 1 KB of stack
 Rust's `{:.1}` on a float goes through `float_to_decimal_common_exact`, which puts a 1,024-byte buffer on the stack. On the 4 KiB stream threads, log integers.
+
+## The Mac idle-sleeps through long device tests
+On 2026-10-04 the Mac turned its display off at 14:27:08 and went to idle sleep at 14:27:57, then cycled between dark wakes of about 45 s and maintenance sleeps of about 5 minutes (`pmset -g log`). Processes froze in between: a 60 s stream capture stopped after 20 s of audio, its `/api/state` poller recorded nothing for 5 minutes at a time, and ffmpeg then waited 15 minutes on a connection the board had already dropped. Run long device tests under `caffeinate -is` (it holds off sleep for that one command). `scripts/stream-check` gives ffmpeg a 10 s I/O timeout (`-rw_timeout`), so a stalled stream fails the check instead of hanging it.
+
+## A pyserial read with DTR and RTS set false still reset the board
+On 2026-10-04 a read meant to leave the board running (pyserial, `dtr = False` and `rts = False` set before `open()`) logged `rst:0x1 (POWERON_RESET)` and a fresh boot, and the read itself took over 2 minutes instead of 25 s while the Mac was sleeping on and off. The mechanism isn't pinned down. Don't count on reading the serial log without resetting the board.
