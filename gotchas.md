@@ -53,10 +53,11 @@ espflash 4.6.0 rewrites byte 3 of the bootloader's image header (flash size and 
 - The boot log's `boot.esp32: SPI Speed : 80MHz` shows the header; `esp_psram: Speed: 80MHz` shows the app's sdkconfig.
 - `firmware/.cargo/config.toml` has no cargo `runner` for the same reason: `espflash flash --monitor` would write a 40 MHz header, its own bootloader and its default partition table. Flash with `scripts/flash`.
 
-## A 12 s fingerprint takes about 10.2 s on this board
+## A 12 s fingerprint takes about 11 s on this board
 On 2026-10-03 it took 12618 ms at ESP-IDF's default 160 MHz, and 10526 ms in a throwaway 240 MHz build. About half the time scales with the clock and half doesn't (PSRAM or flash fetch at 40 MHz); the firmware runs at 240 MHz (SDD Ruling R11). `search_interval_secs` stays 8, against the plan's "over 6 s" rule, because the policy starts the interval when the answer arrives. The spec's Risks section has the numbers.
 - Since Task 11's fix round (SDD Ruling R19), the FFT's 8 KB tables and buffers live in PSRAM (`CONFIG_SPIRAM_MALLOC_ALWAYSINTERNAL=8191`; see "Internal RAM is the budget"). With PSRAM at 40 MHz, a fingerprint then took 16.1–16.9 s, and a re-check cycle while matched about 48 s.
 - Since Task 11b (SDD Ruling R20), flash and PSRAM run at 80 MHz. Over 9 asks a fingerprint took 9.75–10.35 s (mean 10.2 s), and a cycle while matched 40.8–41.4 s. The 12 s snapshot holds the ring lock about 50 ms, down from about 90 ms.
+- Since Task 14b, core 0 captures 48 kHz stereo and runs the decimator, and the two cores share flash and PSRAM. Over 7 asks a fingerprint took 10.84–11.28 s (mean 11.1 s), the snapshot 58–62 ms, and a cycle while matched 42.2–42.8 s.
 - Generating the test signal, `chord_and_chirp(12)`, takes about 19 s on the ESP32 at 160 MHz (libm `sinf` on large arguments). The probe doesn't time it; keep it out of anything timed.
 
 ## Long work on the main task trips the task watchdog
@@ -70,9 +71,20 @@ VARIABLE was turned down, and music reached the board at about -64 dBFS. That's 
 
 ## Park the board after a device test, or it keeps asking Shazam
 From Task 9 on, the firmware asks Shazam about every 41 s while music plays, for as long as the board has power. When a test ends, run `espflash board-info --port /dev/cu.usbserial-0001 --after no-reset`. The chip then stays in its serial bootloader ("Staying in bootloader"), and nothing gets written. The next reset, `scripts/serial-log` or `scripts/flash` boots the app again.
+Since 2026-10-04 Harper's `firmware/cfg.toml` has `shazam_enabled = false` (Harper: "focusing on the streaming"). The board then sends nothing to Shazam (only SNTP, MQTT and mDNS traffic) and stays running, so Harper can watch the level on the page. Park it only after a test that turns the flag back on.
 
 ## ESP-IDF's I2S receive queue holds one buffer fewer than you configure
-`i2s_common.c` (IDF 5.5.5) creates the receive queue with `dma_buffer_count - 1` slots. When the reader falls behind, the ISR drops the oldest buffer without logging anything. With the default 6 buffers of 240 frames at 16 kHz, that leaves 75 ms. The recognizer's 12 s snapshot holds the ring lock for about 50 ms (about 90 ms with PSRAM at 40 MHz), so `audio_in` uses 16 buffers (225 ms).
+`i2s_common.c` (IDF 5.5.5) creates the receive queue with `dma_buffer_count - 1` slots. When the reader falls behind, the ISR drops the oldest buffer without logging anything.
+- At 48 kHz with two 32-bit slots a frame (Task 14b), a 240-frame buffer is 5 ms and 1,920 bytes of internal RAM. `audio_in` uses 10, so it can run 45 ms late.
+- The audio thread never waits for the recognizer: it `try_lock`s the 12 s ring and keeps its samples while the 12 s snapshot (about 60 ms) holds it (SDD Ruling R25).
+- Core 0 still slows down: the start of each fingerprint (1–20 ms after the snapshot; it fills about 2 MB of fresh PSRAM buffers) put the thread 26–31 ms behind over 11 asks, and Wi-Fi start-up 15–25 ms at boot. Otherwise it ran at most 2.2 ms late. At 35 ms of queue the margin was 4 ms, hence 10 buffers.
+- To catch a drop, count frames against `esp_timer` time: a lost buffer leaves a lasting 240-frame step. Task 14b's throwaway diagnostic does this (`target/task14b/diag.patch`, kept locally).
+
+## On the classic ESP32, an I2S slot is as many bits as the data width
+`hal/esp32/include/hal/i2s_ll.h` sets `rx_bits_mod` to the data width ("on ESP32, sample_bit should equals to data_bit"), while `i2s_std.c` computes BCLK from `slot_bit_width`. So 24-bit data in 32-bit slots would run at the wrong sample rate (read from the source, not tried). For 24-bit audio either use a 32-bit data width, as `audio_in` does (the sample arrives in the top 24 bits; shift right by 8), or 24-bit slots with MCLK at 384 x fs (`i2s_std.c` refuses 24-bit slots otherwise) and the codec's MCLK/LRCK ratio to match. On the board the low byte of each 32-bit slot reads 0: the ES8388 drives zeros after its 24th bit.
+
+## The audio thread's decimator costs about 9% of core 0
+Measured in Task 14b: about 440 µs per 240-frame (5 ms) chunk over a 5-minute run, against Task 14a's estimate of 1–2% of a core. The whole capture loop took about 0.8 ms per chunk (16%), the diagnostic's own counting included. The FIR is f32 on the FPU, but each of its 63 taps is a dependent `add.s` (Rust doesn't fuse into `madd.s`). Folding the symmetric taps or splitting the sum would cut it, if core 0 runs short.
 
 ## toml-cfg drops attributes and pastes values into Rust source
 `#[toml_cfg::toml_config]` rebuilds the struct from field names and types alone. Doc comments and `#[allow]` on the struct or its fields vanish, so use `//` comments in `config.rs`. Each `cfg.toml` value is printed as TOML and parsed as a Rust expression. A string containing `"`, `\`, a newline or a control character comes out in a TOML form that isn't Rust (`'...'`, triple quotes, or TOML escapes). The build then fails, and its panic message prints the value: a password among them lands in `target/check-logs/firmware-build.log`. A float setting needs a decimal point (`-60.0`, not `-60`).
@@ -109,7 +121,8 @@ mbedTLS allocates only from internal RAM (`CONFIG_MBEDTLS_INTERNAL_MEM_ALLOC`, t
   - largest block before every TLS session: 47,104 bytes
   - TLS failures: none
   - Before the threshold change, the same figures were 860 and 25,600 bytes. Plain `MALLOC_CAP_INTERNAL` reads about 29 KB higher, because it also counts 32-bit-only IRAM that mbedTLS can't use.
-- **The cost:** with PSRAM at 40 MHz, a fingerprint took about 16.5 s instead of 10.7 s. Flash and PSRAM at 80 MHz (SDD Ruling R20) bring it to about 10.2 s (see "A 12 s fingerprint takes about 10.2 s"). At 80 MHz, over 9 asks with the same 3 s poller, the lowest free was 31,496 bytes, the largest block before every TLS session was 47,104, and no TLS session failed.
+- **The cost:** with PSRAM at 40 MHz, a fingerprint took about 16.5 s instead of 10.7 s. Flash and PSRAM at 80 MHz (SDD Ruling R20) bring it to about 10.2 s, and Task 14b's 48 kHz capture to about 11.1 s (see "A 12 s fingerprint takes about 11 s"). At 80 MHz, over 9 asks with the same 3 s poller, the lowest free was 31,496 bytes, the largest block before every TLS session was 47,104, and no TLS session failed.
+- **Task 14b, 2026-10-04:** 48 kHz capture with a 2 s stream ring in PSRAM, 10 I2S DMA buffers of 1,920 bytes (19,200 bytes, against 15,360 before). The lowest `INTERNAL|8BIT` free was 30,056 bytes over five asks with 8 DMA buffers, and 36,064 over two asks with 10 (a short run). The largest block before every TLS session was 47,104, with no TLS failures. With Shazam off, the lowest was 95,044.
 Measure the internal heap before adding anything that lives in internal RAM. If the margin shrinks again, letting mbedTLS use PSRAM (`CONFIG_MBEDTLS_DEFAULT_MEM_ALLOC`) removes the 16.7 KB need. ESP-IDF calls internal-only the more secure choice, though, so that is Harper's call.
 
 ## esp-mqtt holds its API lock through each connect attempt
@@ -123,8 +136,8 @@ esp-idf-svc 0.53 maps every `MQTT_EVENT_ERROR` to a fixed `ESP_FAIL` (a TODO in 
 - A live subscriber gets the board's publishes with `retain=0`; only a new subscription shows `retain=1`. `mosquitto_sub -q 1 -F '%I retain=%r qos=%q %t %p'` shows the flags.
 - The board reaches a broker on the Mac at its en0 address (192.168.99.151:1884), although the Mac reaches the board through Tailscale: the gateway routes between 192.168.99.0/24 and 192.168.200.0/24 (`ping -b en0 192.168.200.8`: 3–6 ms). Task 11's broker-restart test used that path.
 
-## With shazam_enabled = false, the page still reads "quiet · -120.0 dBFS"
-The recognizer thread measures the level and sets `state` (SDD Ruling R16), so a board that doesn't start it reports `state: quiet`, `level_dbfs: -120.0` and `now: null` for good, even while music plays into LINE IN. `/api/state` carries `"shazam_enabled": false` to tell the cases apart; the page doesn't read it yet (plan `## Now`, Open). To check that audio arrives, turn the flag back on and watch `level_dbfs`.
+## With shazam_enabled = false, `state` stays "quiet"; the page says "Shazam is off"
+Only the recognizer thread sets `state` and `now`, so a board that doesn't start it reports `state: quiet` and `now: null` for good. `level_dbfs` stays live: since Task 14b the audio thread measures it every 250 ms, Shazam or not (SDD Ruling R24), so it shows whether audio arrives. The page reads `shazam_enabled` and shows "Shazam is off · <level> dBFS" in place of the state, and hides "Nothing playing.". Anything else reading `/api/state` should check `shazam_enabled` before trusting `state`.
 
 ## The flag-off image is smaller: only one path ships
 `CONFIG.shazam_enabled` is a constant, so both branches of `if CONFIG.shazam_enabled` type-check and lint in every build, but the optimizer and linker drop the dead one. On 2026-10-03 espflash's "App/part. size" read 1,485,248 bytes with the recognizer and 1,258,816 without, and the flag-off build had no warnings. `scripts/check` builds whatever `cfg.toml` says, so it links only that image.

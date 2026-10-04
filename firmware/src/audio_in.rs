@@ -35,8 +35,8 @@ const DMA_BYTES: usize = DMA_FRAMES * 2 * 4;
 /// The driver queues all but one buffer and silently drops the oldest when the reader falls behind,
 /// so 10 buffers let this thread run 45 ms late. The thread never waits on the recognizer, but core 0
 /// still slows down: the start of each fingerprint (which fills about 2 MB of fresh PSRAM buffers)
-/// put it up to 31 ms behind over 9 asks, and Wi-Fi start-up up to 25 ms at boot; otherwise 7 ms at
-/// most. DMA can't reach PSRAM: the buffers take 19,200 bytes of internal RAM.
+/// put it up to 31 ms behind over 11 asks, and Wi-Fi start-up up to 25 ms at boot; otherwise it ran
+/// at most 2.2 ms late. DMA can't reach PSRAM: the buffers take 19,200 bytes of internal RAM.
 const DMA_BUFFER_COUNT: u32 = 10;
 
 /// The level is the loudness of the feed's last second, measured every 250 ms.

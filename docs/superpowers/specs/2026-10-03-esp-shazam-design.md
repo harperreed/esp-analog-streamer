@@ -77,14 +77,24 @@ Confirmed at bring-up on 2026-10-03 by Task 8 (logs in `target/`, kept locally):
   - The board's `quiet_threshold_dbfs` is tuned to -60 for this setup (SDD Ruling R12). Typical idle sits 15–20 dB under it and the worst idle second (-62.2) just under. The continuous source's lowest second (-57.9) stays just above, so it counts as sound.
 - **The PGA stays at 0 dB** (`pga_gain = 0`, the cfg.toml default; SDD Ruling R12). The turntable on LINE already peaks about 9 dB under full scale, and +9 dB would put it at about -0.3 dBFS. The quieter continuous source is handled by the -60 threshold instead of more gain.
 - **Not measured:** the 1 kHz tone check needs the Mac on LINE IN.
-  - Live Shazam matches stand in for it. On 2026-10-03 (Task 9) the board's own captures matched three real tracks, which a wrong sample rate or garbled samples would prevent. A capture one bit late would only double every sample (+6 dB) and could still match, so the exact bit alignment rests on the register readback (`0x0C`: Philips, 16-bit).
-  - The L/R interleave order is unknown too. It doesn't matter, because capture averages the two channels.
+  - Live Shazam matches stand in for it. On 2026-10-03 (Task 9) the board's own captures matched three real tracks, which a wrong sample rate or garbled samples would prevent. A capture one bit late would only double every sample (+6 dB) and could still match, so the exact bit alignment rests on the register readback (`0x0C`: Philips, 16-bit; 24-bit since Task 14b, below).
+  - The L/R interleave order is unknown too. It doesn't matter to Shazam, because the feed averages the two channels; it does matter to the stream (below).
 
 Confirmed on 2026-10-03 by Task 11b (logs in `target/task11b/`, kept locally):
 
 - **Flash and PSRAM clocks: 80 MHz** (`CONFIG_ESPTOOLPY_FLASHFREQ_80M=y`, `CONFIG_SPIRAM_SPEED_80M=y`, SDD Ruling R20). The flash mode stays DIO. The boot log says "SPI Speed : 80MHz", which the 2nd stage bootloader reads from its image header, and "esp_psram: Speed: 80MHz".
   - espflash rewrites the flash speed in both image headers, 40 MHz unless told otherwise, so `scripts/flash` passes `--flash-freq 80mhz`.
   - A 6-minute run with music playing showed no panic or reset. The PSRAM memory test at boot passed in 0.49 s (0.88 s at 40 MHz). Risks has the timings.
+
+Confirmed on 2026-10-04 by Task 14b (logs in `target/task14b/`, kept locally):
+
+- **48 kHz, 24-bit stereo capture** (SDD Ruling R21).
+  - I2S0 runs as master with two 32-bit slots a frame (BCLK 3.072 MHz). The classic ESP32 clocks as many bits per slot as the data width, so the data width is 32. MCLK is 12.288 MHz, half of an APLL that ESP-IDF's coefficients put at 24,575,996 Hz (-0.15 ppm).
+  - The ES8388 sends 24-bit Philips words (`0x0C = 0x00`) at 256 x LRCK (`0x0D = 0x02`); both read back.
+  - Against `esp_timer`, frames arrive at 480,000 ± 240 per 10 s, with about 1 frame of drift in 130 s.
+- **The words carry 24 bits.** The low 8 bits of the samples are nonzero in 99.6% of samples, and each slot's low byte is always 0 (the codec drives zeros after its last bit).
+- **Levels through the decimator:** Harper's continuous source read -42 to -56 dBFS (1 s readings). With the source off, the feed read -85 to -87.7 dBFS and each channel about -82 to -83 dBFS full band, close to the ADC's own -86 dBFS that bring-up measured on LIN1/RIN1.
+- **Not verified:** which channel is left. Left and right differ (equal in under 0.1% of frames), and the I2S standard puts left on WS low, but proving it takes a one-sided signal. The stream (Task 15) is the first thing it matters to.
 
 Not yet confirmed:
 
@@ -105,7 +115,7 @@ Not yet confirmed:
 ## Architecture
 
 ```
-LINE IN ─► ES8388 ─I2S 16 kHz─► audio_in ─► 12 s ring buffer (PSRAM) + loudness
+LINE IN ─► ES8388 ─I2S 48 kHz─► audio_in ─► 12 s ring buffer (PSRAM) + loudness
                                                   │
                                  policy: "ask Shazam now?"
                                                   ▼
@@ -142,13 +152,14 @@ It builds on the Mac for tests and on the ESP32 for the firmware.
 
 Its own cargo project on the Xtensa toolchain. It path-depends on `core`.
 
-- **`codec`**: probes I2C, then sets up the ES8388 for ADC from LINE IN, in I2S slave mode at 16 bit.
+- **`codec`**: probes I2C, then sets up the ES8388 for ADC from LINE IN, in I2S slave mode with 24-bit words.
   - No Rust ES8388 crate exists (checked on crates.io, 2026-10-03), so this is about 80 lines of register writes following Espressif's Apache-2.0 ES8388 driver.
   - The PGA gain gets set at bring-up so that peaks stay below clipping.
-- **`audio_in`**: runs I2S0 as master in RX mode: 16 kHz, 16-bit stereo, MCLK at 256 × fs on GPIO0.
-  - It averages left and right into mono and writes into a 12 s ring buffer (384 KB, in PSRAM).
-  - It keeps the RMS loudness of the last second in dBFS.
-  - It runs as a high-priority thread.
+- **`audio_in`**: runs I2S0 as master in RX mode: 48 kHz stereo, 24-bit samples in 32-bit slots, MCLK at 256 × fs (12.288 MHz) from the APLL on GPIO0 (SDD Ruling R21).
+  - It keeps the newest 2 s of raw frames in a stream ring (768,000 bytes, in PSRAM) for the LINE IN stream.
+  - `core`'s decimator averages left and right, low-passes and keeps one sample in three. That 16 kHz mono feed goes into a 12 s ring buffer (384 KB, in PSRAM). The thread never waits for the recognizer's lock on that ring; it keeps its samples until the lock is free (SDD Ruling R25).
+  - It writes the RMS loudness of the feed's last second to `song_store` every 250 ms, from sums it keeps per 250 ms (SDD Ruling R24).
+  - It runs as a high-priority thread on core 0.
 - **`net`**: Wi-Fi station mode with credentials from `cfg.toml`, SNTP, and the mDNS hostname `esp-shazam`.
 - **`recognizer`**: a thread on core 1 that runs the policy. It starts only when `shazam_enabled` is true. When the policy says ask, it:
   1. copies the last 12 s,
@@ -174,9 +185,10 @@ The Mac E2E test uses it, and it saves real responses as parser fixtures.
 | Item | Size | Where |
 |---|---|---|
 | Fingerprint rings | about 2.1 MB | PSRAM |
-| Audio ring | 384 KB | PSRAM |
+| Audio ring (12 s at 16 kHz) | 384 KB | PSRAM |
 | 12 s snapshot | 384 KB | PSRAM |
-| I2S DMA buffers (16 × 960 bytes) | 15 KB | internal (DMA can't reach PSRAM) |
+| Stream ring (2 s at 48 kHz, stereo, `i32`) | 768,000 bytes | PSRAM |
+| I2S DMA buffers (10 × 1,920 bytes) | 19 KB | internal (DMA can't reach PSRAM) |
 | Signature, base64 and body | under 64 KB | heap |
 | Response | capped at 128 KB | heap |
 
@@ -269,8 +281,9 @@ Mirrors SongRec's `src/core/fingerprinting/communication.rs` (marin-m/SongRec, l
 ```
 
 - `state` is one of `quiet`, `searching`, `matched`, or `rate_limited`.
-- `shazam_enabled` is the `shazam_enabled` setting from `cfg.toml`. When it's `false` the board starts no recognizer, so `state` stays `quiet`, `level_dbfs` stays -120.0 and `now` stays `null` (SDD Ruling R21).
-- `level_dbfs` and `state` update every 250 ms between asks. They hold still during each ask (~12 s, while the board fingerprints and calls Shazam), because the recognizer thread measures them (SDD Ruling R16).
+- `shazam_enabled` is the `shazam_enabled` setting from `cfg.toml`. When it's `false` the board starts no recognizer, so `state` stays `quiet` and `now` stays `null` (SDD Ruling R21). `level_dbfs` stays live either way.
+- `level_dbfs` is the loudness of the last second, updated every 250 ms by the audio thread, asks included (SDD Ruling R24; this retires R16's freeze for the level).
+- `state` updates every 250 ms between asks and holds still during each ask (~12 s, while the board fingerprints and calls Shazam), because the recognizer thread sets it (SDD Ruling R16).
 - `now` is `null` when nothing is playing.
 - `identified_at` is when the song first became `now`. Later re-checks of the same key don't change it.
 - `history` lists every song that became `now`, newest first, so the current song is `history[0]`. It lives in RAM and empties on reboot.
@@ -279,7 +292,7 @@ Mirrors SongRec's `src/core/fingerprinting/communication.rs` (marin-m/SongRec, l
 
 One self-contained HTML page. It shows:
 - the current song with its cover art (loaded from Shazam's CDN by the browser),
-- the state and loudness,
+- the state and loudness; with `shazam_enabled` false, "Shazam is off" in place of the state, and no "Nothing playing.",
 - the history list.
 
 ### MQTT
@@ -397,10 +410,17 @@ There are no mocks anywhere. The E2E tests use the real Shazam API and the real 
     - For a clean change (one that doesn't straddle a snapshot window). A window holding both songs can still return the old one, and that change can then pass 60 s. When the song changes just after a snapshot, the next snapshot comes one cycle later and its answer one ask after that, about 41.4 + 11.1 ≈ 53 s (criterion 3: 60 s). When the music stops as an ask starts, no quiet ticks arrive during that ask, so the clear lands about 11.1 + 60 ≈ 71 s after the music stops (criterion 4: 75 s).
     - Internal RAM held up: the lowest `INTERNAL|8BIT` free since boot was 31,496 bytes (30,844 at 40 MHz), the largest block before every TLS session was 47,104 bytes, and no TLS session failed.
     - Matches: "Someone Else" by Raphael Meleteas; then "BLUE" by Billie Eilish, caught by a re-check after the source changed songs.
-- **The 12 s snapshot stalls audio capture.** The recognizer copies 384 KB out of the PSRAM ring under its lock. Task 9 measured that hold at 87–91 ms with PSRAM at 40 MHz, and Task 11b at 48–52 ms with PSRAM at 80 MHz.
-  - ESP-IDF 5.5.5's I2S driver queues `dma_buffer_count - 1` DMA buffers and drops the oldest when the reader falls behind (`i2s_common.c`). The default 6 buffers of 15 ms gave 75 ms, so each ask lost about 15 ms of audio.
-  - `audio_in` now uses 16 buffers: 225 ms of slack for 9.6 KB more internal DMA RAM.
-  - Copying the window in slices, releasing the lock in between, would remove the stall instead. It needs absolute sample positions in `SampleRing`.
+  - Task 14b moved capture to 48 kHz stereo on core 0 (SDD Ruling R21). It measured seven live asks on 2026-10-04 with a poller on `/api/state` every 2–3 s (logs in `target/task14b/`, kept locally):
+    - Fingerprints took 10,839–11,280 ms (mean 11.1 s), 9% slower than Task 11b's: core 0's capture now shares flash and PSRAM with them. Whole asks took 11,769–14,471 ms.
+    - The first match came 25.2 s and 28.1 s after reset. While matched, answers came every 42.2–42.8 s, and once 44.7 s around the slowest ask.
+    - By the reckoning above, a clean song change lands about 42.8 + 12.5 ≈ 55 s after it happens (criterion 3: 60 s), and a clear about 12.5 + 60 ≈ 73 s after the music stops (criterion 4: 75 s). The slowest ask seen (14.5 s, the TLS session took 3.2 s) would make those about 59 s and 74.5 s.
+    - Internal RAM: the lowest `INTERNAL|8BIT` free since boot was 30,056 bytes over five asks with 8 I2S DMA buffers, and 36,064 over two asks with the final 10. The largest block before every TLS session was 47,104 bytes, and no TLS session failed. PSRAM's lowest free, during a fingerprint, was 397,372 bytes.
+    - Matches: "Zhaba" by DakhaBrakha; "Trem Batucada" by Favela Chic & Os Reis Du Batuque, caught by a re-check after the source changed songs; after a reboot, "Salam" by Amina.
+- **Asks slow the audio thread.** The recognizer copies 384 KB out of the PSRAM ring under its lock: 87–91 ms with PSRAM at 40 MHz (Task 9), 48–52 ms at 80 MHz (Task 11b), and 58–62 ms with 48 kHz capture running (Task 14b).
+  - ESP-IDF 5.5.5's I2S driver queues `dma_buffer_count - 1` DMA buffers and drops the oldest when the reader falls behind (`i2s_common.c`). At 16 kHz the default 6 buffers of 15 ms gave 75 ms, so each ask lost about 15 ms of audio, and Task 9 went to 16 buffers (225 ms).
+  - Since Task 14b the audio thread doesn't wait for that lock: it `try_lock`s and keeps its 16 kHz samples until the lock is free (SDD Ruling R25).
+  - Core 0 still slows down when a fingerprint starts. Over 11 asks the audio thread fell 26–31 ms behind, 1–20 ms after the snapshot ended, and lost no frames. At 48 kHz a 240-frame buffer is 5 ms, and `audio_in`'s 10 buffers queue 45 ms in 19,200 bytes of internal RAM.
+  - The likely cause, not proven: the fingerprint fills about 2 MB of new PSRAM buffers on core 1 while core 0 runs its code from flash over the same bus. Allocating those buffers once would need an edit to SongRec's copied files beyond the spec's three.
 - **PSRAM could be missing.** Bring-up found 8 MB, 4 MB of it usable, which settles this risk.
 - **Line level vs ADC range**: the gain gets set in bring-up step 3.
 - **The board revision could be AC101.** That means a different register set but the same `codec` interface and about the same size.

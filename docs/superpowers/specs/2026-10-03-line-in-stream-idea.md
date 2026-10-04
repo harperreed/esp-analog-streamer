@@ -9,13 +9,13 @@ Status: **approved for build** (2026-10-03). Harper: "can we feature flag out th
 - **Shazam behind a flag:** `shazam_enabled` in `firmware/cfg.toml`, default `true`.
   - When it's off, the board runs no recognizer thread and makes no Shazam/TLS traffic.
   - Capture, `/api/state`, the page and MQTT keep running, and `/api/state` reports the flag.
-  - With it off, `/api/state` shows `"shazam_enabled": false` and `"now": null`, but `state` stays `quiet` and `level_dbfs` stays -120.0, because the recognizer thread is what measures them (SDD Ruling R16). That is acceptable for v1; the page reads "quiet" while the board hears music.
+  - With it off, `/api/state` shows `"shazam_enabled": false`, `"now": null` and `state: quiet`. `level_dbfs` stays live, because the audio thread measures it whether or not the recognizer runs (SDD Ruling R24). The page shows "Shazam is off · <level> dBFS" in place of the state and hides "Nothing playing." (Task 14b).
   - MQTT still publishes `null` (retained) on every connect, so a song left retained by an earlier run is replaced.
   - It's one binary: both paths always compile, and `scripts/check` covers both (SDD Ruling R21).
 - **Stream format:** 48 kHz, 24-bit, stereo, uncompressed PCM as an endless WAV, about 2.3 Mbit/s (SDD Ruling R21).
   - 24-bit keeps all the ES8388 ADC delivers (about 95 dB dynamic range).
   - 48 kHz covers the audio band and divides by 3 to Shazam's 16 kHz.
-  - Fallback if 24-bit capture misbehaves on the classic ESP32: 48 kHz 16-bit.
+  - Fallback if 24-bit capture misbehaves on the classic ESP32: 48 kHz 16-bit. Not needed: Task 14b captures 24-bit samples in 32-bit slots with MCLK from the APLL.
 - **Endpoint:** `http://esp-shazam.local:8000/stream.wav`.
   - Its own `std::net::TcpListener` thread, never the web server's task.
   - At most 2 listeners.
