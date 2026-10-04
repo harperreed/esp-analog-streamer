@@ -1,9 +1,10 @@
 # esp-shazam Implementation Plan
 
 ## Now
-- Step: Task 14b (firmware: 48 kHz/24-bit capture, the meter in the audio thread, the "Shazam is off" page). Capture works on the board: 32-bit slots, APLL MCLK, no lost buffers (d7e7d0e..d3d2f6a). Harper redirected it on 2026-10-04: Shazam off, the stream first (SDD R26). The implementer is stopping its Shazam-on run, finishing the flag-off run and docs, and leaving `shazam_enabled = false` in `cfg.toml`. With the flag off the board makes no outside requests, so it stays running. Task 14a is complete: the store split (9d02a98), `StreamRing` (615d277) and the `Decimator` (8ac51b4, 44.3 dB down at 7.5 kHz); the review approved it with 5 minor notes.
+- Step: Task 14b (firmware: 48 kHz/24-bit capture, the meter in the audio thread, the "Shazam is off" page) is stopped partway. Its implementer was stopped on 2026-10-04 and won't resume. Its code and docs landed (d7e7d0e..b06e6a0): capture works on the board with 32-bit slots, APLL MCLK, no lost buffers and a 45 ms I2S queue, and `cfg.toml` has `shazam_enabled = false`. Missing: its report past "Still to do", a clean final flash (the board may still run a diagnostic build), and the task review. Navigator was initialized at Harper's request (76a45b7). Task 14a is complete: the store split (9d02a98), `StreamRing` (615d277) and the `Decimator` (8ac51b4, 44.3 dB down at 7.5 kHz); the review approved it with 5 minor notes.
 - Next: Task 15 (`/stream.wav`), 16 (`/stream.flac`), Task 12 (device E2E and README), then the final whole-branch review.
 - Open (Harper):
+  - Task 14b's implementer was stopped. Start a new one to finish it (report, clean flash, then review), or go on to Task 15?
   - The code default of `shazam_enabled` is still `true`; only `cfg.toml` turns it off. Flip the default too?
   - Task 12 was written around Shazam matches. With Shazam off, it should test the stream instead. Keep a Shazam-on scenario in it, or not?
   - Security calls:
