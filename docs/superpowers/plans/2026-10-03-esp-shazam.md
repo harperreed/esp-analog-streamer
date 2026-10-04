@@ -27,6 +27,7 @@
 - Approved: "can we do flac?" then "ok. cool." (2026-10-03), the FLAC stream (Task 16) and the Tasks 13→16→12 order
 - Direction: "i see you are still doing the ingerprinting. i thought we had talked about putting that behind a feature flag and focusing on the streaming" (2026-10-04), Shazam off on the board, the stream first (SDD R26)
 - Approved: "let's do 15" (2026-10-04), skip finishing 14b's report and clean flash; go to Task 15
+- Approved: "Yes, flash now" (2026-10-04), flash Task 15's fix round (modem sleep off) and run its device checks
 - Compactions: 1
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
