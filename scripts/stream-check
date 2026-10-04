@@ -25,6 +25,7 @@ TOLERANCE_FRAMES = 4_800  # 0.1 s
 LEVEL_TOLERANCE_DB = 3.0
 SIGNAL_FLOOR_DBFS = -70.0  # each channel of the ADC's own noise reads about -82 dBFS
 MAX_ZERO_RUN_FRAMES = RATE // 100  # 10 ms
+STALL_TIMEOUT_US = 10_000_000  # ffmpeg's -rw_timeout: 10 s without data ends the capture
 
 
 def main():
@@ -56,9 +57,12 @@ def main():
     poller = threading.Thread(target=poll_state, args=(ip, polls, stop), daemon=True)
     poller.start()
     started = time.time()
+    # ffmpeg's HTTP input waits forever by default. A peer that vanishes without closing (the Mac
+    # sleeping, the board rebooting) would hang the check, so 10 s without data ends the capture.
+    # The board never pauses a live stream that long: it sends, or drops the listener within 2 s.
     ffmpeg = subprocess.run(
-        ["ffmpeg", "-nostdin", "-v", "error", "-y", "-t", str(args.seconds), "-i", url,
-         "-c:a", "copy", str(capture_path)],
+        ["ffmpeg", "-nostdin", "-v", "error", "-y", "-rw_timeout", str(STALL_TIMEOUT_US),
+         "-t", str(args.seconds), "-i", url, "-c:a", "copy", str(capture_path)],
         capture_output=True, text=True,
     )
     wall = time.time() - started
