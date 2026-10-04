@@ -1,9 +1,11 @@
 # esp-shazam Implementation Plan
 
 ## Now
-- Step: Task 15 (`/stream.wav` on port 8000), with Shazam off throughout (R26). Its flash replaces the diagnostic image 14b left on the board. Task 14b is complete (d7e7d0e..b06e6a0; review approved, 5 minor notes). Capture works on the board with 32-bit slots, APLL MCLK, no lost buffers and a 45 ms I2S queue. With the flag off, the page reads "Shazam is off · <level> dBFS" and the level is live. `cfg.toml` has `shazam_enabled = false`. Navigator was initialized (76a45b7), with the judge on (2f1520c). Task 14a is complete (9d02a98, 615d277, 8ac51b4; review approved).
+- Step: Task 15 (`/stream.wav` on port 8000) is built and under review (24a9430..6196162). Every acceptance check passed on the board, and the clean image runs at 192.168.200.224 with Shazam off. On the Mac's path (Wi-Fi, then Tailscale) the stream drops after 6-22 s in bad stretches. The fix round turns off Wi-Fi modem sleep (SDD R27), then waits for Harper's listening test. Task 14b is complete (d7e7d0e..b06e6a0; review approved, 5 minor notes). Capture works on the board with 32-bit slots, APLL MCLK, no lost buffers and a 45 ms I2S queue. With the flag off, the page reads "Shazam is off · <level> dBFS" and the level is live. `cfg.toml` has `shazam_enabled = false`. Navigator was initialized (76a45b7), with the judge on (2f1520c). Task 14a is complete (9d02a98, 615d277, 8ac51b4; review approved).
 - Next: Harper listens to the stream (does it sound right, and is left on the left?), then 16 (`/stream.flac`), Task 12 (device E2E and README), then the final whole-branch review.
 - Open (Harper):
+  - Listen to `http://esp-shazam.local:8000/stream.wav` (or `http://192.168.200.224:8000/stream.wav`) from a device on the board's own network, such as a phone with VLC. Does it play without stopping, does it sound right, and is left on the left?
+  - Shazam and the stream don't fit in internal RAM together: one listener costs about 20 KB and two about 45-50 KB, against about 16 KB spare with Shazam on. Candidate fixes: Wi-Fi and lwIP buffers in PSRAM (untested), or mbedTLS in PSRAM (a security call).
   - The code default of `shazam_enabled` is still `true`; only `cfg.toml` turns it off. Flip the default too?
   - Task 12 was written around Shazam matches. With Shazam off, it should test the stream instead. Keep a Shazam-on scenario in it, or not?
   - Security calls:
