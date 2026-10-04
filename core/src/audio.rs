@@ -48,23 +48,54 @@ impl SampleRing {
 
 /// Loudness of a block in dBFS after removing its DC offset. Silence and empty input give SILENCE_DBFS.
 pub fn loudness_dbfs(samples: &[i16]) -> f32 {
-    if samples.is_empty() {
-        return SILENCE_DBFS;
+    Sums::of(samples).dbfs()
+}
+
+/// The count, sum and sum of squares of a run of samples: all that loudness needs, and two runs'
+/// sums add up to the sums of both.
+#[derive(Clone, Copy, Debug, Default)]
+struct Sums {
+    count: u64,
+    sum: i64,
+    sum_sq: i64,
+}
+
+impl Sums {
+    fn of(samples: &[i16]) -> Self {
+        // Integer sums keep this cheap on the ESP32, which has no double-precision FPU.
+        let (sum, sum_sq) = samples.iter().fold((0i64, 0i64), |(s, q), &x| {
+            let x = i64::from(x);
+            (s + x, q + x * x)
+        });
+        Self {
+            count: samples.len() as u64,
+            sum,
+            sum_sq,
+        }
     }
-    // Integer sums keep this cheap on the ESP32, which has no double-precision FPU.
-    let (sum, sum_sq) = samples.iter().fold((0i64, 0i64), |(s, q), &x| {
-        let x = i64::from(x);
-        (s + x, q + x * x)
-    });
-    let n = samples.len() as f64;
-    let mean = sum as f64 / n;
-    let variance = sum_sq as f64 / n - mean * mean;
-    // Anything under one LSB of RMS is rounding error from the DC removal, not sound.
-    if variance < 1.0 {
-        return SILENCE_DBFS;
+
+    fn plus(self, other: Self) -> Self {
+        Self {
+            count: self.count + other.count,
+            sum: self.sum + other.sum,
+            sum_sq: self.sum_sq + other.sum_sq,
+        }
     }
-    let rms = variance.sqrt() / 32_768.0;
-    ((20.0 * rms.log10()) as f32).max(SILENCE_DBFS)
+
+    fn dbfs(self) -> f32 {
+        if self.count == 0 {
+            return SILENCE_DBFS;
+        }
+        let n = self.count as f64;
+        let mean = self.sum as f64 / n;
+        let variance = self.sum_sq as f64 / n - mean * mean;
+        // Anything under one LSB of RMS is rounding error from the DC removal, not sound.
+        if variance < 1.0 {
+            return SILENCE_DBFS;
+        }
+        let rms = variance.sqrt() / 32_768.0;
+        ((20.0 * rms.log10()) as f32).max(SILENCE_DBFS)
+    }
 }
 
 /// Replaces `out` with the samples in `bytes`: 32-bit I2S slots, little-endian, each carrying a
@@ -80,42 +111,54 @@ pub fn samples_from_i2s_slots(bytes: &[u8], out: &mut Vec<i32>) {
     );
 }
 
-/// The loudness of the newest `window` samples of a feed, read once every `interval` samples.
-/// It keeps its own copy of the window, so the audio thread meters without locking the 12 s ring.
+/// The loudness of the newest `window` samples of a feed, read each time another `interval` of
+/// samples has arrived. It keeps sums per interval, not samples: a reading adds up a few sums, and
+/// the audio thread meters without touching the 12 s ring or PSRAM.
 pub struct LevelMeter {
-    recent: SampleRing,
-    scratch: Vec<i16>,
+    /// Sums of the newest whole intervals, `window / interval` of them; the oldest is overwritten next.
+    intervals: Vec<Sums>,
+    next: usize,
+    /// Sums of the interval still filling.
+    filling: Sums,
     interval: usize,
-    since_reading: usize,
 }
 
 impl LevelMeter {
+    /// `window` must be a whole number of intervals.
     pub fn new(window: usize, interval: usize) -> Self {
         assert!(
-            window > 0 && interval > 0,
-            "a level meter needs a window and an interval of at least one sample"
+            interval > 0 && window >= interval && window.is_multiple_of(interval),
+            "a level meter's window must be a whole number of intervals of at least one sample"
         );
         Self {
-            recent: SampleRing::new(window),
-            scratch: Vec::with_capacity(window),
+            intervals: vec![Sums::default(); window / interval],
+            next: 0,
+            filling: Sums::default(),
             interval,
-            since_reading: 0,
         }
     }
 
-    /// Adds `samples`. Each time the count of samples pushed reaches another multiple of `interval`,
-    /// it returns the loudness in dBFS of the newest `window` samples (of all of them, before a whole
-    /// window has arrived). One push returns at most one reading.
-    pub fn push(&mut self, samples: &[i16]) -> Option<f32> {
-        self.recent.push(samples);
-        self.since_reading += samples.len();
-        if self.since_reading < self.interval {
-            return None;
+    /// Adds `samples`. Each interval that fills makes a reading: the loudness in dBFS of the newest
+    /// `window` samples up to the end of that interval (of all samples so far, before a whole window
+    /// has arrived). Returns the last reading this push made, if any.
+    pub fn push(&mut self, mut samples: &[i16]) -> Option<f32> {
+        let mut reading = None;
+        while !samples.is_empty() {
+            let room = self.interval - self.filling.count as usize;
+            let (now, later) = samples.split_at(room.min(samples.len()));
+            self.filling = self.filling.plus(Sums::of(now));
+            samples = later;
+            if self.filling.count as usize == self.interval {
+                self.intervals[self.next] = std::mem::take(&mut self.filling);
+                self.next = (self.next + 1) % self.intervals.len();
+                let window = self
+                    .intervals
+                    .iter()
+                    .fold(Sums::default(), |a, &b| a.plus(b));
+                reading = Some(window.dbfs());
+            }
         }
-        self.since_reading %= self.interval;
-        self.recent
-            .copy_latest(self.recent.capacity(), &mut self.scratch);
-        Some(loudness_dbfs(&self.scratch))
+        reading
     }
 }
 
@@ -264,6 +307,16 @@ mod tests {
         assert!(meter.push(&tone[..9_000]).is_some());
         assert!(meter.push(&tone[9_000..11_999]).is_none());
         assert!(meter.push(&tone[11_999..12_000]).is_some());
+    }
+
+    #[test]
+    fn a_reading_ends_where_the_last_interval_ended() {
+        // One push of 8,000 samples of tone and 1,000 of silence fills two intervals; the reading
+        // covers those two and none of the silence after them (which would make it 0.5 dB quieter).
+        let mut meter = LevelMeter::new(16_000, 4_000);
+        let tone = sine(1_000.0, 0.5, 0.5, 0);
+        let pushed = [&tone[..], &[0; 1_000]].concat();
+        assert_eq!(meter.push(&pushed), Some(loudness_dbfs(&tone)));
     }
 
     #[test]
