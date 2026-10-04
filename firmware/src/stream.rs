@@ -161,8 +161,13 @@ impl Drop for Slot {
 fn listen(mut sock: TcpStream, ring: SharedStreamRing, slot: Slot, peer: String) {
     let started = Instant::now();
     let end = stream_wav(&mut sock, &ring);
-    let secs = started.elapsed().as_secs_f32();
-    log::info!("stream: {peer} left after {secs:.1} s: {end}");
+    // Integer tenths: formatting a float to a precision puts a 1 KB buffer on this small stack.
+    let tenths = started.elapsed().as_millis() / 100;
+    log::info!(
+        "stream: {peer} left after {}.{} s: {end}",
+        tenths / 10,
+        tenths % 10
+    );
     // Close first, so the slot never frees while this connection still holds a socket.
     drop(sock);
     drop(slot);
