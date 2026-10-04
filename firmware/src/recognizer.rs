@@ -6,7 +6,6 @@ use std::time::{Duration, Instant};
 
 use anyhow::Result;
 use esp_idf_svc::hal::cpu::Core;
-use esp_idf_svc::hal::task::thread::ThreadSpawnConfiguration;
 use esp_shazam_core::fingerprinting::algorithm::SignatureGenerator;
 use esp_shazam_core::policy::{Change, Decision, Outcome, Policy, PolicyConfig};
 use esp_shazam_core::shazam::{self, RequestContext, Song};
@@ -14,6 +13,7 @@ use esp_shazam_core::store::SongStore;
 use esp_shazam_core::time::rfc3339_utc;
 
 use crate::audio_in::{SharedRing, WINDOW_SAMPLES};
+use crate::threads::ThreadSpec;
 use crate::{net, shazam_http};
 
 pub type SharedStore = Arc<Mutex<SongStore>>;
@@ -28,20 +28,14 @@ pub fn spawn(
     config: PolicyConfig,
     on_change: impl Fn() + Send + 'static,
 ) -> Result<()> {
-    ThreadSpawnConfiguration {
-        name: Some(c"recognizer"),
+    ThreadSpec {
+        name: c"recognizer",
+        core: Core::Core1,
         priority: 5,
-        pin_to_core: Some(Core::Core1),
-        ..Default::default()
+        // Fingerprint, JSON and the TLS handshake all run on this stack.
+        stack_bytes: 32 * 1024,
     }
-    .set()?;
-    // Fingerprint, JSON and the TLS handshake all run on this stack.
-    let spawned = std::thread::Builder::new()
-        .stack_size(32 * 1024)
-        .spawn(move || run(ring, store, config, on_change));
-    ThreadSpawnConfiguration::default().set()?;
-    spawned?;
-    Ok(())
+    .spawn(move || run(ring, store, config, on_change))
 }
 
 fn run(ring: SharedRing, store: SharedStore, config: PolicyConfig, on_change: impl Fn()) {

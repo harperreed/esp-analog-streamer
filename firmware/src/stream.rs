@@ -1,7 +1,6 @@
 // ABOUTME: The LINE IN stream on port 8000: GET /stream.wav sends the stream ring as an endless 48 kHz, 24-bit stereo WAV.
 // ABOUTME: Its threads run on core 1 and only copy out of the ring, so capture never waits on a socket; a listener 2 s behind is dropped.
 
-use std::ffi::CStr;
 use std::fmt;
 use std::io::{self, BufReader, Write};
 use std::net::{TcpListener, TcpStream};
@@ -11,13 +10,13 @@ use std::time::{Duration, Instant};
 
 use anyhow::Result;
 use esp_idf_svc::hal::cpu::Core;
-use esp_idf_svc::hal::task::thread::ThreadSpawnConfiguration;
 use esp_idf_svc::mdns::EspMdns;
 use esp_shazam_core::stream_http::{self, Route, Status};
 use esp_shazam_core::stream_ring::Overrun;
 use esp_shazam_core::wav;
 
 use crate::audio_in::{SharedStreamRing, CAPTURE_RATE_HZ};
+use crate::threads::ThreadSpec;
 
 /// The stream's port. The page and `/api/state` stay on port 80.
 pub const PORT: u16 = 8000;
@@ -32,18 +31,25 @@ const CAUGHT_UP_SLEEP: Duration = Duration::from_millis(10);
 /// A client gets this long to send its request head, which may be at most `MAX_HEAD_BYTES`.
 const HEAD_TIMEOUT: Duration = Duration::from_secs(2);
 const MAX_HEAD_BYTES: u64 = 4096;
-/// The server's threads run on core 1, which is idle while Shazam is off. Their priority is above
-/// the recognizer's (5), so a fingerprint can't starve a listener, and below the audio thread (10),
-/// lwIP (18) and Wi-Fi (23).
-const PRIORITY: u8 = 7;
-const ACCEPT_STACK: usize = 4 * 1024;
-const LISTENER_STACK: usize = 4 * 1024;
+/// The server's threads run on core 1, which is idle while Shazam is off. Their priority, 7, is
+/// above the recognizer's (5), so a fingerprint can't starve a listener, and below the audio thread
+/// (10), lwIP (18) and Wi-Fi (23).
+const ACCEPT_THREAD: ThreadSpec = ThreadSpec {
+    name: c"stream",
+    core: Core::Core1,
+    priority: 7,
+    stack_bytes: 4 * 1024,
+};
+const LISTENER_THREAD: ThreadSpec = ThreadSpec {
+    name: c"stream-out",
+    ..ACCEPT_THREAD
+};
 
 /// Listens on port 8000 on a thread of its own, and advertises the stream over mDNS as
 /// "esp-shazam stream", next to the page's "esp-shazam".
 pub fn start(ring: SharedStreamRing, mdns: &mut EspMdns) -> Result<()> {
     let listener = TcpListener::bind(("0.0.0.0", PORT))?;
-    spawn(c"stream", ACCEPT_STACK, move || accept(listener, ring))?;
+    ACCEPT_THREAD.spawn(move || accept(listener, ring))?;
     // The stream works without the advertisement, so a failure is only logged.
     if let Err(e) = mdns.add_service(
         Some("esp-shazam stream"),
@@ -102,9 +108,7 @@ fn answer(sock: TcpStream, ring: &SharedStreamRing, listeners: &Arc<AtomicUsize>
                 let ring = ring.clone();
                 // On failure the closure is dropped with the socket and the slot: the client sees
                 // the connection close.
-                if let Err(e) = spawn(c"stream-out", LISTENER_STACK, move || {
-                    listen(sock, ring, slot, peer)
-                }) {
+                if let Err(e) = LISTENER_THREAD.spawn(move || listen(sock, ring, slot, peer)) {
                     log::warn!("stream: no thread for a listener: {e}");
                 }
             }
@@ -238,20 +242,4 @@ fn stream_wav(sock: &mut TcpStream, ring: &SharedStreamRing) -> End {
         };
         wav::pack_s24le(&frames[..2 * frames_read], &mut bytes);
     }
-}
-
-/// Runs `f` on a thread of its own on core 1 at `PRIORITY`.
-fn spawn(name: &'static CStr, stack_size: usize, f: impl FnOnce() + Send + 'static) -> Result<()> {
-    ThreadSpawnConfiguration {
-        name: Some(name),
-        priority: PRIORITY,
-        pin_to_core: Some(Core::Core1),
-        ..Default::default()
-    }
-    .set()?;
-    // Only Builder::stack_size sets a std thread's stack; ThreadSpawnConfiguration's is ignored.
-    let spawned = std::thread::Builder::new().stack_size(stack_size).spawn(f);
-    ThreadSpawnConfiguration::default().set()?;
-    spawned?;
-    Ok(())
 }

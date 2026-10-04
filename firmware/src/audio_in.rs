@@ -13,12 +13,12 @@ use esp_idf_svc::hal::i2s::config::{
     StdGpioConfig, StdSlotConfig,
 };
 use esp_idf_svc::hal::i2s::{I2s, I2sDriver, I2sRx};
-use esp_idf_svc::hal::task::thread::ThreadSpawnConfiguration;
 use esp_shazam_core::audio::{samples_from_i2s_slots, LevelMeter, SampleRing};
 use esp_shazam_core::decimate::Decimator;
 use esp_shazam_core::stream_ring::StreamRing;
 
 use crate::recognizer::SharedStore;
+use crate::threads::ThreadSpec;
 
 /// LINE IN's sample rate, and the stream's.
 pub const CAPTURE_RATE_HZ: u32 = 48_000;
@@ -86,19 +86,13 @@ pub fn spawn_capture(
     let ring: SharedRing = Arc::new(Mutex::new(SampleRing::new(WINDOW_SAMPLES)));
     let stream: SharedStreamRing = Arc::new(Mutex::new(StreamRing::new(STREAM_FRAMES)));
     let (ring_writer, stream_writer) = (ring.clone(), stream.clone());
-    ThreadSpawnConfiguration {
-        name: Some(c"audio"),
+    ThreadSpec {
+        name: c"audio",
+        core: Core::Core0,
         priority: 10,
-        pin_to_core: Some(Core::Core0),
-        ..Default::default()
+        stack_bytes: 8 * 1024,
     }
-    .set()?;
-    // Only Builder::stack_size sets a std thread's stack; ThreadSpawnConfiguration's is ignored.
-    let spawned = std::thread::Builder::new()
-        .stack_size(8 * 1024)
-        .spawn(move || capture(rx, ring_writer, stream_writer, store));
-    ThreadSpawnConfiguration::default().set()?;
-    spawned?;
+    .spawn(move || capture(rx, ring_writer, stream_writer, store))?;
     Ok((ring, stream))
 }
 

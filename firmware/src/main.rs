@@ -9,6 +9,7 @@ mod net;
 mod recognizer;
 mod shazam_http;
 mod stream;
+mod threads;
 mod web;
 
 use std::sync::{Arc, Mutex};
