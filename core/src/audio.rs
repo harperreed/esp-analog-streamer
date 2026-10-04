@@ -1,4 +1,4 @@
-// ABOUTME: Audio helpers for the capture path: a fixed-size sample ring, loudness, and a tone check.
+// ABOUTME: Audio helpers for the capture path: I2S slot unpacking, a sample ring, a level meter, loudness, a tone check.
 // ABOUTME: Pure code, so the Mac tests cover what the firmware runs.
 
 pub const SILENCE_DBFS: f32 = -120.0;
@@ -65,6 +65,58 @@ pub fn loudness_dbfs(samples: &[i16]) -> f32 {
     }
     let rms = variance.sqrt() / 32_768.0;
     ((20.0 * rms.log10()) as f32).max(SILENCE_DBFS)
+}
+
+/// Replaces `out` with the samples in `bytes`: 32-bit I2S slots, little-endian, each carrying a
+/// 24-bit sample in its top 24 bits. The result holds each sample sign-extended in an `i32`, the
+/// format `Decimator` and `StreamRing` take. The low byte is whatever the line carried after the
+/// sample, so it is dropped, and so are bytes short of a whole slot at the end.
+pub fn samples_from_i2s_slots(bytes: &[u8], out: &mut Vec<i32>) {
+    out.clear();
+    out.extend(
+        bytes
+            .chunks_exact(4)
+            .map(|b| i32::from_le_bytes([b[0], b[1], b[2], b[3]]) >> 8), // `>>` on i32 keeps the sign
+    );
+}
+
+/// The loudness of the newest `window` samples of a feed, read once every `interval` samples.
+/// It keeps its own copy of the window, so the audio thread meters without locking the 12 s ring.
+pub struct LevelMeter {
+    recent: SampleRing,
+    scratch: Vec<i16>,
+    interval: usize,
+    since_reading: usize,
+}
+
+impl LevelMeter {
+    pub fn new(window: usize, interval: usize) -> Self {
+        assert!(
+            window > 0 && interval > 0,
+            "a level meter needs a window and an interval of at least one sample"
+        );
+        Self {
+            recent: SampleRing::new(window),
+            scratch: Vec::with_capacity(window),
+            interval,
+            since_reading: 0,
+        }
+    }
+
+    /// Adds `samples`. Each time the count of samples pushed reaches another multiple of `interval`,
+    /// it returns the loudness in dBFS of the newest `window` samples (of all of them, before a whole
+    /// window has arrived). One push returns at most one reading.
+    pub fn push(&mut self, samples: &[i16]) -> Option<f32> {
+        self.recent.push(samples);
+        self.since_reading += samples.len();
+        if self.since_reading < self.interval {
+            return None;
+        }
+        self.since_reading %= self.interval;
+        self.recent
+            .copy_latest(self.recent.capacity(), &mut self.scratch);
+        Some(loudness_dbfs(&self.scratch))
+    }
 }
 
 /// Averages interleaved stereo frames (L, R, L, R, ...) into mono. A trailing odd sample is dropped.
@@ -153,5 +205,98 @@ mod tests {
     fn zero_crossings_find_a_one_khz_tone() {
         let hz = zero_crossing_hz(&sine(1_000.0, 0.5, 1.0, 500), 16_000);
         assert!((hz - 1_000.0).abs() < 2.0, "got {hz}");
+    }
+
+    /// 32-bit I2S slot words as the DMA buffer holds them: little-endian.
+    fn slot_bytes(words: &[u32]) -> Vec<u8> {
+        words.iter().flat_map(|w| w.to_le_bytes()).collect()
+    }
+
+    #[test]
+    fn slots_become_sign_extended_24_bit_samples() {
+        let mut out = vec![99];
+        samples_from_i2s_slots(
+            &slot_bytes(&[0x7FFF_FF00, 0x8000_0000, 0xFFFF_FF00, 0x0000_0100, 0]),
+            &mut out,
+        );
+        assert_eq!(out, vec![8_388_607, -8_388_608, -1, 1, 0]);
+    }
+
+    #[test]
+    fn the_low_byte_of_a_slot_is_not_part_of_the_sample() {
+        // The codec's 24 bits end at bit 8; whatever the line carries after them must not leak in.
+        let mut out = vec![];
+        samples_from_i2s_slots(
+            &slot_bytes(&[0x0000_01FF, 0xFFFF_FFFF, 0x8000_00FF]),
+            &mut out,
+        );
+        assert_eq!(out, vec![1, -1, -8_388_608]);
+    }
+
+    #[test]
+    fn a_partial_slot_at_the_end_is_dropped() {
+        let mut bytes = slot_bytes(&[0x0000_0200]);
+        bytes.extend([0xAA, 0xBB, 0xCC]);
+        let mut out = vec![];
+        samples_from_i2s_slots(&bytes, &mut out);
+        assert_eq!(out, vec![2]);
+    }
+
+    #[test]
+    fn the_meter_reads_once_every_interval() {
+        let mut meter = LevelMeter::new(16_000, 4_000);
+        let tone = sine(1_000.0, 0.5, 2.0, 0);
+        let mut reading_at = vec![];
+        let mut total = 0;
+        for chunk in tone.chunks(80) {
+            total += chunk.len();
+            if meter.push(chunk).is_some() {
+                reading_at.push(total);
+            }
+        }
+        assert_eq!(reading_at, (1..=8).map(|k| k * 4_000).collect::<Vec<_>>());
+    }
+
+    #[test]
+    fn a_push_longer_than_the_interval_reads_once_and_keeps_the_cadence() {
+        let mut meter = LevelMeter::new(16_000, 4_000);
+        let tone = sine(1_000.0, 0.5, 1.0, 0);
+        assert!(meter.push(&tone[..9_000]).is_some());
+        assert!(meter.push(&tone[9_000..11_999]).is_none());
+        assert!(meter.push(&tone[11_999..12_000]).is_some());
+    }
+
+    #[test]
+    fn early_readings_cover_only_what_has_arrived() {
+        // Before a whole window has arrived, the reading is the level of what has: an empty window
+        // padded with zeros would read a quarter second of this tone 6 dB too quiet.
+        let mut meter = LevelMeter::new(16_000, 4_000);
+        let tone = sine(1_000.0, 0.5, 0.25, 0);
+        let level = meter.push(&tone).expect("a reading after 4,000 samples");
+        assert_eq!(level, loudness_dbfs(&tone));
+        assert!((level - -9.03).abs() < 0.05, "got {level}");
+    }
+
+    #[test]
+    fn a_reading_covers_only_the_newest_window() {
+        let mut meter = LevelMeter::new(16_000, 4_000);
+        let tone = sine(1_000.0, 0.5, 1.0, 0);
+        let silence = vec![0i16; 16_000];
+        for chunk in tone.chunks(80) {
+            meter.push(chunk);
+        }
+        let mut readings = vec![];
+        for chunk in silence.chunks(80) {
+            if let Some(level) = meter.push(chunk) {
+                readings.push(level);
+            }
+        }
+        // A quarter second into the silence, the window holds the last 0.75 s of the tone: 1.25 dB down.
+        let expected = loudness_dbfs(&[&tone[4_000..], &silence[..4_000]].concat());
+        assert_eq!(readings[0], expected);
+        assert!((readings[0] - -10.28).abs() < 0.05, "got {}", readings[0]);
+        // A whole second of silence leaves nothing of the tone in the window.
+        assert_eq!(readings.len(), 4);
+        assert_eq!(readings[3], SILENCE_DBFS);
     }
 }
