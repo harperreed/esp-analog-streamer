@@ -173,6 +173,7 @@ Its own cargo project on the Xtensa toolchain. It path-depends on `core`.
   - `GET /`: one embedded HTML file with no external scripts. It polls `/api/state` every 3 s.
   - `GET /api/state`: the JSON endpoint.
 - **`mqtt_out`**: an `EspMqttClient` connected to the broker in `cfg.toml`. When the current song changes, it publishes retained to `esp-shazam/now_playing`. A blank broker URL disables MQTT.
+- **`stream`**: the LINE IN stream on port 8000, a plain `std::net::TcpListener` of its own (SDD Ruling R21). An accept thread and one thread per listener (at most 2) run on core 1 at priority 7, above the recognizer (5). They copy at most 240 frames (5 ms) per lock of the stream ring and never hold it during socket work, so capture never waits on a listener. [Outputs](#line-in-stream-port-8000) has the protocol.
 
 ### `tools/shazam-file`: Mac CLI
 
@@ -189,6 +190,9 @@ The Mac E2E test uses it, and it saves real responses as parser fixtures.
 | 12 s snapshot | 384 KB | PSRAM |
 | Stream ring (2 s at 48 kHz, stereo, `i32`) | 768,000 bytes | PSRAM |
 | I2S DMA buffers (10 × 1,920 bytes) | 19 KB | internal (DMA can't reach PSRAM) |
+| Stream server: accept thread, and a thread per listener (4 KiB stacks) | 4 KiB + 4 KiB per listener | internal (thread stacks) |
+| Per stream listener: read and send buffers | 3,360 bytes | internal (under the 8,191-byte threshold) |
+| Per stream listener, at its low: the above, lwIP's send queue and the Wi-Fi driver's TX buffers | about 20 KB (measured, Task 15) | internal |
 | Signature, base64 and body | under 64 KB | heap |
 | Response | capped at 128 KB | heap |
 
@@ -302,6 +306,16 @@ One self-contained HTML page. It shows:
 - It publishes when `now` changes and again on every broker (re)connect, so the retained value can't go stale after a broker restart.
 - With `shazam_enabled = false` it publishes `null` on every connect and nothing else.
 - The broker is `mqtt://192.168.200.8:1883` with no auth; port 1883 answered on 2026-10-03.
+
+### LINE IN stream (port 8000)
+
+`http://esp-shazam.local:8000/stream.wav` (Task 15, SDD Ruling R21). mDNS advertises it as "esp-shazam stream" (`_http._tcp`, port 8000, TXT `path=/stream.wav`), next to the page's "esp-shazam".
+- `GET /stream.wav` answers `200 OK` with `Content-Type: audio/wav`, `Cache-Control: no-store`, `Connection: close` and no `Content-Length`. The body is a 44-byte WAV header, then the stream ring's frames as they arrive, from the moment the listener joins. A query string is ignored.
+  - The header says PCM, 48000 Hz, 2 channels, 24 bits packed little-endian, with RIFF and data sizes of 0xFFFFFFFF. ffmpeg reads that data size as "until the stream ends" and reports `pcm_s24le`, 48000 Hz, 2 channels; a strict reader such as hound refuses it, because it isn't a whole number of 6-byte frames. With format tag 1 there's no channel mask, so ffprobe shows `channel_layout=unknown`.
+- Any other path gets `404`, any other method `405` (with `Allow: GET`), and a malformed request line `400`. Each is a complete response, and the connection closes. Only GET is answered on either port.
+- At most 2 listeners; a third gets `503`. A slot frees when its listener's connection ends.
+- A listener that falls a ring (2 s) behind is closed: a read finds its place overwritten, or a write waits 2 s. The close is a FIN after any unsent audio, so a player that resumes gets a clean end of stream. A reset wouldn't reach a stalled player (`gotchas.md`).
+- `scripts/stream-check` captures the stream with ffmpeg and checks its length, its level against `/api/state`, both channels and gaps.
 
 ### Config
 
@@ -421,6 +435,12 @@ There are no mocks anywhere. The E2E tests use the real Shazam API and the real 
   - Since Task 14b the audio thread doesn't wait for that lock: it `try_lock`s and keeps its 16 kHz samples until the lock is free (SDD Ruling R25).
   - Core 0 still slows down when a fingerprint starts. Over 11 asks the audio thread fell 26–31 ms behind, 1–20 ms after the snapshot ended, and lost no frames. At 48 kHz a 240-frame buffer is 5 ms, and `audio_in`'s 10 buffers queue 45 ms in 19,200 bytes of internal RAM.
   - The likely cause, not proven: the fingerprint fills about 2 MB of new PSRAM buffers on core 1 while core 0 runs its code from flash over the same bus. Allocating those buffers once would need an edit to SongRec's copied files beyond the spec's three.
+- **Wi-Fi throughput for the LINE IN stream.** One listener needs 2.3 Mbit/s (288,000 bytes/s). Task 15 measured it on 2026-10-04 from Harper's Mac, which is on Wi-Fi and reaches the board through Tailscale's subnet router. The board was on channel 1, 802.11n at 20 MHz, RSSI -51 dBm, DTIM 1. Logs are in `target/task15/`, kept locally.
+  - **With ESP-IDF's defaults the headroom is negative to small, and it swings.** Between 10:42 and 11:28 local time, 10 s of sending as fast as TCP allowed reached 1.2-2.4 Mbit/s, and listeners fell a ring behind within 6-22 s. From 11:40, on the same settings, two listeners held 60 s each at full rate, then 5 minutes each with every `scripts/stream-check` check passing, no I2S buffer lost and the audio thread at most 9.5 ms late.
+  - **The limit is lwIP's 5,760-byte TCP send buffer.** A connection moves at most that much per round trip, so 288,000 bytes/s needs round trips under 20 ms. With Wi-Fi modem sleep on (ESP-IDF's default), round trips averaged 75-90 ms; with it off, 14-34 ms. With only 4 segments in flight, a lost segment waits out lwIP's retransmission timeout (1.5 s at first), where a fast retransmit would take one round trip.
+  - **A bigger send buffer helps one listener and costs internal RAM.** At 23,040 bytes (a diag build) throughput roughly doubled, to 4.0-5.5 Mbit/s, and one listener held 60 s; of two, one fell behind in 3.3 s. One saturated connection then took about 70 KB of internal RAM at its low, and two listeners plus a test connection left 1,559 bytes free. At 11,520 bytes it reached 3.8 Mbit/s, and two listeners fell behind together after 21 s.
+  - **Capture never suffered.** No I2S buffer was lost in any run, through full-speed sends and the 1,559-byte low, and the audio thread ran at most 9.9 ms late after boot (the queue holds 45 ms).
+  - **Not changed (Harper's call):** modem sleep, the send buffer size, and PSRAM for Wi-Fi and lwIP buffers (`CONFIG_SPIRAM_TRY_ALLOCATE_WIFI_LWIP`). A client on the board's own LAN would show whether the limit is the board or the path. With Shazam on, even one listener (about 20 KB at its low) is over the internal RAM margin (about 16 KB).
 - **PSRAM could be missing.** Bring-up found 8 MB, 4 MB of it usable, which settles this risk.
 - **Line level vs ADC range**: the gain gets set in bring-up step 3.
 - **The board revision could be AC101.** That means a different register set but the same `codec` interface and about the same size.

@@ -123,6 +123,7 @@ mbedTLS allocates only from internal RAM (`CONFIG_MBEDTLS_INTERNAL_MEM_ALLOC`, t
   - Before the threshold change, the same figures were 860 and 25,600 bytes. Plain `MALLOC_CAP_INTERNAL` reads about 29 KB higher, because it also counts 32-bit-only IRAM that mbedTLS can't use.
 - **The cost:** with PSRAM at 40 MHz, a fingerprint took about 16.5 s instead of 10.7 s. Flash and PSRAM at 80 MHz (SDD Ruling R20) bring it to about 10.2 s, and Task 14b's 48 kHz capture to about 11.1 s (see "A 12 s fingerprint takes about 11 s"). At 80 MHz, over 9 asks with the same 3 s poller, the lowest free was 31,496 bytes, the largest block before every TLS session was 47,104, and no TLS session failed.
 - **Task 14b, 2026-10-04:** 48 kHz capture with a 2 s stream ring in PSRAM, 10 I2S DMA buffers of 1,920 bytes (19,200 bytes, against 15,360 before). The lowest `INTERNAL|8BIT` free was 30,056 bytes over five asks with 8 DMA buffers, and 36,064 over two asks with 10 (a short run). The largest block before every TLS session was 47,104, with no TLS failures. With Shazam off, the lowest was 95,044.
+- **Task 15, 2026-10-04:** each stream listener costs about 20 KB at the low (a 4 KiB thread, 3.4 KB of buffers, lwIP's queue and the Wi-Fi driver's TX buffers), two about 45-50 KB (lowest per 10 s window, `heap_caps_monitor_local_minimum_free_size_start`; the since-boot low is Wi-Fi start-up's, about 97 KB, and hides it). Against the Shazam-on margin of about 16 KB, even one listener doesn't fit.
 Measure the internal heap before adding anything that lives in internal RAM. If the margin shrinks again, letting mbedTLS use PSRAM (`CONFIG_MBEDTLS_DEFAULT_MEM_ALLOC`) removes the 16.7 KB need. ESP-IDF calls internal-only the more secure choice, though, so that is Harper's call.
 
 ## esp-mqtt holds its API lock through each connect attempt
@@ -147,3 +148,19 @@ To wait for a backgrounded capture, match the python command line: `pgrep -f "us
 
 ## "Flag out" means off on Harper's board
 On 2026-10-03 Harper asked to "feature flag out the shazam bits" and go for the stream. The flag shipped defaulting to on, and Task 14b was briefed to test the Shazam path on the board. Harper corrected that on 2026-10-04: "i thought we had talked about putting that behind a feature flag and focusing on the streaming". When Harper flags a feature out, turn it off in `cfg.toml` and spend no device runs on it until Harper asks.
+
+## ESP-IDF's usleep busy-waits anything under one tick
+`CONFIG_FREERTOS_HZ=100`, so a tick is 10 ms. ESP-IDF's `usleep` (`newlib/src/time.c`) spins in `esp_rom_delay_us` for anything shorter, and Rust's `std::thread::sleep` calls `usleep` on ESP-IDF. A loop that waits should sleep at least 10 ms, as `stream.rs` does, or it burns its core.
+
+## The LINE IN stream's throughput depends on the network path, and it swings
+One listener needs 288,000 bytes/s (2.3 Mbit/s). lwIP's TCP send buffer (`CONFIG_LWIP_TCP_SND_BUF_DEFAULT`, 5,760 bytes) caps a connection at that much per round trip, so round trips must stay under 20 ms.
+- From the Mac, round trips averaged 75-90 ms with Wi-Fi modem sleep on (ESP-IDF's default, `WIFI_PS_MIN_MODEM`: the AP holds the board's frames until its next beacon) and 14-34 ms with it off. The Mac is on Wi-Fi and reaches the board through Tailscale, so the board sees the subnet router (192.168.200.5) as the peer; `curl --interface en0` takes the routed path instead.
+- On 2026-10-04 listeners sometimes fell a ring behind within 6-22 s and sometimes held for minutes, on the same image. The spec's Risks has the numbers. Test with `scripts/stream-check` by IP, and expect run-to-run variance.
+- lwIP here has no per-socket send buffer. The Kconfig help mentions `TCP_SNDBUF`, but `sockets.c` leaves `SO_SNDBUF` unimplemented, so only the global default changes it.
+- A full connection costs internal RAM of 3-4x its send buffer, because the Wi-Fi driver's dynamic TX buffers fill too: about 20 KB at the default 5,760 bytes, 43 KB at 11,520 and 70 KB at 23,040, at the low.
+
+## A reset from lwIP doesn't reach a stalled peer
+After a zero-window probe, lwIP's `snd_nxt` is one byte past what the peer has, and an abort (`SO_LINGER` 0) resets with `snd_nxt`. A peer with a closed window drops that reset (RFC 5961). Behind Tailscale's subnet router it's worse: the router closes its NAT state on the reset, so the peer's later packets never reach the board, and a curl stopped for 15 s hung about 9 minutes after it resumed, until its own keepalive gave up. `stream.rs` closes a dropped listener with a FIN instead. That keeps the peer's unsent audio (at most 5.7 KB of internal RAM) until the FIN gets through or lwIP's 12 window probes run out, about 7.6 minutes.
+
+## Formatting a float to a precision takes 1 KB of stack
+Rust's `{:.1}` on a float goes through `float_to_decimal_common_exact`, which puts a 1,024-byte buffer on the stack. On the 4 KiB stream threads, log integers.
