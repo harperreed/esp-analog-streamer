@@ -2,7 +2,23 @@
 
 Harper (2026-10-03): "can we set up a stream out of the line in WHILE the shazaming is happening. so its effectively a ANALOG -> STREAM with a metadata sidecar?"
 
-Status: idea, not approved or designed. Pick it up after the current plan (Tasks 8–12) lands; Tasks 9–11 build the sidecar this needs anyway.
+Status: **approved for build** (2026-10-03). Harper: "can we feature flag out the shazam bits, adn go for the stream out of the board?" Quality: "lossless as much as we can".
+
+## Decisions (2026-10-03)
+
+- **Shazam behind a flag:** `shazam_enabled` in `firmware/cfg.toml`, default `true`.
+  - When it's off, the board runs no recognizer thread and makes no Shazam/TLS traffic.
+  - Capture, `/api/state`, the page and MQTT keep running, and `/api/state` reports the flag.
+  - It's one binary: both paths always compile, and `scripts/check` covers both (SDD Ruling R21).
+- **Stream format:** 48 kHz, 24-bit, stereo, uncompressed PCM as an endless WAV, about 2.3 Mbit/s (SDD Ruling R21).
+  - 24-bit keeps all the ES8388 ADC delivers (about 95 dB dynamic range).
+  - 48 kHz covers the audio band and divides by 3 to Shazam's 16 kHz.
+  - Fallback if 24-bit capture misbehaves on the classic ESP32: 48 kHz 16-bit.
+- **Endpoint:** `http://esp-shazam.local:8000/stream.wav`.
+  - Its own `std::net::TcpListener` thread, never the web server's task.
+  - At most 2 listeners.
+  - A listener that falls behind gets dropped and never stalls capture.
+- **Metadata sidecar:** the existing `/api/state` and MQTT `esp-shazam/now_playing` (when Shazam is on). No in-band ICY titles in v1.
 
 ## What already exists after the current plan
 

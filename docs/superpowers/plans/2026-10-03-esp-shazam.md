@@ -3662,6 +3662,75 @@ If acceptance fails, revert both lines and the flag, reflash at 40 MHz, confirm 
 
 ---
 
+### Task 13: `shazam_enabled` flag (SDD Ruling R21)
+
+Spec: `docs/superpowers/specs/2026-10-03-line-in-stream-idea.md`, "Decisions". Lean task: acceptance criteria, not transcribed code.
+
+**Files:** `firmware/src/config.rs`, `firmware/cfg.toml.example`, `firmware/src/main.rs`, `core/src/store.rs` (+ tests), docs.
+
+**Build:**
+- `shazam_enabled: bool` in `Config`, `#[default(true)]`.
+- When it's false, main doesn't spawn the recognizer, and logs `shazam: disabled by cfg` once.
+- SNTP may stay; it's harmless.
+- `SongStore` gains a `shazam_enabled` value (constructor or setter) that `state_json()` emits as a top-level `"shazam_enabled": bool`. TDD in core, with tests for both values; existing JSON tests are updated for the new key.
+
+**Accept:**
+- `scripts/check` is all `ok`.
+- On the board, with the source playing:
+  - flag on: matches as before;
+  - flag off: no `shazam:` lines over 90 s, `/api/state` shows `"shazam_enabled": false` and `"now": null`, and the web page and MQTT still answer.
+- Park the board when done.
+
+---
+
+### Task 14: Capture at 48 kHz / 24-bit stereo, with a 16 kHz mono feed for Shazam (SDD Ruling R21)
+
+Lean task: acceptance criteria, not transcribed code. Research the pinned crates and ESP-IDF v5.5.5 sources, and mark anything unverified.
+
+**Build:**
+- **I2S RX at 48 kHz, 24-bit data, stereo:**
+  - Choose the slot width and MCLK multiple that ESP-IDF v5.5.5 and esp-idf-hal 0.47 support on the classic ESP32, noting that 24-bit may need a 384×fs MCLK or 32-bit slots. Check the driver docs and source.
+  - Set the ES8388 ADC to match: word length in `0x0C`, MCLK/LRCK ratio in `0x0D`. Readbacks are updated.
+- **A stream ring in PSRAM,** about 2 s of interleaved stereo frames, holding the 24-bit samples as captured.
+  - It's a new core type, host-tested: one writer, several readers each with their own cursor, and a reader that falls more than the capacity behind is flagged as overrun.
+- **A core decimator, host-tested:** 48 kHz stereo (24-bit in i32) → 16 kHz mono i16.
+  - Average the channels, apply an anti-alias low-pass (FIR, cutoff ≤ 7.2 kHz), and decimate by 3.
+  - Tests: a 1 kHz tone survives at the right level and frequency (`zero_crossing_hz`); a 7.5 kHz tone is attenuated at least 40 dB.
+- The audio thread feeds the decimator output into the existing 12 s `SampleRing`, so the recognizer is unchanged, and the raw frames into the stream ring.
+
+**Accept:**
+- The 1 kHz-tone and attenuation tests pass.
+- On the board, Shazam still matches the source (with the flag on).
+- The audio thread keeps up: no I2S overruns in a 5-minute run, and level logs look sane.
+- Min free internal RAM stays at least 10 KB during asks.
+- Fallback per the decisions: if 24-bit misbehaves, use 16-bit at 48 kHz and record why.
+
+---
+
+### Task 15: Stream server on port 8000 (SDD Ruling R21)
+
+Lean task: acceptance criteria, not transcribed code.
+
+**Build:**
+- A `std::net::TcpListener` on port 8000 in its own thread (core 0, below audio priority).
+- On `GET /stream.wav` it answers `200` with `Content-Type: audio/wav` and no Content-Length, then a WAV header: RIFF/data sizes set to the maximum (`0xFFFFFFFF`), PCM, 48000 Hz, 2 channels, 24-bit packed (or 16-bit per Task 14's outcome).
+- Then it streams frames from the stream ring as they arrive.
+- At most 2 concurrent listeners; a third gets `503`.
+- A listener whose reader overruns the ring gets disconnected; capture never blocks on a socket.
+- Any other path gets `404`.
+- Also advertise `_http._tcp` on port 8000 with the instance name `esp-shazam stream`, if the mdns API allows a second service; otherwise skip and note it.
+
+**Accept (from the Mac, with the source playing):**
+- `ffprobe -v error -show_streams http://esp-shazam.local:8000/stream.wav` reports 48000 Hz, 2 channels and the chosen bit depth (resolve with `-4` or the IP if mDNS is slow).
+- `ffmpeg -t 60 -i http://…:8000/stream.wav target/stream-60s.wav` captures 60 s whose duration is 60.0 s ± 0.1, with no gaps: a sample count of 60 × 48000 ± 4800.
+  - Then `ffmpeg -i target/stream-60s.wav -ac 1 -ar 16000 -sample_fmt s16 target/stream-clip.wav`, and `shazam-file` on its middle 12 s matches the same song `/api/state` shows.
+- Two listeners at once both receive audio; a third gets 503; killing a listener frees its slot.
+- With Shazam on and a listener connected, the board still matches, with 0 TLS failures over 5 asks.
+- Record Wi-Fi throughput headroom in the spec.
+- Park the board when done.
+
+---
+
 ### Task 12: Device end-to-end test, Wi-Fi drop check, README
 
 LINE IN is wired to Harper's audio source, which plays continuously and which nothing on the Mac controls. The device test therefore works with whatever plays (ledger Ruling R13).
