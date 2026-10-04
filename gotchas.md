@@ -186,3 +186,6 @@ The esp-14 toolchain's GNU `xtensa-esp-elf-objdump` prints raw words for the Rus
 
 ## espflash can fail with "Bad data checksum"
 On 2026-10-04 one `scripts/flash` failed with `Error while running FlashDeflData command ... Bad data checksum`, a transfer corrupted on the way over the CP2102. The board then holds a partial image and boot-loops until a flash goes through. The retry worked at the same settings.
+
+## Tell Harper the moment a feature works on the board
+On 2026-10-04 `/stream.flac` played on the board at about 16:45, but the agent kept optimizing, soaking and documenting until 18:30, and Harper, who was waiting to test, heard nothing for over two hours ("you have been spiraling again?"). A background implementer should `SendMessage` the main session as soon as the feature first works on the board, and the main session tells Harper right away. Polish and measurements follow. On long runs, send Harper a one-line status every 30 minutes or so.
