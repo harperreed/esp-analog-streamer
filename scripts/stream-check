@@ -1,0 +1,184 @@
+#!/usr/bin/env bash
+# ABOUTME: Captures the board's LINE IN stream with ffmpeg and checks it: length, level against /api/state, both channels, gaps.
+# ABOUTME: Usage: scripts/stream-check [--seconds N] [--path P] [--out DIR] [HOST]; music must play into LINE IN. Exit 1: a check failed.
+set -euo pipefail
+cd "$(dirname "$0")/.."
+exec uv run --quiet --with numpy python3 - "$@" <<'PY'
+import argparse
+import json
+import socket
+import subprocess
+import sys
+import threading
+import time
+import urllib.request
+from pathlib import Path
+
+import numpy as np
+
+RATE = 48_000
+FULL_SCALE = 2 ** 23  # 24-bit samples
+TOLERANCE_FRAMES = 4_800  # 0.1 s
+LEVEL_TOLERANCE_DB = 3.0
+SIGNAL_FLOOR_DBFS = -70.0  # each channel of the ADC's own noise reads about -82 dBFS
+MAX_ZERO_RUN_FRAMES = RATE // 100  # 10 ms
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        prog="scripts/stream-check",
+        description="Capture the board's stream on port 8000 with ffmpeg while polling /api/state every "
+        "second, then check the capture: its length, its level against the board's level_dbfs, that both "
+        "channels carry different signals, and that no run of exact zeros lasts over 10 ms. "
+        "Music must be playing into LINE IN.",
+    )
+    parser.add_argument("host", nargs="?", default="esp-shazam.local",
+                        help="the board's name or IPv4 address (default: esp-shazam.local)")
+    parser.add_argument("--seconds", type=float, default=60.0, help="capture length (default: 60)")
+    parser.add_argument("--path", default="/stream.wav", help="stream path on port 8000 (default: /stream.wav)")
+    parser.add_argument("--out", default="target/stream-check",
+                        help="directory for stream.wav, polls.tsv and summary.txt (default: target/stream-check)")
+    args = parser.parse_args()
+
+    # IPv4 only: the board has no IPv6, and a dual-stack .local lookup waits 5 s for the AAAA (gotchas.md).
+    ip = socket.getaddrinfo(args.host, 8000, socket.AF_INET, socket.SOCK_STREAM)[0][4][0]
+    out = Path(args.out)
+    out.mkdir(parents=True, exist_ok=True)
+    capture_path = out / "stream.wav"
+    url = f"http://{ip}:8000{args.path}"
+
+    polls = []
+    stop = threading.Event()
+    poller = threading.Thread(target=poll_state, args=(ip, polls, stop), daemon=True)
+    poller.start()
+    started = time.time()
+    ffmpeg = subprocess.run(
+        ["ffmpeg", "-nostdin", "-v", "error", "-y", "-t", str(args.seconds), "-i", url,
+         "-c:a", "copy", str(capture_path)],
+        capture_output=True, text=True,
+    )
+    wall = time.time() - started
+    stop.set()
+    poller.join()
+    write_polls(out / "polls.tsv", polls)
+
+    lines = [f"stream-check {url}, {args.seconds:g} s requested, capture took {wall:.1f} s of wall time"]
+    if ffmpeg.returncode != 0 or not capture_path.exists():
+        lines.append(f"FAIL  ffmpeg exited {ffmpeg.returncode}: {ffmpeg.stderr.strip()[-500:]}")
+        return finish(out, lines, failed=True)
+    if ffmpeg.stderr.strip():
+        lines.append(f"note  ffmpeg said: {ffmpeg.stderr.strip()[-300:]}")
+
+    frames = decode(capture_path)
+    results = [check_length(frames, args.seconds), check_level(frames, polls),
+               check_channels(frames), check_zero_runs(frames)]
+    lines += [line for _, line in results]
+    lines.append(poll_summary(polls))
+    return finish(out, lines, failed=not all(ok for ok, _ in results))
+
+
+def poll_state(ip, polls, stop):
+    """Polls /api/state once a second until `stop`, recording the time, level and any error."""
+    while not stop.is_set():
+        asked = time.time()
+        try:
+            with urllib.request.urlopen(f"http://{ip}/api/state", timeout=2) as response:
+                state = json.load(response)
+            polls.append((asked, time.time() - asked, state.get("level_dbfs"), state.get("shazam_enabled"), ""))
+        except Exception as error:  # a missed poll is data, not a crash
+            polls.append((asked, time.time() - asked, None, None, str(error)))
+        stop.wait(max(0.0, 1.0 - (time.time() - asked)))
+
+
+def write_polls(path, polls):
+    with open(path, "w") as f:
+        f.write("unix_time\tseconds\tlevel_dbfs\tshazam_enabled\terror\n")
+        for asked, took, level, enabled, error in polls:
+            f.write(f"{asked:.3f}\t{took:.3f}\t{level}\t{enabled}\t{error}\n")
+
+
+def decode(path):
+    """The capture's frames as sign-extended 24-bit integers, shape (frames, 2)."""
+    raw = subprocess.run(
+        ["ffmpeg", "-nostdin", "-v", "error", "-i", str(path), "-f", "s32le", "-acodec", "pcm_s32le", "-"],
+        capture_output=True, check=True,
+    ).stdout
+    return (np.frombuffer(raw, dtype="<i4") >> 8).reshape(-1, 2)
+
+
+def dbfs(samples):
+    """RMS level of `samples` in dBFS after removing their DC offset."""
+    samples = samples.astype(np.float64)
+    rms = np.sqrt(np.mean((samples - samples.mean()) ** 2))
+    return 20 * np.log10(max(rms, 1e-9) / FULL_SCALE)
+
+
+def check_length(frames, seconds):
+    expected = round(seconds * RATE)
+    got = len(frames)
+    ok = abs(got - expected) <= TOLERANCE_FRAMES
+    return ok, (f"{'ok  ' if ok else 'FAIL'}  length: {got} frames = {got / RATE:.3f} s "
+                f"(want {expected} +/- {TOLERANCE_FRAMES})")
+
+
+def check_level(frames, polls):
+    """The capture's level, as the mean of 1 s readings of the mono mix, against the polled level_dbfs."""
+    mono = frames.astype(np.float64).mean(axis=1)
+    seconds = len(mono) // RATE
+    capture = [dbfs(mono[i * RATE:(i + 1) * RATE]) for i in range(seconds)]
+    board = [level for _, _, level, _, _ in polls if level is not None]
+    if not capture or not board:
+        return False, f"FAIL  level: {len(capture)} capture seconds, {len(board)} answered polls"
+    difference = np.mean(capture) - np.mean(board)
+    ok = abs(difference) <= LEVEL_TOLERANCE_DB
+    return ok, (f"{'ok  ' if ok else 'FAIL'}  level: capture {np.mean(capture):.1f} dBFS (1 s readings "
+                f"{min(capture):.1f} to {max(capture):.1f}), /api/state {np.mean(board):.1f} dBFS over "
+                f"{len(board)} polls, difference {difference:+.1f} dB (want within {LEVEL_TOLERANCE_DB:g})")
+
+
+def check_channels(frames):
+    left, right = frames[:, 0], frames[:, 1]
+    left_db, right_db = dbfs(left), dbfs(right)
+    same = float(np.mean(left == right))
+    difference_db = dbfs(left.astype(np.int64) - right)
+    ok = left_db > SIGNAL_FLOOR_DBFS and right_db > SIGNAL_FLOOR_DBFS and same < 0.01
+    return ok, (f"{'ok  ' if ok else 'FAIL'}  channels: L {left_db:.1f} dBFS, R {right_db:.1f} dBFS "
+                f"(want both over {SIGNAL_FLOOR_DBFS:g}), L-R {difference_db:.1f} dBFS, "
+                f"L == R in {100 * same:.2f}% of frames (want under 1%)")
+
+
+def longest_run(mask):
+    """Length of the longest run of True in a 1-D boolean array."""
+    if not mask.any():
+        return 0
+    edges = np.diff(np.concatenate(([0], mask.astype(np.int8), [0])))
+    return int((np.flatnonzero(edges == -1) - np.flatnonzero(edges == 1)).max())
+
+
+def check_zero_runs(frames):
+    both = longest_run((frames[:, 0] == 0) & (frames[:, 1] == 0))
+    left = longest_run(frames[:, 0] == 0)
+    right = longest_run(frames[:, 1] == 0)
+    ok = max(both, left, right) <= MAX_ZERO_RUN_FRAMES
+    return ok, (f"{'ok  ' if ok else 'FAIL'}  zero runs: longest {both} frames on both channels, "
+                f"{left} on L, {right} on R (want at most {MAX_ZERO_RUN_FRAMES}, 10 ms)")
+
+
+def poll_summary(polls):
+    missed = [asked for asked, _, level, _, _ in polls if level is None]
+    slowest = max((took for _, took, level, _, _ in polls if level is not None), default=0.0)
+    flags = {enabled for _, _, level, enabled, _ in polls if level is not None}
+    note = "note" if not missed else "WARN"
+    return (f"{note}  polls: {len(polls) - len(missed)} of {len(polls)} answered, slowest {slowest:.2f} s, "
+            f"shazam_enabled {sorted(flags)}" + (f"; unanswered at {', '.join(time.strftime('%H:%M:%S', time.localtime(t)) for t in missed)}" if missed else ""))
+
+
+def finish(out, lines, failed):
+    text = "\n".join(lines) + "\n"
+    (out / "summary.txt").write_text(text)
+    sys.stdout.write(text)
+    return 1 if failed else 0
+
+
+sys.exit(main())
+PY
