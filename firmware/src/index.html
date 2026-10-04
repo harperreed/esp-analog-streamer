@@ -47,10 +47,13 @@ async function refresh() {
   try {
     const s = await (await fetch('/api/state', { cache: 'no-store', signal: AbortSignal.timeout(2500) })).json();
     const paused = s.rate_limited_until ? ` · paused until ${s.rate_limited_until}` : '';
-    $('status').textContent = `${s.state.replace('_', ' ')} · ${s.level_dbfs.toFixed(1)} dBFS${paused}`;
+    // A board built without Shazam runs no listen policy: its state and "Nothing playing." would mislead.
+    const off = s.shazam_enabled === false;
+    const label = off ? 'Shazam is off' : s.state.replace('_', ' ');
+    $('status').textContent = `${label} · ${s.level_dbfs.toFixed(1)} dBFS${paused}`;
     const n = s.now;
     $('now').hidden = !n;
-    $('idle').hidden = Boolean(n);
+    $('idle').hidden = Boolean(n) || off;
     if (n) {
       $('title').textContent = n.title;
       $('artist').textContent = n.artist;

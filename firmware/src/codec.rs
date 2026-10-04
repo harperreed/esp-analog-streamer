@@ -1,4 +1,4 @@
-// ABOUTME: ES8388 setup for recording the LINE IN jack (LIN2/RIN2) at 16 kHz, 16-bit, as an I2S slave.
+// ABOUTME: ES8388 setup for recording the LINE IN jack (LIN2/RIN2) at 48 kHz, 24-bit, as an I2S slave.
 // ABOUTME: Register sequence from Espressif's esp_codec_dev ES8388 driver, trimmed to the ADC path, checked by readback.
 
 use std::time::Duration;
@@ -22,7 +22,7 @@ const SETUP: &[(u8, u8)] = &[
     (0x03, 0xFF), // ADC off while configuring
     (0x0A, 0x50), // input LIN2/RIN2: the LINE IN jack
     (0x0B, 0x02), // stereo; ADC data output driven
-    (0x0C, 0x0C), // I2S Philips format, 16-bit words
+    (0x0C, 0x00), // I2S Philips format, 24-bit words (sent in the top of the ESP32's 32-bit slots)
     (0x0D, 0x02), // single speed, MCLK = 256 x LRCK
     (0x10, 0x00), // left ADC digital volume 0 dB (powers up at -96 dB)
     (0x11, 0x00), // right ADC digital volume 0 dB
@@ -34,7 +34,8 @@ const EXPECTED: &[(u8, u8)] = &[
     (0x03, 0x00),
     (0x08, 0x00),
     (0x0A, 0x50),
-    (0x0C, 0x0C),
+    (0x0C, 0x00),
+    (0x0D, 0x02),
     (0x10, 0x00),
     (0x11, 0x00),
 ];

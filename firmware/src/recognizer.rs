@@ -7,14 +7,13 @@ use std::time::{Duration, Instant};
 use anyhow::Result;
 use esp_idf_svc::hal::cpu::Core;
 use esp_idf_svc::hal::task::thread::ThreadSpawnConfiguration;
-use esp_shazam_core::audio::loudness_dbfs;
 use esp_shazam_core::fingerprinting::algorithm::SignatureGenerator;
 use esp_shazam_core::policy::{Change, Decision, Outcome, Policy, PolicyConfig};
 use esp_shazam_core::shazam::{self, RequestContext, Song};
 use esp_shazam_core::store::SongStore;
 use esp_shazam_core::time::rfc3339_utc;
 
-use crate::audio_in::{SharedRing, SAMPLE_RATE_HZ, WINDOW_SAMPLES};
+use crate::audio_in::{SharedRing, WINDOW_SAMPLES};
 use crate::{net, shazam_http};
 
 pub type SharedStore = Arc<Mutex<SongStore>>;
@@ -49,16 +48,15 @@ fn run(ring: SharedRing, store: SharedStore, config: PolicyConfig, on_change: im
     let boot = Instant::now();
     let now_ms = || boot.elapsed().as_millis() as u64;
     let mut policy = Policy::new(config);
-    let mut second = Vec::with_capacity(SAMPLE_RATE_HZ as usize);
     let mut window = Vec::with_capacity(WINDOW_SAMPLES);
     let mut clock_was_synced = false;
     loop {
         std::thread::sleep(TICK);
-        ring.lock()
-            .expect("audio ring lock")
-            .copy_latest(SAMPLE_RATE_HZ as usize, &mut second);
-        let level = loudness_dbfs(&second);
-        let has_now = store.lock().expect("store lock").has_now();
+        // The audio thread meters the level into the store, so the policy and the page read one number.
+        let (level, has_now) = {
+            let store = store.lock().expect("store lock");
+            (store.level_dbfs(), store.has_now())
+        };
         let clock_synced = net::clock_synced();
         if clock_synced && !clock_was_synced {
             // The policy holds every ask until now; a board that never logs this never got SNTP time.
@@ -114,13 +112,12 @@ fn run(ring: SharedRing, store: SharedStore, config: PolicyConfig, on_change: im
             .rate_limited_until(now)
             .map(|until| rfc3339_utc((net::unix_ms() + (until - now)) / 1_000));
         let state = policy.state(now, guard.has_now());
-        guard.set_level(level);
         guard.set_status(state, rate_limited_until);
     }
 }
 
-/// Copies the last 12 s into `window` and returns how many ms that held the ring lock.
-/// The audio thread can't push meanwhile; audio_in's I2S DMA queue covers 225 ms of waiting.
+/// Copies the last 12 s into `window` and returns how many ms that held the ring lock. The audio
+/// thread doesn't wait for the lock: it keeps its new samples and pushes them once the lock is free.
 fn snapshot(ring: &SharedRing, window: &mut Vec<i16>) -> u128 {
     let ring = ring.lock().expect("audio ring lock");
     let started = Instant::now();

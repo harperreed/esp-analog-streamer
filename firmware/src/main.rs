@@ -44,7 +44,10 @@ fn main() -> Result<()> {
         &I2cConfig::new().baudrate(100.kHz().into()),
     )?;
     codec::setup_line_in(&mut i2c, CONFIG.pga_gain)?;
-    let ring = audio_in::spawn_capture(rx)?;
+    let store: recognizer::SharedStore =
+        Arc::new(Mutex::new(SongStore::new(20, CONFIG.shazam_enabled)));
+    // `_stream` holds the newest 2 s of raw 48 kHz frames for stream listeners.
+    let (ring, _stream) = audio_in::spawn_capture(rx, store.clone())?;
 
     let wifi = net::start_wifi(
         peripherals.modem,
@@ -56,8 +59,6 @@ fn main() -> Result<()> {
     let _sntp = net::start_sntp()?;
     let _mdns = net::start_mdns(CONFIG.hostname)?;
 
-    let store: recognizer::SharedStore =
-        Arc::new(Mutex::new(SongStore::new(20, CONFIG.shazam_enabled)));
     let _server = web::start(store.clone())?;
     let publisher = mqtt_out::start(CONFIG.mqtt_url, store.clone())?;
     // Both branches always compile: the flag only decides whether the recognizer thread starts.
