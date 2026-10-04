@@ -3691,27 +3691,56 @@ Spec: `docs/superpowers/specs/2026-10-03-line-in-stream-idea.md`, "Decisions". L
 
 ---
 
-### Task 14: Capture at 48 kHz / 24-bit stereo, with a 16 kHz mono feed for Shazam (SDD Ruling R21)
+### Task 14a: Core pieces for the stream: decimator, stream ring, live level (SDD Rulings R21, R24)
+
+Pure Rust in `esp-shazam-core`, TDD on the Mac. Lean task: acceptance criteria, not transcribed code.
+
+**Build:**
+- **`audio::Decimator` (or `decimate` module):** 48 kHz interleaved stereo with 24-bit samples in `i32` → 16 kHz mono `i16`.
+  - Average L and R, apply an anti-alias FIR low-pass (cutoff ≤ 7.2 kHz, linear phase, fixed-point or f32), and decimate by 3.
+  - It keeps filter state across calls, so chunk boundaries don't click.
+  - Tests:
+    - a 1 kHz tone keeps its level within 0.5 dB and reads 1000 Hz ±5 on `zero_crossing_hz`;
+    - a 7.5 kHz tone is attenuated at least 40 dB;
+    - feeding a signal in odd-sized chunks gives output identical to feeding it in one call;
+    - full-scale input doesn't overflow.
+- **`stream_ring::StreamRing`:** a fixed-capacity ring of interleaved stereo `i32` frames with one writer and several readers, each with its own cursor.
+  - `read` returns available frames, or `Overrun` when the writer has lapped that reader.
+  - Readers that join start at "now", not at the oldest frame.
+  - Tests: wraparound, two readers at different speeds, overrun detection, the join-at-now rule.
+- **`SongStore` level split (R24):**
+  - `set_level(level_dbfs)` and `level_dbfs()` are added.
+  - `set_status(state, rate_limited_until)` no longer takes a level.
+  - The level stays rounded to 0.1 dB in `state_json`.
+  - Existing tests are updated, not weakened, and new tests cover the split.
+
+**Accept:**
+- All new and updated tests pass; `scripts/check` is all `ok` (the firmware still builds).
+- Update the firmware's `set_status` call sites minimally so it compiles: the recognizer calls `set_level` itself until Task 14b moves the meter.
+
+---
+
+### Task 14b: Capture at 48 kHz / 24-bit stereo; audio thread meters loudness; honest page with Shazam off (SDD Rulings R21, R24)
 
 Lean task: acceptance criteria, not transcribed code. Research the pinned crates and ESP-IDF v5.5.5 sources, and mark anything unverified.
 
 **Build:**
-- **I2S RX at 48 kHz, 24-bit data, stereo:**
-  - Choose the slot width and MCLK multiple that ESP-IDF v5.5.5 and esp-idf-hal 0.47 support on the classic ESP32, noting that 24-bit may need a 384×fs MCLK or 32-bit slots. Check the driver docs and source.
-  - Set the ES8388 ADC to match: word length in `0x0C`, MCLK/LRCK ratio in `0x0D`. Readbacks are updated.
-- **A stream ring in PSRAM,** about 2 s of interleaved stereo frames, holding the 24-bit samples as captured.
-  - It's a new core type, host-tested: one writer, several readers each with their own cursor, and a reader that falls more than the capacity behind is flagged as overrun.
-- **A core decimator, host-tested:** 48 kHz stereo (24-bit in i32) → 16 kHz mono i16.
-  - Average the channels, apply an anti-alias low-pass (FIR, cutoff ≤ 7.2 kHz), and decimate by 3.
-  - Tests: a 1 kHz tone survives at the right level and frequency (`zero_crossing_hz`); a 7.5 kHz tone is attenuated at least 40 dB.
-- The audio thread feeds the decimator output into the existing 12 s `SampleRing`, so the recognizer is unchanged, and the raw frames into the stream ring.
+- **I2S RX at 48 kHz, 24-bit data, stereo.** Choose the slot width and MCLK multiple that ESP-IDF v5.5.5 and esp-idf-hal 0.47 support on the classic ESP32: 24-bit may need 384×fs MCLK or 32-bit slots; check the driver docs and source.
+  - Set the ES8388 ADC to match: word length `0x0C`, MCLK/LRCK ratio `0x0D`, with readbacks updated.
+  - Fallback per R21: 48 kHz 16-bit, recorded with the reason.
+- **The audio thread:**
+  - pushes raw frames into a `StreamRing` (about 2 s, in PSRAM);
+  - runs the `Decimator` into the existing 12 s `SampleRing`, so the recognizer is unchanged;
+  - every 250 ms, computes `loudness_dbfs` over the last 1 s of the 16 kHz feed and calls `SongStore::set_level`.
+- **The recognizer** reads the level from the store for `policy.tick`, instead of computing its own (one source of truth). The level stays live during asks, which retires R16's freeze. State still holds during an ask.
+- **The page (`index.html`):** when `shazam_enabled` is false, show "Shazam is off · <level> dBFS" in place of the state text, and hide "Nothing playing.". Everything else is unchanged.
+- **Docs:** reword the four places that recorded the misleading flag-off page as accepted: the idea doc's Decisions, gotchas, spec Outputs, and plan Open. Note R16 is retired for level.
 
 **Accept:**
-- The 1 kHz-tone and attenuation tests pass.
-- On the board, Shazam still matches the source (with the flag on).
-- The audio thread keeps up: no I2S overruns in a 5-minute run, and level logs look sane.
-- Min free internal RAM stays at least 10 KB during asks.
-- Fallback per the decisions: if 24-bit misbehaves, use 16-bit at 48 kHz and record why.
+- **Flag on:** Shazam still matches the source. Min free internal RAM stays at least 10 KB during asks, and the fingerprint time is recorded.
+- **Flag off:** `/api/state` shows a live `level_dbfs` that moves with the music (several reads a few seconds apart), and the page code shows "Shazam is off".
+- **Capture:** the audio thread keeps up. No I2S read errors in a 5-minute run, and level logs look sane.
+- `scripts/check` is all `ok`. Park the board when done.
 
 ---
 
