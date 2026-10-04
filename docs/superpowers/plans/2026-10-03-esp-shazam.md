@@ -3774,6 +3774,27 @@ Lean task: acceptance criteria, not transcribed code.
 
 ---
 
+### Task 15b: Carry the stream through real round trips (SDD Ruling R29)
+
+On 2026-10-04, VLC on Harper's Mac played `/stream.wav` for about 12 s, then the board dropped it for falling 2 s behind. lwIP keeps at most `TCP_SND_BUF` (5,760 B) in flight per connection, so 288 kB/s needs round trips under 20 ms. Harper's paths run 10-80 ms, with spikes to 1 s. Lean task: acceptance criteria, not transcribed code.
+
+**Build:**
+- **Bigger send buffer.** Raise lwIP's TCP send buffer (`CONFIG_LWIP_TCP_SND_BUF_DEFAULT`) until one listener holds at the round trips Task 15 measured. Task 15's run B carried one listener at 23,040 B. Pick the size from measurements.
+- **Internal RAM with two listeners.** Try `CONFIG_SPIRAM_TRY_ALLOCATE_WIFI_LWIP`, which takes Wi-Fi and lwIP buffers from PSRAM first. Verify what it moves on the classic ESP32 under ESP-IDF v5.5.5, and what it costs in throughput. If internal RAM still doesn't hold, cap the stream at one listener and say so.
+- Change nothing else unless a measurement shows it's needed, more ring slack for example.
+
+**Accept (Shazam off, R26):**
+- From Harper's Mac, VLC or `scripts/stream-check` plays `/stream.wav` for 10 minutes and the board never drops it. Record ping round trips alongside, so the run shows the conditions it held through. If the path stayed good the whole time, say so.
+- At the listener cap (two, or one if it comes to that), listeners hold for 5 minutes.
+- With the cap reached plus a 10 s blast:
+  - the lowest free internal RAM (`INTERNAL|8BIT`) stays at 20 KB or more;
+  - no I2S buffer is lost;
+  - the audio thread's lag stays inside its 45 ms queue.
+- `/api/state` and the page keep answering.
+- `scripts/check` is all `ok`, and the final image ends running, not parked.
+
+---
+
 ### Task 16: FLAC stream at `/stream.flac` (SDD Ruling R22)
 
 Harper: "can we do flac?" This is lossless compression of the same 48 kHz stereo frames, at roughly 60% of the WAV bitrate. Lean task: acceptance criteria, not transcribed code.
