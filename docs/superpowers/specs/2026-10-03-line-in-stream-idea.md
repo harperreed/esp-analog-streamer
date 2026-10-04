@@ -18,6 +18,7 @@ Status: **approved for build** (2026-10-03). Harper: "can we feature flag out th
   - Its own `std::net::TcpListener` thread, never the web server's task.
   - At most 2 listeners.
   - A listener that falls behind gets dropped and never stalls capture.
+- **FLAC:** `http://esp-shazam.local:8000/stream.flac` carries the same frames losslessly compressed, at about 60% of the WAV bitrate. The encoder is `flacenc` if it fits the ESP32, else a small fixed-predictor encoder, tested bit-exact with `claxon` (SDD Ruling R22). WAV stays as the debug and fallback endpoint.
 - **Metadata sidecar:** the existing `/api/state` and MQTT `esp-shazam/now_playing` (when Shazam is on). No in-band ICY titles in v1.
 
 ## What already exists after the current plan

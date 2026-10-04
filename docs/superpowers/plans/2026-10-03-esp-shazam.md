@@ -3731,6 +3731,39 @@ Lean task: acceptance criteria, not transcribed code.
 
 ---
 
+### Task 16: FLAC stream at `/stream.flac` (SDD Ruling R22)
+
+Harper: "can we do flac?" This is lossless compression of the same 48 kHz stereo frames, at roughly 60% of the WAV bitrate. Lean task: acceptance criteria, not transcribed code.
+
+**Build:**
+- **An encoder in `core`,** host-tested:
+  - First try `flacenc = { version = "0.5.1", default-features = false }`. It must build for `xtensa-esp32-espidf` and must be able to encode one fixed-size block at a time (4096 frames) without whole-stream buffering.
+  - If either fails, or it allocates per frame beyond a few KB, write a minimal encoder per RFC 9639 instead:
+    - fixed predictors of order 0–4, choosing the best per subframe
+    - Rice-coded residual partitions
+    - frame headers with CRC-8 and footers with CRC-16
+    - STREAMINFO with total samples = 0 (unknown)
+  - Record which path was taken and why.
+- **Host tests (TDD):**
+  - Encode 48 kHz stereo PCM at the stream's bit depth (a chord-and-chirp signal plus silence plus a full-scale square wave), decode with `claxon` (a dev-dependency), and assert sample-exact equality.
+  - Also run `ffmpeg -i out.flac -f s32le -` on a test file and compare the samples.
+- **Stream:** `GET /stream.flac` on the port-8000 server.
+  - `Content-Type: audio/flac`.
+  - It sends the `fLaC` marker and STREAMINFO, then one encoded frame per 4096 frames from the stream ring.
+  - The same listener cap and overrun-drop rules as WAV apply. WAV stays as the debug and fallback endpoint.
+
+**Accept:**
+- The host round-trip tests pass bit-exact.
+- On the board:
+  - `ffprobe` reads the stream as FLAC, 48000 Hz, 2 channels.
+  - A 60 s `ffmpeg` capture is gapless (sample count 60 × 48000 ± 4800), decodes cleanly, and Shazams to the same song as `/api/state`.
+  - Measured stream bitrate is clearly below WAV's.
+  - Encoder CPU is measured: ms per 4096-frame block, which must stay well under the block's 85 ms of audio.
+  - With Shazam on and a FLAC listener, 0 TLS failures over 5 asks, and min free internal RAM ≥10 KB.
+- Note in the README which players were tried (ffmpeg/ffplay at least; VLC if available).
+
+---
+
 ### Task 12: Device end-to-end test, Wi-Fi drop check, README
 
 LINE IN is wired to Harper's audio source, which plays continuously and which nothing on the Mac controls. The device test therefore works with whatever plays (ledger Ruling R13).
