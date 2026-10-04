@@ -2,6 +2,7 @@
 // ABOUTME: No ESP-IDF dependencies, so `cargo test` on the Mac covers all of it.
 
 pub mod audio;
+pub mod decimate;
 
 /// Shazam signature generation, copied from songrec-lib 0.5.4 (GPL-3.0-or-later, by marin-m).
 /// Kept as close to upstream as possible so the golden tests can demand identical bytes,
