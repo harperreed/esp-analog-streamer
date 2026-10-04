@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>esp-shazam</title>
+<style>
+  :root { color-scheme: light dark; --bg: #f6f5f2; --fg: #1b1b1b; --muted: #6b6b6b; --card: #ffffff; --accent: #0a66d8; }
+  @media (prefers-color-scheme: dark) { :root { --bg: #121212; --fg: #ececec; --muted: #9a9a9a; --card: #1d1d1d; --accent: #6aa8ff; } }
+  [hidden] { display: none !important; }
+  body { margin: 0; font: 16px/1.45 system-ui, sans-serif; background: var(--bg); color: var(--fg); }
+  main { max-width: 34rem; margin: 0 auto; padding: 1.5rem 1rem; }
+  .now { display: flex; gap: 1rem; align-items: center; background: var(--card); border-radius: 12px; padding: 1rem; }
+  .now img { width: 96px; height: 96px; border-radius: 8px; object-fit: cover; background: var(--muted); flex: none; }
+  .title { font-size: 1.3rem; font-weight: 600; }
+  .muted { color: var(--muted); font-size: .9rem; }
+  h2 { font-size: 1rem; margin-top: 2rem; }
+  ol { padding-left: 1.2rem; }
+  li { margin: .35rem 0; }
+  a { color: var(--accent); }
+</style>
+</head>
+<body>
+<main>
+  <p class="muted" id="status">connecting…</p>
+  <section class="now" id="now" hidden>
+    <img id="cover" alt="">
+    <div>
+      <div class="title" id="title"></div>
+      <div id="artist"></div>
+      <div class="muted" id="album"></div>
+      <a id="link" target="_blank" rel="noopener">Open in Shazam</a>
+    </div>
+  </section>
+  <p class="muted" id="idle">Nothing playing.</p>
+  <h2 class="muted">Earlier</h2>
+  <ol id="history"></ol>
+</main>
+<script>
+const $ = (id) => document.getElementById(id);
+async function refresh() {
+  try {
+    const s = await (await fetch('/api/state', { cache: 'no-store' })).json();
+    const paused = s.rate_limited_until ? ` · paused until ${s.rate_limited_until}` : '';
+    $('status').textContent = `${s.state.replace('_', ' ')} · ${s.level_dbfs.toFixed(1)} dBFS${paused}`;
+    const n = s.now;
+    $('now').hidden = !n;
+    $('idle').hidden = Boolean(n);
+    if (n) {
+      $('title').textContent = n.title;
+      $('artist').textContent = n.artist;
+      $('album').textContent = n.album || '';
+      if (n.cover_url) { $('cover').src = n.cover_url; } else { $('cover').removeAttribute('src'); }
+      $('link').hidden = !n.shazam_url;
+      if (n.shazam_url) { $('link').href = n.shazam_url; }
+    }
+    $('history').replaceChildren(...s.history.map((h) => {
+      const li = document.createElement('li');
+      li.textContent = `${h.title} — ${h.artist} (${h.identified_at.replace('T', ' ').replace('Z', ' UTC')})`;
+      return li;
+    }));
+  } catch (e) {
+    $('status').textContent = 'board unreachable, retrying…';
+  }
+}
+refresh();
+setInterval(refresh, 3000);
+</script>
+</body>
+</html>

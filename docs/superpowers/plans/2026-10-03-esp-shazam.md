@@ -1,9 +1,9 @@
 # esp-shazam Implementation Plan
 
 ## Now
-- Step: Task 9 done (Wi-Fi, clock, recognizer): the board identified three tracks from Harper's continuous source, first match 25.6 s after reset; rate and format closed by those matches
-- Next: Task 10 (web page, /api/state, mDNS)
-- Open: silence and Wi-Fi-drop checks need Harper (Task 12); turn off station OWE (`CONFIG_ESP_WIFI_ENABLE_WPA3_OWE_STA`)? With it on, ESP-IDF's Wi-Fi library logs the Wi-Fi password's length at every boot
+- Step: Task 10 done (web page, /api/state, mDNS): `/api/state` served "No Others" (Momoko Gill), matched 25.7 s after reset; esp-shazam.local resolves, but dual-stack lookups on the Mac wait 5 s for an AAAA answer, so checks by name need `curl -4` (gotchas.md)
+- Next: Task 11 (MQTT publishing)
+- Open: silence and Wi-Fi-drop checks need Harper (Task 12); turn off station OWE (`CONFIG_ESP_WIFI_ENABLE_WPA3_OWE_STA`)? With it on, ESP-IDF's Wi-Fi library logs the Wi-Fi password's length at every boot; Harper to look at http://esp-shazam.local/ (the board is parked; a reset boots it)
 - Approved: "On the board (Recommended)" (2026-10-03), fingerprint computed on the board
 - Approved: "Always listening" (2026-10-03), trigger
 - Approved: "Web page on the board", "MQTT, and json endpoint" (2026-10-03), outputs

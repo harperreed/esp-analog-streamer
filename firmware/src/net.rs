@@ -1,4 +1,4 @@
-// ABOUTME: Wi-Fi station with a reconnect supervisor, plus SNTP wall-clock time.
+// ABOUTME: Wi-Fi station with a reconnect supervisor, SNTP wall-clock time, and the mDNS name.
 // ABOUTME: ESP-IDF never reconnects by itself, so `supervise` owns the link on the main thread.
 
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
@@ -6,6 +6,7 @@ use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use anyhow::{anyhow, Result};
 use esp_idf_svc::eventloop::EspSystemEventLoop;
 use esp_idf_svc::hal::modem::WifiModemPeripheral;
+use esp_idf_svc::mdns::EspMdns;
 use esp_idf_svc::nvs::EspDefaultNvsPartition;
 use esp_idf_svc::sntp::EspSntp;
 use esp_idf_svc::wifi::{AuthMethod, BlockingWifi, ClientConfiguration, Configuration, EspWifi};
@@ -117,4 +118,13 @@ fn log_link_up(wifi: &BlockingWifi<EspWifi<'static>>, event: &str) {
 /// Keep the returned handle alive: dropping it stops SNTP.
 pub fn start_sntp() -> Result<EspSntp<'static>> {
     Ok(EspSntp::new_default()?)
+}
+
+/// Publishes `<hostname>.local` and an HTTP service on port 80. Keep the handle alive.
+pub fn start_mdns(hostname: &str) -> Result<EspMdns> {
+    let mut mdns = EspMdns::take()?;
+    mdns.set_hostname(hostname)?;
+    mdns.set_instance_name("esp-shazam")?;
+    mdns.add_service(Some("esp-shazam"), "_http", "_tcp", 80, &[("path", "/")])?;
+    Ok(mdns)
 }

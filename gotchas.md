@@ -71,3 +71,15 @@ It also ignores unknown keys, so a misspelled key in `cfg.toml` silently falls b
 
 ## Boot logs show the Wi-Fi name and the password's length
 ESP-IDF's Wi-Fi driver logs `wifi:connected with <SSID>` at every connect. With station OWE support on (`CONFIG_ESP_WIFI_ENABLE_WPA3_OWE_STA=y`, the IDF default), `libnet80211.a` also warns "OWE is enabled, but authmode threshold is 3 or password length is N", where N is the real length of `wifi_pass`. Redact both before pasting a log anywhere. Turning OWE off would remove the warning; that waits on Harper (plan `## Now`, Open).
+
+## mDNS comes from the espressif/mdns component, pinned to 1.8.2
+`esp_idf_svc::mdns` exists only when that managed component is in the build: `[[package.metadata.esp-idf-sys.extra_components]]` in `firmware/Cargo.toml`. 1.8.2 builds on IDF 5.5.5; the registry's newest on 2026-10-03 was 1.14.0. The component manager downloads it into esp-idf-sys's out dir under `firmware/target/` and writes `firmware/components_esp32.lock` (committed). No `firmware/managed_components/` appears.
+esp-idf-sys reruns its build script only when a file it tracks changes, such as `sdkconfig.defaults`, never `Cargo.toml`. After a change to `package.metadata.esp-idf-sys`, an existing `firmware/target` fails with "could not find `mdns` in `esp_idf_svc`". Run `touch firmware/sdkconfig.defaults` and build again.
+
+## On this Mac, every esp-idf-sys build-script run clones ESP-IDF again
+`~/.gitconfig` rewrites `https://github.com/` to `git@github.com:` (`url.insteadOf`), so `git remote get-url origin` in `firmware/.embuild/espressif/esp-idf/v5.5.5` returns the SSH form. embuild 0.33.5 compares that with the https URL, finds no match, deletes the checkout and clones it again over SSH. The build still passes: on 2026-10-03 the whole build, clone included, took 2 minutes. Ordinary builds don't rerun the script; changes to `sdkconfig.defaults` or esp-idf-sys metadata do.
+
+## Lookups of esp-shazam.local take 5 s on the Mac; use `curl -4`
+The board has no IPv6 address (esp-idf-svc never creates a link-local one), so it can't answer AAAA queries. The mdns component never sends NSEC to say there is none. A dual-stack lookup, curl's default, then waits 5 s for the AAAA before returning the A record. Measured 2026-10-03: 5.02 s cold and 5.01 s warm dual-stack, against 0.01 s IPv4-only. `curl --max-time 5` by name fails; `curl -4` answers in 0.3 s. A browser will likely wait the same 5 s on its first lookup (not verified).
+- The Mac (192.168.99.0/24, en0) reaches the board's 192.168.200.0/24 through Tailscale (`utun4`). mDNS answers still arrive on en0, so something on the network repeats mDNS between the subnets. Requests over that path took 0.3–1.4 s.
+- `/` and `/api/state` answer GET only. `curl -I` sends HEAD and gets `405 Method Not Allowed` (text/html), so check headers on a GET: `curl -s -D - -o /dev/null <url>`.

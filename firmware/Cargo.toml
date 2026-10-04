@@ -38,5 +38,10 @@ toml-cfg = "0.2"
 [build-dependencies]
 embuild = "=0.33.5"
 
+# The espressif/mdns managed component turns on esp_idf_svc::mdns. The first build downloads it.
+# esp-idf-sys doesn't watch this file: after changing this entry, touch sdkconfig.defaults (gotchas.md).
+[[package.metadata.esp-idf-sys.extra_components]]
+remote_component = { name = "espressif/mdns", version = "1.8.2" }
+
 # Its own workspace: the host workspace at the repo root excludes firmware/.
 [workspace]

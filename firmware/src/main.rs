@@ -1,4 +1,4 @@
-// ABOUTME: Firmware entry point: LINE IN capture, Wi-Fi, clock, and the recognizer around one song store.
+// ABOUTME: Firmware entry point: LINE IN capture, Wi-Fi, clock, mDNS, the recognizer and the web server around one song store.
 // ABOUTME: The main thread ends up supervising Wi-Fi; everything else runs on its own thread.
 
 mod audio_in;
@@ -7,6 +7,7 @@ mod config;
 mod net;
 mod recognizer;
 mod shazam_http;
+mod web;
 
 use std::sync::{Arc, Mutex};
 
@@ -52,8 +53,10 @@ fn main() -> Result<()> {
         CONFIG.wifi_pass,
     )?;
     let _sntp = net::start_sntp()?;
+    let _mdns = net::start_mdns(CONFIG.hostname)?;
 
     let store: recognizer::SharedStore = Arc::new(Mutex::new(SongStore::new(20)));
+    let _server = web::start(store.clone())?;
     let log_store = store.clone();
     recognizer::spawn(ring, store, config::policy_config(), move || {
         log::info!(
