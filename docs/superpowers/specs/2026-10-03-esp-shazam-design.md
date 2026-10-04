@@ -190,7 +190,8 @@ The Mac E2E test uses it, and it saves real responses as parser fixtures.
 | 12 s snapshot | 384 KB | PSRAM |
 | Stream ring (2 s at 48 kHz, stereo, `i32`) | 768,000 bytes | PSRAM |
 | I2S DMA buffers (10 × 1,920 bytes) | 19 KB | internal (DMA can't reach PSRAM) |
-| Stream server: accept thread, and a thread per listener (4 KiB stacks) | 4 KiB + 4 KiB per listener | internal (thread stacks) |
+| Stream server with no listener: the accept thread (4 KiB stack), its listening socket, the mDNS service, the larger socket table | 5.7-5.8 KB measured; 6.3-6.8 KB once a listener has come and gone | internal |
+| Per stream listener: a thread (4 KiB stack) | 4 KiB | internal (thread stacks) |
 | Per stream listener: read and send buffers | 3,360 bytes | internal (under the 8,191-byte threshold) |
 | Stream listeners at their low: the above, lwIP's send queue and the Wi-Fi driver's TX buffers | one 17-25 KB (median 21), two 41-55 KB (median 48), measured in Task 15 | internal |
 | Signature, base64 and body | under 64 KB | heap |
@@ -441,7 +442,7 @@ There are no mocks anywhere. The E2E tests use the real Shazam API and the real 
   - **A bigger send buffer helps one listener and costs internal RAM.** At 23,040 bytes (a diag build) throughput roughly doubled, to 4.0-5.5 Mbit/s, and one listener held 60 s; of two, one fell behind in 3.3 s. One saturated connection then took about 70 KB of internal RAM at its low, and two listeners plus a test connection left 1,559 bytes free. At 11,520 bytes it reached 3.8 Mbit/s, and two listeners fell behind together after 21 s.
   - **Capture never suffered.** No I2S buffer was lost in any run, through full-speed sends and the 1,559-byte low, and the audio thread ran at most 9.9 ms late after boot (the queue holds 45 ms).
   - **Changed:** modem sleep is off (SDD Ruling R27). It costs no internal RAM and cut round trips, but it didn't keep a 30 s stream going through a bad stretch by itself (Task 15, run A).
-  - **Not changed (Harper's call):** the send buffer size, and PSRAM for Wi-Fi and lwIP buffers (`CONFIG_SPIRAM_TRY_ALLOCATE_WIFI_LWIP`). A client on the board's own LAN would show whether the limit is the board or the path. With Shazam on, even one listener (17-25 KB at its low) is over the internal RAM margin of about 16 KB: Task 14b's lowest free during asks, 30,056 bytes with 8 DMA buffers, less the 3,840 bytes of the 2 buffers added since and the 10 KB floor.
+  - **Not changed (Harper's call):** the send buffer size, and PSRAM for Wi-Fi and lwIP buffers (`CONFIG_SPIRAM_TRY_ALLOCATE_WIFI_LWIP`). A client on the board's own LAN would show whether the limit is the board or the path. With Shazam on, the internal RAM margin above the 10 KB floor is about 9-10 KB with the stream server idle: Task 14b's lowest free during asks, 30,056 bytes with 8 DMA buffers, less the 3,840 bytes of the 2 buffers added since, the 10 KB floor, and the server's always-on 5.8-6.8 KB (measured: idle free fell from 130,967 bytes in Task 14b to 125,131-125,307 before any listener and 124,127-124,639 after). Even one listener (17-25 KB at its low) is over it.
 - **PSRAM could be missing.** Bring-up found 8 MB, 4 MB of it usable, which settles this risk.
 - **Line level vs ADC range**: the gain gets set in bring-up step 3.
 - **The board revision could be AC101.** That means a different register set but the same `codec` interface and about the same size.
