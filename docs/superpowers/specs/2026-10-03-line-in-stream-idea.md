@@ -21,6 +21,9 @@ Status: **approved for build** (2026-10-03). Harper: "can we feature flag out th
   - At most 2 listeners.
   - A listener that falls behind gets dropped and never stalls capture.
 - **FLAC:** `http://esp-shazam.local:8000/stream.flac` carries the same frames losslessly compressed, at about 60% of the WAV bitrate. The encoder is `flacenc` if it fits the ESP32, else a small fixed-predictor encoder, tested bit-exact with `claxon` (SDD Ruling R22). WAV stays as the debug and fallback endpoint.
+  - Task 16 took the second path, because flacenc allocates two block-sized vectors for every residual.
+  - The encoder is tested bit-exact with claxon and ffmpeg.
+  - On Harper's record the stream came out at 64-71% of the WAV's bitrate (1.55 Mbit/s overall).
 - **Metadata sidecar:** the existing `/api/state` and MQTT `esp-shazam/now_playing` (when Shazam is on). No in-band ICY titles in v1.
 
 ## What already exists after the current plan

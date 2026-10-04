@@ -147,6 +147,12 @@ It builds on the Mac for tests and on the ESP32 for the firmware.
   - It takes the signature, the wall-clock time, two UUIDs, and a user-agent string as inputs, so tests can pin them.
   - The request format is in [Shazam protocol](#shazam-protocol).
 - **`policy`**: the listen policy as a pure state machine. Time and loudness come in as inputs; the decision comes out. See [Listen policy](#listen-policy).
+- **`flac`**: the FLAC encoder behind `/stream.flac` (Task 16, SDD Ruling R22). It's a small RFC 9639 encoder, not `flacenc`: flacenc 0.5.1 allocates two block-sized `Vec<u32>` for every residual it builds, at least 128 KB per stereo frame.
+  - Fixed predictors of order 0-4: the order whose residuals add up smallest, as libFLAC chooses.
+  - Up to 32 Rice partitions per subframe, with 4- or 5-bit parameters and never an escape code. Verbatim when nothing beats 24 bits a sample, so a frame is at most 24,591 bytes.
+  - `Encoder::push` takes frames as a listener reads them and sums every predictor's residuals while they're in internal RAM. `encode_block` then writes the frame in one pass per channel, with CRC-8 and CRC-16.
+  - No stereo decorrelation.
+  - Tested bit-exact with claxon and with ffmpeg on the Mac.
 
 ### `firmware`: esp-idf-svc app
 
@@ -173,7 +179,12 @@ Its own cargo project on the Xtensa toolchain. It path-depends on `core`.
   - `GET /`: one embedded HTML file with no external scripts. It polls `/api/state` every 3 s.
   - `GET /api/state`: the JSON endpoint.
 - **`mqtt_out`**: an `EspMqttClient` connected to the broker in `cfg.toml`. When the current song changes, it publishes retained to `esp-shazam/now_playing`. A blank broker URL disables MQTT.
-- **`stream`**: the LINE IN stream on port 8000, a plain `std::net::TcpListener` of its own (SDD Ruling R21). An accept thread and one thread per listener (at most 2) run on core 1 at priority 7, above the recognizer (5). They copy at most 240 frames (5 ms) per lock of the stream ring and never hold it during socket work, so capture never waits on a socket. The audio thread's push waits at most for one listener's copy: 2.4 ms at the worst over Task 15's runs, preemption by Wi-Fi and lwIP on core 0 included. [Outputs](#line-in-stream-port-8000) has the protocol.
+- **`stream`**: the LINE IN stream on port 8000, a plain `std::net::TcpListener` of its own (SDD Ruling R21). An accept thread and one thread per listener (at most 2) run on core 1 at priority 7, above the recognizer (5). They copy at most 240 frames (5 ms) per lock of the stream ring and never hold it during socket work or encoding, so capture never waits on a socket. The audio thread's push waits for at most one listener's copy:
+  - **WAV listeners:** 2.4 ms at the worst over Task 15's runs, preemption by Wi-Fi and lwIP on core 0 included.
+  - **Two FLAC listeners:** longer, up to 7.0 ms with both connected throughout and 14.4 ms in windows with reconnections, in Task 16's runs. A listener preempted while it holds the lock gets core 1 back only at the next tick (10 ms): ESP-IDF's FreeRTOS raises the holder's priority but doesn't make its core reschedule (`xTaskPriorityInherit`, `FreeRTOS-Kernel/tasks.c`).
+  - **FLAC encoding:** each FLAC listener encodes for itself with `core`'s `flac::Encoder`, about 14 ms of core 1 per 85 ms block.
+
+  [Outputs](#line-in-stream-port-8000) has the protocol.
 
 ### `tools/shazam-file`: Mac CLI
 
@@ -192,8 +203,10 @@ The Mac E2E test uses it, and it saves real responses as parser fixtures.
 | I2S DMA buffers (10 × 1,920 bytes) | 19 KB | internal (DMA can't reach PSRAM) |
 | Stream server with no listener: the accept thread (4 KiB stack), its listening socket, the mDNS service, the larger socket table | 5.7-5.8 KB measured; 6.3-6.8 KB once a listener has come and gone | internal |
 | Per stream listener: a thread (4 KiB stack) | 4 KiB | internal (thread stacks) |
-| Per stream listener: read and send buffers | 3,360 bytes | internal (under the 8,191-byte threshold) |
-| Stream listeners at their low: the above, lwIP's send queue and the Wi-Fi driver's TX buffers | one 17-25 KB (median 21), two 41-55 KB (median 48), measured in Task 15 | internal |
+| Per WAV listener: read and send buffers | 3,360 bytes | internal (under the 8,191-byte threshold) |
+| Per FLAC listener: the ring-read chunk (1,920 bytes), the encoder's partition sums (2,560) and Rice parameters (64) | 4,544 bytes | internal |
+| Per FLAC listener: the encoder's block (32,768 bytes) and the frame buffer (24,591) | 56 KB | PSRAM |
+| Stream listeners at their low: the above, lwIP's send queue and the Wi-Fi driver's TX buffers | WAV: one 17-25 KB (median 21), two 41-55 KB (median 48), measured in Task 15. FLAC: one about 26-30 KB, two about 50-65 KB, measured in Task 16 on a slow network night | internal |
 | Signature, base64 and body | under 64 KB | heap |
 | Response | capped at 128 KB | heap |
 
@@ -310,13 +323,17 @@ One self-contained HTML page. It shows:
 
 ### LINE IN stream (port 8000)
 
-`http://esp-shazam.local:8000/stream.wav` (Task 15, SDD Ruling R21). mDNS advertises it as "esp-shazam stream" (`_http._tcp`, port 8000, TXT `path=/stream.wav`), next to the page's "esp-shazam".
+`http://esp-shazam.local:8000/stream.flac` (Task 16, SDD Ruling R22) and `http://esp-shazam.local:8000/stream.wav` (Task 15, SDD Ruling R21) carry the same frames. FLAC is lossless at about two thirds of the WAV's bitrate. The WAV is the debug and fallback stream. mDNS advertises "esp-shazam stream" (`_http._tcp`, port 8000, TXT `path=/stream.wav`), next to the page's "esp-shazam".
+- `GET /stream.flac` answers `200 OK` with `Content-Type: audio/flac`, `Cache-Control: no-store`, `Connection: close` and no `Content-Length`. The body is the `fLaC` marker and a streaminfo block, then one FLAC frame per 4,096 frames (85 ms) from the moment the listener joins.
+  - Streaminfo: fixed 4,096-frame blocks, 48000 Hz, 2 channels, 24 bits, frame sizes 0, total samples 0 and MD5 0 (all unknown). ffprobe reports `flac`, 48000 Hz, 2 channels, `channel_layout=stereo`, `bits_per_raw_sample=24`.
+  - Frame headers state the block size, rate and depth (the streamable subset). Frame numbers count from 0 for each listener.
+  - On a record at about -31 dBFS (2026-10-04), frames averaged 15.7-17.5 KB per minute: 1.47-1.64 Mbit/s, 64-71% of the WAV's 2.3 Mbit/s, 1.55 Mbit/s overall.
 - `GET /stream.wav` answers `200 OK` with `Content-Type: audio/wav`, `Cache-Control: no-store`, `Connection: close` and no `Content-Length`. The body is a 44-byte WAV header, then the stream ring's frames as they arrive, from the moment the listener joins. A query string is ignored.
   - The header says PCM, 48000 Hz, 2 channels, 24 bits packed little-endian, with RIFF and data sizes of 0xFFFFFFFF. ffmpeg reads that data size as "until the stream ends" and reports `pcm_s24le`, 48000 Hz, 2 channels; a strict reader such as hound refuses it, because it isn't a whole number of 6-byte frames. With format tag 1 there's no channel mask, so ffprobe shows `channel_layout=unknown`.
-- Any other path gets `404`, any other method `405` (with `Allow: GET`), and a malformed request line `400`. Each is a complete response, and the connection closes. Only GET is answered on either port.
-- At most 2 listeners; a third gets `503`. A slot frees when its listener's connection ends.
+- Any other path gets `404` (its body names both streams), any other method `405` (with `Allow: GET`), and a malformed request line `400`. Each is a complete response, and the connection closes. Only GET is answered on either port.
+- At most 2 listeners, WAV and FLAC counted together; a third gets `503`. A slot frees when its listener's connection ends.
 - A listener that falls a ring (2 s) behind is closed: a read finds its place overwritten, or a write waits 2 s. The close is a FIN after any unsent audio, so a player that resumes gets a clean end of stream. A reset wouldn't reach a stalled player (`gotchas.md`).
-- `scripts/stream-check` captures the stream with ffmpeg and checks its length, its level against `/api/state`, both channels and gaps.
+- `scripts/stream-check [--path /stream.flac]` captures either stream with ffmpeg. It checks the length, the level against `/api/state`, both channels and gaps, and notes the bitrate overall and per minute.
 
 ### Config
 
@@ -442,6 +459,10 @@ There are no mocks anywhere. The E2E tests use the real Shazam API and the real 
   - **A bigger send buffer helps one listener and costs internal RAM.** At 23,040 bytes (a diag build) throughput roughly doubled, to 4.0-5.5 Mbit/s, and one listener held 60 s; of two, one fell behind in 3.3 s. One saturated connection then took about 70 KB of internal RAM at its low, and two listeners plus a test connection left 1,559 bytes free. At 11,520 bytes it reached 3.8 Mbit/s, and two listeners fell behind together after 21 s.
   - **Capture never suffered.** No I2S buffer was lost in any run, through full-speed sends and the 1,559-byte low, and the audio thread ran at most 9.9 ms late after boot (the queue holds 45 ms).
   - **Changed:** modem sleep is off (SDD Ruling R27). It costs no internal RAM and cut round trips, but it didn't keep a 30 s stream going through a bad stretch by itself (Task 15, run A).
+  - **FLAC (Task 16) needs about two thirds of the bytes.** Over 8 minutes of a record, the board encoded 1,470-1,640 kbit/s per minute (1,547 overall, 67% of the WAV). That is about 193 kB/s, so round trips must stay under about 30 ms instead of 20. At the 50-84 ms averages of 2026-10-04's evening, 5,760 bytes per round trip carries only 69-115 kB/s. In 17:59-18:24 local, pings averaged 50-84 ms with spikes of 1.5-2 s:
+    - Two 60 s FLAC captures passed every check.
+    - A WAV capture right after the first held 10.4 s.
+    - FLAC listeners otherwise held 16-40 s, dropped at the spikes.
   - **Not changed (Harper's call):** the send buffer size, and PSRAM for Wi-Fi and lwIP buffers (`CONFIG_SPIRAM_TRY_ALLOCATE_WIFI_LWIP`). A client on the board's own LAN would show whether the limit is the board or the path. With Shazam on, the internal RAM margin above the 10 KB floor is about 9-10 KB with the stream server idle: Task 14b's lowest free during asks, 30,056 bytes with 8 DMA buffers, less the 3,840 bytes of the 2 buffers added since, the 10 KB floor, and the server's always-on 5.8-6.8 KB (measured: idle free fell from 130,967 bytes in Task 14b to 125,131-125,307 before any listener and 124,127-124,639 after). Even one listener (17-25 KB at its low) is over it.
 - **PSRAM could be missing.** Bring-up found 8 MB, 4 MB of it usable, which settles this risk.
 - **Line level vs ADC range**: the gain gets set in bring-up step 3.

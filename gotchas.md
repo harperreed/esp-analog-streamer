@@ -171,3 +171,18 @@ On 2026-10-04 the Mac turned its display off at 14:27:08 and went to idle sleep 
 
 ## A pyserial read with DTR and RTS set false still reset the board
 On 2026-10-04 a read meant to leave the board running (pyserial, `dtr = False` and `rts = False` set before `open()`) logged `rst:0x1 (POWERON_RESET)` and a fresh boot, and the read itself took over 2 minutes instead of 25 s while the Mac was sleeping on and off. The mechanism isn't pinned down. Don't count on reading the serial log without resetting the board.
+
+## Sweeping a big PSRAM buffer costs far more than reading it once
+The ESP32 reads flash and PSRAM through one cache, 32 KB per core (`memory-types.rst`: "the first 64 KB block which is used for PRO and APP MMU caches"). ESP-IDF warns that data over 32 KB falls back to PSRAM speed and can "push out" cached flash, slowing the code too (`external-ram.rst:225`). On 2026-10-04 the FLAC encoder's first version took 19.4 ms per block with its 32 KB block in PSRAM against 10.5 ms in internal RAM. A plain sequential read of the same 32 KB took 1.2 ms from PSRAM and 0.7 ms from internal RAM, but the encoder swept the block four times while writing its output. It also slowed core 0: the audio thread's decimator went from 434 to 562-640 µs per chunk. Work on data while it sits in internal RAM, make one sequential pass over PSRAM (as `flac::Encoder::push` does), and time it on the board: the Mac ran the same code 120-250 times faster.
+
+## Core 1 is shared: a slow stream thread can stall capture through the ring's lock
+Stream listener threads run on core 1 at priority 7. When the first FLAC encoder (43-99 ms per 85 ms block) oversubscribed core 1 with two listeners, a listener was kept off the CPU while holding the stream ring's lock. The audio thread then waited 37.4 ms for it, and capture ran 35.6 ms late of its 45 ms queue (Task 16, run A). Keep per-listener work on core 1 well under real time; the encoder now takes about 14 ms per block.
+
+## Reading the firmware's machine code
+The esp-14 toolchain's GNU `xtensa-esp-elf-objdump` prints raw words for the Rust code, even with `XTENSA_GNU_CONFIG` pointing at `lib/xtensa_esp32.so`. To read what LLVM made of a crate, have rustc write assembly from the firmware directory: `CARGO_TARGET_DIR=<scratch> cargo +esp rustc -p esp-shazam-core --release -- --emit asm -C opt-level=3`, then look in `<scratch>/xtensa-esp32-espidf/release/deps/*.s`.
+
+## The ESP32 has no 64-bit atomics
+`std::sync::atomic::AtomicU64` doesn't exist on `xtensa-esp32-espidf`: the build fails with "cannot find `AtomicU64` in `atomic`". Use `AtomicU32`, or a mutex.
+
+## espflash can fail with "Bad data checksum"
+On 2026-10-04 one `scripts/flash` failed with `Error while running FlashDeflData command ... Bad data checksum`, a transfer corrupted on the way over the CP2102. The board then holds a partial image and boot-loops until a flash goes through. The retry worked at the same settings.
