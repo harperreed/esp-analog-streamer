@@ -1,9 +1,10 @@
 # esp-shazam Implementation Plan
 
 ## Now
-- Step: Task 14b (firmware: 48 kHz/24-bit capture, the meter in the audio thread, the "Shazam is off" page). Its device checks need music on LINE IN. Task 14a is complete: the store split (9d02a98), `StreamRing` (615d277) and the `Decimator` (8ac51b4, 44.3 dB down at 7.5 kHz); the review approved it with 5 minor notes.
+- Step: Task 14b (firmware: 48 kHz/24-bit capture, the meter in the audio thread, the "Shazam is off" page). Capture works on the board: 32-bit slots, APLL MCLK, no lost buffers (d7e7d0e..d3d2f6a). It's paused, because LINE IN read silence (-85 to -87.7 dBFS) on three boots. The flag-on and flag-off runs, the docs and the park wait on music. Task 14a is complete: the store split (9d02a98), `StreamRing` (615d277) and the `Decimator` (8ac51b4, 44.3 dB down at 7.5 kHz); the review approved it with 5 minor notes.
 - Next: Task 15 (`/stream.wav`), 16 (`/stream.flac`), Task 12 (device E2E and README), then the final whole-branch review.
 - Open (Harper):
+  - Play music into LINE IN (turntable on LINE, or the continuous source) so Task 14b can finish.
   - Security calls:
     - A core-level https-only URL guard (SDD R18).
     - mbedTLS in PSRAM (`CONFIG_MBEDTLS_DEFAULT_MEM_ALLOC`). Likely unneeded now, with 31.5 KB free.
