@@ -3782,10 +3782,11 @@ On 2026-10-04, VLC on Harper's Mac played `/stream.wav` for about 12 s, then the
 **Build:**
 - **Bigger send buffer.** Raise lwIP's TCP send buffer (`CONFIG_LWIP_TCP_SND_BUF_DEFAULT`) until one listener holds at the round trips Task 15 measured. Task 15's run B carried one listener at 23,040 B. Pick the size from measurements.
 - **Internal RAM with two listeners.** Try `CONFIG_SPIRAM_TRY_ALLOCATE_WIFI_LWIP`, which takes Wi-Fi and lwIP buffers from PSRAM first. Verify what it moves on the classic ESP32 under ESP-IDF v5.5.5, and what it costs in throughput. If internal RAM still doesn't hold, cap the stream at one listener and say so.
-- Change nothing else unless a measurement shows it's needed, more ring slack for example.
+- **Ring slack.** Task 16 measured round-trip spikes of 1.5-2 s, and a listener is dropped once it falls a ring (2 s) behind or a write blocks that long. Grow the stream ring so a spike doesn't drop a listener, to about 4 s (PSRAM, with Shazam off). The write timeout already follows the ring's capacity.
+- Change nothing else unless a measurement shows it's needed.
 
 **Accept (Shazam off, R26):**
-- From Harper's Mac, VLC or `scripts/stream-check` plays `/stream.wav` for 10 minutes and the board never drops it. Record ping round trips alongside, so the run shows the conditions it held through. If the path stayed good the whole time, say so.
+- From Harper's Mac, VLC or `scripts/stream-check` plays `/stream.flac` and `/stream.wav` for 10 minutes each, and the board never drops them. Record ping round trips alongside, so the run shows the conditions it held through. If the path stayed good the whole time, say so.
 - At the listener cap (two, or one if it comes to that), listeners hold for 5 minutes.
 - With the cap reached plus a 10 s blast:
   - the lowest free internal RAM (`INTERNAL|8BIT`) stays at 20 KB or more;
