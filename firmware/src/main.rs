@@ -1,5 +1,5 @@
-// ABOUTME: Firmware entry point: LINE IN capture, Wi-Fi, clock, mDNS, the recognizer (unless cfg turns Shazam off), the web server and MQTT around one song store.
-// ABOUTME: The main thread ends up supervising Wi-Fi; everything else runs on its own thread.
+// ABOUTME: Firmware entry point: LINE IN capture, Wi-Fi, clock, mDNS, the recognizer (unless cfg turns Shazam off), the web server,
+// ABOUTME: MQTT and the LINE IN stream on port 8000. The main thread ends up supervising Wi-Fi; everything else runs on its own thread.
 
 mod audio_in;
 mod codec;
@@ -8,6 +8,7 @@ mod mqtt_out;
 mod net;
 mod recognizer;
 mod shazam_http;
+mod stream;
 mod web;
 
 use std::sync::{Arc, Mutex};
@@ -46,8 +47,8 @@ fn main() -> Result<()> {
     codec::setup_line_in(&mut i2c, CONFIG.pga_gain)?;
     let store: recognizer::SharedStore =
         Arc::new(Mutex::new(SongStore::new(20, CONFIG.shazam_enabled)));
-    // `_stream` holds the newest 2 s of raw 48 kHz frames for stream listeners.
-    let (ring, _stream) = audio_in::spawn_capture(rx, store.clone())?;
+    // `stream_ring` holds the newest 2 s of raw 48 kHz frames for stream listeners.
+    let (ring, stream_ring) = audio_in::spawn_capture(rx, store.clone())?;
 
     let wifi = net::start_wifi(
         peripherals.modem,
@@ -57,9 +58,10 @@ fn main() -> Result<()> {
         CONFIG.wifi_pass,
     )?;
     let _sntp = net::start_sntp()?;
-    let _mdns = net::start_mdns(CONFIG.hostname)?;
+    let mut mdns = net::start_mdns(CONFIG.hostname)?;
 
     let _server = web::start(store.clone())?;
+    stream::start(stream_ring, &mut mdns)?;
     let publisher = mqtt_out::start(CONFIG.mqtt_url, store.clone())?;
     // Both branches always compile: the flag only decides whether the recognizer thread starts.
     if CONFIG.shazam_enabled {
