@@ -1,7 +1,44 @@
 // ABOUTME: HTTP for the stream server on port 8000: reading a request's head, routing its request line, the responses.
 // ABOUTME: Only GET /stream.wav streams; anything else gets a short, complete response and the connection closes.
 
-use std::io::{self, BufRead};
+use std::io::{self, BufRead, Read};
+use std::net::TcpStream;
+use std::time::{Duration, Instant};
+
+/// Reads a socket with one deadline for all its reads, so a client that sends a request head a
+/// byte at a time can't hold the server past it. A plain read timeout restarts with every read.
+pub struct DeadlineReader<'a> {
+    sock: &'a TcpStream,
+    deadline: Instant,
+}
+
+impl<'a> DeadlineReader<'a> {
+    pub fn new(sock: &'a TcpStream, deadline: Instant) -> Self {
+        Self { sock, deadline }
+    }
+}
+
+impl Read for DeadlineReader<'_> {
+    /// Waits only for the time left before the deadline: it sets the socket's read timeout to that
+    /// before each read. Past the deadline it fails with `TimedOut` and reads nothing; a read that
+    /// runs out of time fails as the socket reports it (`WouldBlock` on ESP-IDF and macOS).
+    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+        let left = self.deadline.saturating_duration_since(Instant::now());
+        if left.is_zero() {
+            return Err(io::Error::new(
+                io::ErrorKind::TimedOut,
+                "request head deadline passed",
+            ));
+        }
+        // Whole milliseconds, rounded up: lwIP truncates a timeout to milliseconds, and to lwIP
+        // 0 ms means no timeout at all.
+        let millis = u64::try_from(left.as_micros().div_ceil(1_000)).unwrap_or(u64::MAX);
+        self.sock
+            .set_read_timeout(Some(Duration::from_millis(millis)))?;
+        let mut sock = self.sock;
+        sock.read(buf)
+    }
+}
 
 /// The path of the endless WAV.
 pub const WAV_PATH: &str = "/stream.wav";
@@ -127,7 +164,9 @@ pub fn route(request_line: &str) -> Route {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::io::Read;
+    use std::io::{Read, Write};
+    use std::net::TcpListener;
+    use std::thread;
 
     /// The request line from `head`, with a cap far above what it needs.
     fn request_line(head: &str) -> io::Result<String> {
@@ -192,6 +231,82 @@ mod tests {
         // Exactly the head's length fits.
         let fits = read_request_line(head.as_bytes(), head.len() as u64);
         assert_eq!(fits.unwrap(), "GET /stream.wav HTTP/1.1");
+    }
+
+    /// A connected pair of real localhost sockets: (server side, client side).
+    fn connected_pair() -> (TcpStream, TcpStream) {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let client = TcpStream::connect(listener.local_addr().unwrap()).unwrap();
+        let (server, _) = listener.accept().unwrap();
+        (server, client)
+    }
+
+    /// The request line read through a `DeadlineReader` `within` from now, and how long it took.
+    fn read_with_deadline(server: &TcpStream, within: Duration) -> (io::Result<String>, Duration) {
+        let started = Instant::now();
+        let reader = DeadlineReader::new(server, started + within);
+        let result = read_request_line(io::BufReader::new(reader), 4096);
+        (result, started.elapsed())
+    }
+
+    fn is_timeout(error: &io::Error) -> bool {
+        // A deadline already past is TimedOut; a socket read that times out is EAGAIN, WouldBlock.
+        matches!(
+            error.kind(),
+            io::ErrorKind::TimedOut | io::ErrorKind::WouldBlock
+        )
+    }
+
+    #[test]
+    fn a_head_sent_in_time_is_read_through_the_deadline() {
+        let (server, mut client) = connected_pair();
+        client
+            .write_all(b"GET /stream.wav HTTP/1.1\r\nHost: x\r\n\r\n")
+            .unwrap();
+        let (result, _) = read_with_deadline(&server, Duration::from_secs(5));
+        assert_eq!(result.unwrap(), "GET /stream.wav HTTP/1.1");
+    }
+
+    #[test]
+    fn a_head_dripped_a_byte_at_a_time_stops_at_the_deadline() {
+        // 38 bytes, one every 50 ms: the head would be whole after about 1.9 s. Each byte arrives
+        // well inside any per-read timeout, so only a deadline for the whole head stops it sooner.
+        let (server, mut client) = connected_pair();
+        let dripper = thread::spawn(move || {
+            for byte in b"GET /stream.wav HTTP/1.1\r\nHost: x\r\n\r\n" {
+                if client.write_all(&[*byte]).is_err() {
+                    return; // the server gave up and closed
+                }
+                thread::sleep(Duration::from_millis(50));
+            }
+        });
+        let (result, took) = read_with_deadline(&server, Duration::from_millis(300));
+        let error = result.expect_err("the head can't be whole before the deadline");
+        assert!(is_timeout(&error), "{error:?}");
+        assert!(
+            took < Duration::from_millis(1_200),
+            "stopped after {took:?}, not at the 300 ms deadline"
+        );
+        drop(server);
+        dripper.join().unwrap();
+    }
+
+    #[test]
+    fn a_client_that_sends_nothing_times_out_at_the_deadline() {
+        let (server, _client) = connected_pair();
+        let (result, took) = read_with_deadline(&server, Duration::from_millis(200));
+        let error = result.expect_err("nothing was sent");
+        assert!(is_timeout(&error), "{error:?}");
+        assert!(
+            took >= Duration::from_millis(150) && took < Duration::from_millis(1_000),
+            "timed out after {took:?}"
+        );
+    }
+
+    #[test]
+    fn a_head_that_is_not_utf8_is_invalid_data() {
+        let error = read_request_line(&b"GET /\xff HTTP/1.1\r\n\r\n"[..], 4096).unwrap_err();
+        assert_eq!(error.kind(), io::ErrorKind::InvalidData);
     }
 
     #[test]

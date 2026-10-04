@@ -11,7 +11,7 @@ use std::time::{Duration, Instant};
 use anyhow::Result;
 use esp_idf_svc::hal::cpu::Core;
 use esp_idf_svc::mdns::EspMdns;
-use esp_shazam_core::stream_http::{self, Route, Status};
+use esp_shazam_core::stream_http::{self, DeadlineReader, Route, Status};
 use esp_shazam_core::stream_ring::Overrun;
 use esp_shazam_core::wav;
 
@@ -28,7 +28,9 @@ const MAX_LISTENERS: usize = 2;
 const CHUNK_FRAMES: usize = 240;
 /// A listener that has caught up sleeps one FreeRTOS tick: ESP-IDF's usleep busy-waits anything shorter.
 const CAUGHT_UP_SLEEP: Duration = Duration::from_millis(10);
-/// A client gets this long to send its request head, which may be at most `MAX_HEAD_BYTES`.
+/// A client gets this long to send its whole request head, which may be at most `MAX_HEAD_BYTES`,
+/// and to take a refusal. The accept thread answers one connection at a time, so this is how long
+/// one client can hold up the next.
 const HEAD_TIMEOUT: Duration = Duration::from_secs(2);
 const MAX_HEAD_BYTES: u64 = 4096;
 /// The server's threads run on core 1, which is idle while Shazam is off. Their priority, 7, is
@@ -83,9 +85,11 @@ fn answer(sock: TcpStream, ring: &SharedStreamRing, listeners: &Arc<AtomicUsize>
     let peer = sock
         .peer_addr()
         .map_or_else(|_| "unknown peer".to_owned(), |addr| addr.to_string());
-    let head = sock.set_read_timeout(Some(HEAD_TIMEOUT)).and_then(|()| {
-        stream_http::read_request_line(BufReader::with_capacity(256, &sock), MAX_HEAD_BYTES)
-    });
+    // One deadline for the whole head: a per-read timeout would let a client that sends a byte
+    // every 1.9 s hold the accept thread for hours.
+    let reader = DeadlineReader::new(&sock, Instant::now() + HEAD_TIMEOUT);
+    let head =
+        stream_http::read_request_line(BufReader::with_capacity(256, reader), MAX_HEAD_BYTES);
     let request_line = match head {
         Ok(line) => line,
         Err(e) if e.kind() == io::ErrorKind::InvalidData => {
