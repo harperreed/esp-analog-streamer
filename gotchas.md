@@ -144,3 +144,6 @@ Only the recognizer thread sets `state` and `now`, so a board that doesn't start
 
 ## `scripts/serial-log` execs into uv, so `pgrep -f serial-log` finds nothing
 To wait for a backgrounded capture, match the python command line: `pgrep -f "usbserial-0001 <secs>"`. A wait loop on `serial-log` ends at once, and the capture is still running.
+
+## "Flag out" means off on Harper's board
+On 2026-10-03 Harper asked to "feature flag out the shazam bits" and go for the stream. The flag shipped defaulting to on, and Task 14b was briefed to test the Shazam path on the board. Harper corrected that on 2026-10-04: "i thought we had talked about putting that behind a feature flag and focusing on the streaming". When Harper flags a feature out, turn it off in `cfg.toml` and spend no device runs on it until Harper asks.
