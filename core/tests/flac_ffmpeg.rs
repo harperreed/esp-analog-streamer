@@ -22,7 +22,11 @@ fn ffmpeg_decodes_the_stream_to_the_same_samples() {
     let mut encoder = flac::Encoder::new();
     let mut frame = vec![];
     for (n, block) in frames.chunks_exact(CHANNELS * BLOCK_FRAMES).enumerate() {
-        encoder.encode_block(block, n as u32, &mut frame);
+        // As a listener does: reads of up to 240 frames from the stream ring.
+        for chunk in block.chunks(CHANNELS * 240) {
+            encoder.push(chunk);
+        }
+        encoder.encode_block(n as u32, &mut frame);
         stream.extend_from_slice(&frame);
     }
     let path = Path::new(env!("CARGO_TARGET_TMPDIR")).join("out.flac");

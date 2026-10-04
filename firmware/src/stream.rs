@@ -276,10 +276,11 @@ fn stream_flac(sock: &mut TcpStream, ring: &SharedStreamRing) -> End {
     if let Err(e) = set_ring_write_timeout(sock, ring) {
         return End::Failed(e);
     }
-    // The block (32 KB), the frame (up to 24.6 KB) and the encoder's copy of a channel (16 KB) are
-    // over malloc's 8,191-byte line, so they go to PSRAM, and none of them sits on this thread's
-    // 4 KiB stack. Only the encoder's 2.5 KB of partition sums and parameters take internal RAM.
-    let mut block = vec![0i32; flac::CHANNELS * flac::BLOCK_FRAMES];
+    // Ring reads land in a 1,920-byte chunk in internal RAM, and the encoder sorts each into its
+    // block and sums its residuals while it's hot. The encoder's block (32 KB) and the frame (up to
+    // 24.6 KB) are over malloc's 8,191-byte line, so they go to PSRAM; the chunk and the encoder's
+    // partition sums (2.5 KB) stay in internal RAM. None of them sits on this thread's 4 KiB stack.
+    let mut chunk = vec![0i32; flac::CHANNELS * CHUNK_FRAMES];
     let mut encoder = flac::Encoder::new();
     let mut bytes = Vec::with_capacity(flac::MAX_FRAME_BYTES);
     bytes.extend_from_slice(Format::Flac.response_head().as_bytes());
@@ -290,16 +291,14 @@ fn stream_flac(sock: &mut TcpStream, ring: &SharedStreamRing) -> End {
         if let Err(e) = sock.write_all(&bytes) {
             return End::from_write_error(e);
         }
-        let mut filled = 0;
-        while filled < flac::BLOCK_FRAMES {
-            let end = (filled + CHUNK_FRAMES).min(flac::BLOCK_FRAMES);
-            let chunk = &mut block[flac::CHANNELS * filled..flac::CHANNELS * end];
-            match read_some(ring, &mut cursor, chunk) {
-                Ok(n) => filled += n,
+        while encoder.frames_wanted() > 0 {
+            let frames = CHUNK_FRAMES.min(encoder.frames_wanted());
+            match read_some(ring, &mut cursor, &mut chunk[..flac::CHANNELS * frames]) {
+                Ok(n) => encoder.push(&chunk[..flac::CHANNELS * n]),
                 Err(Overrun) => return End::FellBehind,
             }
         }
-        encoder.encode_block(&block, block_number, &mut bytes);
+        encoder.encode_block(block_number, &mut bytes);
         block_number = block_number.wrapping_add(1);
     }
 }

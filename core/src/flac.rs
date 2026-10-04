@@ -19,6 +19,8 @@ pub const MAX_FRAME_BYTES: usize =
 const BITS_PER_SAMPLE: u32 = 24;
 const SAMPLE_MAX: i32 = (1 << (BITS_PER_SAMPLE - 1)) - 1;
 const SAMPLE_MIN: i32 = -(1 << (BITS_PER_SAMPLE - 1));
+/// A sample's 24 bits of two's complement.
+const SAMPLE_MASK: u32 = (1 << BITS_PER_SAMPLE) - 1;
 
 /// The frame header's fields (RFC 9639, section 9.1). The sync code is followed by a 0 for a fixed
 /// block size, so each header counts blocks.
@@ -41,8 +43,15 @@ const VERBATIM_SUBFRAME_BITS: u64 =
     SUBFRAME_HEADER_BITS + BITS_PER_SAMPLE as u64 * BLOCK_FRAMES as u64;
 /// FLAC's fixed predictors go up to order 4.
 const MAX_FIXED_ORDER: usize = 4;
-/// The streamable subset allows up to 2^8 partitions, here 256 of 16 residuals each.
-const MAX_PARTITION_ORDER: u32 = 8;
+/// Up to 2^5 partitions, 32 of 128 residuals each: libFLAC's default limit (the streamable subset
+/// allows 2^8). On 17 s of the board's music, finer partitions saved nothing: frames came out at
+/// 63.2% of PCM with limits of 5 through 8.
+const MAX_PARTITION_ORDER: u32 = 5;
+const PARTITIONS: usize = 1 << MAX_PARTITION_ORDER;
+const PARTITION_FRAMES: usize = BLOCK_FRAMES / PARTITIONS;
+/// `push` sums folded residuals in a `u32` over this many frames at a time: 16 of at most 28 bits
+/// fit. It adds each stretch into the partition's `u64` sum.
+const SUM_FRAMES: usize = 16;
 /// A residual starts with its coding method (2 bits) and partition order (4 bits).
 const RESIDUAL_HEADER_BITS: u64 = 6;
 /// The largest Rice parameter in a 4-bit and in a 5-bit parameter field. All ones is the escape code
@@ -59,7 +68,7 @@ const PARAMETER_BITS_ESTIMATE: u64 = 5;
 pub fn stream_header() -> [u8; STREAM_HEADER_LEN] {
     let mut bytes = Vec::with_capacity(STREAM_HEADER_LEN);
     bytes.extend_from_slice(b"fLaC");
-    let mut bits = BitWriter::new(&mut bytes);
+    let mut bits = BitWriter::new(&mut bytes, 0);
     bits.put(1, 1); // the last metadata block
     bits.put(7, 0); // streaminfo
     bits.put(24, (STREAM_HEADER_LEN - 8) as u32); // its length in bytes
@@ -83,13 +92,23 @@ pub fn stream_header() -> [u8; STREAM_HEADER_LEN] {
     header
 }
 
-/// Encodes blocks of the stream ring's frames as FLAC frames. It owns its working buffers, so
-/// encoding a block allocates nothing: one channel of the block (16 KB), and the partition search's
-/// sums and Rice parameters (2.5 KB).
+/// Builds blocks of the stream ring's frames and encodes each as a FLAC frame. Frames come in with
+/// `push`, a ring read at a time, and the encoder sorts them by channel and sums every fixed
+/// predictor's residuals as they arrive, so `encode_block` only chooses the coding and writes it.
+/// Nothing is allocated after `new`: the block (32 KB), the partition sums (2.5 KB) and the Rice
+/// parameters (64 bytes) are reused.
 pub struct Encoder {
-    /// One channel of the block being encoded, clipped to 24 bits.
-    channel: Vec<i32>,
-    /// Folded residuals summed per partition, for the partitioning being estimated.
+    /// The block so far, one channel after the other, `BLOCK_FRAMES` clipped samples each.
+    samples: Vec<i32>,
+    /// Frames pushed into the block.
+    filled: usize,
+    /// Per channel: the last sample and its differences of order 1-3, which the next sample's
+    /// residuals build on.
+    previous: [[i32; MAX_FIXED_ORDER]; CHANNELS],
+    /// Per channel and order: the folded residuals since the last `SUM_FRAMES` boundary.
+    partial: [[u32; MAX_FIXED_ORDER + 1]; CHANNELS],
+    /// Folded residuals summed per finest partition: a row of `PARTITIONS` for each channel and
+    /// order (see `row`). The partition search merges a row in place.
     sums: Vec<u64>,
     /// The Rice parameters of the partitioning being estimated, and of the cheapest one so far.
     parameters: Vec<u8>,
@@ -104,151 +123,214 @@ impl Default for Encoder {
 
 impl Encoder {
     pub fn new() -> Self {
-        let partitions = 1 << MAX_PARTITION_ORDER;
         Self {
-            channel: vec![0; BLOCK_FRAMES],
-            sums: vec![0; partitions],
-            parameters: vec![0; partitions],
-            best_parameters: vec![0; partitions],
+            samples: vec![0; CHANNELS * BLOCK_FRAMES],
+            filled: 0,
+            previous: [[0; MAX_FIXED_ORDER]; CHANNELS],
+            partial: [[0; MAX_FIXED_ORDER + 1]; CHANNELS],
+            sums: vec![0; CHANNELS * (MAX_FIXED_ORDER + 1) * PARTITIONS],
+            parameters: vec![0; PARTITIONS],
+            best_parameters: vec![0; PARTITIONS],
         }
     }
 
-    /// Replaces `out` with the FLAC frame for one block: `BLOCK_FRAMES` frames of interleaved
-    /// sign-extended 24-bit samples, left then right, the stream ring's format. Samples beyond 24
-    /// bits clip at the rails, as in `wav::pack_s24le`. `block_number` counts the blocks before this
-    /// one. A frame keeps 31 bits of it, so it wraps after 2^31 blocks, 5.8 years at 48 kHz.
+    /// Frames the block still needs before `encode_block`.
+    pub fn frames_wanted(&self) -> usize {
+        BLOCK_FRAMES - self.filled
+    }
+
+    /// Adds interleaved frames, left then right, to the block: sign-extended 24-bit samples, the
+    /// stream ring's format. Samples beyond 24 bits clip at the rails, as in `wav::pack_s24le`.
     ///
-    /// Panics unless `interleaved` holds exactly `BLOCK_FRAMES` frames.
-    pub fn encode_block(&mut self, interleaved: &[i32], block_number: u32, out: &mut Vec<u8>) {
-        assert_eq!(
-            interleaved.len(),
-            CHANNELS * BLOCK_FRAMES,
-            "a block is {BLOCK_FRAMES} frames of {CHANNELS} channels"
+    /// Panics if `interleaved` holds more than `frames_wanted()` frames.
+    pub fn push(&mut self, interleaved: &[i32]) {
+        let frames = interleaved.len() / CHANNELS;
+        assert!(
+            frames <= self.frames_wanted(),
+            "a block is {BLOCK_FRAMES} frames"
         );
+        for channel in 0..CHANNELS {
+            // Local copies, so the loop keeps them in registers.
+            let mut previous = self.previous[channel];
+            let mut partial = self.partial[channel];
+            let start = channel * BLOCK_FRAMES + self.filled;
+            let column = &mut self.samples[start..start + frames];
+            for (n, (sample, frame)) in
+                (self.filled..).zip(column.iter_mut().zip(interleaved.chunks_exact(CHANNELS)))
+            {
+                // The fixed predictor of order k leaves the k-th difference of the samples (RFC
+                // 9639, section 9.2.5), so each order's residual is the difference of the order
+                // below's.
+                let mut difference = clip(frame[channel]);
+                *sample = difference;
+                for (order, sum) in partial.iter_mut().enumerate() {
+                    // The first `order` samples are the predictor's warm-up: they have no residual.
+                    if n >= order {
+                        *sum += fold(difference);
+                    }
+                    if order < MAX_FIXED_ORDER {
+                        (previous[order], difference) = (difference, difference - previous[order]);
+                    }
+                }
+                if (n + 1) % SUM_FRAMES == 0 {
+                    let partition = n / PARTITION_FRAMES;
+                    for (order, sum) in partial.iter_mut().enumerate() {
+                        self.sums[row(channel, order) + partition] += u64::from(*sum);
+                        *sum = 0;
+                    }
+                }
+            }
+            self.previous[channel] = previous;
+            self.partial[channel] = partial;
+        }
+        self.filled += frames;
+    }
+
+    /// Replaces `out` with the FLAC frame for the block and starts the next block. `block_number`
+    /// counts the blocks before this one. A frame keeps 31 bits of it, so it wraps after 2^31
+    /// blocks, 5.8 years at 48 kHz.
+    ///
+    /// Panics unless the block has all its `BLOCK_FRAMES` frames.
+    pub fn encode_block(&mut self, block_number: u32, out: &mut Vec<u8>) {
+        assert_eq!(self.frames_wanted(), 0, "a block is {BLOCK_FRAMES} frames");
         out.clear();
         push_frame_header(block_number & FRAME_NUMBER_MASK, out);
-        let mut bits = BitWriter::new(out);
+        let header_crc = crc16(out);
+        let mut bits = BitWriter::new(out, header_crc);
         for channel in 0..CHANNELS {
-            for (sample, frame) in self
-                .channel
-                .iter_mut()
-                .zip(interleaved.chunks_exact(CHANNELS))
-            {
-                *sample = frame[channel].clamp(SAMPLE_MIN, SAMPLE_MAX);
-            }
-            self.write_subframe(&mut bits);
+            self.write_subframe(channel, &mut bits);
         }
-        bits.finish();
-        let crc = crc16(out);
+        let crc = bits.finish();
         out.extend_from_slice(&crc.to_be_bytes());
+        // Each subframe stands alone, so the next block starts afresh.
+        self.filled = 0;
+        self.previous = [[0; MAX_FIXED_ORDER]; CHANNELS];
+        self.sums.fill(0);
     }
 
-    /// Writes `self.channel` as the smallest subframe it can find: a fixed predictor of order 0-4
-    /// with partitioned Rice codes, choosing the order and the partitioning by their estimated size,
-    /// or verbatim when none comes out under 24 bits a sample.
-    fn write_subframe(&mut self, bits: &mut BitWriter) {
-        // (predictor order, partition order) of the smallest estimate so far; None is verbatim.
-        let mut best = None;
-        let mut best_bits = VERBATIM_SUBFRAME_BITS;
-        for order in 0..=MAX_FIXED_ORDER {
-            let warm_up_bits = order as u64 * u64::from(BITS_PER_SAMPLE);
-            self.sum_finest_partitions(order);
-            for partition_order in (0..=MAX_PARTITION_ORDER).rev() {
-                let estimate = SUBFRAME_HEADER_BITS
-                    + warm_up_bits
-                    + self.estimate_residual_bits(order, partition_order);
-                if estimate < best_bits {
-                    best_bits = estimate;
-                    best = Some((order, partition_order));
-                    let partitions = 1 << partition_order;
-                    self.best_parameters[..partitions]
-                        .copy_from_slice(&self.parameters[..partitions]);
-                }
-                if partition_order > 0 {
-                    self.merge_partition_pairs(partition_order);
-                }
-            }
-        }
-        match best {
-            Some((order, partition_order)) => self.write_fixed(bits, order, partition_order),
-            None => self.write_verbatim(bits),
-        }
-    }
-
-    /// Fills `self.sums` with the folded residuals of the fixed predictor of `order`, summed over each
-    /// of the finest partitions.
-    fn sum_finest_partitions(&mut self, order: usize) {
-        let len = BLOCK_FRAMES >> MAX_PARTITION_ORDER;
-        for (j, sum) in self.sums.iter_mut().enumerate() {
-            // The first partition starts after the predictor's warm-up samples.
-            let start = (j * len).max(order);
-            *sum = (start..(j + 1) * len)
-                .map(|n| u64::from(fold(residual(&self.channel, order, n))))
-                .sum();
-        }
-    }
-
-    /// Turns the sums of `2^partition_order` partitions in `self.sums` into those of half as many.
-    fn merge_partition_pairs(&mut self, partition_order: u32) {
-        for j in 0..1 << (partition_order - 1) {
-            self.sums[j] = self.sums[2 * j] + self.sums[2 * j + 1];
-        }
-    }
-
-    /// The estimated bits of the residual of `order` in `2^partition_order` partitions, from their
-    /// sums in `self.sums`. Each partition's Rice parameter goes into `self.parameters`.
-    fn estimate_residual_bits(&mut self, order: usize, partition_order: u32) -> u64 {
-        let partitions = 1 << partition_order;
-        let len = (BLOCK_FRAMES >> partition_order) as u64;
-        let mut bits = RESIDUAL_HEADER_BITS;
-        for (j, (&sum, parameter)) in self.sums[..partitions]
-            .iter()
-            .zip(&mut self.parameters)
-            .enumerate()
-        {
-            let residuals = if j == 0 { len - order as u64 } else { len };
-            let (k, rice_bits) = rice_parameter(residuals, sum);
-            *parameter = k as u8;
-            bits += PARAMETER_BITS_ESTIMATE + rice_bits;
-        }
-        bits
-    }
-
-    /// Writes a fixed-predictor subframe (RFC 9639, sections 9.2.5 and 9.2.7) with the Rice
-    /// parameters in `self.best_parameters`.
-    fn write_fixed(&self, bits: &mut BitWriter, order: usize, partition_order: u32) {
-        bits.put(8, (FIXED_TYPE | order as u32) << 1);
-        for &sample in &self.channel[..order] {
-            bits.put(BITS_PER_SAMPLE, sample as u32); // the warm-up samples, unencoded
-        }
-        let parameters = &self.best_parameters[..1 << partition_order];
-        // 4-bit parameter fields (method 0b00) when every parameter fits in one, else 5-bit (0b01).
-        let parameter_bits = if parameters
-            .iter()
-            .all(|&k| u32::from(k) <= MAX_RICE4_PARAMETER)
-        {
-            4
+    /// Writes `channel` of the block as a fixed-predictor subframe with partitioned Rice codes, or
+    /// verbatim when that comes out no smaller than 24 bits a sample. The predictor is the order whose
+    /// residuals add up smallest, as libFLAC picks among its fixed predictors; the partitioning and
+    /// the Rice parameters are the ones with the smallest estimated size.
+    fn write_subframe(&mut self, channel: usize, bits: &mut BitWriter) {
+        let order = (0..=MAX_FIXED_ORDER)
+            .min_by_key(|&order| {
+                let row = row(channel, order);
+                self.sums[row..row + PARTITIONS].iter().sum::<u64>()
+            })
+            .unwrap_or(0);
+        let (partition_order, residual_bits) = self.best_partitioning(channel, order);
+        let warm_up_bits = order as u64 * u64::from(BITS_PER_SAMPLE);
+        let samples = &self.samples[channel * BLOCK_FRAMES..(channel + 1) * BLOCK_FRAMES];
+        if SUBFRAME_HEADER_BITS + warm_up_bits + residual_bits < VERBATIM_SUBFRAME_BITS {
+            let parameters = &self.best_parameters[..1 << partition_order];
+            write_fixed(samples, order, parameters, bits);
         } else {
-            5
-        };
-        bits.put(2, parameter_bits - 4);
-        bits.put(4, partition_order);
-        let len = BLOCK_FRAMES >> partition_order;
-        for (j, &k) in parameters.iter().enumerate() {
-            bits.put(parameter_bits, u32::from(k));
-            for n in (j * len).max(order)..(j + 1) * len {
-                bits.put_rice(u32::from(k), fold(residual(&self.channel, order, n)));
-            }
+            write_verbatim(samples, bits);
         }
     }
 
-    /// Writes a verbatim subframe: every sample unencoded (RFC 9639, section 9.2.4).
-    fn write_verbatim(&self, bits: &mut BitWriter) {
-        bits.put(8, VERBATIM_TYPE << 1);
-        for &sample in &self.channel {
-            bits.put(BITS_PER_SAMPLE, sample as u32);
+    /// The partition order whose Rice codes come out smallest for `channel`'s residual of `order`,
+    /// and their estimated bits, from its row of `self.sums`, which it merges in place. The chosen
+    /// partitions' Rice parameters end up in `self.best_parameters`.
+    fn best_partitioning(&mut self, channel: usize, order: usize) -> (u32, u64) {
+        let row = row(channel, order);
+        let mut best = (MAX_PARTITION_ORDER, u64::MAX);
+        for partition_order in (0..=MAX_PARTITION_ORDER).rev() {
+            let partitions = 1 << partition_order;
+            let len = (BLOCK_FRAMES >> partition_order) as u32;
+            let mut bits = RESIDUAL_HEADER_BITS;
+            for j in 0..partitions {
+                // The first partition starts after the warm-up samples.
+                let residuals = if j == 0 { len - order as u32 } else { len };
+                let sum = self.sums[row + j];
+                let k = rice_parameter(residuals, sum);
+                self.parameters[j] = k as u8;
+                bits += PARAMETER_BITS_ESTIMATE + rice_bits(residuals, sum, k);
+            }
+            if bits < best.1 {
+                best = (partition_order, bits);
+                self.best_parameters[..partitions].copy_from_slice(&self.parameters[..partitions]);
+            }
+            // Pairs of partitions make the next order's partitions.
+            for j in 0..partitions / 2 {
+                self.sums[row + j] = self.sums[row + 2 * j] + self.sums[row + 2 * j + 1];
+            }
+        }
+        best
+    }
+}
+
+/// Where the partition sums of `channel`'s residual of `order` start in `Encoder::sums`.
+fn row(channel: usize, order: usize) -> usize {
+    (channel * (MAX_FIXED_ORDER + 1) + order) * PARTITIONS
+}
+
+/// Writes a fixed-predictor subframe (RFC 9639, sections 9.2.5 and 9.2.7) for one channel's
+/// `samples`, with a Rice parameter for each of `parameters.len()` partitions.
+fn write_fixed(samples: &[i32], order: usize, parameters: &[u8], bits: &mut BitWriter) {
+    match order {
+        0 => write_fixed_order::<0>(samples, parameters, bits),
+        1 => write_fixed_order::<1>(samples, parameters, bits),
+        2 => write_fixed_order::<2>(samples, parameters, bits),
+        3 => write_fixed_order::<3>(samples, parameters, bits),
+        _ => write_fixed_order::<4>(samples, parameters, bits),
+    }
+}
+
+/// `write_fixed` for one predictor order, so that its arithmetic is fixed when this is compiled.
+fn write_fixed_order<const ORDER: usize>(samples: &[i32], parameters: &[u8], bits: &mut BitWriter) {
+    bits.put(8, (FIXED_TYPE | ORDER as u32) << 1);
+    for &sample in &samples[..ORDER] {
+        bits.put(BITS_PER_SAMPLE, sample as u32 & SAMPLE_MASK); // the warm-up samples, unencoded
+    }
+    // 4-bit parameter fields (method 0b00) when every parameter fits in one, else 5-bit (0b01).
+    let parameter_bits = if parameters
+        .iter()
+        .all(|&k| u32::from(k) <= MAX_RICE4_PARAMETER)
+    {
+        4
+    } else {
+        5
+    };
+    bits.put(2, parameter_bits - 4);
+    // There are 2^(partition order) partitions.
+    bits.put(4, parameters.len().trailing_zeros());
+    let len = BLOCK_FRAMES / parameters.len();
+    for (j, &k) in parameters.iter().enumerate() {
+        bits.put(parameter_bits, u32::from(k));
+        // Each residual needs the `ORDER` samples before it; the first partition skips the warm-up.
+        let first = (j * len).max(ORDER);
+        for window in samples[first - ORDER..(j + 1) * len].windows(ORDER + 1) {
+            bits.put_rice(u32::from(k), fold(fixed_residual::<ORDER>(window)));
         }
     }
+}
+
+/// The residual of the fixed predictor of `ORDER` for the last sample of `window`, which holds the
+/// `ORDER` samples before it too (RFC 9639, section 9.2.5). For 24-bit samples it stays within 28 bits.
+fn fixed_residual<const ORDER: usize>(window: &[i32]) -> i32 {
+    match ORDER {
+        0 => window[0],
+        1 => window[1] - window[0],
+        2 => window[2] - 2 * window[1] + window[0],
+        3 => window[3] - 3 * window[2] + 3 * window[1] - window[0],
+        _ => window[4] - 4 * window[3] + 6 * window[2] - 4 * window[1] + window[0],
+    }
+}
+
+/// Writes one channel's `samples` as a verbatim subframe: every sample unencoded (RFC 9639, section
+/// 9.2.4).
+fn write_verbatim(samples: &[i32], bits: &mut BitWriter) {
+    bits.put(8, VERBATIM_TYPE << 1);
+    for &sample in samples {
+        bits.put(BITS_PER_SAMPLE, sample as u32 & SAMPLE_MASK);
+    }
+}
+
+/// A sample clipped to the 24-bit rails.
+fn clip(sample: i32) -> i32 {
+    sample.clamp(SAMPLE_MIN, SAMPLE_MAX)
 }
 
 /// Appends a frame header for block `number` (RFC 9639, section 9.1), with its CRC-8. The header
@@ -288,92 +370,116 @@ fn push_coded_number(n: u32, out: &mut Vec<u8>) {
     }
 }
 
-/// The residual of the fixed predictor of `order` at sample `n` of `s`, which needs the `order`
-/// samples before it (RFC 9639, section 9.2.5). For 24-bit samples it stays within 28 bits.
-fn residual(s: &[i32], order: usize, n: usize) -> i32 {
-    match order {
-        0 => s[n],
-        1 => s[n] - s[n - 1],
-        2 => s[n] - 2 * s[n - 1] + s[n - 2],
-        3 => s[n] - 3 * s[n - 1] + 3 * s[n - 2] - s[n - 3],
-        4 => s[n] - 4 * s[n - 1] + 6 * s[n - 2] - 4 * s[n - 3] + s[n - 4],
-        _ => unreachable!("FLAC's fixed predictors go up to order {MAX_FIXED_ORDER}"),
-    }
-}
-
 /// A residual as Rice codes store it: 2r for r at or above 0, and -2r - 1 below (RFC 9639, section
 /// 9.2.7.2).
 fn fold(r: i32) -> u32 {
     ((r << 1) ^ (r >> 31)) as u32
 }
 
-/// The Rice parameter that codes `n` folded residuals summing to `sum` in the fewest bits, and that
-/// number of bits, by the estimate n * (k + 1) + (sum >> k): a stop bit and k low bits per residual,
-/// and the unary high parts. It never falls short, because the high parts, each residual >> k, add
-/// up to at most sum >> k.
-fn rice_parameter(n: u64, sum: u64) -> (u32, u64) {
-    let bits = |k: u32| n * u64::from(k + 1) + (sum >> k);
-    // The estimate is convex in k, so walking downhill from a guess near log2 of the mean reaches its
-    // minimum. The guess is the difference of the bit lengths of the sum and the count.
-    let mut k = (u64::BITS - sum.leading_zeros())
-        .saturating_sub(u64::BITS - n.leading_zeros())
-        .min(MAX_RICE5_PARAMETER);
-    while k > 0 && bits(k - 1) <= bits(k) {
-        k -= 1;
-    }
-    while k < MAX_RICE5_PARAMETER && bits(k + 1) < bits(k) {
-        k += 1;
-    }
-    (k, bits(k))
+/// The Rice parameter that codes `n` folded residuals summing to `sum` in the fewest bits by
+/// `rice_bits`'s estimate. Going from k to k + 1 saves (sum >> k) - (sum >> (k + 1)), which is
+/// (sum >> k) / 2 rounded up, and costs n, so the best k is the first with sum >> k at most 2n. With
+/// d the difference of the bit lengths of sum and 2n, that's d or d + 1.
+fn rice_parameter(n: u32, sum: u64) -> u32 {
+    let twice_n = 2 * u64::from(n);
+    let d = (u64::BITS - sum.leading_zeros()).saturating_sub(u64::BITS - twice_n.leading_zeros());
+    let k = if sum >> d > twice_n { d + 1 } else { d };
+    k.min(MAX_RICE5_PARAMETER)
 }
 
-/// Writes bits most significant first, as FLAC stores everything, and appends each byte as it fills.
+/// The bits `n` folded residuals summing to `sum` take as Rice codes with parameter `k`, by the
+/// estimate n * (k + 1) + (sum >> k): a stop bit and k low bits per residual, and the unary high
+/// parts. It never falls short, because the high parts, each residual >> k, add up to at most sum >> k.
+fn rice_bits(n: u32, sum: u64, k: u32) -> u64 {
+    u64::from(n * (k + 1)) + (sum >> k)
+}
+
+/// Writes bits most significant first, as FLAC stores everything, and appends them to `out` a
+/// 32-bit word at a time. It keeps the CRC-16 of what it appends, so a frame's bytes needn't be read
+/// back for the frame's check.
 struct BitWriter<'a> {
     out: &'a mut Vec<u8>,
     /// Bits not yet appended, in the low `pending` bits.
-    acc: u64,
-    /// At most 7 between calls.
+    word: u32,
+    /// Below 32 between calls.
     pending: u32,
+    /// The CRC-16 of the bytes before the writer started, then of everything it has appended too.
+    crc: u16,
 }
 
 impl<'a> BitWriter<'a> {
-    fn new(out: &'a mut Vec<u8>) -> Self {
+    /// A writer that appends to `out`, whose bytes so far have the CRC-16 `crc`.
+    fn new(out: &'a mut Vec<u8>, crc: u16) -> Self {
         Self {
             out,
-            acc: 0,
+            word: 0,
             pending: 0,
+            crc,
         }
     }
 
-    /// Writes the low `n` bits of `value`; `n` is at most 32. A negative sample cast to `u32` comes
-    /// out as `n`-bit two's complement.
+    /// Writes `value` in `n` bits, `n` at most 32; `value` must fit in them.
+    #[inline(always)]
     fn put(&mut self, n: u32, value: u32) {
-        debug_assert!(n <= 32);
-        self.acc = (self.acc << n) | (u64::from(value) & ((1 << n) - 1));
-        self.pending += n;
-        while self.pending >= 8 {
-            self.pending -= 8;
-            self.out.push((self.acc >> self.pending) as u8);
+        debug_assert!(n <= 32 && (n == 32 || value >> n == 0));
+        if n < 32 - self.pending {
+            self.word = (self.word << n) | value;
+            self.pending += n;
+        } else {
+            self.put_filling_word(n, value);
         }
+    }
+
+    /// `put` when `value` fills the word: fills it with the top bits of `value`, appends it, and
+    /// keeps the other bits. Out of line, so `put` stays small where it's inlined.
+    #[inline(never)]
+    fn put_filling_word(&mut self, n: u32, value: u32) {
+        let room = 32 - self.pending;
+        let left = n - room;
+        let full = if room == 32 {
+            value
+        } else {
+            (self.word << room) | (value >> left)
+        };
+        self.append(&full.to_be_bytes());
+        self.word = value & ((1 << left) - 1);
+        self.pending = left;
     }
 
     /// Writes a folded residual as a Rice code word with parameter `k`: its high part in unary (that
     /// many 0s, then a 1), then its low `k` bits.
+    #[inline(always)]
     fn put_rice(&mut self, k: u32, folded: u32) {
-        let mut zeros = folded >> k;
-        while zeros >= 32 {
-            self.put(32, 0);
-            zeros -= 32;
+        let high = folded >> k;
+        let low = folded & ((1 << k) - 1);
+        if high + 1 + k <= 32 {
+            // The high part's 0s come from the field's width.
+            self.put(high + 1 + k, (1 << k) | low);
+        } else {
+            let mut zeros = high;
+            while zeros >= 32 {
+                self.put(32, 0);
+                zeros -= 32;
+            }
+            self.put(zeros + 1, 1);
+            self.put(k, low);
         }
-        self.put(zeros + 1, 1);
-        self.put(k, folded);
     }
 
-    /// Pads with 0s to a whole byte.
-    fn finish(mut self) {
+    fn append(&mut self, bytes: &[u8]) {
+        self.crc = bytes
+            .iter()
+            .fold(self.crc, |crc, &byte| crc16_step(crc, byte));
+        self.out.extend_from_slice(bytes);
+    }
+
+    /// Pads with 0s to a whole byte, appends what's left, and returns the CRC-16 of all of `out`.
+    fn finish(mut self) -> u16 {
         if self.pending > 0 {
-            self.put(8 - self.pending, 0);
+            let bytes = (self.word << (32 - self.pending)).to_be_bytes();
+            self.append(&bytes[..self.pending.div_ceil(8) as usize]);
         }
+        self.crc
     }
 }
 
@@ -388,9 +494,12 @@ fn crc8(bytes: &[u8]) -> u8 {
 /// CRC-16 with the polynomial x^16 + x^15 + x^2 + 1, starting from 0: the whole frame's check (RFC
 /// 9639, section 9.3).
 fn crc16(bytes: &[u8]) -> u16 {
-    bytes.iter().fold(0, |crc, &byte| {
-        (crc << 8) ^ CRC16_TABLE[usize::from((crc >> 8) as u8 ^ byte)]
-    })
+    bytes.iter().fold(0, |crc, &byte| crc16_step(crc, byte))
+}
+
+/// The CRC-16 after one more byte.
+fn crc16_step(crc: u16, byte: u8) -> u16 {
+    (crc << 8) ^ CRC16_TABLE[usize::from((crc >> 8) as u8 ^ byte)]
 }
 
 /// The CRC of each byte value, computed when the code is compiled: shift left one bit at a time, and
@@ -454,6 +563,32 @@ mod tests {
     /// The bytes of one block as 24-bit PCM, what the WAV stream sends for it.
     const PCM_BLOCK_BYTES: usize = 3 * CHANNELS * BLOCK_FRAMES;
 
+    /// Chunk sizes, in frames, that cut a block in uneven places, partitions included. The stream
+    /// ring hands a listener up to 240 frames at a time, and fewer when it has caught up.
+    const CHUNKS: [usize; 6] = [240, 1, 17, 240, 100, 33];
+
+    /// Pushes `block` into `encoder` in chunks of `sizes` frames, repeating, then encodes it as block
+    /// `number` into `out`.
+    fn push_and_encode(
+        encoder: &mut Encoder,
+        block: &[i32],
+        sizes: &[usize],
+        number: u32,
+        out: &mut Vec<u8>,
+    ) {
+        let mut rest = block;
+        for &frames in sizes.iter().cycle() {
+            if rest.is_empty() {
+                break;
+            }
+            let (chunk, tail) = rest.split_at(CHANNELS * frames.min(rest.len() / CHANNELS));
+            encoder.push(chunk);
+            rest = tail;
+        }
+        assert_eq!(encoder.frames_wanted(), 0, "the block is complete");
+        encoder.encode_block(number, out);
+    }
+
     /// The stream header, then one frame per block of `interleaved`, numbered from 0. Every frame
     /// must fit in `MAX_FRAME_BYTES`.
     fn encode_stream(interleaved: &[i32]) -> Vec<u8> {
@@ -464,7 +599,7 @@ mod tests {
             .chunks_exact(CHANNELS * BLOCK_FRAMES)
             .enumerate()
         {
-            encoder.encode_block(block, n as u32, &mut frame);
+            push_and_encode(&mut encoder, block, &CHUNKS, n as u32, &mut frame);
             assert!(
                 frame.len() <= MAX_FRAME_BYTES,
                 "block {n}: {} bytes",
@@ -507,7 +642,7 @@ mod tests {
         interleaved
             .chunks_exact(CHANNELS * BLOCK_FRAMES)
             .map(|block| {
-                encoder.encode_block(block, 0, &mut frame);
+                push_and_encode(&mut encoder, block, &CHUNKS, 0, &mut frame);
                 frame.len()
             })
             .collect()
@@ -601,8 +736,10 @@ mod tests {
     fn the_largest_frame_is_max_frame_bytes() {
         // Verbatim subframes with the longest block number, 6 bytes coded.
         let mut frame = vec![];
-        Encoder::new().encode_block(
+        push_and_encode(
+            &mut Encoder::new(),
             &full_scale_noise_stereo(BLOCK_FRAMES),
+            &CHUNKS,
             0x7FFF_FFFF,
             &mut frame,
         );
@@ -638,7 +775,7 @@ mod tests {
         let mut stream = stream_header().to_vec();
         let mut frame = vec![];
         for n in numbers {
-            encoder.encode_block(&block, n, &mut frame);
+            push_and_encode(&mut encoder, &block, &CHUNKS, n, &mut frame);
             stream.extend_from_slice(&frame);
         }
         let mut reader = claxon::FlacReader::new(stream.as_slice()).unwrap();
@@ -671,8 +808,98 @@ mod tests {
     }
 
     #[test]
+    fn the_frame_does_not_depend_on_how_the_block_was_pushed() {
+        let block = chord_and_chirp_stereo_48k(BLOCK_FRAMES);
+        let mut encoder = Encoder::new();
+        let mut whole = vec![];
+        push_and_encode(&mut encoder, &block, &[BLOCK_FRAMES], 0, &mut whole);
+        for sizes in [&CHUNKS[..], &[1], &[16], &[15, 2]] {
+            let mut frame = vec![];
+            push_and_encode(&mut encoder, &block, sizes, 0, &mut frame);
+            assert!(frame == whole, "pushed in chunks of {sizes:?}");
+        }
+    }
+
+    #[test]
+    fn partition_sums_match_the_fixed_predictors_residuals() {
+        // Noise over a tone, pushed in uneven chunks.
+        let block: Vec<i32> = chord_and_chirp_stereo_48k(BLOCK_FRAMES)
+            .iter()
+            .zip(full_scale_noise_stereo(BLOCK_FRAMES))
+            .map(|(&tone, noise)| tone / 2 + noise / 4)
+            .collect();
+        let mut encoder = Encoder::new();
+        let mut rest = &block[..];
+        for &frames in CHUNKS.iter().cycle() {
+            if rest.is_empty() {
+                break;
+            }
+            let (chunk, tail) = rest.split_at(CHANNELS * frames.min(rest.len() / CHANNELS));
+            encoder.push(chunk);
+            rest = tail;
+        }
+        // The fixed predictors as RFC 9639, section 9.2.5 writes them.
+        let residual = |s: &[i32], order: usize, n: usize| -> i32 {
+            match order {
+                0 => s[n],
+                1 => s[n] - s[n - 1],
+                2 => s[n] - 2 * s[n - 1] + s[n - 2],
+                3 => s[n] - 3 * s[n - 1] + 3 * s[n - 2] - s[n - 3],
+                _ => s[n] - 4 * s[n - 1] + 6 * s[n - 2] - 4 * s[n - 3] + s[n - 4],
+            }
+        };
+        let len = BLOCK_FRAMES / PARTITIONS;
+        for channel in 0..CHANNELS {
+            let samples: Vec<i32> = block
+                .iter()
+                .skip(channel)
+                .step_by(CHANNELS)
+                .copied()
+                .collect();
+            for order in 0..=MAX_FIXED_ORDER {
+                for j in 0..PARTITIONS {
+                    let expected: u64 = ((j * len).max(order)..(j + 1) * len)
+                        .map(|n| u64::from(fold(residual(&samples, order, n))))
+                        .sum();
+                    assert_eq!(
+                        encoder.sums[row(channel, order) + j],
+                        expected,
+                        "channel {channel}, order {order}, partition {j}"
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn the_rice_parameter_is_the_cheapest_by_the_estimate() {
+        for n in [12, 13, 16, 256, 4092, 4096] {
+            for mean in [0, 1, 2, 3, 7, 100, 1_000, 65_535, 1 << 20, (1 << 28) - 15] {
+                for sum in [n as u64 * mean, n as u64 * mean + n as u64 / 2] {
+                    let cheapest = (0..=MAX_RICE5_PARAMETER)
+                        .map(|k| rice_bits(n, sum, k))
+                        .min()
+                        .unwrap();
+                    let k = rice_parameter(n, sum);
+                    assert_eq!(rice_bits(n, sum, k), cheapest, "n {n}, sum {sum}: k {k}");
+                }
+            }
+        }
+    }
+
+    #[test]
     #[should_panic(expected = "4096 frames")]
-    fn a_block_is_4096_frames() {
-        Encoder::new().encode_block(&[0; 2 * 100], 0, &mut vec![]);
+    fn a_block_takes_no_more_than_4096_frames() {
+        let mut encoder = Encoder::new();
+        encoder.push(&vec![0; CHANNELS * (BLOCK_FRAMES - 1)]);
+        encoder.push(&[0; 2 * CHANNELS]);
+    }
+
+    #[test]
+    #[should_panic(expected = "4096 frames")]
+    fn a_block_is_encoded_only_when_complete() {
+        let mut encoder = Encoder::new();
+        encoder.push(&[0; 2 * 100]);
+        encoder.encode_block(0, &mut vec![]);
     }
 }
