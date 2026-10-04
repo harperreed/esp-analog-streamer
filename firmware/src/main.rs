@@ -1,9 +1,10 @@
-// ABOUTME: Firmware entry point: LINE IN capture, Wi-Fi, clock, mDNS, the recognizer and the web server around one song store.
+// ABOUTME: Firmware entry point: LINE IN capture, Wi-Fi, clock, mDNS, the recognizer, the web server and MQTT around one song store.
 // ABOUTME: The main thread ends up supervising Wi-Fi; everything else runs on its own thread.
 
 mod audio_in;
 mod codec;
 mod config;
+mod mqtt_out;
 mod net;
 mod recognizer;
 mod shazam_http;
@@ -57,12 +58,9 @@ fn main() -> Result<()> {
 
     let store: recognizer::SharedStore = Arc::new(Mutex::new(SongStore::new(20)));
     let _server = web::start(store.clone())?;
-    let log_store = store.clone();
+    let publisher = mqtt_out::start(CONFIG.mqtt_url, store.clone())?;
     recognizer::spawn(ring, store, config::policy_config(), move || {
-        log::info!(
-            "now_playing payload: {}",
-            log_store.lock().expect("store lock").now_json()
-        );
+        publisher.publish_now()
     })?;
 
     net::supervise(wifi)

@@ -1,9 +1,9 @@
 # esp-shazam Implementation Plan
 
 ## Now
-- Step: Task 10 done (web page, /api/state, mDNS): `/api/state` served "No Others" (Momoko Gill), matched 25.7 s after reset; esp-shazam.local resolves, but dual-stack lookups on the Mac wait 5 s for an AAAA answer, so checks by name need `curl -4` (gotchas.md)
-- Next: Task 11 (MQTT publishing)
-- Open: silence and Wi-Fi-drop checks need Harper (Task 12); turn off station OWE (`CONFIG_ESP_WIFI_ENABLE_WPA3_OWE_STA`)? With it on, ESP-IDF's Wi-Fi library logs the Wi-Fi password's length at every boot; Harper to look at http://esp-shazam.local/ (the board is parked; a reset boots it)
+- Step: Task 11 done (MQTT): the retained QoS 1 `esp-shazam/now_playing` on Harper's broker carried "Open Spirals" (Sol Monk) 28 s after reset, with the same key as `/api/state`; after a local broker restart, the board republished the song to the empty broker. `mqtt_out` uses `EspMqttClient::new_cb` plus one publisher thread, 15.8 KB of internal RAM. The brief's two threads took 25.2 KB, and one boot's TLS setup to Shazam then failed with -0x7F00 (gotchas.md)
+- Next: Task 12 (device end-to-end test, Wi-Fi drop check, README)
+- Open: silence and Wi-Fi-drop checks need Harper (Task 12); turn off station OWE (`CONFIG_ESP_WIFI_ENABLE_WPA3_OWE_STA`)? With it on, ESP-IDF's Wi-Fi library logs the Wi-Fi password's length at every boot; Harper to look at http://esp-shazam.local/ (the board is parked; a reset boots it); let mbedTLS use PSRAM (`CONFIG_MBEDTLS_DEFAULT_MEM_ALLOC`)? Internal RAM fell to 860 bytes during an ask, and TLS needs a 16.7 KB block of it, but ESP-IDF calls internal-only the more secure choice
 - Approved: "On the board (Recommended)" (2026-10-03), fingerprint computed on the board
 - Approved: "Always listening" (2026-10-03), trigger
 - Approved: "Web page on the board", "MQTT, and json endpoint" (2026-10-03), outputs

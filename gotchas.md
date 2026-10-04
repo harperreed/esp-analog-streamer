@@ -85,3 +85,21 @@ The Mac (192.168.99.0/24, en0) reaches the board's 192.168.200.0/24 through Tail
 
 ## The board's pages answer GET only
 `/` and `/api/state` have GET handlers and nothing else. `curl -I` sends HEAD, which ESP-IDF's httpd answers with `405 Method Not Allowed` (text/html), so check headers on a GET: `curl -s -D - -o /dev/null <url>`.
+
+## Internal RAM is the budget: TLS to Shazam needs one 16.7 KB block of it
+mbedTLS allocates only from internal RAM (`CONFIG_MBEDTLS_INTERNAL_MEM_ALLOC`, the IDF default), and `mbedtls_ssl_setup` needs one contiguous block of about 16.7 KB for its 16 KB input buffer. Thread stacks come out of internal RAM too (ESP-IDF pthreads use `MALLOC_CAP_INTERNAL`), and so does every malloc under 16 KB. Task 11's first MQTT build ran a pump thread and a publisher thread with 6 KiB stacks each. It took 25.2 KB of internal RAM, and one boot's first ask failed with `mbedtls_ssl_setup returned -0x7F00` (`MBEDTLS_ERR_SSL_ALLOC_FAILED`). The shipped `mqtt_out` takes 15.8 KB. Measured 2026-10-03 with a throwaway build:
+- Before an ask: 62–72 KB internal free, largest block 25.6 KB.
+- Lowest internal free since boot: 860 bytes, reached during an ask.
+- Stack use: esp-mqtt's task about 2.1 KB of 6 KiB, the publisher 1.9 KB of 4 KiB.
+Measure the internal heap before adding anything that lives in internal RAM. Letting mbedTLS use PSRAM (`CONFIG_MBEDTLS_DEFAULT_MEM_ALLOC`) would remove the 16.7 KB need, but ESP-IDF calls internal-only the more secure choice, so that waits on Harper.
+
+## esp-mqtt holds its API lock through each connect attempt
+`esp_mqtt_client_enqueue` and `_publish` wait for that lock, so a publish can block for up to `network_timeout` (10 s by default) while the broker is away. Publish only from `mqtt_out`'s own thread; the recognizer just sends on a channel. Callbacks from `EspMqttClient::new_cb` run on esp-mqtt's task, which needs no pump thread. `EspMqttClient::new`'s `connection.next()` does need one: without it, esp-mqtt stalls. Queued messages expire after 30 s (`OUTBOX_EXPIRED_TIMEOUT_MS`), and the publish on every connect covers longer outages.
+
+## esp-idf-svc's MQTT error event always says ESP_FAIL
+esp-idf-svc 0.53 maps every `MQTT_EVENT_ERROR` to a fixed `ESP_FAIL` (a TODO in its `mqtt/client.rs`), so `mqtt: ESP_FAIL (error code -1)` carries no cause. esp-mqtt's own `E (…) mqtt_client:` and `esp-tls:` lines just before it give the cause, for example `transport_read(): EOF` or `Connection reset by peer`.
+
+## Reading the retained MQTT topic
+- The retained message outlives the board. A parked or unplugged board leaves its last song on the broker, because there is no Last Will. After a reset, compare the payload with `/api/state`, or wait for the board's first publish (`null` right after it connects).
+- A live subscriber gets the board's publishes with `retain=0`; only a new subscription shows `retain=1`. `mosquitto_sub -q 1 -F '%I retain=%r qos=%q %t %p'` shows the flags.
+- The board reaches a broker on the Mac at its en0 address (192.168.99.151:1884), although the Mac reaches the board through Tailscale: the gateway routes between 192.168.99.0/24 and 192.168.200.0/24 (`ping -b en0 192.168.200.8`: 3–6 ms). Task 11's broker-restart test used that path.
