@@ -1,8 +1,8 @@
 # esp-shazam Implementation Plan
 
 ## Now
-- Step: Task 13 (`shazam_enabled` flag) is done. Flag on, the board matched 27 s after reset; flag off, it logged one `shazam: disabled by cfg` and no other Shazam line over 110 s, with `/api/state`, the page and MQTT answering. The board is parked.
-- Next: Task 14 (48 kHz/24-bit capture and the Shazam feed), then 15 (`/stream.wav`) and 16 (`/stream.flac`), then Task 12 (device E2E and README), then the final whole-branch review.
+- Step: Task 14b (firmware: 48 kHz/24-bit capture, the meter in the audio thread, the "Shazam is off" page). Its device checks need music on LINE IN. Task 14a is complete: the store split (9d02a98), `StreamRing` (615d277) and the `Decimator` (8ac51b4, 44.3 dB down at 7.5 kHz); the review approved it with 5 minor notes.
+- Next: Task 15 (`/stream.wav`), 16 (`/stream.flac`), Task 12 (device E2E and README), then the final whole-branch review.
 - Open (Harper):
   - Security calls:
     - A core-level https-only URL guard (SDD R18).
@@ -11,7 +11,7 @@
   - Task 12's silence and Wi-Fi-drop checks.
   - A look at http://esp-shazam.local/ (the board is parked; a reset boots it).
   - Whether to add an MQTT Last Will.
-  - With `shazam_enabled = false` the page reads "quiet · -120.0 dBFS" and "Nothing playing." while the board hears music. Should the page say "Shazam is off" instead (about 3 lines in `index.html`)?
+  - With `shazam_enabled = false` the page reads "quiet · -120.0 dBFS" and "Nothing playing." while the board hears music. SDD R24 answers it in Task 14b: the audio thread measures the level, and the page says "Shazam is off". Veto it if you'd rather not.
 - Approved: "On the board (Recommended)" (2026-10-03), fingerprint computed on the board
 - Approved: "Always listening" (2026-10-03), trigger
 - Approved: "Web page on the board", "MQTT, and json endpoint" (2026-10-03), outputs
@@ -22,7 +22,7 @@
 - Approved: "can we feature flag out the shazam bits, adn go for the stream out of the board?" (2026-10-03), the Shazam flag plus the LINE IN stream (Tasks 13–15)
 - Approved: "lossless as much as we can" (2026-10-03), stream quality: 48 kHz/24-bit PCM (SDD R21)
 - Approved: "can we do flac?" then "ok. cool." (2026-10-03), the FLAC stream (Task 16) and the Tasks 13→16→12 order
-- Compactions: 0
+- Compactions: 1
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
