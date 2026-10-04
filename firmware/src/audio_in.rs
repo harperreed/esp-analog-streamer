@@ -33,10 +33,10 @@ const STREAM_FRAMES: usize = 2 * CAPTURE_RATE_HZ as usize;
 const DMA_FRAMES: usize = 240;
 const DMA_BYTES: usize = DMA_FRAMES * 2 * 4;
 /// The driver queues all but one buffer and silently drops the oldest when the reader falls behind,
-/// so 6 buffers let this thread run 25 ms late. That only has to cover scheduling jitter, because
-/// the thread never waits on the recognizer. DMA can't reach PSRAM: the buffers take 11,520 bytes
-/// of internal RAM.
-const DMA_BUFFER_COUNT: u32 = 6;
+/// so 8 buffers let this thread run 35 ms late. That only has to cover scheduling jitter, because
+/// the thread never waits on the recognizer: Wi-Fi start-up held it off for 25 ms at boot, and
+/// 6 ms was the most since. DMA can't reach PSRAM: the buffers take 15,360 bytes of internal RAM.
+const DMA_BUFFER_COUNT: u32 = 8;
 
 /// The level is the loudness of the feed's last second, measured every 250 ms.
 const METER_WINDOW: usize = FEED_RATE_HZ as usize;
