@@ -180,7 +180,7 @@ The Mac E2E test uses it, and it saves real responses as parser fixtures.
 | Signature, base64 and body | under 64 KB | heap |
 | Response | capped at 128 KB | heap |
 
-Large allocations go to PSRAM through ESP-IDF's malloc (`CONFIG_SPIRAM_USE_MALLOC`). Confirmed at bring-up: with `CONFIG_SPIRAM_MALLOC_ALWAYSINTERNAL=16384`, the probe's 384,000-byte test buffer took 376 KB of PSRAM, and the 2.1 MB fingerprint ran with only 344 KB of internal RAM free. Wi-Fi and TLS keep internal RAM.
+Large allocations go to PSRAM through ESP-IDF's malloc (`CONFIG_SPIRAM_USE_MALLOC`). Confirmed at bring-up: with `CONFIG_SPIRAM_MALLOC_ALWAYSINTERNAL=16384` (since Task 11 it is 8191), the probe's 384,000-byte test buffer took 376 KB of PSRAM, and the 2.1 MB fingerprint ran with only 344 KB of internal RAM free. Wi-Fi and TLS keep internal RAM.
 
 Flash gets one factory app partition sized for the binary, with no OTA.
 
@@ -368,7 +368,7 @@ There are no mocks anywhere. The E2E tests use the real Shazam API and the real 
    - probes I2C on both pin sets and logs the codec address and revision;
    - times one 12 s fingerprint of synthetic audio.
 3. Set up the ES8388 and I2S RX. Read back the codec registers, log loudness with music on LINE IN to confirm LIN2/RIN2 carries the jack, and set the PGA gain.
-4. If a 12 s fingerprint takes over 6 s, raise `search_interval_secs` to cover it. Switching the FFT crate is a later option, only if the numbers demand it. (Measured 12.6 s; the interval was not raised. Risks explains why, and the CPU-clock question is open.)
+4. If a 12 s fingerprint takes over 6 s, raise `search_interval_secs` to cover it. Switching the FFT crate is a later option, only if the numbers demand it. (Measured 12.6 s; the interval was not raised. Risks explains why, and the CPU clock is settled at 240 MHz (SDD R11), with flash and PSRAM at 80 MHz (SDD R20).)
 5. Build the full app, then run the device E2E.
 
 ## Risks
@@ -390,7 +390,7 @@ There are no mocks anywhere. The E2E tests use the real Shazam API and the real 
   - Task 11b (SDD Ruling R20) runs flash and PSRAM at 80 MHz. It measured nine live asks on 2026-10-03 while `/api/state` was polled every 3 s (logs in `target/task11b/`, kept locally):
     - Fingerprints took 9754–10350 ms (mean 10168), and whole asks 10420–11132 ms. The request, TLS handshake included, added 0.67–0.84 s.
     - The first match came 23.7 s after reset. While matched, asks came every 40.8–41.4 s.
-    - Worst cases: when the song changes just after a snapshot, the next snapshot comes one cycle later and its answer one ask after that, about 41.4 + 11.1 ≈ 53 s (criterion 3: 60 s). When the music stops as an ask starts, no quiet ticks arrive during that ask, so the clear lands about 11.1 + 60 ≈ 71 s after the music stops (criterion 4: 75 s).
+    - For a clean change (one that doesn't straddle a snapshot window). A window holding both songs can still return the old one, and that change can then pass 60 s. When the song changes just after a snapshot, the next snapshot comes one cycle later and its answer one ask after that, about 41.4 + 11.1 ≈ 53 s (criterion 3: 60 s). When the music stops as an ask starts, no quiet ticks arrive during that ask, so the clear lands about 11.1 + 60 ≈ 71 s after the music stops (criterion 4: 75 s).
     - Internal RAM held up: the lowest `INTERNAL|8BIT` free since boot was 31,496 bytes (30,844 at 40 MHz), the largest block before every TLS session was 47,104 bytes, and no TLS session failed.
     - Matches: "Someone Else" by Raphael Meleteas; then "BLUE" by Billie Eilish, caught by a re-check after the source changed songs.
 - **The 12 s snapshot stalls audio capture.** The recognizer copies 384 KB out of the PSRAM ring under its lock. Task 9 measured that hold at 87–91 ms with PSRAM at 40 MHz, and Task 11b at 48–52 ms with PSRAM at 80 MHz.

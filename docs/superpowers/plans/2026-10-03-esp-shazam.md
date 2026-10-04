@@ -1,12 +1,16 @@
 # esp-shazam Implementation Plan
 
 ## Now
-- Step: Task 11b done (R20): flash and PSRAM run at 80 MHz.
-  - The boot log says "SPI Speed : 80MHz" and "esp_psram: Speed: 80MHz". A 6-minute run with music playing showed no panic or reset.
-  - Over 9 asks, with `/api/state` polled every 3 s: fingerprints took 9.75–10.35 s (16.1–16.9 s at 40 MHz), the first match came 23.7 s after reset, and a cycle while matched took 40.8–41.4 s. Worst cases by the spec's reckoning: song change about 53 s (target 60), clear about 71 s (target 75).
-  - Internal RAM: the lowest free was 31,496 bytes, the largest block before TLS 47,104, with no TLS failures.
-- Next: Task 12 (device end-to-end test, Wi-Fi drop check, README)
-- Open: silence and Wi-Fi-drop checks need Harper (Task 12); turn off station OWE (`CONFIG_ESP_WIFI_ENABLE_WPA3_OWE_STA`)? With it on, ESP-IDF's Wi-Fi library logs the Wi-Fi password's length at every boot; Harper to look at http://esp-shazam.local/ (the board is parked; a reset boots it); let mbedTLS use PSRAM (`CONFIG_MBEDTLS_DEFAULT_MEM_ALLOC`)? That's Harper's security call (ESP-IDF calls internal-only the more secure choice), needed only if the internal-RAM margin shrinks again. The fingerprint's sub-16 KB allocations, not TLS, were the main consumer
+- Step: Task 13 (`shazam_enabled` flag), dispatched next. Task 11b is done: flash and PSRAM run at 80 MHz, a fingerprint takes about 10 s, min free internal RAM is 31.5 KB, and there were 0 TLS failures in 9 asks (SDD ledger).
+- Next: Tasks 14 (48 kHz/24-bit capture and the Shazam feed), 15 (`/stream.wav`) and 16 (`/stream.flac`), then Task 12 (device E2E and README), then the final whole-branch review.
+- Open (Harper):
+  - Security calls:
+    - A core-level https-only URL guard (SDD R18).
+    - mbedTLS in PSRAM (`CONFIG_MBEDTLS_DEFAULT_MEM_ALLOC`). Likely unneeded now, with 31.5 KB free.
+    - Station OWE: the Wi-Fi password-length warning showed in Task 9's logs but in none since Task 10.
+  - Task 12's silence and Wi-Fi-drop checks.
+  - A look at http://esp-shazam.local/ (the board is parked; a reset boots it).
+  - Whether to add an MQTT Last Will.
 - Approved: "On the board (Recommended)" (2026-10-03), fingerprint computed on the board
 - Approved: "Always listening" (2026-10-03), trigger
 - Approved: "Web page on the board", "MQTT, and json endpoint" (2026-10-03), outputs
@@ -14,6 +18,9 @@
 - Approved: "Yes, write the spec (Recommended)" (2026-10-03), revised design
 - Approved: "approve" (2026-10-03), written spec
 - Approved: "you were getting lost in the planning sauce. i update super powers .now go" (2026-10-03), start execution (subagent-driven, per CLAUDE.md preference)
+- Approved: "can we feature flag out the shazam bits, adn go for the stream out of the board?" (2026-10-03), the Shazam flag plus the LINE IN stream (Tasks 13–15)
+- Approved: "lossless as much as we can" (2026-10-03), stream quality: 48 kHz/24-bit PCM (SDD R21)
+- Approved: "can we do flac?" then "ok. cool." (2026-10-03), the FLAC stream (Task 16) and the Tasks 13→16→12 order
 - Compactions: 0
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.

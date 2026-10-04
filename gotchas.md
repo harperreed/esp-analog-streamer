@@ -79,6 +79,7 @@ It also ignores unknown keys, so a misspelled key in `cfg.toml` silently falls b
 
 ## Boot logs show the Wi-Fi name and the password's length
 ESP-IDF's Wi-Fi driver logs `wifi:connected with <SSID>` at every connect. With station OWE support on (`CONFIG_ESP_WIFI_ENABLE_WPA3_OWE_STA=y`, the IDF default), `libnet80211.a` also warns "OWE is enabled, but authmode threshold is 3 or password length is N", where N is the real length of `wifi_pass`. Redact both before pasting a log anywhere. Turning OWE off would remove the warning; that waits on Harper (plan `## Now`, Open).
+Update: the password-length warning appears in Task 9's logs but in none from Tasks 10, 11 or 11b. Check a fresh boot log before acting on this.
 
 ## mDNS comes from the espressif/mdns component, pinned to 1.8.2
 `esp_idf_svc::mdns` exists only when that managed component is in the build: `[[package.metadata.esp-idf-sys.extra_components]]` in `firmware/Cargo.toml`. 1.8.2 builds on IDF 5.5.5; the registry's newest on 2026-10-03 was 1.14.0. The component manager downloads it into esp-idf-sys's out dir under `firmware/target/` and writes `firmware/components_esp32.lock` (committed). No `firmware/managed_components/` appears.
@@ -102,7 +103,7 @@ mbedTLS allocates only from internal RAM (`CONFIG_MBEDTLS_INTERNAL_MEM_ALLOC`, t
   - `CONFIG_SPIRAM_MALLOC_ALWAYSINTERNAL=8191` sends the 8 KB FFT buffers to PSRAM.
   - The recognizer drops the signature and its URI before the HTTPS call.
   - `mqtt_out` uses `new_cb` (no pump thread), a 4 KiB publisher and a 4 KiB esp-mqtt task. That's 15.8 KB measured, minus the 2 KiB task-stack cut. The task used 2.1 KB at most.
-- **Measured over 10 asks while `/api/state` was polled every 3 s.** In `MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT`, which is what mbedTLS asks for:
+- **Measured over 10 asks at 40 MHz flash/PSRAM while `/api/state` was polled every 3 s.** In `MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT`, which is what mbedTLS asks for:
   - lowest free since boot: 30,844 bytes
   - largest block before every TLS session: 47,104 bytes
   - TLS failures: none
