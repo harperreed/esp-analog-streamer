@@ -1,10 +1,11 @@
 # esp-shazam Implementation Plan
 
 ## Now
-- Step: Task 14b (firmware: 48 kHz/24-bit capture, the meter in the audio thread, the "Shazam is off" page). Capture works on the board: 32-bit slots, APLL MCLK, no lost buffers (d7e7d0e..d3d2f6a). It's paused, because LINE IN read silence (-85 to -87.7 dBFS) on three boots. The flag-on and flag-off runs, the docs and the park wait on music. Task 14a is complete: the store split (9d02a98), `StreamRing` (615d277) and the `Decimator` (8ac51b4, 44.3 dB down at 7.5 kHz); the review approved it with 5 minor notes.
+- Step: Task 14b (firmware: 48 kHz/24-bit capture, the meter in the audio thread, the "Shazam is off" page). Capture works on the board: 32-bit slots, APLL MCLK, no lost buffers (d7e7d0e..d3d2f6a). Harper redirected it on 2026-10-04: Shazam off, the stream first (SDD R26). The implementer is stopping its Shazam-on run, finishing the flag-off run and docs, and leaving `shazam_enabled = false` in `cfg.toml`. With the flag off the board makes no outside requests, so it stays running. Task 14a is complete: the store split (9d02a98), `StreamRing` (615d277) and the `Decimator` (8ac51b4, 44.3 dB down at 7.5 kHz); the review approved it with 5 minor notes.
 - Next: Task 15 (`/stream.wav`), 16 (`/stream.flac`), Task 12 (device E2E and README), then the final whole-branch review.
 - Open (Harper):
-  - Play music into LINE IN (turntable on LINE, or the continuous source) so Task 14b can finish.
+  - The code default of `shazam_enabled` is still `true`; only `cfg.toml` turns it off. Flip the default too?
+  - Task 12 was written around Shazam matches. With Shazam off, it should test the stream instead. Keep a Shazam-on scenario in it, or not?
   - Security calls:
     - A core-level https-only URL guard (SDD R18).
     - mbedTLS in PSRAM (`CONFIG_MBEDTLS_DEFAULT_MEM_ALLOC`). Likely unneeded now, with 31.5 KB free.
@@ -23,6 +24,7 @@
 - Approved: "can we feature flag out the shazam bits, adn go for the stream out of the board?" (2026-10-03), the Shazam flag plus the LINE IN stream (Tasks 13–15)
 - Approved: "lossless as much as we can" (2026-10-03), stream quality: 48 kHz/24-bit PCM (SDD R21)
 - Approved: "can we do flac?" then "ok. cool." (2026-10-03), the FLAC stream (Task 16) and the Tasks 13→16→12 order
+- Direction: "i see you are still doing the ingerprinting. i thought we had talked about putting that behind a feature flag and focusing on the streaming" (2026-10-04), Shazam off on the board, the stream first (SDD R26)
 - Compactions: 1
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
