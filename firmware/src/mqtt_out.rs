@@ -54,9 +54,9 @@ pub fn start(url: &str, store: SharedStore) -> Result<Publisher> {
         },
     )?;
 
-    // enqueue waits on esp-mqtt's lock, which esp-mqtt holds through each connect attempt (up to
-    // 10 s), so publishing gets its own thread and the recognizer only sends on a channel.
-    // 4 KiB of stack: the thread used about 1.9 KB on the board.
+    // enqueue waits on esp-mqtt's lock, which esp-mqtt holds through each connect attempt (the TCP
+    // connect and the CONNACK wait take up to 10 s each), so publishing gets its own thread and the
+    // recognizer only sends on a channel. 4 KiB of stack: the thread used about 1.9 KB on the board.
     std::thread::Builder::new()
         .stack_size(4 * 1024)
         .spawn(move || {
