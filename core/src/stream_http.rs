@@ -1,5 +1,5 @@
 // ABOUTME: HTTP for the stream server on port 8000: reading a request's head, routing its request line, the responses.
-// ABOUTME: Only GET /stream.wav streams; anything else gets a short, complete response and the connection closes.
+// ABOUTME: Only GET /stream.flac and GET /stream.wav stream; anything else gets a short, complete response and the connection closes.
 
 use std::io::{self, BufRead, Read};
 use std::net::TcpStream;
@@ -42,22 +42,52 @@ fn read_timeout(left: Duration) -> Duration {
     Duration::from_millis(u64::try_from(left.as_nanos().div_ceil(1_000_000)).unwrap_or(u64::MAX))
 }
 
-/// The path of the endless WAV.
-pub const WAV_PATH: &str = "/stream.wav";
+/// The two forms of the stream: the same 48 kHz, 24-bit stereo frames, each with a path of its own.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Format {
+    /// An endless WAV of 24-bit PCM, 2.3 Mbit/s: the debug and fallback stream.
+    Wav,
+    /// FLAC: lossless, in fewer bytes.
+    Flac,
+}
 
-/// The head of the WAV stream's response. It has no Content-Length: the body ends when the
-/// connection does.
-pub const WAV_RESPONSE_HEAD: &str = "HTTP/1.1 200 OK\r\n\
-    Content-Type: audio/wav\r\n\
-    Cache-Control: no-store\r\n\
-    Connection: close\r\n\
-    \r\n";
+impl Format {
+    pub const ALL: [Format; 2] = [Format::Flac, Format::Wav];
+
+    /// The path this form is served at.
+    pub fn path(self) -> &'static str {
+        match self {
+            Format::Wav => "/stream.wav",
+            Format::Flac => "/stream.flac",
+        }
+    }
+
+    /// The head of the 200 response. It has no Content-Length: the body ends when the connection does.
+    pub fn response_head(self) -> &'static str {
+        match self {
+            Format::Wav => {
+                "HTTP/1.1 200 OK\r\n\
+                 Content-Type: audio/wav\r\n\
+                 Cache-Control: no-store\r\n\
+                 Connection: close\r\n\
+                 \r\n"
+            }
+            Format::Flac => {
+                "HTTP/1.1 200 OK\r\n\
+                 Content-Type: audio/flac\r\n\
+                 Cache-Control: no-store\r\n\
+                 Connection: close\r\n\
+                 \r\n"
+            }
+        }
+    }
+}
 
 /// What the server does with a request.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Route {
-    /// `GET /stream.wav`: stream the WAV, if a listener slot is free.
-    Wav,
+    /// `GET` of a format's path: stream it, if a listener slot is free.
+    Stream(Format),
     /// Answer with this status and close.
     Refuse(Status),
 }
@@ -79,21 +109,25 @@ impl Status {
     /// The whole response: status line, headers and a one-line text body.
     pub fn response(self) -> String {
         let (status, extra_headers, body) = match self {
-            Status::BadRequest => ("400 Bad Request", "", "Bad request.\n"),
+            Status::BadRequest => ("400 Bad Request", "", "Bad request.\n".to_owned()),
             Status::NotFound => (
                 "404 Not Found",
                 "",
-                "Not found. The stream is /stream.wav.\n",
+                format!(
+                    "Not found. The streams are {} and {}.\n",
+                    Format::Flac.path(),
+                    Format::Wav.path()
+                ),
             ),
             Status::MethodNotAllowed => (
                 "405 Method Not Allowed",
                 "Allow: GET\r\n",
-                "Only GET is allowed.\n",
+                "Only GET is allowed.\n".to_owned(),
             ),
             Status::ServiceUnavailable => (
                 "503 Service Unavailable",
                 "",
-                "Every listener slot is taken. Try again later.\n",
+                "Every listener slot is taken. Try again later.\n".to_owned(),
             ),
         };
         format!(
@@ -156,10 +190,9 @@ pub fn route(request_line: &str) -> Route {
         return Route::Refuse(Status::MethodNotAllowed);
     }
     let path = target.split_once('?').map_or(target, |(path, _query)| path);
-    if path == WAV_PATH {
-        Route::Wav
-    } else {
-        Route::Refuse(Status::NotFound)
+    match Format::ALL.into_iter().find(|format| format.path() == path) {
+        Some(format) => Route::Stream(format),
+        None => Route::Refuse(Status::NotFound),
     }
 }
 
@@ -324,16 +357,38 @@ mod tests {
     }
 
     #[test]
-    fn get_stream_wav_streams() {
-        assert_eq!(route("GET /stream.wav HTTP/1.1"), Route::Wav);
-        assert_eq!(route("GET /stream.wav HTTP/1.0"), Route::Wav);
+    fn get_stream_wav_streams_the_wav() {
+        assert_eq!(
+            route("GET /stream.wav HTTP/1.1"),
+            Route::Stream(Format::Wav)
+        );
+        assert_eq!(
+            route("GET /stream.wav HTTP/1.0"),
+            Route::Stream(Format::Wav)
+        );
+    }
+
+    #[test]
+    fn get_stream_flac_streams_the_flac() {
+        assert_eq!(
+            route("GET /stream.flac HTTP/1.1"),
+            Route::Stream(Format::Flac)
+        );
+        assert_eq!(
+            route("GET /stream.flac HTTP/1.0"),
+            Route::Stream(Format::Flac)
+        );
     }
 
     #[test]
     fn a_query_string_does_not_change_the_route() {
         assert_eq!(
             route("GET /stream.wav?nocache=1696412345 HTTP/1.1"),
-            Route::Wav
+            Route::Stream(Format::Wav)
+        );
+        assert_eq!(
+            route("GET /stream.flac?nocache=1696412345 HTTP/1.1"),
+            Route::Stream(Format::Flac)
         );
         assert_eq!(
             route("GET /other?x=/stream.wav HTTP/1.1"),
@@ -347,7 +402,9 @@ mod tests {
             "/",
             "/stream.wav/",
             "/STREAM.WAV",
-            "/stream.flac",
+            "/stream.flac/",
+            "/STREAM.FLAC",
+            "/stream.ogg",
             "/favicon.ico",
         ] {
             assert_eq!(
@@ -360,12 +417,14 @@ mod tests {
 
     #[test]
     fn methods_other_than_get_are_not_allowed() {
-        for method in ["HEAD", "POST", "PUT", "OPTIONS"] {
-            assert_eq!(
-                route(&format!("{method} /stream.wav HTTP/1.1")),
-                Route::Refuse(Status::MethodNotAllowed),
-                "{method}"
-            );
+        for path in ["/stream.wav", "/stream.flac"] {
+            for method in ["HEAD", "POST", "PUT", "OPTIONS"] {
+                assert_eq!(
+                    route(&format!("{method} {path} HTTP/1.1")),
+                    Route::Refuse(Status::MethodNotAllowed),
+                    "{method} {path}"
+                );
+            }
         }
     }
 
@@ -421,17 +480,35 @@ mod tests {
     }
 
     #[test]
-    fn the_stream_head_has_a_type_and_no_length() {
-        let (head, body) = WAV_RESPONSE_HEAD.split_once("\r\n\r\n").unwrap();
-        assert_eq!(body, "", "the head ends with its blank line");
-        let mut lines = head.split("\r\n");
-        assert_eq!(lines.next(), Some("HTTP/1.1 200 OK"));
-        let headers: Vec<&str> = lines.collect();
-        assert!(headers.contains(&"Content-Type: audio/wav"));
-        assert!(headers.contains(&"Connection: close"));
-        assert!(
-            !headers.iter().any(|h| h.starts_with("Content-Length")),
-            "an endless body has no length"
-        );
+    fn each_stream_head_has_its_type_and_no_length() {
+        for (format, content_type) in [
+            (Format::Wav, "Content-Type: audio/wav"),
+            (Format::Flac, "Content-Type: audio/flac"),
+        ] {
+            let (head, body) = format.response_head().split_once("\r\n\r\n").unwrap();
+            assert_eq!(body, "", "{format:?}: the head ends with its blank line");
+            let mut lines = head.split("\r\n");
+            assert_eq!(lines.next(), Some("HTTP/1.1 200 OK"), "{format:?}");
+            let headers: Vec<&str> = lines.collect();
+            assert!(headers.contains(&content_type), "{format:?}: {headers:?}");
+            assert!(headers.contains(&"Connection: close"), "{format:?}");
+            assert!(
+                !headers.iter().any(|h| h.starts_with("Content-Length")),
+                "{format:?}: an endless body has no length"
+            );
+        }
+    }
+
+    #[test]
+    fn each_format_has_its_path() {
+        assert_eq!(Format::Wav.path(), "/stream.wav");
+        assert_eq!(Format::Flac.path(), "/stream.flac");
+    }
+
+    #[test]
+    fn not_found_names_both_streams() {
+        let response = Status::NotFound.response();
+        assert!(response.contains("/stream.flac"), "{response}");
+        assert!(response.contains("/stream.wav"), "{response}");
     }
 }
