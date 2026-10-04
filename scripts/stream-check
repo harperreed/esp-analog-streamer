@@ -2,10 +2,13 @@
 # ABOUTME: Captures the board's LINE IN stream with ffmpeg and checks it: length, level against /api/state, both channels, gaps.
 # ABOUTME: Usage: scripts/stream-check [--seconds N] [--path P] [--out DIR] [HOST]; music must play into LINE IN. Exit 1: a check failed.
 set -euo pipefail
-cd "$(dirname "$0")/.."
-exec uv run --quiet --with numpy python3 - "$@" <<'PY'
+# No cd: a relative --out resolves against the caller's directory. The default lands in the repo's
+# target/ (gitignored). --no-project keeps uv from adopting a pyproject.toml in the caller's directory.
+repo="$(cd "$(dirname "$0")/.." && pwd)"
+STREAM_CHECK_DEFAULT_OUT="$repo/target/stream-check" exec uv run --quiet --no-project --with numpy python3 - "$@" <<'PY'
 import argparse
 import json
+import os
 import socket
 import subprocess
 import sys
@@ -36,13 +39,14 @@ def main():
                         help="the board's name or IPv4 address (default: esp-shazam.local)")
     parser.add_argument("--seconds", type=float, default=60.0, help="capture length (default: 60)")
     parser.add_argument("--path", default="/stream.wav", help="stream path on port 8000 (default: /stream.wav)")
-    parser.add_argument("--out", default="target/stream-check",
-                        help="directory for stream.wav, polls.tsv and summary.txt (default: target/stream-check)")
+    parser.add_argument("--out", default=os.environ["STREAM_CHECK_DEFAULT_OUT"],
+                        help="directory for stream.wav, polls.tsv, ffmpeg.log and summary.txt; a relative path "
+                        "resolves against the current directory (default: target/stream-check in the repo)")
     args = parser.parse_args()
 
     # IPv4 only: the board has no IPv6, and a dual-stack .local lookup waits 5 s for the AAAA (gotchas.md).
     ip = socket.getaddrinfo(args.host, 8000, socket.AF_INET, socket.SOCK_STREAM)[0][4][0]
-    out = Path(args.out)
+    out = Path(args.out).resolve()
     out.mkdir(parents=True, exist_ok=True)
     capture_path = out / "stream.wav"
     url = f"http://{ip}:8000{args.path}"
@@ -61,13 +65,16 @@ def main():
     stop.set()
     poller.join()
     write_polls(out / "polls.tsv", polls)
+    (out / "ffmpeg.log").write_text(ffmpeg.stderr)
+    ffmpeg_lines = ffmpeg.stderr.strip().splitlines()
+    said = f"{len(ffmpeg_lines)} line(s) in ffmpeg.log, the first: {ffmpeg_lines[0]}" if ffmpeg_lines else "nothing"
 
     lines = [f"stream-check {url}, {args.seconds:g} s requested, capture took {wall:.1f} s of wall time"]
     if ffmpeg.returncode != 0 or not capture_path.exists():
-        lines.append(f"FAIL  ffmpeg exited {ffmpeg.returncode}: {ffmpeg.stderr.strip()[-500:]}")
+        lines.append(f"FAIL  ffmpeg exited {ffmpeg.returncode} and said {said}")
         return finish(out, lines, failed=True)
-    if ffmpeg.stderr.strip():
-        lines.append(f"note  ffmpeg said: {ffmpeg.stderr.strip()[-300:]}")
+    if ffmpeg_lines:
+        lines.append(f"note  ffmpeg said {said}")
 
     frames = decode(capture_path)
     results = [check_length(frames, args.seconds), check_level(frames, polls),
@@ -174,6 +181,7 @@ def poll_summary(polls):
 
 
 def finish(out, lines, failed):
+    lines.append(f"files: {out}/")
     text = "\n".join(lines) + "\n"
     (out / "summary.txt").write_text(text)
     sys.stdout.write(text)
