@@ -46,9 +46,16 @@ rustc reports any linker stderr as a `linker_messages` warning, and ldproxy 0.3.
 ## espflash 4.6.0 always warns "Monitor options were provided" without --monitor
 It's an espflash bug, and it's harmless: `flash()` sets `monitor_args.elf` to the image path just before `check_monitor_args()` tests `elf.is_some()`. `scripts/flash` passes no monitor options.
 
-## A 12 s fingerprint takes about 16.5 s on this board
+## espflash rewrites the flash speed in the bootloader's header
+espflash 4.6.0 rewrites byte 3 of the bootloader's image header (flash size and speed) and recomputes the bootloader's SHA-256, even when `--bootloader` names the IDF-built file. The speed comes from `--flash-freq`, or else the chip default, which is 40 MHz on the ESP32 (`src/image_format/idf.rs`, `Chip::default_flash_frequency`). The app's header gets the same value.
+- esp-idf-sys builds an 80 MHz bootloader (header byte `0x2f`), but without the flag its 2nd stage would set up flash at 40 MHz while the app's sdkconfig says 80.
+- `scripts/flash` passes `--flash-freq 80mhz`. Change it together with `CONFIG_ESPTOOLPY_FLASHFREQ_*` in `sdkconfig.defaults`.
+- The boot log's `boot.esp32: SPI Speed : 80MHz` shows the header; `esp_psram: Speed: 80MHz` shows the app's sdkconfig.
+
+## A 12 s fingerprint takes about 10.2 s on this board
 On 2026-10-03 it took 12618 ms at ESP-IDF's default 160 MHz, and 10526 ms in a throwaway 240 MHz build. About half the time scales with the clock and half doesn't (PSRAM or flash fetch at 40 MHz); the firmware runs at 240 MHz (SDD Ruling R11). `search_interval_secs` stays 8, against the plan's "over 6 s" rule, because the policy starts the interval when the answer arrives. The spec's Risks section has the numbers.
-- Since Task 11's fix round (SDD Ruling R19), the FFT's 8 KB tables and buffers live in PSRAM (`CONFIG_SPIRAM_MALLOC_ALWAYSINTERNAL=8191`; see "Internal RAM is the budget"), and a fingerprint takes 16.1–16.9 s at 240 MHz. Every ask, and so every re-check cycle, is about 6 s longer: a cycle while matched is now about 48 s.
+- Since Task 11's fix round (SDD Ruling R19), the FFT's 8 KB tables and buffers live in PSRAM (`CONFIG_SPIRAM_MALLOC_ALWAYSINTERNAL=8191`; see "Internal RAM is the budget"). With PSRAM at 40 MHz, a fingerprint then took 16.1–16.9 s, and a re-check cycle while matched about 48 s.
+- Since Task 11b (SDD Ruling R20), flash and PSRAM run at 80 MHz. Over 9 asks a fingerprint took 9.75–10.35 s (mean 10.2 s), and a cycle while matched 40.8–41.4 s. The 12 s snapshot holds the ring lock about 50 ms, down from about 90 ms.
 - Generating the test signal, `chord_and_chirp(12)`, takes about 19 s on the ESP32 at 160 MHz (libm `sinf` on large arguments). The probe doesn't time it; keep it out of anything timed.
 
 ## Long work on the main task trips the task watchdog
@@ -61,10 +68,10 @@ On 2026-10-03 it took 12618 ms at ESP-IDF's default 160 MHz, and 10526 ms in a t
 VARIABLE was turned down, and music reached the board at about -64 dBFS. That's under the -50 quiet threshold, so the board would have heard silence. The codec was never at fault: LIN2/RIN2 carried the music (the level rose about 24 dB with the PGA), and LIN1/RIN1 read only the ADC's own -86 dBFS. When levels look low, check the source's output mode and volume first. Also confirm the source is stopped before calling a capture a noise floor: a capture logged as idle at 16:54 read the same -64 dBFS and most likely held the turned-down music.
 
 ## Park the board after a device test, or it keeps asking Shazam
-From Task 9 on, the firmware asks Shazam about every 42 s while music plays, for as long as the board has power. When a test ends, run `espflash board-info --port /dev/cu.usbserial-0001 --after no-reset`. The chip then stays in its serial bootloader ("Staying in bootloader"), and nothing gets written. The next reset, `scripts/serial-log` or `scripts/flash` boots the app again.
+From Task 9 on, the firmware asks Shazam about every 41 s while music plays, for as long as the board has power. When a test ends, run `espflash board-info --port /dev/cu.usbserial-0001 --after no-reset`. The chip then stays in its serial bootloader ("Staying in bootloader"), and nothing gets written. The next reset, `scripts/serial-log` or `scripts/flash` boots the app again.
 
 ## ESP-IDF's I2S receive queue holds one buffer fewer than you configure
-`i2s_common.c` (IDF 5.5.5) creates the receive queue with `dma_buffer_count - 1` slots. When the reader falls behind, the ISR drops the oldest buffer without logging anything. With the default 6 buffers of 240 frames at 16 kHz, that leaves 75 ms. The recognizer's 12 s snapshot holds the ring lock for about 90 ms, so `audio_in` uses 16 buffers (225 ms).
+`i2s_common.c` (IDF 5.5.5) creates the receive queue with `dma_buffer_count - 1` slots. When the reader falls behind, the ISR drops the oldest buffer without logging anything. With the default 6 buffers of 240 frames at 16 kHz, that leaves 75 ms. The recognizer's 12 s snapshot holds the ring lock for about 50 ms (about 90 ms with PSRAM at 40 MHz), so `audio_in` uses 16 buffers (225 ms).
 
 ## toml-cfg drops attributes and pastes values into Rust source
 `#[toml_cfg::toml_config]` rebuilds the struct from field names and types alone. Doc comments and `#[allow]` on the struct or its fields vanish, so use `//` comments in `config.rs`. Each `cfg.toml` value is printed as TOML and parsed as a Rust expression. A string containing `"`, `\`, a newline or a control character comes out in a TOML form that isn't Rust (`'...'`, triple quotes, or TOML escapes). The build then fails, and its panic message prints the value: a password among them lands in `target/check-logs/firmware-build.log`. A float setting needs a decimal point (`-60.0`, not `-60`).
@@ -100,7 +107,7 @@ mbedTLS allocates only from internal RAM (`CONFIG_MBEDTLS_INTERNAL_MEM_ALLOC`, t
   - largest block before every TLS session: 47,104 bytes
   - TLS failures: none
   - Before the threshold change, the same figures were 860 and 25,600 bytes. Plain `MALLOC_CAP_INTERNAL` reads about 29 KB higher, because it also counts 32-bit-only IRAM that mbedTLS can't use.
-- **The cost:** a fingerprint takes about 16.5 s instead of 10.7 s (see "A 12 s fingerprint takes about 16.5 s").
+- **The cost:** with PSRAM at 40 MHz, a fingerprint took about 16.5 s instead of 10.7 s. Flash and PSRAM at 80 MHz (SDD Ruling R20) bring it to about 10.2 s (see "A 12 s fingerprint takes about 10.2 s"). At 80 MHz, over 9 asks with the same 3 s poller, the lowest free was 31,496 bytes, the largest block before every TLS session was 47,104, and no TLS session failed.
 Measure the internal heap before adding anything that lives in internal RAM. If the margin shrinks again, letting mbedTLS use PSRAM (`CONFIG_MBEDTLS_DEFAULT_MEM_ALLOC`) removes the 16.7 KB need. ESP-IDF calls internal-only the more secure choice, though, so that is Harper's call.
 
 ## esp-mqtt holds its API lock through each connect attempt

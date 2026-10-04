@@ -8,7 +8,7 @@ Items marked **(verify)** come from reading docs and source, not from running an
 
 ## Success criteria
 
-1. A song plays into LINE IN (Harper's turntable or continuous source). Within 45 s of the music starting, `GET http://esp-shazam.local/api/state` shows the right title and artist. At 240 MHz that leaves room for two tries: 8 s of audio, a ~10.5 s fingerprint and the request, then 8 s more and another fingerprint.
+1. A song plays into LINE IN (Harper's turntable or continuous source). Within 45 s of the music starting, `GET http://esp-shazam.local/api/state` shows the right title and artist. At 240 MHz, with flash and PSRAM at 80 MHz, that leaves room for two tries: 8 s of audio, a ~10 s fingerprint and the request, then 8 s more and another fingerprint.
 2. The same song arrives as a retained message on topic `esp-shazam/now_playing` at `mqtt://192.168.200.8:1883`.
 3. When the song changes, both outputs update within 60 s. A 30 s re-check can land while the 12 s window still holds the old song, so the next re-check catches it.
 4. When the music stops, "now playing" clears within 75 s, and the board sends no Shazam requests while the input stays quiet.
@@ -48,7 +48,7 @@ Confirmed on Harper's board with esptool 5.2.0:
 
 Confirmed at bring-up on 2026-10-03 by the Task 7 probe on ESP-IDF v5.5.5 (log in `target/bringup.log`):
 
-- **PSRAM: 8 MB chip, 4 MB usable.** The boot log says "Found 8MB PSRAM device" at 40 MHz, then "Virtual address not enough for PSRAM, map as much as we can. 4MB is mapped". 4096 KB joins the heap; 4093 KB is free at boot. That covers the fingerprint's 2.1 MB.
+- **PSRAM: 8 MB chip, 4 MB usable.** The boot log says "Found 8MB PSRAM device" at 40 MHz, then "Virtual address not enough for PSRAM, map as much as we can. 4MB is mapped". 4096 KB joins the heap; 4093 KB is free at boot. That covers the fingerprint's 2.1 MB. Task 11b moved PSRAM and flash to 80 MHz (below).
 - **Codec: ES8388 v1** (the first row of the table below). 0x10 ACKed on SDA 33 / SCL 32. Register 0x08 read 0x00, not the 0x80 power-up value: the codec kept older settings through the ESP32 reset, as expected.
 - **CPU clock: 160 MHz** during this probe, ESP-IDF's default (`CONFIG_ESP_DEFAULT_CPU_FREQ_MHZ=160`). Task 8 moved the firmware to 240 MHz; see Risks for what that buys.
 - **Revisions and pins.** Three revisions exist, with different pins (source: [pschatzmann/arduino-audio-driver `src/AudioBoards/`](https://github.com/pschatzmann/arduino-audio-driver/tree/main/src/AudioBoards)):
@@ -79,6 +79,12 @@ Confirmed at bring-up on 2026-10-03 by Task 8 (logs in `target/`, kept locally):
 - **Not measured:** the 1 kHz tone check needs the Mac on LINE IN.
   - Live Shazam matches stand in for it. On 2026-10-03 (Task 9) the board's own captures matched three real tracks, which a wrong sample rate or garbled samples would prevent. A capture one bit late would only double every sample (+6 dB) and could still match, so the exact bit alignment rests on the register readback (`0x0C`: Philips, 16-bit).
   - The L/R interleave order is unknown too. It doesn't matter, because capture averages the two channels.
+
+Confirmed on 2026-10-03 by Task 11b (logs in `target/task11b/`, kept locally):
+
+- **Flash and PSRAM clocks: 80 MHz** (`CONFIG_ESPTOOLPY_FLASHFREQ_80M=y`, `CONFIG_SPIRAM_SPEED_80M=y`, SDD Ruling R20). The flash mode stays DIO. The boot log says "SPI Speed : 80MHz", which the 2nd stage bootloader reads from its image header, and "esp_psram: Speed: 80MHz".
+  - espflash rewrites the flash speed in both image headers, 40 MHz unless told otherwise, so `scripts/flash` passes `--flash-freq 80mhz`.
+  - A 6-minute run with music playing showed no panic or reset. The PSRAM memory test at boot passed in 0.49 s (0.88 s at 40 MHz). Risks has the timings.
 
 Not yet confirmed:
 
@@ -117,7 +123,7 @@ It builds on the Mac for tests and on the ESP32 for the firmware.
 - **`fingerprinting`**: copied from songrec-lib 0.5.4 (`src/fingerprinting/{algorithm,signature_format,hanning,user_agent}.rs`, GPL-3.0-or-later, by marin-m). It keeps SongRec's attribution and module name, so internal paths stay unchanged. Three edits:
   1. Remove `make_signature_from_file`, which depends on rodio. Keep `make_signature_from_buffer(&[i16]) -> DecodedSignature`, which already takes 16-bit samples.
   2. Store each 256 × 1025 f32 ring as one contiguous `Vec<[f32; 1025]>` (1 MB), not 256 separate 4 KB `Vec`s.
-     - ESP-IDF's malloc keeps allocations under 16 KB in internal RAM. 512 small rows would fill the ESP32's ~300 KB of internal RAM that Wi-Fi and TLS need.
+     - ESP-IDF's malloc puts allocations of up to `CONFIG_SPIRAM_MALLOC_ALWAYSINTERNAL` bytes (8191 in this firmware) in internal RAM first. 512 small 4 KB rows would fill the ESP32's ~300 KB of internal RAM that Wi-Fi and TLS need.
      - One 1 MB allocation goes to PSRAM.
      - The math doesn't change, so the output bytes don't either.
   3. Replace the deprecated `base64::encode` and `base64::decode` with base64 0.22's `Engine` API. Output is the same; this only removes the deprecation warnings.
@@ -374,13 +380,20 @@ There are no mocks anywhere. The E2E tests use the real Shazam API and the real 
   - A throwaway 240 MHz build (not committed) took 10526 ms. 50% more clock cut the time by only 17%. That fits about 6 s that scales with the clock and about 6 s that doesn't. The log can't tell whether the fixed half is PSRAM (40 MHz) or code fetched from flash (40 MHz). Watchdog backtraces sampled the 160 MHz run in peak spreading, chfft's FFT, and the code around the FFT.
   - `search_interval_secs` stays 8 for now, against bring-up step 4's rule (which would make it 15). The policy starts that interval when the answer arrives, so the fingerprint already sits in front of it. Raising it would add idle time after each answer and push the first ask from 8 s to 15 s.
   - With 8 s at 160 MHz, asks come about 21 s apart, plus the HTTPS time. The second answer lands near 43–46 s, at the edge of success criterion 1's 45 s; with 15 s only one answer fits. Running at 240 MHz moves the second answer to about 40 s.
-  - Decided (SDD Ruling R11): the firmware runs at 240 MHz (`CONFIG_ESP_DEFAULT_CPU_FREQ_MHZ_240=y`, Task 8). Faster PSRAM and flash (80 MHz) stay untested unless Task 9's timings miss the success criteria.
+  - Decided (SDD Ruling R11): the firmware runs at 240 MHz (`CONFIG_ESP_DEFAULT_CPU_FREQ_MHZ_240=y`, Task 8). R11 parked faster PSRAM and flash (80 MHz) until the timings missed the success criteria. After Task 11 they did, and Task 11b adopted 80 MHz (SDD Ruling R20, below).
   - Task 9 measured six live asks on 2026-10-03 (logs `target/recognize.log` and `target/recognize-dma6.log`, kept locally):
     - Fingerprints of 12 s of LINE IN took 10336–10736 ms, and whole asks 11494–14620 ms. The request, TLS handshake included, added 0.8–1.4 s, except 4.1 s for the first request after one boot.
-    - The first match came 25.6 s and 28.5 s after reset, boot, Wi-Fi and SNTP included. Criterion 1's 45 s holds, so 80 MHz PSRAM and flash stay parked.
+    - The first match came 25.6 s and 28.5 s after reset, boot, Wi-Fi and SNTP included. Criterion 1's 45 s held, so 80 MHz PSRAM and flash stayed parked then.
     - While matched, asks came every 41.9–42.2 s: the 30 s re-check plus the ask itself.
     - Matches: "DON'T WAIT 4 ME (feat. Kara Manansala) [Oliver Night Remix]" by Alexander Flood; then "Take Me Higher" by WheelUP & Tiawa, caught by the first re-check after the source changed songs; and, after a reboot, "Dinero (feat. P Wavey) [Samtheman Remix]" by IZCO.
-- **The 12 s snapshot stalls audio capture.** The recognizer copies 384 KB out of the PSRAM ring under its lock, and Task 9 measured that hold at 87–91 ms.
+  - Task 11 (SDD Ruling R19) moved the fingerprint's 8 KB FFT tables and buffers to PSRAM, still at 40 MHz, to free internal RAM for TLS. Over 10 asks, fingerprints took 16126–16941 ms, the first match came 30.8 s after reset, and asks came every 47.8–48.1 s while matched. By the reckoning below, the worst-case song change grew to about 65 s and the worst-case clear to about 78 s, past criteria 3 and 4.
+  - Task 11b (SDD Ruling R20) runs flash and PSRAM at 80 MHz. It measured nine live asks on 2026-10-03 while `/api/state` was polled every 3 s (logs in `target/task11b/`, kept locally):
+    - Fingerprints took 9754–10350 ms (mean 10168), and whole asks 10420–11132 ms. The request, TLS handshake included, added 0.67–0.84 s.
+    - The first match came 23.7 s after reset. While matched, asks came every 40.8–41.4 s.
+    - Worst cases: when the song changes just after a snapshot, the next snapshot comes one cycle later and its answer one ask after that, about 41.4 + 11.1 ≈ 53 s (criterion 3: 60 s). When the music stops as an ask starts, no quiet ticks arrive during that ask, so the clear lands about 11.1 + 60 ≈ 71 s after the music stops (criterion 4: 75 s).
+    - Internal RAM held up: the lowest `INTERNAL|8BIT` free since boot was 31,496 bytes (30,844 at 40 MHz), the largest block before every TLS session was 47,104 bytes, and no TLS session failed.
+    - Matches: "Someone Else" by Raphael Meleteas; then "BLUE" by Billie Eilish, caught by a re-check after the source changed songs.
+- **The 12 s snapshot stalls audio capture.** The recognizer copies 384 KB out of the PSRAM ring under its lock. Task 9 measured that hold at 87–91 ms with PSRAM at 40 MHz, and Task 11b at 48–52 ms with PSRAM at 80 MHz.
   - ESP-IDF 5.5.5's I2S driver queues `dma_buffer_count - 1` DMA buffers and drops the oldest when the reader falls behind (`i2s_common.c`). The default 6 buffers of 15 ms gave 75 ms, so each ask lost about 15 ms of audio.
   - `audio_in` now uses 16 buffers: 225 ms of slack for 9.6 KB more internal DMA RAM.
   - Copying the window in slices, releasing the lock in between, would remove the stall instead. It needs absolute sample positions in `SampleRing`.

@@ -10,7 +10,9 @@ if [ -f "$HOME/export-esp.sh" ]; then . "$HOME/export-esp.sh"; fi
 cargo +esp build --release
 out=target/xtensa-esp32-espidf/release
 # espflash's bundled bootloader comes from IDF 6.1; esp-idf-sys builds the 5.5.5 one next to the ELF.
-args=(--port "${ESPFLASH_PORT:-/dev/cu.usbserial-0001}" --chip esp32 --flash-size 4mb
+# espflash rewrites the flash speed in both image headers (40 MHz unless told), so it must match
+# sdkconfig.defaults' CONFIG_ESPTOOLPY_FLASHFREQ_80M.
+args=(--port "${ESPFLASH_PORT:-/dev/cu.usbserial-0001}" --chip esp32 --flash-size 4mb --flash-freq 80mhz
       --partition-table partitions.csv --bootloader "$out/bootloader.bin")
 if [ "${1:-}" = "--monitor" ]; then args+=(--monitor); fi
 espflash flash "${args[@]}" "$out/esp-shazam"

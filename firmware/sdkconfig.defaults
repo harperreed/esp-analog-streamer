@@ -12,14 +12,18 @@ CONFIG_ESP32_REV_MIN_3=y
 
 # External PSRAM. malloc puts allocations of 8 KB and up there: the fingerprint rings, the audio ring,
 # and the fingerprint's 8 KB FFT tables and buffers. In internal RAM those held about 58 KB through
-# every fingerprint, right before TLS needs a 16.7 KB block of it. The cost is speed: a fingerprint
-# takes about 16.5 s instead of 10.7 s. mbedTLS and thread stacks ask for internal RAM explicitly,
-# so they stay there.
+# every fingerprint, right before TLS needs a 16.7 KB block of it. With them in PSRAM, a fingerprint
+# takes about 10.2 s at 80 MHz (below), against 16.5 s at 40 MHz. mbedTLS and thread stacks ask for
+# internal RAM explicitly, so they stay there.
 CONFIG_SPIRAM=y
 CONFIG_SPIRAM_USE_MALLOC=y
 CONFIG_SPIRAM_MALLOC_ALWAYSINTERNAL=8191
 # Boot and report missing PSRAM instead of refusing to start.
 CONFIG_SPIRAM_IGNORE_NOTFOUND=y
+
+# Flash and PSRAM at 80 MHz: the fingerprint's FFT buffers live in PSRAM (Task 11), so its speed is PSRAM-bound.
+CONFIG_ESPTOOLPY_FLASHFREQ_80M=y
+CONFIG_SPIRAM_SPEED_80M=y
 
 # A fingerprint keeps core 1 busy for seconds; watch only core 0's idle task.
 # CONFIG_ESP_TASK_WDT_CHECK_IDLE_TASK_CPU1 is not set
