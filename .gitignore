@@ -10,3 +10,11 @@ test/fixtures/songs/
 backups/
 
 .DS_Store
+
+# Navigator: context markers, temporary files, hook runtime state, per-person config and onboarding
+.context-markers/
+.agent/.nav-temp/
+.agent/.nav-runtime-state.json
+.agent/.nav-runtime-state.lock
+.agent/.nav-config.local.json
+.agent/onboarding/

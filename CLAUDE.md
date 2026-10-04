@@ -27,3 +27,16 @@ An always-listening Shazam box: Rust firmware for the Ai-Thinker ESP32-A1S Audio
 - **Shazam's API is unofficial.** Respect the listen policy's limits, and never loop requests in tests.
 - **Board facts** live in the spec's Hardware section. Update it when bring-up confirms or overturns something marked "(verify)".
 - **Canonical check:** `scripts/check`, created in the plan's first task.
+
+## Navigator
+
+**Navigator runtime**: workflow enforcement (session context, workflow gating, read
+guarding, intent briefs, completion gating, compact markers) lives in the hook runtime,
+not in prose in this file. Off-switches live in `.agent/.nav-config.json`: every hook
+block has `enabled` (e.g. `workflow_enforcer_hook.enabled: false`), gating blocks also
+take `strict_block: false` to warn instead of block, Tier-1 instant answers toggle per
+rule under `tier1.rules` (feature-wide: `tier1.enabled`), and forced continuation stays
+off unless `stop_completion.continue_enabled: true`. Setting the `PILOT_EXECUTOR`
+environment variable disables interactive/blocking hook behavior for non-interactive
+executors. Project docs live in `.agent/` — start from `.agent/DEVELOPMENT-README.md`
+and load task/system/SOP docs on demand, not upfront.

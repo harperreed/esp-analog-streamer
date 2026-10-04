@@ -1,0 +1,15 @@
+{
+  "version": "8.1.1",
+  "project_name": "esp-shazam",
+  "tech_stack": "Rust, ESP-IDF v5.5.5 (esp-idf-svc), ESP32",
+  "project_management": "none",
+  "task_prefix": "TASK",
+  "task_id_source": "local",
+  "team_chat": "none",
+  "auto_load_navigator": true,
+  "compact_strategy": "conservative",
+  "auto_update": {
+    "enabled": true,
+    "check_interval_hours": 1
+  }
+}
