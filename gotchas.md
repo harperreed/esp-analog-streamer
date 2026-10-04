@@ -46,8 +46,9 @@ rustc reports any linker stderr as a `linker_messages` warning, and ldproxy 0.3.
 ## espflash 4.6.0 always warns "Monitor options were provided" without --monitor
 It's an espflash bug, and it's harmless: `flash()` sets `monitor_args.elf` to the image path just before `check_monitor_args()` tests `elf.is_some()`. `scripts/flash` passes no monitor options.
 
-## A 12 s fingerprint takes 12.6 s on this board
+## A 12 s fingerprint takes about 16.5 s on this board
 On 2026-10-03 it took 12618 ms at ESP-IDF's default 160 MHz, and 10526 ms in a throwaway 240 MHz build. About half the time scales with the clock and half doesn't (PSRAM or flash fetch at 40 MHz); the firmware runs at 240 MHz (SDD Ruling R11). `search_interval_secs` stays 8, against the plan's "over 6 s" rule, because the policy starts the interval when the answer arrives. The spec's Risks section has the numbers.
+- Since Task 11's fix round (SDD Ruling R19), the FFT's 8 KB tables and buffers live in PSRAM (`CONFIG_SPIRAM_MALLOC_ALWAYSINTERNAL=8191`; see "Internal RAM is the budget"), and a fingerprint takes 16.1–16.9 s at 240 MHz. Every ask, and so every re-check cycle, is about 6 s longer: a cycle while matched is now about 48 s.
 - Generating the test signal, `chord_and_chirp(12)`, takes about 19 s on the ESP32 at 160 MHz (libm `sinf` on large arguments). The probe doesn't time it; keep it out of anything timed.
 
 ## Long work on the main task trips the task watchdog
@@ -87,11 +88,20 @@ The Mac (192.168.99.0/24, en0) reaches the board's 192.168.200.0/24 through Tail
 `/` and `/api/state` have GET handlers and nothing else. `curl -I` sends HEAD, which ESP-IDF's httpd answers with `405 Method Not Allowed` (text/html), so check headers on a GET: `curl -s -D - -o /dev/null <url>`.
 
 ## Internal RAM is the budget: TLS to Shazam needs one 16.7 KB block of it
-mbedTLS allocates only from internal RAM (`CONFIG_MBEDTLS_INTERNAL_MEM_ALLOC`, the IDF default), and `mbedtls_ssl_setup` needs one contiguous block of about 16.7 KB for its 16 KB input buffer. Thread stacks come out of internal RAM too (ESP-IDF pthreads use `MALLOC_CAP_INTERNAL`), and every malloc of 16 KB or less tries internal RAM first. Task 11's first MQTT build ran a pump thread and a publisher thread with 6 KiB stacks each. It took 25.2 KB of internal RAM, and one boot's first ask failed with `mbedtls_ssl_setup returned -0x7F00` (`MBEDTLS_ERR_SSL_ALLOC_FAILED`). The shipped `mqtt_out` takes 15.8 KB. Measured 2026-10-03 with a throwaway build:
-- Just before the HTTPS request: 62–72 KB internal free, largest block 25.6 KB.
-- Lowest internal free since boot: 860 bytes, at some point in a window that held one TLS session and one fingerprint.
-- Stack use: esp-mqtt's task about 2.1 KB of 6 KiB, the publisher 1.9 KB of 4 KiB.
-Measure the internal heap before adding anything that lives in internal RAM. Letting mbedTLS use PSRAM (`CONFIG_MBEDTLS_DEFAULT_MEM_ALLOC`) would remove the 16.7 KB need, but ESP-IDF calls internal-only the more secure choice, so that waits on Harper.
+mbedTLS allocates only from internal RAM (`CONFIG_MBEDTLS_INTERNAL_MEM_ALLOC`, the IDF default), and `mbedtls_ssl_setup` needs one contiguous block of about 16.7 KB for its 16 KB input buffer. Thread stacks come out of internal RAM too (ESP-IDF pthreads use `MALLOC_CAP_INTERNAL`), and malloc tries internal RAM first for anything up to `CONFIG_SPIRAM_MALLOC_ALWAYSINTERNAL` bytes.
+- **The big consumer is the fingerprint, not TLS.** chfft's `RFft1D::new(2048)` keeps five 8 KB tables and a 4 KB index table. SongRec's generator adds 8 KB and 4 KB, and every FFT allocates 8,200 bytes. With the old threshold of 16384, all of that sat in internal RAM for the whole fingerprint. Internal free fell to 860 bytes during one, with no TLS session open, and to 5,472 bytes during another.
+- **MQTT added to it.** Task 11's first build ran a pump thread and a publisher thread with 6 KiB stacks each and took 25.2 KB. One boot's first ask then failed with `mbedtls_ssl_setup returned -0x7F00` (`MBEDTLS_ERR_SSL_ALLOC_FAILED`).
+- **Fixes, 2026-10-03 (SDD Ruling R19):**
+  - `CONFIG_SPIRAM_MALLOC_ALWAYSINTERNAL=8191` sends the 8 KB FFT buffers to PSRAM.
+  - The recognizer drops the signature and its URI before the HTTPS call.
+  - `mqtt_out` uses `new_cb` (no pump thread), a 4 KiB publisher and a 4 KiB esp-mqtt task. That's 15.8 KB measured, minus the 2 KiB task-stack cut. The task used 2.1 KB at most.
+- **Measured over 10 asks while `/api/state` was polled every 3 s.** In `MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT`, which is what mbedTLS asks for:
+  - lowest free since boot: 30,844 bytes
+  - largest block before every TLS session: 47,104 bytes
+  - TLS failures: none
+  - Before the threshold change, the same figures were 860 and 25,600 bytes. Plain `MALLOC_CAP_INTERNAL` reads about 29 KB higher, because it also counts 32-bit-only IRAM that mbedTLS can't use.
+- **The cost:** a fingerprint takes about 16.5 s instead of 10.7 s (see "A 12 s fingerprint takes about 16.5 s").
+Measure the internal heap before adding anything that lives in internal RAM. If the margin shrinks again, letting mbedTLS use PSRAM (`CONFIG_MBEDTLS_DEFAULT_MEM_ALLOC`) removes the 16.7 KB need. ESP-IDF calls internal-only the more secure choice, though, so that is Harper's call.
 
 ## esp-mqtt holds its API lock through each connect attempt
 `esp_mqtt_client_enqueue` and `_publish` wait for that lock, so a publish can block through a whole connect attempt while the broker is away: the TCP connect and the CONNACK wait take up to `network_timeout` (10 s by default) each. Publish only from `mqtt_out`'s own thread; the recognizer just sends on a channel. Callbacks from `EspMqttClient::new_cb` run on esp-mqtt's task, which needs no pump thread. `EspMqttClient::new`'s `connection.next()` does need one: without it, esp-mqtt stalls. Queued messages expire after 30 s (`OUTBOX_EXPIRED_TIMEOUT_MS`), and the publish on every connect covers longer outages.

@@ -151,6 +151,10 @@ fn ask_shazam(window: &[i16], snapshot_ms: u128) -> (Outcome, Option<Song>) {
         shazam::sample_ms(signature.number_samples, signature.sample_rate_hz),
         &ctx,
     );
+    // The request holds its own copy of the URI. Free the peak lists and the URI before TLS needs
+    // internal RAM.
+    drop(signature);
+    drop(uri);
     let answer = shazam_http::recognize(&request);
     log::info!(
         "shazam: {:?} (snapshot {snapshot_ms} ms, fingerprint {fingerprint_ms} ms, total {} ms)",

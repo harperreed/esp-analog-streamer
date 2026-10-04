@@ -10,10 +10,14 @@ CONFIG_ESPTOOLPY_FLASHSIZE_4MB=y
 # Rev v3.1 silicon has the PSRAM cache fix in hardware (Rust code never gets the compiler workaround).
 CONFIG_ESP32_REV_MIN_3=y
 
-# External PSRAM. Allocations of 16 KB and up (fingerprint rings, audio ring) go there.
+# External PSRAM. malloc puts allocations of 8 KB and up there: the fingerprint rings, the audio ring,
+# and the fingerprint's 8 KB FFT tables and buffers. In internal RAM those held about 58 KB through
+# every fingerprint, right before TLS needs a 16.7 KB block of it. The cost is speed: a fingerprint
+# takes about 16.5 s instead of 10.7 s. mbedTLS and thread stacks ask for internal RAM explicitly,
+# so they stay there.
 CONFIG_SPIRAM=y
 CONFIG_SPIRAM_USE_MALLOC=y
-CONFIG_SPIRAM_MALLOC_ALWAYSINTERNAL=16384
+CONFIG_SPIRAM_MALLOC_ALWAYSINTERNAL=8191
 # Boot and report missing PSRAM instead of refusing to start.
 CONFIG_SPIRAM_IGNORE_NOTFOUND=y
 

@@ -41,6 +41,9 @@ pub fn start(url: &str, store: SharedStore) -> Result<Publisher> {
             client_id: Some("esp-shazam"),
             keep_alive_interval: Some(Duration::from_secs(30)),
             reconnect_timeout: Some(Duration::from_secs(5)),
+            // esp-mqtt's default is 6 KiB. Its task, this callback included, used about 2.1 KB on
+            // the board with mqtt://; an mqtts:// handshake would need more.
+            task_stack: 4096,
             ..Default::default()
         },
         move |event| match event.payload() {

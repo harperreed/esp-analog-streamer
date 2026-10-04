@@ -1,9 +1,12 @@
 # esp-shazam Implementation Plan
 
 ## Now
-- Step: Task 11 done (MQTT): the retained QoS 1 `esp-shazam/now_playing` on Harper's broker carried "Open Spirals" (Sol Monk) 28 s after reset, with the same key as `/api/state`; after a local broker restart, the board republished the song to the empty broker. `mqtt_out` uses `EspMqttClient::new_cb` plus one publisher thread, 15.8 KB of internal RAM. The brief's two threads took 25.2 KB, and one boot's TLS setup to Shazam then failed with -0x7F00 (gotchas.md)
+- Step: Task 11 done, with fix round 1 (R19):
+  - MQTT: the retained QoS 1 `esp-shazam/now_playing` on Harper's broker carried the song with the same key as `/api/state`. After a local broker restart, the board republished the song to the empty broker.
+  - Internal RAM: the fingerprint's 8 KB FFT buffers now go to PSRAM (`CONFIG_SPIRAM_MALLOC_ALWAYSINTERNAL=8191`). Over 10 asks, the lowest internal free was 30,844 bytes (was 860), and the largest block before TLS was 47,104, with no TLS failures.
+  - Timing: a fingerprint takes about 16.5 s (was 10.7 s). First ID came 31 s after reset (gotchas.md).
 - Next: Task 12 (device end-to-end test, Wi-Fi drop check, README)
-- Open: silence and Wi-Fi-drop checks need Harper (Task 12); turn off station OWE (`CONFIG_ESP_WIFI_ENABLE_WPA3_OWE_STA`)? With it on, ESP-IDF's Wi-Fi library logs the Wi-Fi password's length at every boot; Harper to look at http://esp-shazam.local/ (the board is parked; a reset boots it); let mbedTLS use PSRAM (`CONFIG_MBEDTLS_DEFAULT_MEM_ALLOC`)? Internal RAM fell to 860 bytes during an ask, and TLS needs a 16.7 KB block of it, but ESP-IDF calls internal-only the more secure choice
+- Open: silence and Wi-Fi-drop checks need Harper (Task 12); turn off station OWE (`CONFIG_ESP_WIFI_ENABLE_WPA3_OWE_STA`)? With it on, ESP-IDF's Wi-Fi library logs the Wi-Fi password's length at every boot; Harper to look at http://esp-shazam.local/ (the board is parked; a reset boots it); the slower fingerprint stretches a re-check cycle to about 48 s, so the worst cases now miss for song change (about 65 s against 60) and clear (about 78 s against 75): accept, or try PSRAM and flash at 80 MHz, which R11 parked until timings miss? Let mbedTLS use PSRAM (`CONFIG_MBEDTLS_DEFAULT_MEM_ALLOC`)? That's Harper's security call (ESP-IDF calls internal-only the more secure choice), needed only if the internal-RAM margin shrinks again. The fingerprint's sub-16 KB allocations, not TLS, were the main consumer
 - Approved: "On the board (Recommended)" (2026-10-03), fingerprint computed on the board
 - Approved: "Always listening" (2026-10-03), trigger
 - Approved: "Web page on the board", "MQTT, and json endpoint" (2026-10-03), outputs
