@@ -78,15 +78,19 @@ impl SongStore {
     pub fn clear_now(&mut self) -> bool {
         self.now.take().is_some()
     }
-    pub fn set_status(
-        &mut self,
-        state: State,
-        level_dbfs: f32,
-        rate_limited_until: Option<String>,
-    ) {
+    /// Records the listen policy's view. It does not touch the level: the audio path measures that
+    /// whether or not a recognizer runs, so the two have separate writers.
+    pub fn set_status(&mut self, state: State, rate_limited_until: Option<String>) {
         self.state = state;
-        self.level_dbfs = (level_dbfs * 10.0).round() / 10.0;
         self.rate_limited_until = rate_limited_until;
+    }
+    /// Records the measured loudness, rounded to 0.1 dB. `level_dbfs()` and `state_json` both
+    /// report the rounded value, so there is one number for the policy and the page.
+    pub fn set_level(&mut self, level_dbfs: f32) {
+        self.level_dbfs = (level_dbfs * 10.0).round() / 10.0;
+    }
+    pub fn level_dbfs(&self) -> f32 {
+        self.level_dbfs
     }
     pub fn state_json(&self) -> String {
         let view = StateView {
@@ -221,14 +225,56 @@ mod tests {
     #[test]
     fn status_reports_state_rounded_level_and_rate_limit() {
         let mut store = SongStore::new(20, true);
-        store.set_status(
-            State::RateLimited,
-            -18.437,
-            Some("2026-10-03T21:27:01Z".into()),
-        );
+        store.set_level(-18.437);
+        store.set_status(State::RateLimited, Some("2026-10-03T21:27:01Z".into()));
         let state = parse(&store.state_json());
         assert_eq!(state["state"], "rate_limited");
         assert_eq!(state["level_dbfs"], json!(-18.4));
         assert_eq!(state["rate_limited_until"], "2026-10-03T21:27:01Z");
+    }
+
+    #[test]
+    fn a_fresh_store_reads_silence() {
+        assert_eq!(SongStore::new(20, true).level_dbfs(), SILENCE_DBFS);
+    }
+
+    #[test]
+    fn level_is_stored_rounded_to_a_tenth_and_reported_as_stored() {
+        let mut store = SongStore::new(20, true);
+        store.set_level(-18.437);
+        assert_eq!(store.level_dbfs(), -18.4);
+        assert_eq!(parse(&store.state_json())["level_dbfs"], json!(-18.4));
+    }
+
+    #[test]
+    fn set_status_leaves_the_level_alone() {
+        let mut store = SongStore::new(20, true);
+        store.set_level(-30.0);
+        store.set_status(State::Searching, None);
+        store.set_status(State::RateLimited, Some("2026-10-03T21:27:01Z".into()));
+        assert_eq!(store.level_dbfs(), -30.0);
+        assert_eq!(parse(&store.state_json())["level_dbfs"], json!(-30.0));
+    }
+
+    #[test]
+    fn set_level_leaves_the_status_alone() {
+        let mut store = SongStore::new(20, true);
+        store.set_status(State::RateLimited, Some("2026-10-03T21:27:01Z".into()));
+        store.set_level(-42.0);
+        let state = parse(&store.state_json());
+        assert_eq!(state["state"], "rate_limited");
+        assert_eq!(state["rate_limited_until"], "2026-10-03T21:27:01Z");
+        assert_eq!(state["level_dbfs"], json!(-42.0));
+    }
+
+    #[test]
+    fn a_board_that_only_meters_reports_a_live_level_and_stays_quiet() {
+        // With Shazam off nothing calls set_status; the audio thread's set_level is the only writer.
+        let mut store = SongStore::new(20, false);
+        store.set_level(-23.46);
+        assert_eq!(
+            parse(&store.state_json()),
+            json!({"state": "quiet", "shazam_enabled": false, "level_dbfs": -23.5, "rate_limited_until": null, "now": null, "history": []})
+        );
     }
 }

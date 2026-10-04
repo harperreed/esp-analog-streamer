@@ -114,7 +114,8 @@ fn run(ring: SharedRing, store: SharedStore, config: PolicyConfig, on_change: im
             .rate_limited_until(now)
             .map(|until| rfc3339_utc((net::unix_ms() + (until - now)) / 1_000));
         let state = policy.state(now, guard.has_now());
-        guard.set_status(state, level, rate_limited_until);
+        guard.set_level(level);
+        guard.set_status(state, rate_limited_until);
     }
 }
 
