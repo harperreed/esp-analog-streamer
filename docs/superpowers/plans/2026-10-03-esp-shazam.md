@@ -1,7 +1,7 @@
 # esp-shazam Implementation Plan
 
 ## Now
-- Step: Task 15 (`/stream.wav` on port 8000), with Shazam off throughout (R26). Its flash replaces whatever 14b left on the board. Task 14b's review runs read-only alongside it. Task 14b's code and docs landed (d7e7d0e..b06e6a0): capture works on the board with 32-bit slots, APLL MCLK, no lost buffers and a 45 ms I2S queue, and `cfg.toml` has `shazam_enabled = false`. Its report stops at "Still to do". Navigator was initialized (76a45b7), with the judge on (2f1520c). Task 14a is complete (9d02a98, 615d277, 8ac51b4; review approved).
+- Step: Task 15 (`/stream.wav` on port 8000), with Shazam off throughout (R26). Its flash replaces the diagnostic image 14b left on the board. Task 14b is complete (d7e7d0e..b06e6a0; review approved, 5 minor notes). Capture works on the board with 32-bit slots, APLL MCLK, no lost buffers and a 45 ms I2S queue. With the flag off, the page reads "Shazam is off · <level> dBFS" and the level is live. `cfg.toml` has `shazam_enabled = false`. Navigator was initialized (76a45b7), with the judge on (2f1520c). Task 14a is complete (9d02a98, 615d277, 8ac51b4; review approved).
 - Next: Harper listens to the stream (does it sound right, and is left on the left?), then 16 (`/stream.flac`), Task 12 (device E2E and README), then the final whole-branch review.
 - Open (Harper):
   - The code default of `shazam_enabled` is still `true`; only `cfg.toml` turns it off. Flip the default too?
@@ -11,9 +11,8 @@
     - mbedTLS in PSRAM (`CONFIG_MBEDTLS_DEFAULT_MEM_ALLOC`). Likely unneeded now, with 31.5 KB free.
     - Station OWE: the Wi-Fi password-length warning showed in Task 9's logs but in none since Task 10.
   - Task 12's silence and Wi-Fi-drop checks.
-  - A look at http://esp-shazam.local/ (the board is parked; a reset boots it).
+  - A look at http://esp-shazam.local/ (the board runs with Shazam off and stays up).
   - Whether to add an MQTT Last Will.
-  - With `shazam_enabled = false` the page reads "quiet · -120.0 dBFS" and "Nothing playing." while the board hears music. SDD R24 answers it in Task 14b: the audio thread measures the level, and the page says "Shazam is off". Veto it if you'd rather not.
 - Approved: "On the board (Recommended)" (2026-10-03), fingerprint computed on the board
 - Approved: "Always listening" (2026-10-03), trigger
 - Approved: "Web page on the board", "MQTT, and json endpoint" (2026-10-03), outputs
