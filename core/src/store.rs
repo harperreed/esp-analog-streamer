@@ -25,11 +25,13 @@ pub struct SongStore {
     state: State,
     level_dbfs: f32,
     rate_limited_until: Option<String>,
+    shazam_enabled: bool,
 }
 
 #[derive(Serialize)]
 struct StateView<'a> {
     state: State,
+    shazam_enabled: bool,
     level_dbfs: f32,
     rate_limited_until: Option<&'a str>,
     now: Option<&'a NowPlaying>,
@@ -37,7 +39,9 @@ struct StateView<'a> {
 }
 
 impl SongStore {
-    pub fn new(history_cap: usize) -> Self {
+    /// `shazam_enabled` is the firmware's build-time setting. The store only reports it, so a reader of
+    /// `/api/state` can tell a board with no recognizer from a quiet room.
+    pub fn new(history_cap: usize, shazam_enabled: bool) -> Self {
         Self {
             now: None,
             history: VecDeque::new(),
@@ -45,6 +49,7 @@ impl SongStore {
             state: State::Quiet,
             level_dbfs: SILENCE_DBFS,
             rate_limited_until: None,
+            shazam_enabled,
         }
     }
     pub fn now_key(&self) -> Option<&str> {
@@ -86,6 +91,7 @@ impl SongStore {
     pub fn state_json(&self) -> String {
         let view = StateView {
             state: self.state,
+            shazam_enabled: self.shazam_enabled,
             level_dbfs: self.level_dbfs,
             rate_limited_until: self.rate_limited_until.as_deref(),
             now: self.now.as_ref(),
@@ -121,17 +127,30 @@ mod tests {
 
     #[test]
     fn empty_store_reports_quiet_and_nothing_playing() {
-        let store = SongStore::new(20);
+        let store = SongStore::new(20, true);
         assert_eq!(
             parse(&store.state_json()),
-            json!({"state": "quiet", "level_dbfs": -120.0, "rate_limited_until": null, "now": null, "history": []})
+            json!({"state": "quiet", "shazam_enabled": true, "level_dbfs": -120.0, "rate_limited_until": null, "now": null, "history": []})
         );
         assert_eq!(store.now_json(), "null");
     }
 
     #[test]
+    fn state_reports_shazam_on() {
+        let store = SongStore::new(20, true);
+        assert_eq!(parse(&store.state_json())["shazam_enabled"], json!(true));
+    }
+
+    #[test]
+    fn state_reports_shazam_off_and_still_publishes_null() {
+        let store = SongStore::new(20, false);
+        assert_eq!(parse(&store.state_json())["shazam_enabled"], json!(false));
+        assert_eq!(store.now_json(), "null");
+    }
+
+    #[test]
     fn set_now_fills_now_and_the_top_of_history() {
-        let mut store = SongStore::new(20);
+        let mut store = SongStore::new(20, true);
         assert!(store.set_now(song("1", "Title", "Artist"), "2026-10-03T21:22:01Z".into()));
         assert_eq!(store.now_key(), Some("1"));
         let state = parse(&store.state_json());
@@ -147,7 +166,7 @@ mod tests {
 
     #[test]
     fn the_same_key_twice_is_not_a_change() {
-        let mut store = SongStore::new(20);
+        let mut store = SongStore::new(20, true);
         assert!(store.set_now(song("1", "Title", "Artist"), "2026-10-03T21:22:01Z".into()));
         assert!(!store.set_now(song("1", "Title", "Artist"), "2026-10-03T21:23:01Z".into()));
         let state = parse(&store.state_json());
@@ -157,7 +176,7 @@ mod tests {
 
     #[test]
     fn history_keeps_the_newest_twenty() {
-        let mut store = SongStore::new(20);
+        let mut store = SongStore::new(20, true);
         for i in 0..25 {
             store.set_now(
                 song(&i.to_string(), "T", "A"),
@@ -173,7 +192,7 @@ mod tests {
 
     #[test]
     fn clear_now_keeps_history() {
-        let mut store = SongStore::new(20);
+        let mut store = SongStore::new(20, true);
         store.set_now(song("1", "Title", "Artist"), "2026-10-03T21:22:01Z".into());
         assert!(store.clear_now());
         assert!(!store.clear_now());
@@ -186,7 +205,7 @@ mod tests {
 
     #[test]
     fn non_ascii_titles_survive_unescaped() {
-        let mut store = SongStore::new(20);
+        let mut store = SongStore::new(20, true);
         store.set_now(
             song("7", "Beyoncé", "夜に駆ける"),
             "2026-10-03T21:22:01Z".into(),
@@ -201,7 +220,7 @@ mod tests {
 
     #[test]
     fn status_reports_state_rounded_level_and_rate_limit() {
-        let mut store = SongStore::new(20);
+        let mut store = SongStore::new(20, true);
         store.set_status(
             State::RateLimited,
             -18.437,

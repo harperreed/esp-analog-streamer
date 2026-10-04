@@ -3,7 +3,9 @@ target = "xtensa-esp32-espidf"
 
 [target.'cfg(target_os = "espidf")']
 linker = "ldproxy"
-runner = "espflash flash --monitor"
+# No runner on purpose: `espflash flash` would write a 40 MHz flash header into this 80 MHz build
+# and use espflash's own bootloader, not the ESP-IDF 5.5.5 one. Flash with scripts/flash, which
+# passes the right flags.
 rustflags = ["--cfg", "espidf_time64"]
 
 [unstable]

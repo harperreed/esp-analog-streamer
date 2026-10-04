@@ -51,6 +51,7 @@ espflash 4.6.0 rewrites byte 3 of the bootloader's image header (flash size and 
 - esp-idf-sys builds an 80 MHz bootloader (header byte `0x2f`), but without the flag its 2nd stage would set up flash at 40 MHz while the app's sdkconfig says 80.
 - `scripts/flash` passes `--flash-freq 80mhz`. Change it together with `CONFIG_ESPTOOLPY_FLASHFREQ_*` in `sdkconfig.defaults`.
 - The boot log's `boot.esp32: SPI Speed : 80MHz` shows the header; `esp_psram: Speed: 80MHz` shows the app's sdkconfig.
+- `firmware/.cargo/config.toml` has no cargo `runner` for the same reason: `espflash flash --monitor` would write a 40 MHz header, its own bootloader and its default partition table. Flash with `scripts/flash`.
 
 ## A 12 s fingerprint takes about 10.2 s on this board
 On 2026-10-03 it took 12618 ms at ESP-IDF's default 160 MHz, and 10526 ms in a throwaway 240 MHz build. About half the time scales with the clock and half doesn't (PSRAM or flash fetch at 40 MHz); the firmware runs at 240 MHz (SDD Ruling R11). `search_interval_secs` stays 8, against the plan's "over 6 s" rule, because the policy starts the interval when the answer arrives. The spec's Risks section has the numbers.
@@ -121,3 +122,12 @@ esp-idf-svc 0.53 maps every `MQTT_EVENT_ERROR` to a fixed `ESP_FAIL` (a TODO in 
 - The retained message outlives the board. A parked or unplugged board leaves its last song on the broker, because there is no Last Will. After a reset, compare the payload with `/api/state`, or wait for the board's first publish (`null` right after it connects).
 - A live subscriber gets the board's publishes with `retain=0`; only a new subscription shows `retain=1`. `mosquitto_sub -q 1 -F '%I retain=%r qos=%q %t %p'` shows the flags.
 - The board reaches a broker on the Mac at its en0 address (192.168.99.151:1884), although the Mac reaches the board through Tailscale: the gateway routes between 192.168.99.0/24 and 192.168.200.0/24 (`ping -b en0 192.168.200.8`: 3–6 ms). Task 11's broker-restart test used that path.
+
+## With shazam_enabled = false, the page still reads "quiet · -120.0 dBFS"
+The recognizer thread measures the level and sets `state` (SDD Ruling R16), so a board that doesn't start it reports `state: quiet`, `level_dbfs: -120.0` and `now: null` for good, even while music plays into LINE IN. `/api/state` carries `"shazam_enabled": false` to tell the cases apart; the page doesn't read it yet (plan `## Now`, Open). To check that audio arrives, turn the flag back on and watch `level_dbfs`.
+
+## The flag-off image is smaller: only one path ships
+`CONFIG.shazam_enabled` is a constant, so both branches of `if CONFIG.shazam_enabled` type-check and lint in every build, but the optimizer and linker drop the dead one. On 2026-10-03 espflash's "App/part. size" read 1,485,248 bytes with the recognizer and 1,258,816 without, and the flag-off build had no warnings. `scripts/check` builds whatever `cfg.toml` says, so it links only that image.
+
+## `scripts/serial-log` execs into uv, so `pgrep -f serial-log` finds nothing
+To wait for a backgrounded capture, match the python command line: `pgrep -f "usbserial-0001 <secs>"`. A wait loop on `serial-log` ends at once, and the capture is still running.

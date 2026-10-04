@@ -1,8 +1,8 @@
 # esp-shazam Implementation Plan
 
 ## Now
-- Step: Task 13 (`shazam_enabled` flag), dispatched next. Task 11b is done: flash and PSRAM run at 80 MHz, a fingerprint takes about 10 s, min free internal RAM is 31.5 KB, and there were 0 TLS failures in 9 asks (SDD ledger).
-- Next: Tasks 14 (48 kHz/24-bit capture and the Shazam feed), 15 (`/stream.wav`) and 16 (`/stream.flac`), then Task 12 (device E2E and README), then the final whole-branch review.
+- Step: Task 13 (`shazam_enabled` flag) is done. Flag on, the board matched 27 s after reset; flag off, it logged one `shazam: disabled by cfg` and no other Shazam line over 110 s, with `/api/state`, the page and MQTT answering. The board is parked.
+- Next: Task 14 (48 kHz/24-bit capture and the Shazam feed), then 15 (`/stream.wav`) and 16 (`/stream.flac`), then Task 12 (device E2E and README), then the final whole-branch review.
 - Open (Harper):
   - Security calls:
     - A core-level https-only URL guard (SDD R18).
@@ -11,6 +11,7 @@
   - Task 12's silence and Wi-Fi-drop checks.
   - A look at http://esp-shazam.local/ (the board is parked; a reset boots it).
   - Whether to add an MQTT Last Will.
+  - With `shazam_enabled = false` the page reads "quiet · -120.0 dBFS" and "Nothing playing." while the board hears music. Should the page say "Shazam is off" instead (about 3 lines in `index.html`)?
 - Approved: "On the board (Recommended)" (2026-10-03), fingerprint computed on the board
 - Approved: "Always listening" (2026-10-03), trigger
 - Approved: "Web page on the board", "MQTT, and json endpoint" (2026-10-03), outputs

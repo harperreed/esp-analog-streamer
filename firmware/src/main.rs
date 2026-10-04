@@ -1,4 +1,4 @@
-// ABOUTME: Firmware entry point: LINE IN capture, Wi-Fi, clock, mDNS, the recognizer, the web server and MQTT around one song store.
+// ABOUTME: Firmware entry point: LINE IN capture, Wi-Fi, clock, mDNS, the recognizer (unless cfg turns Shazam off), the web server and MQTT around one song store.
 // ABOUTME: The main thread ends up supervising Wi-Fi; everything else runs on its own thread.
 
 mod audio_in;
@@ -56,12 +56,18 @@ fn main() -> Result<()> {
     let _sntp = net::start_sntp()?;
     let _mdns = net::start_mdns(CONFIG.hostname)?;
 
-    let store: recognizer::SharedStore = Arc::new(Mutex::new(SongStore::new(20)));
+    let store: recognizer::SharedStore =
+        Arc::new(Mutex::new(SongStore::new(20, CONFIG.shazam_enabled)));
     let _server = web::start(store.clone())?;
     let publisher = mqtt_out::start(CONFIG.mqtt_url, store.clone())?;
-    recognizer::spawn(ring, store, config::policy_config(), move || {
-        publisher.publish_now()
-    })?;
+    // Both branches always compile: the flag only decides whether the recognizer thread starts.
+    if CONFIG.shazam_enabled {
+        recognizer::spawn(ring, store, config::policy_config(), move || {
+            publisher.publish_now()
+        })?;
+    } else {
+        log::info!("shazam: disabled by cfg");
+    }
 
     net::supervise(wifi)
 }

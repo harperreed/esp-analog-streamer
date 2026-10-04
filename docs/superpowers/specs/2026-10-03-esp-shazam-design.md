@@ -150,7 +150,7 @@ Its own cargo project on the Xtensa toolchain. It path-depends on `core`.
   - It keeps the RMS loudness of the last second in dBFS.
   - It runs as a high-priority thread.
 - **`net`**: Wi-Fi station mode with credentials from `cfg.toml`, SNTP, and the mDNS hostname `esp-shazam`.
-- **`recognizer`**: a thread on core 1 that runs the policy. When the policy says ask, it:
+- **`recognizer`**: a thread on core 1 that runs the policy. It starts only when `shazam_enabled` is true. When the policy says ask, it:
   1. copies the last 12 s,
   2. builds the fingerprint,
   3. POSTs it with the esp-idf-svc HTTP client (TLS against the ESP-IDF certificate bundle, HTTP/1.1),
@@ -252,6 +252,7 @@ Mirrors SongRec's `src/core/fingerprinting/communication.rs` (marin-m/SongRec, l
 ```json
 {
   "state": "matched",
+  "shazam_enabled": true,
   "level_dbfs": -18.4,
   "rate_limited_until": null,
   "now": {
@@ -268,6 +269,7 @@ Mirrors SongRec's `src/core/fingerprinting/communication.rs` (marin-m/SongRec, l
 ```
 
 - `state` is one of `quiet`, `searching`, `matched`, or `rate_limited`.
+- `shazam_enabled` is the `shazam_enabled` setting from `cfg.toml`. When it's `false` the board starts no recognizer, so `state` stays `quiet`, `level_dbfs` stays -120.0 and `now` stays `null` (SDD Ruling R21).
 - `level_dbfs` and `state` update every 250 ms between asks. They hold still during each ask (~12 s, while the board fingerprints and calls Shazam), because the recognizer thread measures them (SDD Ruling R16).
 - `now` is `null` when nothing is playing.
 - `identified_at` is when the song first became `now`. Later re-checks of the same key don't change it.
@@ -285,6 +287,7 @@ One self-contained HTML page. It shows:
 - Topic `esp-shazam/now_playing`, retained, QoS 1.
 - The payload is the `now` object above, or `null` when it clears.
 - It publishes when `now` changes and again on every broker (re)connect, so the retained value can't go stale after a broker restart.
+- With `shazam_enabled = false` it publishes `null` on every connect and nothing else.
 - The broker is `mqtt://192.168.200.8:1883` with no auth; port 1883 answered on 2026-10-03.
 
 ### Config
@@ -294,6 +297,7 @@ One self-contained HTML page. It shows:
   - `mqtt_url`
   - `hostname`
   - `pga_gain`, the ES8388 PGA register value (0 is 0 dB)
+  - `shazam_enabled` (default `true`): `false` starts no recognizer and sends no Shazam traffic (SDD Ruling R21)
   - the policy settings above, except `window_secs`: the audio ring and snapshot are sized for a fixed 12 s
 - The firmware reads it at build time with `toml-cfg` 0.2.0, the newest release on 2026-10-03 and the pattern the esp-rs std training uses.
   - `TOML_CFG = "require_cfg_present"` in `firmware/.cargo/config.toml` turns a missing `cfg.toml`, or one without an `[esp-shazam-firmware]` table, into a build error.

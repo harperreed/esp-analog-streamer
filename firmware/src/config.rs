@@ -1,4 +1,4 @@
-// ABOUTME: Build-time settings from firmware/cfg.toml (gitignored): Wi-Fi, MQTT, codec gain, listen-policy timings.
+// ABOUTME: Build-time settings from firmware/cfg.toml (gitignored): Wi-Fi, MQTT, codec gain, the Shazam on/off flag, listen-policy timings.
 // ABOUTME: Defaults match the spec; cfg.toml.example lists every key.
 
 use esp_shazam_core::policy::PolicyConfig;
@@ -16,6 +16,9 @@ pub struct Config {
     // ES8388 PGA register value: 0 is 0 dB, right for line level (see codec::setup_line_in).
     #[default(0)]
     pga_gain: u8,
+    // false skips the recognizer thread: no fingerprinting, no Shazam or TLS traffic. Everything else runs.
+    #[default(true)]
+    shazam_enabled: bool,
     #[default(-50.0)]
     quiet_threshold_dbfs: f32,
     #[default(8)]
