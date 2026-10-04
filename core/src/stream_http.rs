@@ -52,6 +52,7 @@ pub enum Format {
 }
 
 impl Format {
+    /// Every form, for routing by path.
     pub const ALL: [Format; 2] = [Format::Flac, Format::Wav];
 
     /// The path this form is served at.

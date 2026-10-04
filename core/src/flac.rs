@@ -567,15 +567,8 @@ mod tests {
     /// ring hands a listener up to 240 frames at a time, and fewer when it has caught up.
     const CHUNKS: [usize; 6] = [240, 1, 17, 240, 100, 33];
 
-    /// Pushes `block` into `encoder` in chunks of `sizes` frames, repeating, then encodes it as block
-    /// `number` into `out`.
-    fn push_and_encode(
-        encoder: &mut Encoder,
-        block: &[i32],
-        sizes: &[usize],
-        number: u32,
-        out: &mut Vec<u8>,
-    ) {
+    /// Pushes `block` into `encoder` in chunks of `sizes` frames, repeating.
+    fn push_in_chunks(encoder: &mut Encoder, block: &[i32], sizes: &[usize]) {
         let mut rest = block;
         for &frames in sizes.iter().cycle() {
             if rest.is_empty() {
@@ -585,6 +578,18 @@ mod tests {
             encoder.push(chunk);
             rest = tail;
         }
+    }
+
+    /// Pushes `block` into `encoder` in chunks of `sizes` frames, then encodes it as block `number`
+    /// into `out`.
+    fn push_and_encode(
+        encoder: &mut Encoder,
+        block: &[i32],
+        sizes: &[usize],
+        number: u32,
+        out: &mut Vec<u8>,
+    ) {
+        push_in_chunks(encoder, block, sizes);
         assert_eq!(encoder.frames_wanted(), 0, "the block is complete");
         encoder.encode_block(number, out);
     }
@@ -829,15 +834,7 @@ mod tests {
             .map(|(&tone, noise)| tone / 2 + noise / 4)
             .collect();
         let mut encoder = Encoder::new();
-        let mut rest = &block[..];
-        for &frames in CHUNKS.iter().cycle() {
-            if rest.is_empty() {
-                break;
-            }
-            let (chunk, tail) = rest.split_at(CHANNELS * frames.min(rest.len() / CHANNELS));
-            encoder.push(chunk);
-            rest = tail;
-        }
+        push_in_chunks(&mut encoder, &block, &CHUNKS);
         // The fixed predictors as RFC 9639, section 9.2.5 writes them.
         let residual = |s: &[i32], order: usize, n: usize| -> i32 {
             match order {
