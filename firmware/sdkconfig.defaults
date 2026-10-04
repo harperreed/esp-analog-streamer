@@ -35,6 +35,3 @@ CONFIG_ESP_DEFAULT_CPU_FREQ_MHZ_240=y
 # With httpd's up to 6 (listener, control, 4 clients), MQTT and the Shazam request, that's 12, over
 # lwIP's default of 10. Each extra socket costs only a small table entry.
 CONFIG_LWIP_MAX_SOCKETS=16
-# Lets stream.rs close a dropped listener with a reset (SO_LINGER of 0 s). Without it lwIP keeps a
-# stalled listener's unsent audio in internal RAM for minutes.
-CONFIG_LWIP_SO_LINGER=y

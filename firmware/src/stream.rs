@@ -4,9 +4,7 @@
 use std::ffi::CStr;
 use std::fmt;
 use std::io::{self, BufReader, Write};
-use std::mem::size_of;
 use std::net::{TcpListener, TcpStream};
-use std::os::fd::AsRawFd;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -15,7 +13,6 @@ use anyhow::Result;
 use esp_idf_svc::hal::cpu::Core;
 use esp_idf_svc::hal::task::thread::ThreadSpawnConfiguration;
 use esp_idf_svc::mdns::EspMdns;
-use esp_idf_svc::sys;
 use esp_shazam_core::stream_http::{self, Route, Status};
 use esp_shazam_core::stream_ring::Overrun;
 use esp_shazam_core::wav;
@@ -168,7 +165,12 @@ fn listen(mut sock: TcpStream, ring: SharedStreamRing, slot: Slot, peer: String)
         tenths / 10,
         tenths % 10
     );
-    // Close first, so the slot never frees while this connection still holds a socket.
+    // Close first, so the slot never frees while this connection still holds a socket. Closing sends
+    // a FIN after any unsent audio. A reset would free lwIP's buffers sooner, but a stalled listener
+    // never sees it: after zero-window probes lwIP's reset is one byte past what the peer expects
+    // (RFC 5961 drops it), and a NAT such as Tailscale's subnet router closes its state on it, so
+    // the client hangs. lwIP keeps a stalled peer's unsent audio, at most its 5.7 KB send buffer,
+    // until the FIN gets through or 12 window probes (about 7.6 minutes) run out.
     drop(sock);
     drop(slot);
 }
@@ -210,10 +212,7 @@ fn stream_wav(sock: &mut TcpStream, ring: &SharedStreamRing) -> End {
     // A write that waits as long as the ring holds means the listener has stopped reading: by then
     // the ring has overwritten everything it wasn't sent.
     let ring_time = Duration::from_millis(1_000 * capacity / u64::from(CAPTURE_RATE_HZ));
-    let options = sock
-        .set_write_timeout(Some(ring_time))
-        .and_then(|()| reset_on_close(sock));
-    if let Err(e) = options {
+    if let Err(e) = sock.set_write_timeout(Some(ring_time)) {
         return End::Failed(e);
     }
     let mut frames = vec![0i32; 2 * CHUNK_FRAMES];
@@ -238,32 +237,6 @@ fn stream_wav(sock: &mut TcpStream, ring: &SharedStreamRing) -> End {
             }
         };
         wav::pack_s24le(&frames[..2 * frames_read], &mut bytes);
-    }
-}
-
-/// Makes closing `sock` reset the connection while audio is still unsent (SO_LINGER of 0 s), so a
-/// dropped listener's buffers are freed at once. Otherwise lwIP keeps a stalled listener's unsent
-/// audio, up to 5.7 KB of internal RAM, while it probes the closed window for about 7.6 minutes.
-/// Needs `CONFIG_LWIP_SO_LINGER` (sdkconfig.defaults).
-fn reset_on_close(sock: &TcpStream) -> io::Result<()> {
-    let linger = sys::linger {
-        l_onoff: 1,
-        l_linger: 0,
-    };
-    // SAFETY: the pointer and length describe `linger`, which outlives the call.
-    let result = unsafe {
-        sys::lwip_setsockopt(
-            sock.as_raw_fd(),
-            sys::SOL_SOCKET as _,
-            sys::SO_LINGER as _,
-            (&linger as *const sys::linger).cast(),
-            size_of::<sys::linger>() as _,
-        )
-    };
-    if result == 0 {
-        Ok(())
-    } else {
-        Err(io::Error::last_os_error())
     }
 }
 
