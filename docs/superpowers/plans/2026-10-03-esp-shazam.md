@@ -3571,7 +3571,7 @@ scripts/flash
 sleep 25
 mosquitto_sub -h 192.168.200.8 -t esp-shazam/now_playing -v -C 1 -W 15   # expect: null, or the song already playing
 ```
-With the source playing, within 45 s of boot the same `mosquitto_sub` prints the song's JSON. Its `key` must match `curl -s http://esp-shazam.local/api/state | jq -r .now.key`.
+With the source playing, within 45 s of boot the same `mosquitto_sub` prints the song's JSON. Its `key` must match `curl -4 -s http://esp-shazam.local/api/state | jq -r .now.key`.
 
 - [ ] **Step 4: Broker restart under a running board (Review Focus 4)**
 
@@ -3585,7 +3585,7 @@ touch firmware/src/config.rs && scripts/flash
 sleep 25
 mosquitto_sub -h "$mac_ip" -p 1884 -t esp-shazam/now_playing -C 1 -W 15   # expect: null
 kill "$broker"; sleep 20
-curl -s --max-time 5 http://esp-shazam.local/api/state | jq -r .state      # the web keeps answering
+curl -4 -s --max-time 5 http://esp-shazam.local/api/state | jq -r .state      # the web keeps answering
 /opt/homebrew/sbin/mosquitto -c target/mosquitto-test.conf & broker=$!      # fresh broker: no retained messages
 sleep 20
 mosquitto_sub -h "$mac_ip" -p 1884 -t esp-shazam/now_playing -C 1 -W 15   # expect: null again, republished on connect
@@ -3647,7 +3647,7 @@ while [ $# -gt 0 ]; do
   esac
 done
 
-state() { curl -s --max-time 3 "$board/api/state" || echo '{}'; }
+state() { curl -4 -s --max-time 3 "$board/api/state" || echo '{}'; }
 now_field() { state | jq -r ".now.$1 // empty"; }
 mqtt_now() { mosquitto_sub -h "$broker" -t "$topic" -C 1 -W 10 2>/dev/null || true; }
 # Waits up to $1 seconds for the shell condition in $2 to hold.
