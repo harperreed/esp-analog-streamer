@@ -1,10 +1,9 @@
 # esp-shazam Implementation Plan
 
 ## Now
-- Step: Task 14b (firmware: 48 kHz/24-bit capture, the meter in the audio thread, the "Shazam is off" page) is stopped partway. Its implementer was stopped on 2026-10-04 and won't resume. Its code and docs landed (d7e7d0e..b06e6a0): capture works on the board with 32-bit slots, APLL MCLK, no lost buffers and a 45 ms I2S queue, and `cfg.toml` has `shazam_enabled = false`. Missing: its report past "Still to do", a clean final flash (the board may still run a diagnostic build), and the task review. Navigator was initialized at Harper's request (76a45b7). Task 14a is complete: the store split (9d02a98), `StreamRing` (615d277) and the `Decimator` (8ac51b4, 44.3 dB down at 7.5 kHz); the review approved it with 5 minor notes.
-- Next: Task 15 (`/stream.wav`), 16 (`/stream.flac`), Task 12 (device E2E and README), then the final whole-branch review.
+- Step: Task 15 (`/stream.wav` on port 8000), with Shazam off throughout (R26). Its flash replaces whatever 14b left on the board. Task 14b's review runs read-only alongside it. Task 14b's code and docs landed (d7e7d0e..b06e6a0): capture works on the board with 32-bit slots, APLL MCLK, no lost buffers and a 45 ms I2S queue, and `cfg.toml` has `shazam_enabled = false`. Its report stops at "Still to do". Navigator was initialized (76a45b7), with the judge on (2f1520c). Task 14a is complete (9d02a98, 615d277, 8ac51b4; review approved).
+- Next: Harper listens to the stream (does it sound right, and is left on the left?), then 16 (`/stream.flac`), Task 12 (device E2E and README), then the final whole-branch review.
 - Open (Harper):
-  - Task 14b's implementer was stopped. Start a new one to finish it (report, clean flash, then review), or go on to Task 15?
   - The code default of `shazam_enabled` is still `true`; only `cfg.toml` turns it off. Flip the default too?
   - Task 12 was written around Shazam matches. With Shazam off, it should test the stream instead. Keep a Shazam-on scenario in it, or not?
   - Security calls:
@@ -26,6 +25,7 @@
 - Approved: "lossless as much as we can" (2026-10-03), stream quality: 48 kHz/24-bit PCM (SDD R21)
 - Approved: "can we do flac?" then "ok. cool." (2026-10-03), the FLAC stream (Task 16) and the Tasks 13→16→12 order
 - Direction: "i see you are still doing the ingerprinting. i thought we had talked about putting that behind a feature flag and focusing on the streaming" (2026-10-04), Shazam off on the board, the stream first (SDD R26)
+- Approved: "let's do 15" (2026-10-04), skip finishing 14b's report and clean flash; go to Task 15
 - Compactions: 1
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
