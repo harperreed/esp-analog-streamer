@@ -30,14 +30,16 @@ impl Read for DeadlineReader<'_> {
                 "request head deadline passed",
             ));
         }
-        // Whole milliseconds, rounded up: lwIP truncates a timeout to milliseconds, and to lwIP
-        // 0 ms means no timeout at all.
-        let millis = u64::try_from(left.as_micros().div_ceil(1_000)).unwrap_or(u64::MAX);
-        self.sock
-            .set_read_timeout(Some(Duration::from_millis(millis)))?;
+        self.sock.set_read_timeout(Some(read_timeout(left)))?;
         let mut sock = self.sock;
         sock.read(buf)
     }
+}
+
+/// The read timeout for `left` time left: whole milliseconds, rounded up. lwIP truncates a timeout
+/// to milliseconds, and to lwIP 0 ms means no timeout at all, so nothing above zero may round to 0.
+fn read_timeout(left: Duration) -> Duration {
+    Duration::from_millis(u64::try_from(left.as_nanos().div_ceil(1_000_000)).unwrap_or(u64::MAX))
 }
 
 /// The path of the endless WAV.
@@ -255,6 +257,18 @@ mod tests {
             error.kind(),
             io::ErrorKind::TimedOut | io::ErrorKind::WouldBlock
         )
+    }
+
+    #[test]
+    fn the_read_timeout_is_the_time_left_in_whole_milliseconds_rounded_up() {
+        // lwIP truncates to milliseconds and takes 0 ms as "no timeout", so nothing may round to 0.
+        let ms = Duration::from_millis;
+        assert_eq!(read_timeout(Duration::from_nanos(1)), ms(1));
+        assert_eq!(read_timeout(Duration::from_nanos(500)), ms(1));
+        assert_eq!(read_timeout(Duration::from_micros(999)), ms(1));
+        assert_eq!(read_timeout(ms(1)), ms(1));
+        assert_eq!(read_timeout(Duration::from_nanos(1_000_001)), ms(2));
+        assert_eq!(read_timeout(ms(1_999)), ms(1_999));
     }
 
     #[test]
