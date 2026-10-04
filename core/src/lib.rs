@@ -19,5 +19,7 @@ pub mod policy;
 pub mod shazam;
 pub mod signal;
 pub mod store;
+pub mod stream_http;
 pub mod stream_ring;
 pub mod time;
+pub mod wav;
