@@ -9,6 +9,7 @@ use esp_idf_svc::hal::modem::WifiModemPeripheral;
 use esp_idf_svc::mdns::EspMdns;
 use esp_idf_svc::nvs::EspDefaultNvsPartition;
 use esp_idf_svc::sntp::EspSntp;
+use esp_idf_svc::sys::{esp, esp_wifi_set_ps, wifi_ps_type_t_WIFI_PS_NONE};
 use esp_idf_svc::wifi::{AuthMethod, BlockingWifi, ClientConfiguration, Configuration, EspWifi};
 
 /// Before SNTP sets it, the clock starts at 1970. Anything earlier than 2026-01-01T00:00:00Z means "not synced".
@@ -61,6 +62,12 @@ pub fn start_wifi(
         ..Default::default()
     }))?;
     wifi.start()?;
+    // Modem sleep, ESP-IDF's default, lets the AP hold the board's incoming frames until its next
+    // beacon (every 102.4 ms on Harper's AP), so TCP ACKs wait up to that long. At lwIP's
+    // 5,760-byte send buffer the LINE IN stream needs round trips under 20 ms (SDD Ruling R27).
+    // The board runs on USB power.
+    // SAFETY: a plain call with an enum value; EspWifi::new initialized the driver.
+    esp!(unsafe { esp_wifi_set_ps(wifi_ps_type_t_WIFI_PS_NONE) })?;
     // Blocks for up to 15 s per step; only boot pays that. `supervise` never waits on a connect.
     match wifi.connect().and_then(|()| wifi.wait_netif_up()) {
         Ok(()) => log_link_up(&wifi, "connected"),
