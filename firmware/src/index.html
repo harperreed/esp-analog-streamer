@@ -6,6 +6,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>esp-shazam</title>
+<link rel="icon" href="data:,">
 <style>
   :root { color-scheme: light dark; --bg: #f6f5f2; --fg: #1b1b1b; --muted: #6b6b6b; --card: #ffffff; --accent: #0a66d8; }
   @media (prefers-color-scheme: dark) { :root { --bg: #121212; --fg: #ececec; --muted: #9a9a9a; --card: #1d1d1d; --accent: #6aa8ff; } }
@@ -35,14 +36,16 @@
     </div>
   </section>
   <p class="muted" id="idle">Nothing playing.</p>
-  <h2 class="muted">Earlier</h2>
+  <h2 class="muted">History</h2>
   <ol id="history"></ol>
 </main>
 <script>
 const $ = (id) => document.getElementById(id);
+// The URLs come from Shazam's response: only https ones reach src or href, so no javascript: links.
+const https = (u) => typeof u === 'string' && /^https:\/\//.test(u);
 async function refresh() {
   try {
-    const s = await (await fetch('/api/state', { cache: 'no-store' })).json();
+    const s = await (await fetch('/api/state', { cache: 'no-store', signal: AbortSignal.timeout(2500) })).json();
     const paused = s.rate_limited_until ? ` · paused until ${s.rate_limited_until}` : '';
     $('status').textContent = `${s.state.replace('_', ' ')} · ${s.level_dbfs.toFixed(1)} dBFS${paused}`;
     const n = s.now;
@@ -52,9 +55,9 @@ async function refresh() {
       $('title').textContent = n.title;
       $('artist').textContent = n.artist;
       $('album').textContent = n.album || '';
-      if (n.cover_url) { $('cover').src = n.cover_url; } else { $('cover').removeAttribute('src'); }
-      $('link').hidden = !n.shazam_url;
-      if (n.shazam_url) { $('link').href = n.shazam_url; }
+      if (https(n.cover_url)) { $('cover').src = n.cover_url; } else { $('cover').removeAttribute('src'); }
+      $('link').hidden = !https(n.shazam_url);
+      if (https(n.shazam_url)) { $('link').href = n.shazam_url; }
     }
     $('history').replaceChildren(...s.history.map((h) => {
       const li = document.createElement('li');

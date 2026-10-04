@@ -12,7 +12,8 @@ const INDEX_HTML: &str = include_str!("index.html");
 
 /// Keep the returned server alive: dropping it stops serving.
 pub fn start(store: SharedStore) -> Result<EspHttpServer<'static>> {
-    // Handlers serialize up to 20 history entries; the default 6 KB stack is tight for that.
+    // Handlers run on httpd's task: 10 KiB of stack, above the 6 KiB default, as headroom.
+    // Nobody has measured the high-water mark. The JSON body grows on the heap, not the stack.
     let mut server = EspHttpServer::new(&Configuration {
         stack_size: 10 * 1024,
         ..Default::default()
