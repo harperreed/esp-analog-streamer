@@ -18,3 +18,4 @@ backups/
 .agent/.nav-runtime-state.lock
 .agent/.nav-config.local.json
 .agent/onboarding/
+.agent/.features-shown-*

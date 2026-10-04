@@ -10,6 +10,10 @@
   "compact_strategy": "conservative",
   "auto_update": {
     "enabled": true,
-    "check_interval_hours": 1
+    "check_interval_hours": 1,
+    "last_check": "2026-10-04T09:57:41.362734"
+  },
+  "judge": {
+    "enabled": true
   }
 }
