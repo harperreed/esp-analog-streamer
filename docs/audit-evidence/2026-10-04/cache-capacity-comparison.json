@@ -1,0 +1,67 @@
+{
+  "experiment": "Temporary cache 32 to 64 then restored 32; static TX 16, send buffer 46080, capture, deadlines and Shazam profile unchanged",
+  "config_restored_to": 32,
+  "transport_acceptance": false,
+  "baseline_driver_errors": {
+    "evidence": "driver-output-errors.json",
+    "single_calls": 2364,
+    "single_ERR_MEM": 49
+  },
+  "candidate": {
+    "evidence": "cache64-observation.json",
+    "single_calls": 3951,
+    "single_ERR_MEM": 0,
+    "rates": [
+      {
+        "index": 0,
+        "seconds_receiving": 29.294337832994643,
+        "body_bytes": 2727940,
+        "average_delivered_bytes_per_second": 93121.74986005251
+      },
+      {
+        "index": 1,
+        "seconds_receiving": 29.294462290999945,
+        "body_bytes": 2727940,
+        "average_delivered_bytes_per_second": 93121.35423076522
+      }
+    ],
+    "pre_listener_heap": {
+      "internal_free": 82115,
+      "internal_largest": 77824,
+      "psram_free": 865092,
+      "psram_largest": 851968
+    }
+  },
+  "control": {
+    "evidence": "cache32-control-observation.json",
+    "single_calls": 5358,
+    "single_ERR_MEM": 0,
+    "rates": [
+      {
+        "index": 0,
+        "seconds_receiving": 10.91624720901018,
+        "body_bytes": 255995,
+        "average_delivered_bytes_per_second": 23450.824729280943
+      },
+      {
+        "index": 1,
+        "seconds_receiving": 60.44548987499729,
+        "body_bytes": 7030743,
+        "average_delivered_bytes_per_second": 116315.42757846355
+      }
+    ],
+    "pre_listener_heap": {
+      "internal_free": 82083,
+      "internal_largest": 77824,
+      "psram_free": 919492,
+      "psram_largest": 917504
+    }
+  },
+  "candidate_minus_control_pre_listener": {
+    "internal_free": 32,
+    "internal_largest": 0,
+    "psram_free": -54400,
+    "psram_largest": -65536
+  },
+  "interpretation": "Observed extra cache allocation reduced PSRAM free by 54400 bytes relative to repeat 32, with internal free 32 bytes higher; supports PSRAM placement on these boots, not a fallback guarantee. Zero driver errors occurred in both candidate and repeat control, so single A/B does not establish that capacity caused error disappearance. Candidate both peers timed out; control one fell behind on a valid frame boundary and one reached the 60-second host bound. All checked complete frames decode cleanly and capture faults stayed flat. Temporary configuration fully restored; no fix or endurance acceptance."
+}

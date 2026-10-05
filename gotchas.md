@@ -307,3 +307,11 @@ Wi-Fi transmit, so its ERR_MEM result proves actual driver ESP_ERR_NO_MEM.
 The output observer counts all STA ports; this does not identify a proprietary
 pool or a rejected stream packet. A chained-pbuf ERR_MEM can also come from the
 coalescing allocation, so keep those counters separate.
+
+Pinned binary/source review maps the by-reference single-pbuf allocation failure
+to an empty preallocated class 9 TX-cache free list; runtime does not allocate
+another object on that branch. Why occupied slots fail to retire remains open.
+Cache 32 → 64 → 32 repeats both had zero errors while transport still failed,
+so keep cache 32 and do not infer a fix from one larger-capacity observation.
+The extra 32 slots reduced sampled PSRAM free by 54,400 B, with no sampled
+internal decrease; setup still permits internal fallback.

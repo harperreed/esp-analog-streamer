@@ -2,11 +2,12 @@
 
 ## Current state
 
-Compaction count: 4. Exclusive validation controller `/root/overnight_verify`
+Compaction count: 5. Exclusive validation controller `/root/overnight_verify`
 owns live board, UART and flash state; message it before hardware access. Root
 owns ticket integration. Last confirmed completed image/test: `66f2717` TCP
-output observer, 90 s observation begun 2026-10-05 06:03:01 UTC. Next approved
-pressure geometry-observer flash/test uses `7099af7`; restore production after
+output observer with restored cache 32, observation begun 2026-10-05
+06:23:58 UTC. A/B evidence is complete; reviewed corrected pressure geometry
+build/test follows. Restore production after
 fixtures. No merges or pushes are authorized. Shazam stays off under R26.
 
 - Isolated capture health policy passed after complete-line UART reader repair.
@@ -15,10 +16,14 @@ fixtures. No merges or pushes are authorized. Shazam stays off under R26.
   terminal-frame truncation with valid complete frames; no endurance pass.
 - Direct drainers showed nonzero windows and ACK/retransmission stalls. The
   output observer recorded 49 actual single-pbuf driver ESP_ERR_NO_MEM results
-  among 2364 calls. Pool and per-stream cause remain unknown; `tx_resource`
-  investigates pinned driver binaries read-only.
-- Internal-pressure geometry failed before admission. Unchanged-policy geometry
-  diagnostics justify the next observation; no safe internal reserve is proved.
+  among 2364 calls. Independent pinned binary/source review identifies the
+  class 9 preallocated TX-cache free-list empty return, with PSRAM-first setup;
+  why slots fail to retire and per-stream cause remain unresolved.
+- Internal-pressure geometry failed before admission. Reviewed pinned TLSF
+  placement/adjacency correction is ready to build/test with the floor unchanged;
+  no safe internal reserve is proved.
+- Cache 32 → 64 → 32 observations had zero driver errors in both repeats, but
+  transport still failed. Original cache 32 remains; no causal fix claim.
 - Early -120 dBFS readings later became quiet ADC noise; decoded RMS about
   -82.42 dBFS. No FIP music or worst-case input acceptance follows.
 - User-owned `.gitignore` and `.kata.toml` stay untouched. Failed evidence lives
@@ -415,3 +420,17 @@ initial holes remained contiguous/unreleased. The conservative filler admission
 requires floor + 8,192 B, exceeding remaining free, while a stack-sized tail
 remains. No stack/admission failure was exercised. Preserve
 `failed-internal-pressure-tail.json`; no floor/policy relaxation occurred.
+
+Controlled cache-capacity experiment changed only TX cache 32 to 64, then restored
+32 and repeated the same observer/drain collection. Generated config and boot
+counts were verified. B64: 3,951 single calls, zero errors, but both peers reached
+8,029 ms frame deadlines after about 29.29 s; delivered ~93,122 B/s per peer.
+A32 repeat: 5,358 calls, zero errors; one peer ended after 10.92 s, one reached
+60.45 s host bound. Complete prefixes decode cleanly (B64 241/241 frames; A32
+23/625), capture faults flat. Original A32's 49 errors did not recur, so no causal
+capacity/fix claim follows. B64 minus A32 repeat pre-listener heap: PSRAM free
+-54,400 B, internal free +32 B, internal largest unchanged; this supports observed
+PSRAM placement, not an unconditional fallback guarantee. Source cache 32 is
+fully restored, no config commit. Evidence: `cache-capacity-comparison.json` and
+both detailed observation JSONs. Board remains A32 observer pending next phase;
+mandatory production restore/final canonical check still required.
