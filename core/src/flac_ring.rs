@@ -12,6 +12,7 @@ pub struct FlacRing {
     lengths: Vec<usize>,
     head: usize,
     written: u64,
+    generation: u64,
     max_frame_bytes: usize,
 }
 
@@ -20,6 +21,7 @@ pub struct FlacRing {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Cursor {
     sequence: u64,
+    generation: u64,
     offset: usize,
 }
 
@@ -60,6 +62,7 @@ impl FlacRing {
             lengths,
             head: 0,
             written: 0,
+            generation: 0,
             max_frame_bytes,
         })
     }
@@ -78,8 +81,17 @@ impl FlacRing {
     pub fn cursor_now(&self) -> Cursor {
         Cursor {
             sequence: self.written,
+            generation: self.generation,
             offset: 0,
         }
+    }
+
+    /// Drops queued frames after a capture gap and invalidates all existing readers.
+    /// New readers join the restarted encoder with a fresh FLAC stream header.
+    pub fn reset(&mut self) {
+        self.head = 0;
+        self.written = 0;
+        self.generation = self.generation.wrapping_add(1);
     }
 
     /// Stores one complete encoded frame. Empty or oversized input leaves the ring unchanged.
@@ -99,6 +111,9 @@ impl FlacRing {
     /// Copies at most one frame's remaining bytes and advances this reader only.
     /// Release the external mutex before socket I/O. A lapped cursor stays unchanged.
     pub fn read(&self, cursor: &mut Cursor, out: &mut [u8]) -> Result<usize, Overrun> {
+        if cursor.generation != self.generation {
+            return Err(Overrun);
+        }
         let behind = self.written.saturating_sub(cursor.sequence);
         if behind > self.capacity() as u64 {
             return Err(Overrun);
@@ -210,6 +225,23 @@ mod tests {
         let before = cursor;
         assert_eq!(destination.read(&mut cursor, &mut [0; 8]), Err(Overrun));
         assert_eq!(cursor, before);
+    }
+
+    #[test]
+    fn reset_disconnects_old_readers_and_new_readers_start_with_whole_frames() {
+        let mut ring = FlacRing::try_new(2, 8).unwrap();
+        let mut old = ring.cursor_now();
+        ring.push(b"before").unwrap();
+        assert_eq!(ring.read(&mut old, &mut [0; 2]), Ok(2));
+        ring.reset();
+        let before = old;
+        assert_eq!(ring.read(&mut old, &mut [0; 8]), Err(Overrun));
+        assert_eq!(old, before);
+        let mut joining = ring.cursor_now();
+        assert_eq!(ring.read(&mut joining, &mut [0; 8]), Ok(0));
+        ring.push(b"after").unwrap();
+        assert_eq!(drain(&ring, &mut joining), b"after");
+        assert_eq!(ring.read(&mut old, &mut [0; 8]), Err(Overrun));
     }
 
     #[test]

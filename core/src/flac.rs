@@ -134,6 +134,15 @@ impl Encoder {
         }
     }
 
+    /// Discards the current block without replacing any buffers. A capture gap starts fresh
+    /// predictor and residual sums; the next full block overwrites every old sample.
+    pub fn reset(&mut self) {
+        self.filled = 0;
+        self.previous = [[0; MAX_FIXED_ORDER]; CHANNELS];
+        self.partial = [[0; MAX_FIXED_ORDER + 1]; CHANNELS];
+        self.sums.fill(0);
+    }
+
     /// Frames the block still needs before `encode_block`.
     pub fn frames_wanted(&self) -> usize {
         BLOCK_FRAMES - self.filled
@@ -203,9 +212,7 @@ impl Encoder {
         let crc = bits.finish();
         out.extend_from_slice(&crc.to_be_bytes());
         // Each subframe stands alone, so the next block starts afresh.
-        self.filled = 0;
-        self.previous = [[0; MAX_FIXED_ORDER]; CHANNELS];
-        self.sums.fill(0);
+        self.reset();
     }
 
     /// Writes an exact constant channel as one sample, otherwise a fixed-predictor subframe with
@@ -882,6 +889,32 @@ mod tests {
             push_and_encode(&mut encoder, &block, sizes, 0, &mut frame);
             assert!(frame == whole, "pushed in chunks of {sizes:?}");
         }
+    }
+
+    #[test]
+    fn reset_discards_a_partial_block_and_reuses_buffers() {
+        let mut encoder = Encoder::new();
+        let buffers = |e: &Encoder| {
+            (
+                e.samples.as_ptr(),
+                e.sums.as_ptr(),
+                e.parameters.as_ptr(),
+                e.best_parameters.as_ptr(),
+            )
+        };
+        let original_buffers = buffers(&encoder);
+        let abandoned = full_scale_noise_stereo(273);
+        push_in_chunks(&mut encoder, &abandoned, &CHUNKS);
+        encoder.reset();
+        assert_eq!(encoder.frames_wanted(), BLOCK_FRAMES);
+        assert_eq!(buffers(&encoder), original_buffers);
+        let block = chord_and_chirp_stereo_48k(BLOCK_FRAMES);
+        let mut frame = Vec::new();
+        push_and_encode(&mut encoder, &block, &CHUNKS, 0, &mut frame);
+        let mut stream = stream_header().to_vec();
+        stream.extend_from_slice(&frame);
+        assert_same_samples(&decode_with_claxon(&stream).1, &block);
+        assert_eq!(buffers(&encoder), original_buffers);
     }
 
     #[test]

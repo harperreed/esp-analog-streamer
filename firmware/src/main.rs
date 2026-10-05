@@ -48,7 +48,7 @@ fn main() -> Result<()> {
     codec::setup_line_in(&mut i2c, CONFIG.pga_gain)?;
     let store: recognizer::SharedStore =
         Arc::new(Mutex::new(SongStore::new(20, CONFIG.shazam_enabled)));
-    // `stream_ring` holds the newest 8 s (2 s with Shazam on) of raw 48 kHz frames for stream listeners.
+    // Raw frames feed WAV and the shared FLAC encoder; encoded frames hold FLAC's longer backlog.
     let (ring, stream_ring) = audio_in::spawn_capture(rx, store.clone())?;
 
     let wifi = net::start_wifi(

@@ -27,13 +27,14 @@ pub const CAPTURE_RATE_HZ: u32 = 48_000;
 pub const FEED_RATE_HZ: u32 = 16_000;
 /// The fingerprint's window: the newest 12 s of the feed.
 pub const WINDOW_SAMPLES: usize = 12 * FEED_RATE_HZ as usize;
-/// The stream ring keeps the newest 8 s of frames, 3,072,000 bytes: 73% of the 4 MiB of PSRAM that's
-/// mapped. A listener rides out the network's stalls in it: on 2026-10-04 writes blocked up to 3.8 s
-/// and a FLAC listener fell 6.0 s behind, then caught up (Task 15b). With Shazam on it keeps 2 s
-/// (768,000 bytes), because a fingerprint's buffers leave only about 400 KB of PSRAM free at their
-/// peak (Task 14b).
-const STREAM_SECONDS: usize = if CONFIG.shazam_enabled { 2 } else { 8 };
-const STREAM_FRAMES: usize = STREAM_SECONDS * CAPTURE_RATE_HZ as usize;
+/// Raw frames feed WAV listeners and the shared FLAC encoder. WAV keeps 2 s with Shazam off,
+/// and only 0.5 s with it on: the encoded FLAC ring takes the longer network-stall budget.
+/// The enabled profile frees 576 KB of raw storage to fund 24 encoded FLAC frame slots.
+const STREAM_FRAMES: usize = if CONFIG.shazam_enabled {
+    CAPTURE_RATE_HZ as usize / 2
+} else {
+    2 * CAPTURE_RATE_HZ as usize
+};
 
 /// One I2S DMA buffer holds 240 frames (5 ms) of two 32-bit slots: 1,920 bytes. Each read takes one.
 const DMA_FRAMES: usize = 240;
