@@ -4,14 +4,14 @@
 set -euo pipefail
 usage() {
     cat <<'HELP'
-Usage: scripts/fault-check --mode capture|pressure [HOST] [--path /stream.flac|/stream.wav] [--listeners 1|2] [--out DIR]
-Flash capture-faults or listener-pressure first, with Shazam disabled. This check resets
+Usage: scripts/fault-check --mode capture|pressure|network [HOST] [--path /stream.flac|/stream.wav] [--listeners 1|2] [--out DIR]
+Flash capture-faults, listener-pressure, or network-faults first, with Shazam disabled. This check resets
 the board through scripts/serial-log, records private UART logs, and uses real HTTP audio.
 Keep audio playing and run under caffeinate -is to prevent host sleep. No flashing occurs.
 HOST defaults to esp-shazam.local; output defaults to target/fault-check/<dated run>.
 Capture defaults to /stream.flac; /stream.wav checks WAV freshness.
 Listeners default to 2; capture supports 1 to isolate WAV freshness without two-stream load.
-Only 2-listener runs check the admission cap. Pressure requires FLAC, 2 listeners, and no existing clients.
+Only 2-listener runs check the admission cap. Pressure and network require FLAC and 2 listeners. Start with no existing clients.
 Capture allows 4.5 s for EOF after suspension:
 2 s freshness timeout plus 2.5 s close/network/scheduling slack.
 HELP
@@ -27,7 +27,7 @@ while [ "$#" -gt 0 ]; do
     case "$1" in
         --help) usage; exit 0 ;;
         --mode)
-            [ "$#" -ge 2 ] && [ -z "$mode" ] && [[ "$2" = capture || "$2" = pressure ]] || { echo 'FAIL --mode requires capture or pressure' >&2; exit 2; }
+            [ "$#" -ge 2 ] && [ -z "$mode" ] && [[ "$2" = capture || "$2" = pressure || "$2" = network ]] || { echo 'FAIL --mode requires capture, pressure, or network' >&2; exit 2; }
             mode="$2"; shift 2 ;;
         --path)
             [ "$#" -ge 2 ] && [ -z "$path_seen" ] && [[ "$2" = /stream.flac || "$2" = /stream.wav ]] || { echo 'FAIL --path requires /stream.flac or /stream.wav once' >&2; exit 2; }
@@ -43,8 +43,8 @@ while [ "$#" -gt 0 ]; do
     esac
 done
 [ -n "$mode" ] || { echo 'FAIL --mode is required (see --help)' >&2; exit 2; }
-[[ "$mode" != pressure || "$stream_path" = /stream.flac ]] || { echo 'FAIL pressure requires --path /stream.flac' >&2; exit 2; }
-[[ "$mode" != pressure || "$listeners" = 2 ]] || { echo 'FAIL pressure requires --listeners 2' >&2; exit 2; }
+[[ "$mode" = capture || "$stream_path" = /stream.flac ]] || { echo 'FAIL pressure/network require --path /stream.flac' >&2; exit 2; }
+[[ "$mode" = capture || "$listeners" = 2 ]] || { echo 'FAIL pressure/network require --listeners 2' >&2; exit 2; }
 repo="$(cd "$(dirname "$0")/.." && pwd)"
 FAULT_CHECK_REPO="$repo" exec uv run --quiet --no-project python3 - "${original[@]}" <<'PY'
 import argparse
@@ -68,16 +68,16 @@ class Failure(Exception):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--mode', required=True, choices=['capture', 'pressure'])
+    parser.add_argument('--mode', required=True, choices=['capture', 'pressure', 'network'])
     parser.add_argument('host', nargs='?', default='esp-shazam.local')
     parser.add_argument('--out')
     parser.add_argument('--path', default='/stream.flac', choices=['/stream.flac', '/stream.wav'])
     parser.add_argument('--listeners', type=int, default=2, choices=[1, 2])
     args = parser.parse_args()
-    if args.mode == 'pressure' and args.path != '/stream.flac':
-        parser.error('pressure requires --path /stream.flac')
-    if args.mode == 'pressure' and args.listeners != 2:
-        parser.error('pressure requires --listeners 2')
+    if args.mode != 'capture' and args.path != '/stream.flac':
+        parser.error('pressure/network require --path /stream.flac')
+    if args.mode != 'capture' and args.listeners != 2:
+        parser.error('pressure/network require --listeners 2')
     repo = Path(os.environ['FAULT_CHECK_REPO'])
     os.umask(0o077)
     out = Path(args.out or repo / 'target/fault-check').resolve() / datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%S.%fZ')
@@ -88,6 +88,7 @@ def main():
     processes, handles, readers = [], [], []
     evidence = {}
     failure = None
+    admission_cap_checked = False
 
     def record(kind, **fields):
         value = dict(kind=kind, elapsed_seconds=round(time.monotonic() - started, 3), **fields)
@@ -194,10 +195,12 @@ def main():
         record('decoded', label=job['label'], decoded_seconds=got, decoded_audio_frames=round(got * 48000))
 
     def pair(seconds, label):
+        nonlocal admission_cap_checked
         jobs = [decoder(f'{label}-{index}', seconds) for index in (1, 2)]
         for job in jobs:
             advancing(job)
         status(503)
+        admission_cap_checked = True
         for job in jobs:
             completed(job)
 
@@ -292,7 +295,54 @@ def main():
         uart_match(r'rst:0x', seconds=20)
         record('reset_seen', mode=args.mode, host=args.host, ip=ip)
         state_ready()
-        if args.mode == 'pressure':
+        if args.mode == 'network':
+            original = [decoder(f'network-baseline-{index}') for index in (1, 2)]
+            for job in original:
+                advancing(job, 2, 6)
+                if job['errors'].stat().st_size:
+                    raise Failure('network baseline decoder reported errors before injection')
+            if any('network-faults: marker=DISCONNECT_REQUEST' in line for line in lines()):
+                raise Failure('two baseline decoders did not establish progress before network injection')
+            def disconnect_request():
+                for index, line in enumerate(lines()):
+                    if 'network-faults: marker=DISCONNECT_REQUEST' in line:
+                        return index
+                for job in original:
+                    if job['process'].poll() is not None or job['errors'].stat().st_size:
+                        raise Failure('network baseline decoder failed before disconnect injection')
+                return None
+            request = wait(disconnect_request, 30, 'network disconnect request missing')
+            baseline = telemetry(before=request)
+            if not baseline:
+                raise Failure('missing capture baseline before network disconnect')
+            result, found = uart_match(r'network-faults: marker=DISCONNECT_RESULT\b.*result=(-?\d+)', after=request + 1, seconds=3)
+            if int(found.group(1)) != 0:
+                raise Failure('esp_wifi_disconnect did not return ESP_OK')
+            # Wi-Fi can report the posted event before esp_wifi_disconnect returns.
+            disconnected, _ = uart_match(r'wifi: disconnected\b', after=request + 1, seconds=5)
+            reconnected, _ = uart_match(r'wifi: reconnected\b', after=disconnected + 1, seconds=20)
+            # Disconnect may terminate either decoder. Only pre-injection progress and
+            # newly admitted streams after production reconnect are required.
+            for job in original:
+                stop_process(job['process'])
+            wait(lambda: True if sum('socket closed' in line and 'releasing slot' in line
+                                    for line in lines()[request:]) >= 2 else None,
+                 12, 'original network listener sockets did not close before fresh admissions')
+            state_ready(5)
+            pair(10, 'network-recovered')
+            final, _ = uart_match(r'audio: frames=', after=len(lines()), seconds=12)
+            during = telemetry(after=request, before=final + 1)
+            if len(during) < 2:
+                raise Failure('network disconnect/recovery capture observations missing')
+            for sample in during:
+                unchanged(baseline[-1], sample, 'network disconnect and recovered playback')
+            window = lines()[request:final + 1]
+            if any('rst:0x' in line or 'requesting restart' in line or 'rebooting' in line for line in window):
+                raise Failure('network disconnect caused a reboot or capture supervisor trip')
+            evidence['network'] = dict(request_line=request, result_line=result,
+                                       disconnected_line=disconnected, reconnected_line=reconnected,
+                                       baseline=baseline[-1], capture_heap=during)
+        elif args.mode == 'pressure':
             pressure_start, _ = uart_match(r'PRESSURE_START', seconds=25)
             baseline = telemetry(before=pressure_start)
             if not baseline:
@@ -420,7 +470,7 @@ def main():
         for handle in handles:
             handle.close()
         summary = dict(passed=failure is None, error=failure, mode=args.mode, host=args.host, path=args.path,
-                       listeners=args.listeners, admission_cap_checked=args.listeners == 2,
+                       listeners=args.listeners, admission_cap_checked=admission_cap_checked,
                        elapsed_seconds=round(time.monotonic() - started, 3), evidence=evidence,
                        log_directory=str(out), uart_log=str(uart),
                        note='UART is private; decoded duration establishes playback, not independent DMA continuity.')

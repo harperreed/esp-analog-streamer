@@ -131,3 +131,43 @@ Any future reuse needs fresh repair and verification. Production telemetry and
 separate hardware examples cover current checks, but linkoutput error counts,
 raw throughput blast, and controlled encoder working-buffer placement comparisons
 remain absent. `23mz` stays open for the unknown transmit-resource failure cause.
+
+## Live fault evidence
+
+`8efd61f` pressure run passed: two real allocation refusals returned 503 with
+matching UART reasons. During fragmentation, free PSRAM was 458,868 B but the
+largest block was 16,384 B, below the 24,591 B request. Capture fault counters
+stayed flat through allocation, hold, release, and two recovered 10 s decodes.
+Internal window minimum reached 76,195 B; final internal free was 90,847 B and
+PSRAM free 918,836 B. Evidence:
+`target/audit-pressure/20261005T034646.847875Z/summary.json`.
+This does not verify failure under internal-RAM exhaustion: Rust allocates thread
+metadata before the fallible pthread call, and Wi-Fi shares that heap. No safe
+reserve threshold was inferred from these measurements.
+
+`5032a49` capture-FLAC run passed: the short pause added no reported loss;
+caught-up client EOF arrived 1.769 s after suspension. The real supervisor
+requested restart; capture restarted and six seconds decoded. A permanent
+suspension produced the ordered restart request, reboot, ESP_RST_SW boot, and
+two eight-second decoded streams with unchanged post-boot fault counters.
+Intentional long suspension increased queue overflows 12 to 704 and restart/gap
+counters 2 to 3, demonstrating reported loss rather than silent stitching.
+Evidence: `target/audit-capture-fault/20261005T035333.169410Z/summary.json`.
+
+Keep the failed runs: `target/audit-capture-fault/20261005T035018.801715Z/`
+used a host read timeout of four seconds, below the firmware's 8.02 s FLAC
+allowance; both post-reboot decoders timed out at 7.424 s. The corrected timeout
+is ten seconds, matching stream-check; the routed stall's cause remains unknown.
+The two-WAV run `target/audit-capture-fault-wav/20261005T035510.089672Z/`
+hit a 2,010 ms frame deadline and a generation overrun, so it did not establish
+the fresh-audio timeout. A single-WAV run
+`target/audit-capture-fault-wav-one/20261005T035925.930645Z/` also hit a 2,011 ms
+frame deadline before the fault. Both stopped cleanly, but routed WAV playback
+is not reliable under these conditions. Test WAV freshness with real board
+loopback sockets to separate that contract from transport capacity. Current
+input has become quiet (~-90 dBFS); do not label it sustained music or noise.
+
+Current work: real Wi-Fi disconnect/reconnect fixture and WAV loopback freshness
+fixture, then restore production for churn and soak. `c7b709a` provides bounded
+two-decoder soak checks with private logs and a checked 128 MiB output budget.
+No long-soak result exists yet.

@@ -218,3 +218,14 @@ Hardware fault checks must include the fault setup interval in their capture-cou
 baseline. A pre-READY baseline can hide loss during allocation; sample before START.
 Later playback alone does not prove supervisor recovery: require its restart request,
 the capture restart counter, and decoded audio before testing the separate reboot path.
+
+On the 2026-10-04 overnight audit, both two-WAV and one-WAV runs through the Mac's
+utun4 route hit the raw ring's 2 s write deadline. A single stream failed before
+fault injection, with capture counters stable. Do not treat this route as a
+reliable WAV freshness test or claim worst-case two-stream throughput from FLAC
+music. Keep real loopback contract tests separate from routed playback evidence.
+
+The fault harness originally used a 4 s ffmpeg read timeout, shorter than the
+8.02 s FLAC write allowance. Use the existing stream-check's 10 s read timeout
+while retaining completion/error assertions; that correction does not explain
+the underlying routed stall.
