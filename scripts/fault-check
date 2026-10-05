@@ -1,18 +1,19 @@
 #!/usr/bin/env bash
-# ABOUTME: Verifies real capture faults or PSRAM-pressure admission against separately flashed hardware fixtures.
+# ABOUTME: Verifies real capture faults or real allocator-pressure admission against separately flashed hardware fixtures.
 # ABOUTME: Select stream path and listener count with --help; resets UART, never flashes.
 set -euo pipefail
 usage() {
     cat <<'HELP'
-Usage: scripts/fault-check --mode capture|pressure|network|wav-local|health [HOST] [--path /stream.flac|/stream.wav] [--listeners 1|2] [--out DIR]
-Flash capture-faults, listener-pressure, network-faults, or wav-freshness first, with Shazam disabled. This check resets
+Usage: scripts/fault-check --mode capture|pressure|internal-pressure|network|wav-local|health [HOST] [--path /stream.flac|/stream.wav] [--listeners 1|2] [--out DIR]
+Flash capture-faults, listener-pressure, internal-pressure, network-faults, or wav-freshness first, with Shazam disabled. This check resets
 the board through scripts/serial-log and records private UART logs. Health uses capture-faults
 without stream clients: it proves capture restart/reset policy, not freshness or decoded playback.
 Keep audio playing and run under caffeinate -is to prevent host sleep. No flashing occurs.
 HOST defaults to esp-shazam.local; output defaults to target/fault-check/<dated run>.
 Capture defaults to /stream.flac; /stream.wav checks WAV freshness.
 Listeners default to 2; capture supports 1 to isolate WAV freshness without two-stream load.
-Only 2-listener runs check the admission cap. Pressure, network, and wav-local require FLAC and 2 host listeners.
+Only 2-listener runs check the admission cap. Pressure, internal-pressure, network, and wav-local require FLAC and 2 host listeners.
+Internal-pressure requires EOF refusal, stack ENOMEM/checked close, then decoded recovery; its floor is experimental.
 wav-local checks two board loopback WAV peers first; byte progress is not waveform decoding. Start with no existing clients.
 Capture allows 4.5 s for EOF after suspension:
 2 s freshness timeout plus 2.5 s close/network/scheduling slack.
@@ -29,7 +30,7 @@ while [ "$#" -gt 0 ]; do
     case "$1" in
         --help) usage; exit 0 ;;
         --mode)
-            [ "$#" -ge 2 ] && [ -z "$mode" ] && [[ "$2" = capture || "$2" = pressure || "$2" = network || "$2" = wav-local || "$2" = health ]] || { echo 'FAIL --mode requires capture, pressure, network, wav-local, or health' >&2; exit 2; }
+            [ "$#" -ge 2 ] && [ -z "$mode" ] && [[ "$2" = capture || "$2" = pressure || "$2" = internal-pressure || "$2" = network || "$2" = wav-local || "$2" = health ]] || { echo 'FAIL --mode requires capture, pressure, internal-pressure, network, wav-local, or health' >&2; exit 2; }
             mode="$2"; shift 2 ;;
         --path)
             [ "$#" -ge 2 ] && [ -z "$path_seen" ] && [[ "$2" = /stream.flac || "$2" = /stream.wav ]] || { echo 'FAIL --path requires /stream.flac or /stream.wav once' >&2; exit 2; }
@@ -46,8 +47,8 @@ while [ "$#" -gt 0 ]; do
 done
 [ -n "$mode" ] || { echo 'FAIL --mode is required (see --help)' >&2; exit 2; }
 [[ "$mode" != health || ( -z "$path_seen" && -z "$listeners_seen" ) ]] || { echo 'FAIL health does not accept stream path/listener options' >&2; exit 2; }
-[[ "$mode" = capture || "$stream_path" = /stream.flac ]] || { echo 'FAIL pressure/network/wav-local require --path /stream.flac' >&2; exit 2; }
-[[ "$mode" = capture || "$listeners" = 2 ]] || { echo 'FAIL pressure/network/wav-local require --listeners 2' >&2; exit 2; }
+[[ "$mode" = capture || "$stream_path" = /stream.flac ]] || { echo 'FAIL pressure/internal-pressure/network/wav-local require --path /stream.flac' >&2; exit 2; }
+[[ "$mode" = capture || "$listeners" = 2 ]] || { echo 'FAIL pressure/internal-pressure/network/wav-local require --listeners 2' >&2; exit 2; }
 repo="$(cd "$(dirname "$0")/.." && pwd)"
 FAULT_CHECK_REPO="$repo" exec uv run --quiet --no-project python3 - "${original[@]}" <<'PY'
 import argparse
@@ -69,9 +70,27 @@ class Failure(Exception):
     pass
 
 
+def validate_internal_geometry(fields):
+    required = ['free', 'largest', 'experiment_floor', 'sampled_min', 'probe_before_free', 'probe_before_largest']
+    if fields.get('stack_probe_failed') is not True:
+        raise Failure('strict internal stack probe failure missing')
+    if any(key not in fields for key in required):
+        raise Failure('internal fragmentation fields missing')
+    if fields['experiment_floor'] != 32768:
+        raise Failure('internal fixture floor differs from pinned configuration')
+    if fields['free'] < fields['experiment_floor'] or not 0 <= fields['largest'] < 4096:
+        raise Failure('internal fixture did not establish stack-sized fragmentation')
+    if fields['probe_before_free'] < fields['experiment_floor'] or not 0 <= fields['probe_before_largest'] < 4096:
+        raise Failure('internal pre-probe geometry invalid')
+    if fields['sampled_min'] > min(fields['free'], fields['probe_before_free']):
+        raise Failure('internal sampled minimum omits a logged free sample')
+    if fields['sampled_min'] < fields['experiment_floor']:
+        raise Failure('internal fixture crossed its sampled experimental floor')
+
+
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--mode', required=True, choices=['capture', 'pressure', 'network', 'wav-local', 'health'])
+    parser.add_argument('--mode', required=True, choices=['capture', 'pressure', 'internal-pressure', 'network', 'wav-local', 'health'])
     parser.add_argument('host', nargs='?', default='esp-shazam.local')
     parser.add_argument('--out')
     parser.add_argument('--path', default='/stream.flac', choices=['/stream.flac', '/stream.wav'])
@@ -80,9 +99,9 @@ def main():
     if args.mode == 'health' and any(option in sys.argv for option in ['--path', '--listeners']):
         parser.error('health does not accept stream path/listener options')
     if args.mode != 'capture' and args.path != '/stream.flac':
-        parser.error('pressure/network/wav-local require --path /stream.flac')
+        parser.error('pressure/internal-pressure/network/wav-local require --path /stream.flac')
     if args.mode != 'capture' and args.listeners != 2:
-        parser.error('pressure/network/wav-local require --listeners 2')
+        parser.error('pressure/internal-pressure/network/wav-local require --listeners 2')
     repo = Path(os.environ['FAULT_CHECK_REPO'])
     os.umask(0o077)
     out = Path(args.out or repo / 'target/fault-check').resolve() / datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%S.%fZ')
@@ -109,7 +128,7 @@ def main():
         deadline = time.monotonic() + seconds
         while True:
             current = lines()
-            if any('marker=FAIL_' in line or 'PRESSURE_FAILED' in line or 'wav-freshness: marker=FAIL ' in line for line in current):
+            if any('marker=FAIL_' in line or 'PRESSURE_FAILED' in line or 'INTERNAL_FAILED' in line or 'wav-freshness: marker=FAIL ' in line for line in current):
                 raise Failure('fixture reported failure; see private uart.log')
             result = check()
             if result is not None:
@@ -162,6 +181,25 @@ def main():
             record('http_status', expected=expected, actual=actual)
             if actual != expected:
                 raise Failure(f'expected HTTP {expected}, received {actual}')
+
+    def refused_eof():
+        deadline = time.monotonic() + 3
+        received = 0
+        with socket.create_connection((ip, 8000), timeout=2) as peer:
+            peer.settimeout(max(0.001, deadline - time.monotonic()))
+            peer.sendall(f'GET {args.path} HTTP/1.1\r\nHost: esp-shazam\r\n\r\n'.encode('ascii'))
+            while True:
+                if time.monotonic() >= deadline:
+                    raise Failure('internal admission refusal exceeded HTTP deadline')
+                peer.settimeout(max(0.001, deadline - time.monotonic()))
+                chunk = peer.recv(1024)
+                if not chunk:
+                    break
+                received += len(chunk)
+                # Current production spawn failure closes before sending any HTTP response.
+                if received:
+                    raise Failure('internal admission sent response bytes instead of clean EOF')
+        record('internal_refusal_eof', response_bytes=received)
 
     def decoder(label, seconds=None):
         progress = out / f'{label}.progress'
@@ -466,6 +504,56 @@ def main():
             evidence['network'] = dict(request_line=request, result_line=result,
                                        disconnected_line=disconnected, reconnected_line=reconnected,
                                        baseline=baseline[-1], capture_heap=during)
+        elif args.mode == 'internal-pressure':
+            pressure_start, _ = uart_match(r'INTERNAL_START\b', seconds=25)
+            baseline = telemetry(before=pressure_start)
+            if not baseline:
+                raise Failure('missing capture baseline before internal allocation')
+            ready, _ = uart_match(r'INTERNAL_READY\b', after=pressure_start, seconds=25)
+            fields = {key: int(value) for key, value in re.findall(r'\b([a-z_]+)=(\d+)', lines()[ready])}
+            fields['stack_probe_failed'] = bool(re.search(r'\bstack_probe_failed=true\b', lines()[ready]))
+            validate_internal_geometry(fields)
+            if fields.get('holes', 0) < 1 or fields.get('allocation_count', 0) < 1:
+                raise Failure('internal fixture allocation/isolated-hole evidence missing')
+            evidence['internal_pressure'] = dict(ready=fields, baseline=baseline[-1],
+                                                  reserve_scope='sampled configured experimental floor, not a universal reserve guarantee')
+            record('internal_ready', **fields)
+            for attempt in (1, 2):
+                request_start = len(lines())
+                refused_eof()
+                pthread_failed, _ = uart_match(r'pthread: Failed to create task!', after=request_start, seconds=3)
+                no_thread, _ = uart_match(r'stream: no thread for a listener: .*?(?:os error 12|ENOMEM)',
+                                          after=request_start, seconds=3)
+                closed, _ = uart_match(r'stream: .*socket closed in \d+ ms; releasing slot \(1 held\)',
+                                       after=request_start, seconds=3)
+                evidence[f'internal_refusal_{attempt}'] = dict(pthread_failure_line=pthread_failed, no_thread_line=no_thread, checked_close_line=closed)
+            state_ready(3)
+            ended, _ = uart_match(r'INTERNAL_END\b', after=ready, seconds=25)
+            end_fields = {key: int(value) for key, value in re.findall(r'\b([a-z_]+)=(\d+)', lines()[ended])}
+            end_fields['stack_probe_failed'] = bool(re.search(r'\bstack_probe_failed=true\b', lines()[ended]))
+            validate_internal_geometry(end_fields)
+            evidence['internal_pressure']['end'] = end_fields
+            released, _ = uart_match(r'INTERNAL_RELEASED\b', after=ended, seconds=3)
+            release_fields = {key: int(value) for key, value in re.findall(r'\b([a-z_]+)=(\d+)', lines()[released])}
+            evidence['internal_pressure']['release'] = release_fields
+            if release_fields.get('free', 0) < fields['experiment_floor'] or release_fields.get('largest', 0) < 4096:
+                raise Failure('released internal owners did not restore stack allocation geometry')
+            if release_fields.get('sampled_min', -1) < fields['experiment_floor']:
+                raise Failure('internal request window crossed sampled floor or lacks evidence')
+            during = telemetry(after=pressure_start, before=released)
+            if len(during) < 2:
+                raise Failure('missing capture observations across internal allocation/request window')
+            for sample in during:
+                unchanged(baseline[-1], sample, 'internal fragmentation')
+            state_ready(5)
+            pair(10, 'internal-recovered')
+            final, _ = uart_match(r'audio: frames=', after=len(lines()), seconds=12)
+            for sample in telemetry(after=released, before=final + 1):
+                unchanged(baseline[-1], sample, 'internal fragmentation and recovered playback')
+            window = lines()[pressure_start:final + 1]
+            if any('rst:0x' in line or 'requesting restart' in line or 'rebooting' in line or 'INTERNAL_FAILED' in line or 'Guru Meditation' in line or 'panic' in line.lower() or 'watchdog' in line.lower() for line in window):
+                raise Failure('internal pressure fixture failed or capture supervisor/reset intervened')
+            evidence['internal_pressure']['capture_heap'] = telemetry(after=pressure_start, before=final + 1)
         elif args.mode == 'pressure':
             pressure_start, _ = uart_match(r'PRESSURE_START', seconds=25)
             baseline = telemetry(before=pressure_start)

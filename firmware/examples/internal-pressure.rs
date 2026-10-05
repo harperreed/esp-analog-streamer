@@ -1,5 +1,5 @@
 // ABOUTME: Fragments real internal RAM while the unchanged firmware handles listener admission.
-// ABOUTME: Records actual stack allocation failures without exhausting the aggregate internal heap.
+// ABOUTME: Probes actual stack-sized allocation failure without exhausting the aggregate internal heap.
 
 // Flash with scripts/flash --example internal-pressure, with Shazam disabled and no listeners.
 // During INTERNAL_READY request FLAC: require no HTTP 200, ENOMEM and checked socket/slot release.
@@ -8,7 +8,6 @@
 // universal reserve guarantee: other tasks can allocate between the floor check and allocation.
 
 use std::io;
-use std::sync::atomic::{AtomicU32, Ordering};
 use std::time::Duration;
 
 use esp_idf_svc::hal::cpu::Core;
@@ -23,19 +22,6 @@ const STACK: usize = 4096;
 const HOLE: usize = 3072;
 const GUARD: usize = 512;
 const MAX_OWNERS: usize = 256;
-static STACK_FAILURES: AtomicU32 = AtomicU32::new(0);
-static OTHER_FAILURES: AtomicU32 = AtomicU32::new(0);
-
-// This separate fixture is the sole registration owner; production registers no hook.
-// No logging, allocation, or dereference of the allocator's function-name pointer occurs here.
-unsafe extern "C" fn allocation_failed(size: usize, caps: u32, _: *const core::ffi::c_char) {
-    if size == STACK && caps == CAPS {
-        STACK_FAILURES.fetch_add(1, Ordering::Relaxed);
-    } else {
-        OTHER_FAILURES.fetch_add(1, Ordering::Relaxed);
-    }
-}
-
 struct Owner {
     address: usize,
     bytes: usize,
@@ -130,6 +116,19 @@ fn allocate(
     Ok(true)
 }
 
+fn stack_probe() -> io::Result<()> {
+    // SAFETY: same strict capabilities and 4096-byte request as the listener pthread stack.
+    let ptr = unsafe { sys::heap_caps_malloc(STACK, CAPS) };
+    if !ptr.is_null() {
+        // SAFETY: the unexpected successful allocation is still owned here and freed once.
+        unsafe { sys::heap_caps_free(ptr) };
+        return Err(io::Error::other(
+            "strict stack probe unexpectedly succeeded",
+        ));
+    }
+    Ok(())
+}
+
 fn pressure() -> io::Result<()> {
     let mut owners = Vec::<Owner>::with_capacity(MAX_OWNERS);
     // Preallocate bounded internal metadata before fragmentation; no owner-list growth follows.
@@ -170,14 +169,20 @@ fn pressure() -> io::Result<()> {
     // These larger fillers cannot occupy the intentionally smaller isolated holes.
     while heap().1 >= STACK && allocate(&mut owners, STACK, &mut minimum, &mut observations)? {}
     let ready = heap();
+    minimum = minimum.min(ready.0);
     if released == 0 || ready.0 < FLOOR || ready.1 >= STACK {
         return Err(io::Error::other(
             "cannot form stack-sized fragmentation above experimental floor",
         ));
     }
-    let failures = STACK_FAILURES.load(Ordering::Relaxed);
-    log::info!("internal-pressure: INTERNAL_READY hold_seconds=20 free={} largest={} experiment_floor={} sampled_min={} holes={} stack_failures={} allocation_count={} max_allocated={} max_free_delta={}",
-        ready.0, ready.1, FLOOR, minimum, released, failures, observations.allocations, observations.max_allocated, observations.max_free_delta);
+    stack_probe()?;
+    let ready_after = heap();
+    minimum = minimum.min(ready_after.0);
+    if ready_after.0 < FLOOR || ready_after.1 >= STACK {
+        return Err(io::Error::other("geometry changed during READY probe"));
+    }
+    log::info!("internal-pressure: INTERNAL_READY hold_seconds=20 free={} largest={} experiment_floor={} sampled_min={} holes={} stack_probe_failed=true probe_before_free={} probe_before_largest={} allocation_count={} max_allocated={} max_free_delta={}",
+        ready_after.0, ready_after.1, FLOOR, minimum, released, ready.0, ready.1, observations.allocations, observations.max_allocated, observations.max_free_delta);
     for _ in 0..200 {
         std::thread::sleep(Duration::from_millis(100));
         minimum = minimum.min(heap().0);
@@ -188,19 +193,22 @@ fn pressure() -> io::Result<()> {
         }
     }
     let held = heap();
-    let stack_failures = STACK_FAILURES
-        .load(Ordering::Relaxed)
-        .wrapping_sub(failures);
+    minimum = minimum.min(held.0);
+    if held.0 < FLOOR || held.1 >= STACK {
+        return Err(io::Error::other("invalid geometry before END probe"));
+    }
+    stack_probe()?;
+    let end_after = heap();
+    minimum = minimum.min(end_after.0);
+    if end_after.0 < FLOOR || end_after.1 >= STACK {
+        return Err(io::Error::other("geometry changed during END probe"));
+    }
+    log::info!("internal-pressure: INTERNAL_END free={} largest={} experiment_floor={} sampled_min={} stack_probe_failed=true probe_before_free={} probe_before_largest={}",
+        end_after.0, end_after.1, FLOOR, minimum, held.0, held.1);
     owners.clear();
     let restored = heap();
-    log::info!("internal-pressure: INTERNAL_RELEASED held_free={} held_largest={} sampled_min={} free={} largest={} stack_failures={} other_failures={} baseline_free={} (live application allocations may change baseline)",
-        held.0, held.1, minimum, restored.0, restored.1, stack_failures,
-        OTHER_FAILURES.load(Ordering::Relaxed), baseline.0);
-    if stack_failures == 0 {
-        return Err(io::Error::other(
-            "no real 4096-byte INTERNAL|8BIT failure observed",
-        ));
-    }
+    log::info!("internal-pressure: INTERNAL_RELEASED sampled_min={} free={} largest={} baseline_free={} (live application allocations may change baseline)",
+        minimum, restored.0, restored.1, baseline.0);
     Ok(())
 }
 
@@ -213,13 +221,6 @@ fn main() -> anyhow::Result<()> {
     }
     .spawn(|| {
         std::thread::sleep(Duration::from_secs(15));
-        // SAFETY: generated callback ABI; this fixture alone owns process-global registration.
-        let result =
-            unsafe { sys::heap_caps_register_failed_alloc_callback(Some(allocation_failed)) };
-        if result != sys::ESP_OK {
-            log::error!("internal-pressure: INTERNAL_FAILED callback registration result={result}");
-            return;
-        }
         if let Err(error) = pressure() {
             log::error!("internal-pressure: INTERNAL_FAILED {error}; retained owners released");
         }
