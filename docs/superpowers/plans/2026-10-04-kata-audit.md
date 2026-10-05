@@ -1,5 +1,23 @@
 # Kata audit continuation
 
+## Current state
+
+Compaction count: 4. Fresh validation controller `/root/overnight_verify` owns the
+board, UART, flashes and evidence; root owns ticket integration. No board process
+is running. Production was restored and Shazam remains off under R26. Physical
+input is quiet (roughly -84 to -90 dBFS), so no worst-case input claim is valid.
+
+- Isolated capture health policy passed after the complete-line UART reader fix.
+- One FLAC and one WAV trickle admission round passed; TCP states reclaimed.
+- The requested six-hour production soak failed after 33.156 seconds. A separate
+  raw diagnosis confirmed terminal-frame truncation with valid complete frames;
+  no six-hour acceptance or transport root cause is established.
+- Independently reviewed PCB send-state observer and internal-pressure fixture
+  are being target-built. Do not flash until root hands over their clean builds.
+  Restore production after fixtures. No merges or pushes are authorized.
+- User-owned `.gitignore` and `.kata.toml` stay untouched. All failed evidence
+  remains in `docs/audit-evidence/2026-10-04/`, with raw files private in `target/`.
+
 Doctor Biz resumed the audit with `gpt-6.1-sol` subagents on 2026-10-04.
 The approved architecture and acceptance criteria remain in the 2026-10-03 plan.
 
