@@ -64,6 +64,26 @@ configuration and heap placement, per-window PCM rate and driver errors. Restore
 cache 32 if the comparison gives no meaningful benefit. No MSS experiment runs
 while this comparison is active.
 
-State: relay review fixes and cache comparison in progress. Compaction count
-inherited from audit: 5. Production restoration and strict decoded recovery are
-still required.
+## Integration checkpoint
+
+The relay and endpoint options are committed and independently reviewed. Five
+real loopback tests cover forwarding, drained half-close, backpressure, failed
+connect/reuse, connection limits and cancellation. The harness also accepts an
+explicit one-listener soak, with two still the default and all checks unchanged.
+
+Cache 64 removed measured driver failures but lost both en0 streams after about
+22 s, delivering only 10.752 s of PCM. Cache 32 is restored. The en0-relayed
+internal-pressure test again proved real refusal/cleanup above the sampled floor
+but failed decoded recovery. The encoder fixture again failed live-peer progress
+before its fault acceptance. These remain failed tests, not closed katas.
+
+Source review found synchronous logging before the approved close-failure reboot.
+The small correction keeps the failure-owned socket and slot alive and reaches
+`esp_restart` without the logger. Verification is source/ownership review and
+target compilation; close-failure injection and an unconditional SDK shutdown
+bound remain untested. No simulated reboot test was added.
+
+State: final canonical check and production restoration pending. Run two decoded
+listeners for 300 s; if that fails, test the common one-listener case for 600 s.
+Do not start a long soak without a passing bounded run or retune network buffers
+without new evidence. Compaction count inherited from audit: 5.

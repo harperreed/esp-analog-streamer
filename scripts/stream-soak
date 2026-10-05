@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# ABOUTME: Runs two real FLAC decoders while checking live capture counters and heap telemetry.
-# ABOUTME: Usage: scripts/stream-soak [HOST] [--seconds N] [--stream-port PORT] [--state-port PORT] [--out DIR]; resets once and keeps UART private.
+# ABOUTME: Runs real FLAC decoders while checking live capture counters and heap telemetry.
+# ABOUTME: Usage: scripts/stream-soak [HOST] [--seconds N] [--listeners 1|2] [--stream-port PORT] [--state-port PORT] [--out DIR]; resets once and keeps UART private.
 set -euo pipefail
 repo="$(cd "$(dirname "$0")/.." && pwd)"
 STREAM_SOAK_REPO="$repo" exec uv run --quiet --no-project python3 - "$@" <<'PY'
@@ -73,7 +73,7 @@ def port(value):
 def main():
     parser = argparse.ArgumentParser(
         prog='scripts/stream-soak',
-        description='Reset the board once, require Shazam off, then decode two real FLAC streams '
+        description='Reset the board once, require Shazam off, then decode one or two real FLAC streams '
         'to null for six hours by default. Check UART capture counters against a stable startup '
         'baseline and poll /api/state. UART logs are private. Run under caffeinate -is to prevent '
         'host sleep; keep continuous LINE IN audio playing. No flashing occurs. Decoder success '
@@ -81,6 +81,7 @@ def main():
         'A checked 128 MiB total output budget stops the run on overflow; logs are retained, not rotated.')
     parser.add_argument('host', nargs='?', default='esp-shazam.local')
     parser.add_argument('--seconds', type=seconds, default=21600.0)
+    parser.add_argument('--listeners', type=int, choices=[1, 2], default=2, help='simultaneous real decoders (default: 2)')
     parser.add_argument('--stream-port', type=port, default=8000, help='stream TCP port (default: 8000)')
     parser.add_argument('--state-port', type=port, default=80, help='state HTTP port (default: 80)')
     parser.add_argument('--out', help='parent output directory (default: target/stream-soak)')
@@ -218,7 +219,7 @@ def main():
         processes.append(serial)
         uart_tail = Tail(out / 'uart.log')
         tails.append(uart_tail)
-        record('start', host=args.host, stream_port=args.stream_port, state_port=args.state_port, ip=ip, requested_seconds=args.seconds, listeners=2)
+        record('start', host=args.host, stream_port=args.stream_port, state_port=args.state_port, ip=ip, requested_seconds=args.seconds, listeners=args.listeners)
         startup_deadline = time.monotonic() + 60
         state_seen = False
         next_state = 0
@@ -245,7 +246,7 @@ def main():
             if time.monotonic() >= startup_deadline:
                 raise Failure('no stable post-startup capture/UART/state baseline within 60 seconds')
             time.sleep(0.2)
-        for index in (1, 2):
+        for index in range(1, args.listeners + 1):
             label = f'listener-{index}'
             errors_path = out / f'{label}.ffmpeg.log'
             error_handle = errors_path.open('wb')
@@ -287,7 +288,7 @@ def main():
                 raise Failure('decoders exceeded requested duration plus 60 seconds of wall time')
             time.sleep(0.5)
         finished_at = time.monotonic()
-        # Require a UART sample after both decoders finish, covering their final capture window.
+        # Require a UART sample after all decoders finish, covering their final capture window.
         final_deadline = finished_at + 20
         while latest_at <= finished_at:
             uart_updates()
@@ -320,7 +321,7 @@ def main():
         except Exception as error:
             failure = failure or str(error)
         summary = dict(passed=failure is None, error=failure, host=args.host, stream_port=args.stream_port, state_port=args.state_port, ip=ip,
-                       requested_seconds=args.seconds, elapsed_seconds=round(time.monotonic() - started, 3),
+                       requested_seconds=args.seconds, listeners=args.listeners, elapsed_seconds=round(time.monotonic() - started, 3),
                        decoded_seconds=[job['decoded_seconds'] for job in jobs], state_polls=state_polls,
                        baseline=baseline, last_capture=latest, captured_frames_observed=captured,
                        capture_samples=samples, minimums=minimums, runtime_invalid_windows=runtime_invalid_windows,
