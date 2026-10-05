@@ -20,5 +20,5 @@
     "experiment_floor": 32768,
     "metadata_bytes": 2048
   },
-  "interpretation": "The fixture could not form required fragmented geometry above its unchanged experimental 32768-byte floor. No READY or real admission failure occurred, so this provides no internal-pressure acceptance. Final failed geometry was not logged. State level -120 dBFS indicated effectively zero source. Failure was preserved without threshold relaxation or blind retry."
+  "interpretation": "The fixture could not form required fragmented geometry above its unchanged experimental 32768-byte floor. No READY or real admission failure occurred, so this provides no internal-pressure acceptance. Final failed geometry was not logged. One early state level was -120 dBFS; this does not establish the physical source because later probe readings returned to quiet ADC noise. Failure was preserved without threshold relaxation or blind retry."
 }

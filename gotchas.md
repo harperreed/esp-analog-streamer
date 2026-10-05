@@ -296,3 +296,8 @@ a plain global function pointer. One registration owner and allocator thread
 safety prose do not establish safe late publication to concurrent callers.
 The pressure fixture uses direct real allocation probes and actual admission
 errors instead. Verify pinned source before adding a diagnostic callback.
+
+An early post-reset level of -120 dBFS does not prove that the physical source
+went silent. Keep the reading's time and compare later meter samples and decoded
+RMS. The output probe began at -120 then read -86/-84.6, while decoded audio RMS
+was about -82.42 dBFS and encoded frames stayed roughly 11 KB.

@@ -387,5 +387,19 @@ fragmentation above the unchanged 32,768 B experimental floor. START geometry
 was free 80,283 B / largest 77,824 B; final failed geometry was not logged.
 No admission failure or decoded recovery was tested. Preserve
 `failed-internal-pressure-geometry.json`; no threshold relaxation or blind retry.
-State reported -120 dBFS, so source is now effectively zero. Output-observer
+One early state reported -120 dBFS; this does not establish a physical source change. Output-observer
 fixture flash is underway; restore production and final canonical check follow.
+
+`66f2717` output observer with two direct raw-file drainers recorded hook installed,
+2,364 single-pbuf output calls, 49 single-pbuf ERR_MEM results and no chained or
+other errors. Pinned source maps the single-pbuf result to actual driver
+ESP_ERR_NO_MEM; all STA ports are counted, and no proprietary pool is identified.
+Both streams ended naturally after about 24–25 s since admission with partial
+terminal frames. Complete prefixes contain 136/138 valid frames and decode
+cleanly; all 136 shared complete frames match. Eight capture samples stayed flat.
+API polling retained four timeouts. Early -120 dBFS meter readings later became
+-86/-84.6; decoded overall RMS was about -82.42 dBFS and frames about 11 KB.
+This was quiet nonconstant input, not constant silence, FIP music or worst-case
+input. `driver-output-errors.json` preserves all counters and raw references.
+No transport/endurance pass follows. Failure-only pressure geometry diagnostics
+are being reviewed before one further observation; no allocation policy changes.
