@@ -2,8 +2,11 @@
 
 ## Now
 - Step: Task 15b (send buffer, Wi-Fi and lwIP buffers in PSRAM, about 4 s of ring slack; SDD R29) is running. Its implementer pings the controller the moment FLAC holds 2 minutes, so Harper can test. Task 16 (`/stream.flac`) is complete (85b2a01..c7a3aa9; review approved, 10 minor notes queued for a cleanup round after 15b). Our own RFC 9639 encoder is bit-exact in claxon, ffmpeg and libFLAC, at 64-71% of the WAV bitrate. Harper on FLAC in VLC: "seems to time out after a 10-15 seconds". Task 15 (`/stream.wav`) is complete (d551902..cde2d7d), with modem sleep off (SDD R27). Task 14b is complete (d7e7d0e..b06e6a0; review approved, 5 minor notes). Capture works on the board with 32-bit slots, APLL MCLK, no lost buffers and a 45 ms I2S queue. With the flag off, the page reads "Shazam is off · <level> dBFS" and the level is live. `cfg.toml` has `shazam_enabled = false`. Navigator was initialized (76a45b7), with the judge on (2f1520c). Task 14a is complete (9d02a98, 615d277, 8ac51b4; review approved).
-- Next: Task 15b (send-buffer tuning, sized by measurements on the FLAC stream; SDD R29), Harper listens in VLC on the Mac (does it sound right, and is left on the left?), Task 12 (device E2E and README), then the final whole-branch review.
+- Next: finish Task 15b (with audit issues 6yb1, 7j8s, kjfx folded in), then Task 17 (the rest of the auditor's kata issues, plus Task 16's queued minors), Task 12 (device E2E and README), then the final whole-branch review.
 - Open (Harper):
+  - Audit 3pz5: when capture stalls, what should the board do? Restart capture, reboot, or only report it?
+  - Audit f8rn: how many listeners at once? It decides whether FLAC encodes once for everyone or per listener.
+  - Does the stream sound right, and is left on the left?
   - Should a phone browser play the stream? An endless WAV or FLAC can't do that in Safari, which needs HLS (a separate feature). VLC on the phone would work without it.
   - Shazam and the stream don't fit in internal RAM together: one listener costs 17-25 KB and two 41-55 KB, against about 9-10 KB spare with Shazam on once the idle stream server (5.7-5.8 KB) is counted. Candidate fixes: Wi-Fi and lwIP buffers in PSRAM (untested), or mbedTLS in PSRAM (a security call).
   - The code default of `shazam_enabled` is still `true`; only `cfg.toml` turns it off. Flip the default too?
@@ -3827,6 +3830,23 @@ Harper: "can we do flac?" This is lossless compression of the same 48 kHz stereo
   - Encoder CPU is measured: ms per 4096-frame block, which must stay well under the block's 85 ms of audio.
   - With Shazam on and a FLAC listener, 0 TLS failures over 5 asks, and min free internal RAM ≥10 KB.
 - Note in the README which players were tried (ffmpeg/ffplay at least; VLC if available).
+
+---
+
+### Task 17: The auditor's kata issues (after Task 15b)
+
+On 2026-10-04 Harper had an auditor review the code. It filed 17 kata issues labelled `flac-audit` (`kata list`, `kata show <id>`); each issue holds its own acceptance criteria. Task 15b takes 6yb1, 7j8s and kjfx, plus zqnh's stale comment. The diag-only issues (hb9p, sznz, b69f, 3db1, vya4) concern code that never ships. This task takes the rest:
+- 53gv: count capture overflows in the production build, and bound the audio thread's lock waits.
+- 5es1: release listeners when capture stops producing audio.
+- nr6z: fallible PSRAM allocations for listener buffers, and a clean refusal when they fail.
+- zqnh: a bounded reclamation policy for closing connections.
+- 3py4: the supported envelope at worst-case FLAC bitrate.
+- 23mz: if Task 15b doesn't settle it.
+- r759: constant subframes.
+- Task 16's queued minors (ledger).
+- 3pz5 and f8rn wait on Harper's calls (`## Now`, Open).
+
+Close each kata issue with its commit and test evidence (`kata close <id> --done --message … --commit … --test …`).
 
 ---
 
