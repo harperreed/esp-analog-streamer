@@ -171,6 +171,23 @@ fn pressure() -> io::Result<()> {
     let ready = heap();
     minimum = minimum.min(ready.0);
     if released == 0 || ready.0 < FLOOR || ready.1 >= STACK {
+        // Failure-only observations retain owners until this bounded dump finishes.
+        // UART/log scheduling can perturb this failed experiment; it is not acceptance
+        // evidence or an exact capture measurement. Zero addresses were already freed.
+        const DUMP_LIMIT: usize = 64;
+        log::error!("internal-pressure: INTERNAL_GEOMETRY_FAILED free={} largest={} sampled_min={} experiment_floor={} released={} owners={} dump_rows={} truncated={} allocations={} max_allocated={} max_free_delta={} (failure-only diagnostic before unwind)",
+            ready.0, ready.1, minimum, FLOOR, released, owners.len(), owners.len().min(DUMP_LIMIT),
+            owners.len() > DUMP_LIMIT, observations.allocations, observations.max_allocated, observations.max_free_delta);
+        for (index, owner) in owners.iter().take(DUMP_LIMIT).enumerate() {
+            let role = match owner.bytes {
+                HOLE => "hole",
+                GUARD => "guard",
+                STACK => "filler",
+                _ => "unknown",
+            };
+            log::error!("internal-pressure: geometry_owner index={index} role={role} requested={} address=0x{:08x} released={}",
+                owner.bytes, owner.address, owner.address == 0);
+        }
         return Err(io::Error::other(
             "cannot form stack-sized fragmentation above experimental floor",
         ));
