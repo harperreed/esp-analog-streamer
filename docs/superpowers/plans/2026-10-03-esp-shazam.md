@@ -1,7 +1,7 @@
 # esp-shazam Implementation Plan
 
 ## Now
-- Step: PAUSED at Harper's request (2026-10-04, about 20:50). Task 15b is stopping at a safe point, and its report will list what remains. Task 17a's core agent was stopped before it changed anything. To resume: read task-15b-report.md, finish 15b (its remaining runs, the 6yb1/7j8s/kjfx folds, the clean image), then start Task 17a. So far: FLAC held 4.3 min for Harper in VLC and 10 min in the agent's run, on a 46,080 B send buffer, lwIP in PSRAM and an 8 s stream ring (diag build). Task 16 is complete (85b2a01..c7a3aa9), and so is Task 15 (d551902..cde2d7d).
+- Step: PAUSED at Harper's request (2026-10-04, 20:39). Task 15b stopped cleanly: ee68892 (46,080 B send buffer, lwIP in PSRAM first, 8 s ring) and cf42331 (one deadline per frame write, kjfx). Still open from 15b (its report): WAV 10 min, a clean two-listener run, the board checks of kjfx, 6yb1, the rest of 7j8s, and a clean image. The board runs 15b's DIAG image 3 (Shazam off), which carries the diag hook and routes the audit flagged. Another session (Harper's audit continuation, `docs/superpowers/plans/2026-10-04-kata-audit.md`) works in this checkout: it committed fed9e42 (r759) and is building the shared FLAC ring (f8rn, Task 17a here). Who owns the checkout and the board is Harper's call. This session doesn't touch that session's files.
 - Next: finish Task 15b (with audit issues 6yb1, 7j8s and kjfx folded in). Task 17a's core part (the shared FLAC frame ring) runs now in its own worktree; its firmware part follows 15b. Then Tasks 17b-d (the rest of the audit), Task 12 (device E2E and README), and the final whole-branch review.
 - Open (Harper):
   - Does the stream sound right, and is left on the left?
