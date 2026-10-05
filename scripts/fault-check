@@ -1,16 +1,18 @@
 #!/usr/bin/env bash
 # ABOUTME: Verifies real capture faults or PSRAM-pressure admission against separately flashed hardware fixtures.
-# ABOUTME: Usage: scripts/fault-check --mode capture|pressure [HOST] [--path /stream.flac|/stream.wav] [--out DIR]; resets UART, never flashes.
+# ABOUTME: Select stream path and listener count with --help; resets UART, never flashes.
 set -euo pipefail
 usage() {
     cat <<'HELP'
-Usage: scripts/fault-check --mode capture|pressure [HOST] [--path /stream.flac|/stream.wav] [--out DIR]
+Usage: scripts/fault-check --mode capture|pressure [HOST] [--path /stream.flac|/stream.wav] [--listeners 1|2] [--out DIR]
 Flash capture-faults or listener-pressure first, with Shazam disabled. This check resets
 the board through scripts/serial-log, records private UART logs, and uses real HTTP audio.
 Keep audio playing and run under caffeinate -is to prevent host sleep. No flashing occurs.
 HOST defaults to esp-shazam.local; output defaults to target/fault-check/<dated run>.
 Capture defaults to /stream.flac; /stream.wav checks WAV freshness.
-Pressure requires /stream.flac and no existing listeners. Capture allows 4.5 s for EOF after suspension:
+Listeners default to 2; capture supports 1 to isolate WAV freshness without two-stream load.
+Only 2-listener runs check the admission cap. Pressure requires FLAC, 2 listeners, and no existing clients.
+Capture allows 4.5 s for EOF after suspension:
 2 s freshness timeout plus 2.5 s close/network/scheduling slack.
 HELP
 }
@@ -19,6 +21,8 @@ mode=""
 host=""
 stream_path="/stream.flac"
 path_seen=""
+listeners=2
+listeners_seen=""
 while [ "$#" -gt 0 ]; do
     case "$1" in
         --help) usage; exit 0 ;;
@@ -28,6 +32,9 @@ while [ "$#" -gt 0 ]; do
         --path)
             [ "$#" -ge 2 ] && [ -z "$path_seen" ] && [[ "$2" = /stream.flac || "$2" = /stream.wav ]] || { echo 'FAIL --path requires /stream.flac or /stream.wav once' >&2; exit 2; }
             stream_path="$2"; path_seen=yes; shift 2 ;;
+        --listeners)
+            [ "$#" -ge 2 ] && [ -z "$listeners_seen" ] && [[ "$2" = 1 || "$2" = 2 ]] || { echo 'FAIL --listeners requires 1 or 2 once' >&2; exit 2; }
+            listeners="$2"; listeners_seen=yes; shift 2 ;;
         --out)
             [ "$#" -ge 2 ] && [ -n "$2" ] && [[ "$2" != --* ]] || { echo 'FAIL --out requires a directory' >&2; exit 2; }
             shift 2 ;;
@@ -37,6 +44,7 @@ while [ "$#" -gt 0 ]; do
 done
 [ -n "$mode" ] || { echo 'FAIL --mode is required (see --help)' >&2; exit 2; }
 [[ "$mode" != pressure || "$stream_path" = /stream.flac ]] || { echo 'FAIL pressure requires --path /stream.flac' >&2; exit 2; }
+[[ "$mode" != pressure || "$listeners" = 2 ]] || { echo 'FAIL pressure requires --listeners 2' >&2; exit 2; }
 repo="$(cd "$(dirname "$0")/.." && pwd)"
 FAULT_CHECK_REPO="$repo" exec uv run --quiet --no-project python3 - "${original[@]}" <<'PY'
 import argparse
@@ -64,9 +72,12 @@ def main():
     parser.add_argument('host', nargs='?', default='esp-shazam.local')
     parser.add_argument('--out')
     parser.add_argument('--path', default='/stream.flac', choices=['/stream.flac', '/stream.wav'])
+    parser.add_argument('--listeners', type=int, default=2, choices=[1, 2])
     args = parser.parse_args()
     if args.mode == 'pressure' and args.path != '/stream.flac':
         parser.error('pressure requires --path /stream.flac')
+    if args.mode == 'pressure' and args.listeners != 2:
+        parser.error('pressure requires --listeners 2')
     repo = Path(os.environ['FAULT_CHECK_REPO'])
     os.umask(0o077)
     out = Path(args.out or repo / 'target/fault-check').resolve() / datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%S.%fZ')
@@ -316,7 +327,7 @@ def main():
             evidence['post_pressure_capture_heap'] = final_pressure
         else:
             baseline = decoder('capture-baseline')
-            observer = drain_observer()
+            observer = drain_observer() if args.listeners == 2 else None
             advancing(baseline, 2, 6)
             if any('marker=SHORT_SUSPEND' in line for line in lines()):
                 raise Failure('baseline decode did not establish progress before the fixed SHORT stage')
@@ -324,6 +335,13 @@ def main():
             marker('SHORT_RESUME', after=short)
             before_progress = duration(baseline)
             advancing(baseline, before_progress + 1, 3)
+            if args.listeners == 1:
+                close_after = len(lines())
+                stop_process(baseline['process'])
+                uart_match(r'stream: .*socket closed .*releasing slot \(1 held\)', after=close_after, seconds=4)
+                observer = drain_observer()
+                if any('marker=RECOVERY_SUSPEND' in line for line in lines()):
+                    raise Failure('single EOF observer was not established before recovery suspension')
             recovery = marker('RECOVERY_SUSPEND', after=short, seconds=15)
             suspended_at = time.monotonic()
             ended_by = time.monotonic() + 4.5
@@ -371,7 +389,10 @@ def main():
             marker('POST_REBOOT', after=boot + 1, seconds=3)
             evidence['ordered_reboot_lines'] = [final, restart, reboot, boot]
             state_ready(5)
-            pair(8, 'capture-post-reboot')
+            if args.listeners == 2:
+                pair(8, 'capture-post-reboot')
+            else:
+                completed(decoder('capture-post-reboot', 8))
             uart_match(r'audio: frames=', after=len(lines()), seconds=12)
             post_reboot = telemetry(after=reboot + 1)
             if len(post_reboot) < 2:
@@ -399,6 +420,7 @@ def main():
         for handle in handles:
             handle.close()
         summary = dict(passed=failure is None, error=failure, mode=args.mode, host=args.host, path=args.path,
+                       listeners=args.listeners, admission_cap_checked=args.listeners == 2,
                        elapsed_seconds=round(time.monotonic() - started, 3), evidence=evidence,
                        log_directory=str(out), uart_log=str(uart),
                        note='UART is private; decoded duration establishes playback, not independent DMA continuity.')
