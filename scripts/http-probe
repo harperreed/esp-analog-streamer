@@ -40,6 +40,7 @@ def main():
     parser = argparse.ArgumentParser(
         prog='scripts/http-probe', description='Read-only GET /api/state phase timing: connect, send, headers, body and local socket close. '
         'One absolute deadline covers connect through body (default 5 s, matching server socket timeout). '
+        'first_byte_ms measures from request start; response_bytes_received includes headers and body framing. '
         'Resolve IPv4 once before requests; DNS lies outside their deadline. Require HTTP 200, JSON and Shazam false. '
         'Verify Content-Length when present; support production chunked framing. Bound headers to 8 KiB, decoded body to 64 KiB. '
         'Continue the fixed sample count after errors, then exit 1 if any failed. Private JSONL stores timings, not response data. '
@@ -68,6 +69,7 @@ def main():
             until = started + args.deadline
             phase = 'connect'
             result = dict(sample=index + 1, passed=False, timings_ms={})
+            result['first_byte_ms'] = None
             buffered = bytearray()
             wire_bytes = 0
 
@@ -80,6 +82,8 @@ def main():
                 data = peer.recv(4096)
                 if not data:
                     raise ProbeFailure('premature EOF')
+                if result['first_byte_ms'] is None:
+                    result['first_byte_ms'] = round((time.monotonic() - started) * 1000, 3)
                 wire_bytes += len(data)
                 if wire_bytes > 144 * 1024:
                     raise ProbeFailure('wire size bound')
@@ -188,6 +192,7 @@ def main():
                 peer.close()
                 result['timings_ms']['local_close'] = round((time.monotonic() - phase_started) * 1000, 3)
             result['total_ms'] = round((time.monotonic() - started) * 1000, 3)
+            result['response_bytes_received'] = wire_bytes
             log.write(json.dumps(result) + '\n')
             log.flush()
             print(json.dumps(result), flush=True)

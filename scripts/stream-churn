@@ -101,6 +101,18 @@ def main():
 
     def connect(label, timeout=3):
         peer = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        timing = dict(connect_ms=None, send_ms=None, first_byte_ms=None, header_ms=None)
+        head = bytearray()
+        began = time.monotonic()
+        phase = "setup"
+
+        def report_timing(success):
+            # Milestones are cumulative milliseconds from the start of this attempt.
+            record("connection_timing", label=label, success=success,
+                   failure_phase=None if success else phase, **timing,
+                   partial_received_bytes=len(head),
+                   elapsed_ms=round((time.monotonic() - began) * 1000, 3))
+
         try:
             # Set before connect so the SYN advertises a small window. Retained peers only
             # read after admission when trickling is requested; record the OS buffer as evidence.
@@ -108,9 +120,13 @@ def main():
             receive_buffer = peer.getsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF)
             deadline = time.monotonic() + timeout
             peer.settimeout(timeout)
+            phase = "connect"
             peer.connect((ip, 8000))
+            timing["connect_ms"] = round((time.monotonic() - began) * 1000, 3)
+            phase = "send"
             peer.sendall(f"GET {args.path} HTTP/1.1\r\nHost: esp-shazam\r\n\r\n".encode("ascii"))
-            head = bytearray()
+            timing["send_ms"] = round((time.monotonic() - began) * 1000, 3)
+            phase = "response_head"
             while b"\r\n\r\n" not in head:
                 left = deadline - time.monotonic()
                 if left <= 0:
@@ -119,9 +135,13 @@ def main():
                 chunk = peer.recv(1024)
                 if not chunk:
                     raise CheckFailure(f"{label}: connection closed before response head")
+                if timing["first_byte_ms"] is None:
+                    timing["first_byte_ms"] = round((time.monotonic() - began) * 1000, 3)
                 head.extend(chunk)
                 if len(head) > 4096:
                     raise CheckFailure(f"{label}: response head exceeds 4096 bytes")
+            timing["header_ms"] = round((time.monotonic() - began) * 1000, 3)
+            phase = "status_line"
             line = bytes(head).split(b"\r\n", 1)[0].decode("ascii")
             parts = line.split(" ", 2)
             if len(parts) < 2 or parts[0] != "HTTP/1.1":
@@ -130,8 +150,10 @@ def main():
             record("admission", label=label, status=status, status_line=line,
                    receive_buffer_bytes=receive_buffer,
                    initial_body_bytes=len(head.split(b"\r\n\r\n", 1)[1]))
+            report_timing(True)
             return peer, status
         except Exception as error:
+            report_timing(False)
             peer.close()
             if isinstance(error, CheckFailure):
                 raise
