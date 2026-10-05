@@ -349,3 +349,10 @@ The en0 cache64 control removed observed driver errors but both peers still
 fell a ring behind near 22 s and delivered only10.752 s PCM. Earlier cache 32 held
 60 s with 128 errors. Cache-error counts and playback acceptance measure different
 things; neither zero errors nor a larger cache establishes a fix. Keep cache 32.
+
+
+Final en0-relayed production checks also failed: two peers lost API response
+within 32.159 s; one peer naturally fell a ring behind after 71.3 s and decoded
+59.050667 s. Per-socket interface control is useful evidence, not a proven
+solution. Keep state timeouts, natural UART close reasons and cleanup decoder
+errors distinct, and do not launch a long soak from socket lifetime alone.

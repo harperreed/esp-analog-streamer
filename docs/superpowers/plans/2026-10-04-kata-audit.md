@@ -4,12 +4,13 @@
 
 Compaction count: 5. Exclusive validation controller `/root/overnight_verify`
 owns live board, UART and flash state; message it before hardware access. Root
-owns ticket integration. Last confirmed completed image/test: encoder-faults
-at cache 32, en0-relayed check begun 2026-10-05 07:12:00 UTC. Both peers hit
-write deadlines before ARM; recent-body precondition failed. The earlier strict
-pressure run also failed decoded recovery. Hold final production flash for the
-reviewed close-failure logger correction, then bounded actual decoding. Message
-the controller for current process state.
+owns ticket integration. FINAL PRODUCTION RESTORED: normal image 7ee8a2a
+with ac93d16 close fix flashed successfully 2026-10-05 07:21:26 UTC; generated
+and boot cache 32/static TX 16/MSS 1440/send 46080 verified, no fixture markers.
+Last bounded tests failed: two-peer 300 s at 32.159 s on API timeout; one-peer 600 s
+at 96.052 s on API timeout with independent ring lag after 71.3 s. All owned host
+clients, UART collectors and relay were cleaned; production remains running.
+Message the controller before hardware access. No long soak acceptance pass.
 No merges or pushes are authorized. Shazam stays off under R26.
 
 - Isolated capture health policy passed after complete-line UART reader repair.
@@ -130,7 +131,7 @@ disabled under R26. Physical source correction: the player is streaming FIP.
   18.76% with one FLAC listener, 19.17% with two. Output stays ~11.72 blocks/s,
   resets zero. One/two-listener FIP checks all passed. Worst-case source and
   Shazam-on evidence remain outstanding.
-- `01cf98d` requires PSRAM and enables static TX16/cache32 while preserving
+- `01cf98d` requires PSRAM and enables static TX16/cache 32 while preserving
   RX10/dynamicRX32/BA6/OOSEQ4. Generated config, source review, and canonical
   checks pass. It adds rolling heap minimum sums; board candidate tests remain.
 - `05bde2a` enables two-second positive linger and keeps the listener slot until
@@ -482,13 +483,13 @@ in `target/audit-flac-tee/20261005T064355.718928Z` and
 Next: reviewed local en0 relay for strict pressure recovery, then mandatory
 production restoration, refreshed canonical check after host harness changes,
 and at least five minutes of actual two-decoder production validation before
-considering a long soak. Cache32/MSS1440 remain unchanged.
+considering a long soak. Cache32/MSS 1440 remain unchanged.
 
 
 ## Cache-capacity en0 control — 2026-10-05 06:56 UTC
 
 The approved temporary cache 64 only observer built without compiler warnings;
-generated header and boot verified 64, staticTX16/MSS1440/send46080 unchanged.
+generated header and boot verified 64, static TX 16/MSS 1440/send 46080 unchanged.
 Two actual en0-bound sockets naturally ended after 22.0538/21.9275s receiving.
 Each file contained 126 matching complete sequential CRC-valid frames, decoded
 10.752 s PCM cleanly, with no terminal partial. First 20 s delivered10.4107 s PCM;
@@ -501,7 +502,7 @@ versus 81975 B (+24 B), support sampled placement only. Full temporal output
 increments and receive windows remain in `en0-cache64-observation.json`;
 private raw path `target/audit-flac-tee/20261005T065638.371359Z`.
 
-Sourcecache32 restored; no permanent firmware configuration change. Reviewed
+Sourcecache 32 restored; no permanent firmware configuration change. Reviewed
 host relay changes and canonical check follow, then strict pressure via explicit
 en0 relay and mandatory final production flash. No 6 h soak before bounded decoded
 production acceptance.
@@ -510,7 +511,7 @@ production acceptance.
 ## Strict pressure via en0 relay — 2026-10-05 07:04 UTC
 
 Reviewed relay/harness endpoints forwarded real traffic through en0 index 11,
-with 16 KiB relay buffers and no routing changes. Cache32/MSS1440 were generated
+with 16 KiB relay buffers and no routing changes. Cache32/MSS 1440 were generated
 and flashed. Ready free 35119 B/largest 3712 B with 10 holes; both 4096-byte probes
 returned NULL. Two real pthread ENOMEM refusals produced zero-byte EOF and
 checked closes. End free 34895 B/largest 3712 B; sampled minimum 34483 B remained
@@ -549,3 +550,37 @@ warnings. A newly reviewed narrow logger fix requires another canonical check
 before mandatory final production restoration. Then two actual decoders run
 for five minutes through en0 relay; if that fails, collect one-listener 10 min
 without further buffer/MSS changes. No long soak starts from held socket counts.
+
+
+## Final production restoration and bounded failures — 2026-10-05 07:21–07:24 UTC
+
+Normal production 7ee8a2a/ac93d16 flashed without example at 07:21:26 UTC exit 0.
+Generated config and UART boot verify cache 32/static TX 16/MSS 1440/send 46080;
+fixture markers absent. Real state polls verified Shazam false. Source/config/ELF
+hashes are embedded in both final evidence files. Exact-source canonical
+check passed 188 Rust tests, two existing ignored, five real relay tests, harness
+regressions, fmt/clippy, firmware build and warnings before flash.
+
+The 300 s two-decoder en0-relayed check failed 32.159 s on actual state timeout
+(seven earlier successful polls), with no decoded progress at the live summary.
+Cleanup final progress was 0.597333/0.170667 s. Each decoder's stderr separately
+starts with Immediate exit requested then residual/decode errors; raw bytes
+were not retained, so do not claim independent encoder corruption. UART
+admitted both, but collection stopped before natural close evidence.
+
+The authorized 600 s single-decoder check failed 96.052 s on state timeout.
+Independent UART peer departure was ring lag after 71.3 s, checked close 2191 ms;
+ffmpeg decoded 59.050667 s and reported premature HTTP end at 7882060 bytes.
+Capture frames advanced and all capture fault counter deltas stayed zero.
+Actual sampled heap/state/decoder data remains in the full reports. Neither
+bounded test passed, so no blind six-hour rerun follows.
+
+Structured final failures:
+`docs/audit-evidence/2026-10-04/failed-final-production-two-en0.json` and
+`failed-final-production-one-en0.json`. Raw paths:
+`target/audit-final-production-two-en0/20261005T072141.403548Z` and
+`target/audit-final-production-one-en0/20261005T072243.114765Z`.
+All owned decoders/UART/relay were cleaned; relay termination exited0 and a
+process inventory confirmed no owned client remained. Board stays on normal
+production with Shazam off. Routed playback, strict pressure/encoder recovery,
+worst-case physical input, on-profile tests and long endurance remain open.
