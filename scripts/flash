@@ -1,18 +1,55 @@
 #!/usr/bin/env bash
-# ABOUTME: Builds the release firmware and flashes it with the ESP-IDF 5.5.5 bootloader and partitions.csv.
-# ABOUTME: Usage: scripts/flash [--monitor]. Port: $ESPFLASH_PORT, default /dev/cu.usbserial-0001.
+# ABOUTME: Builds and flashes release firmware or a hardware-check example with the IDF bootloader and partitions.
+# ABOUTME: Usage: scripts/flash [--example NAME] [--monitor]. Port: $ESPFLASH_PORT, default /dev/cu.usbserial-0001.
 set -euo pipefail
+usage() {
+    cat <<'HELP'
+Usage: scripts/flash [--example NAME] [--monitor]
+Build and flash the release firmware, or a named firmware example for hardware verification.
+
+  --example NAME  Build firmware/examples/NAME.rs and flash its ELF (letters, digits, _ or -).
+  --monitor       Open the serial monitor after flashing.
+  --help          Show this help without building or accessing hardware.
+
+ESPFLASH_PORT selects the serial port; default: /dev/cu.usbserial-0001.
+HELP
+}
+monitor=false
+example=""
+while [ "$#" -gt 0 ]; do
+    case "$1" in
+        --help) usage; exit 0 ;;
+        --monitor) monitor=true; shift ;;
+        --example)
+            if [ "$#" -lt 2 ] || [[ ! "$2" =~ ^[[:alnum:]_-]+$ ]] || [ -n "$example" ]; then
+                echo "FAIL  --example requires one simple name (letters, digits, _ or -)" >&2
+                exit 2
+            fi
+            example="$2"
+            shift 2
+            ;;
+        *) echo "FAIL  unknown argument: $1 (see scripts/flash --help)" >&2; exit 2 ;;
+    esac
+done
 cd "$(dirname "$0")/../firmware"
+if [ -n "$example" ] && [ ! -f "examples/$example.rs" ]; then
+    echo "FAIL  no firmware example: examples/$example.rs" >&2
+    exit 2
+fi
 mise_env="$(mise env -s bash)" || { echo "FAIL  mise   (run: mise trust && mise install)"; exit 1; }
 eval "$mise_env" # cmake, ninja, ldproxy, espflash from mise.toml
 if [ -f "$HOME/export-esp.sh" ]; then . "$HOME/export-esp.sh"; fi
 # +esp outranks the RUSTUP_TOOLCHAIN that mise exports
-cargo +esp build --release
+build_args=(--release)
+if [ -n "$example" ]; then build_args+=(--example "$example"); fi
+cargo +esp build "${build_args[@]}"
 out=target/xtensa-esp32-espidf/release
+elf="$out/esp-shazam"
+if [ -n "$example" ]; then elf="$out/examples/$example"; fi
 # espflash's bundled bootloader comes from IDF 6.1; esp-idf-sys builds the 5.5.5 one next to the ELF.
 # espflash rewrites the flash speed in both image headers (40 MHz unless told), so it must match
 # sdkconfig.defaults' CONFIG_ESPTOOLPY_FLASHFREQ_80M.
 args=(--port "${ESPFLASH_PORT:-/dev/cu.usbserial-0001}" --chip esp32 --flash-size 4mb --flash-freq 80mhz
       --partition-table partitions.csv --bootloader "$out/bootloader.bin")
-if [ "${1:-}" = "--monitor" ]; then args+=(--monitor); fi
-espflash flash "${args[@]}" "$out/esp-shazam"
+if "$monitor"; then args+=(--monitor); fi
+espflash flash "${args[@]}" "$elf"
