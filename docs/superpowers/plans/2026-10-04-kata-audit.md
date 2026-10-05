@@ -330,3 +330,16 @@ reported HTTP premature EOF/demux I/O followed by invalid residual after decodin
 retained by the null-output soak, so malformed encoding versus truncated delivery
 remains unresolved. Preserve `failed-production-soak-decode.json`; do not retry
 blindly or claim long endurance. Board runs production with Shazam disabled.
+
+A bounded raw-byte tee diagnosis reproduced invalid residual with a truncated
+terminal frame. Peer 0 received complete frames 191–193 (all CRC16-valid) plus
+1,980 bytes of frame 194; its complete prefix decodes cleanly. Peer 1 received
+complete frames 192–198, all valid and cleanly decoded. Shared complete frames
+192/193 match byte-for-byte; the partial frame 194 matches the other peer's full
+frame prefix. Headers passed CRC8 and frame numbers were consecutive. HTTP
+framing was valid 200/Connection-close. UART saw an 8,029 ms write timeout and a
+separate ring-overrun closure, with flat capture faults; collector-to-socket
+mapping was not recorded. This sample finds transport truncation, not a malformed
+complete encoder frame; it does not make the failed soak pass or prove its exact
+mechanism. Evidence: `partial-flac-terminal-frame.json`; raw private bodies under
+`target/audit-flac-tee/20261005T053523.231346Z/`. Board remains production.

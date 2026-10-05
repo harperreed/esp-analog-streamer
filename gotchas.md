@@ -271,3 +271,9 @@ Read each decoder's stderr with its filename attached. Concatenating two files
 without labels made the overnight soak's one errored decoder look like two.
 Listener 2 had premature HTTP EOF, demux I/O and then invalid residual; listener 1
 had empty stderr. Log byte counts can verify that attribution without guessing.
+
+A whole-frame send deadline does not make TCP delivery atomic. The bounded raw
+tee diagnosis received three CRC16-valid FLAC frames then 1,980 bytes of a fourth;
+that partial tail matched the other peer's complete frame, and complete prefixes
+decoded cleanly. ffmpeg reported invalid residual only when it read the truncated
+tail. Check complete-frame CRCs and decode the prefix before blaming the encoder.
