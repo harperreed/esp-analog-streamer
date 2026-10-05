@@ -4,7 +4,6 @@
 - Step: Task 15b (send buffer, Wi-Fi and lwIP buffers in PSRAM, about 4 s of ring slack; SDD R29) is running. Its implementer pings the controller the moment FLAC holds 2 minutes, so Harper can test. Task 16 (`/stream.flac`) is complete (85b2a01..c7a3aa9; review approved, 10 minor notes queued for a cleanup round after 15b). Our own RFC 9639 encoder is bit-exact in claxon, ffmpeg and libFLAC, at 64-71% of the WAV bitrate. Harper on FLAC in VLC: "seems to time out after a 10-15 seconds". Task 15 (`/stream.wav`) is complete (d551902..cde2d7d), with modem sleep off (SDD R27). Task 14b is complete (d7e7d0e..b06e6a0; review approved, 5 minor notes). Capture works on the board with 32-bit slots, APLL MCLK, no lost buffers and a 45 ms I2S queue. With the flag off, the page reads "Shazam is off · <level> dBFS" and the level is live. `cfg.toml` has `shazam_enabled = false`. Navigator was initialized (76a45b7), with the judge on (2f1520c). Task 14a is complete (9d02a98, 615d277, 8ac51b4; review approved).
 - Next: finish Task 15b (with audit issues 6yb1, 7j8s, kjfx folded in), then Task 17 (the rest of the auditor's kata issues, plus Task 16's queued minors), Task 12 (device E2E and README), then the final whole-branch review.
 - Open (Harper):
-  - Audit f8rn: how many listeners at once? It decides whether FLAC encodes once for everyone or per listener.
   - Does the stream sound right, and is left on the left?
   - Should a phone browser play the stream? An endless WAV or FLAC can't do that in Safari, which needs HLS (a separate feature). VLC on the phone would work without it.
   - Shazam and the stream don't fit in internal RAM together: one listener costs 17-25 KB and two 41-55 KB, against about 9-10 KB spare with Shazam on once the idle stream server (5.7-5.8 KB) is counted. Candidate fixes: Wi-Fi and lwIP buffers in PSRAM (untested), or mbedTLS in PSRAM (a security call).
@@ -32,6 +31,7 @@
 - Approved: "Yes, flash now" (2026-10-04), flash Task 15's fix round (modem sleep off) and run its device checks
 - Approved: "why not just do the flac part, and then we can tune it from there" (2026-10-04), Task 16 (FLAC) before Task 15b's send-buffer tuning
 - Approved: "1" (2026-10-04), audit 3pz5's capture-stall policy: restart capture by itself, and reboot if that doesn't fix it
+- Approved: "i think we shoudl architect for scenario 2, but realistically it is 1" (2026-10-04), audit f8rn: build for 3-4 listeners (FLAC encoded once and shared), while expecting 2 or fewer
 - Compactions: 1
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
@@ -3845,7 +3845,7 @@ On 2026-10-04 Harper had an auditor review the code. It filed 17 kata issues lab
 - r759: constant subframes.
 - Task 16's queued minors (ledger).
 - 3pz5: supervise capture progress. Harper's policy (2026-10-04): restart capture by itself, and reboot if that doesn't fix it. Avoid false trips during network stalls or long fingerprints.
-- f8rn waits on Harper's listener-count call (`## Now`, Open).
+- f8rn: encode FLAC once and share the encoded frames between listeners, so CPU doesn't grow with listeners. Each listener keeps its own cursor, and slow listeners are still dropped. The cap stays 2 by default, and raising it is a one-constant change. Record internal RAM, PSRAM and Wi-Fi cost per listener, so a higher cap can be set from data. Harper (2026-10-04): architect for 3-4, realistically 2 or fewer.
 
 Close each kata issue with its commit and test evidence (`kata close <id> --done --message … --commit … --test …`).
 
