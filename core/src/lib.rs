@@ -4,6 +4,7 @@
 pub mod audio;
 pub mod decimate;
 pub mod flac;
+pub mod flac_ring;
 
 /// Shazam signature generation, copied from songrec-lib 0.5.4 (GPL-3.0-or-later, by marin-m).
 /// Kept as close to upstream as possible so the golden tests can demand identical bytes,
