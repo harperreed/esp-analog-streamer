@@ -300,3 +300,11 @@ UART line as a second post-reset sample and failed on its absent read_errors
 field. `failed-health-partial-uart.json` preserves this failure. A complete-line
 reader regression and fix are under independent review before fresh rerun.
 The board currently runs capture-faults; production restoration remains required.
+
+`9eeac3d` fixes both fault harnesses to observe only LF-terminated UART byte lines;
+real-file red/green regressions and independent review passed. Fresh isolated
+health run `20261005T052015.218828Z` PASS: actual software reset occurred 6.367 s
+after final suspension marker, ESP_RST_SW (3), and complete post-reset capture
+samples advanced with flat faults. `capture-health.json` preserves the evidence.
+This verifies capture-only health policy; Shazam-on false-reset acceptance remains
+excluded by R26 and no stream decoding/freshness is claimed from this mode.
