@@ -18,8 +18,9 @@ CONFIG_ESP32_REV_MIN_3=y
 CONFIG_SPIRAM=y
 CONFIG_SPIRAM_USE_MALLOC=y
 CONFIG_SPIRAM_MALLOC_ALWAYSINTERNAL=8191
-# Boot and report missing PSRAM instead of refusing to start.
-CONFIG_SPIRAM_IGNORE_NOTFOUND=y
+# The fixed Audio Kit requires mapped PSRAM for the capture and encoded-frame rings.
+# Fail at boot if it is absent rather than falling back to insufficient internal memory.
+# CONFIG_SPIRAM_IGNORE_NOTFOUND is not set
 
 # Flash and PSRAM at 80 MHz: the fingerprint's FFT buffers live in PSRAM (Task 11), so its speed is PSRAM-bound.
 CONFIG_ESPTOOLPY_FLASHFREQ_80M=y
@@ -47,7 +48,16 @@ CONFIG_LWIP_MAX_SOCKETS=16
 # Mac averaged 63-116 ms under load on 2026-10-04, so the WAV needs 33 KB in flight at 115 ms; the
 # default 5,760 bytes needs round trips under 20 ms (Task 15b).
 CONFIG_LWIP_TCP_SND_BUF_DEFAULT=46080
-# lwIP allocates from PSRAM first, so a full send buffer costs PSRAM rather than internal RAM, and idle
-# internal free rose about 12 KB. CONFIG_SPIRAM_IGNORE_NOTFOUND keeps the rest of ESP-IDF's PSRAM mode
-# for Wi-Fi off, so the Wi-Fi driver's 32 dynamic TX buffers stay in internal RAM.
+# General Wi-Fi/lwIP allocations prefer PSRAM but can fall back to internal RAM. Mandatory PSRAM
+# enables cached TX and the by-reference netif path. Static TX reserves about 25.6 KB internally;
+# its 32-entry cache handles queued packets. Verify heap and throughput on the board.
 CONFIG_SPIRAM_TRY_ALLOCATE_WIFI_LWIP=y
+CONFIG_ESP_WIFI_STATIC_TX_BUFFER=y
+# CONFIG_ESP_WIFI_DYNAMIC_TX_BUFFER is not set
+CONFIG_ESP_WIFI_STATIC_TX_BUFFER_NUM=16
+CONFIG_ESP_WIFI_CACHE_TX_BUFFER_NUM=32
+# Preserve receive/reordering bounds instead of adopting the PSRAM profile's larger defaults.
+CONFIG_ESP_WIFI_STATIC_RX_BUFFER_NUM=10
+CONFIG_ESP_WIFI_DYNAMIC_RX_BUFFER_NUM=32
+CONFIG_ESP_WIFI_RX_BA_WIN=6
+CONFIG_LWIP_TCP_OOSEQ_MAX_PBUFS=4

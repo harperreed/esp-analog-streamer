@@ -224,6 +224,9 @@ fn micros() -> u64 {
 }
 
 fn supervise() {
+    // Sole owner of IDF's process-global minimum-heap monitor. Allocate its small saved
+    // minima array once at boot, before measuring rolling windows under listener load.
+    let mut window_start_free = start_heap_window();
     let launched = micros();
     let mut epoch = None;
     let mut previous = FRAMES.load(Ordering::Relaxed);
@@ -259,7 +262,7 @@ fn supervise() {
         }
         if now >= next_log {
             if let Some(epoch) = epoch {
-                log_capture(now - epoch, observed);
+                log_capture(now - epoch, observed, &mut window_start_free);
             }
             next_log = now + 10_000_000;
         }
@@ -267,25 +270,50 @@ fn supervise() {
     }
 }
 
-fn log_capture(elapsed_us: u64, observed: u64) {
+fn start_heap_window() -> [usize; 2] {
+    use esp_idf_svc::sys;
+    // SAFETY: only the supervisor calls this process-global API. In pinned IDF 5.5.5,
+    // repeated start resets local minima and retains metadata, without allocating again
+    // (heap_caps.c:314-343), despite the header saying an active start would fail.
+    unsafe {
+        assert_eq!(
+            sys::heap_caps_monitor_local_minimum_free_size_start(),
+            sys::ESP_OK
+        );
+        [
+            sys::heap_caps_get_free_size(sys::MALLOC_CAP_INTERNAL | sys::MALLOC_CAP_8BIT),
+            sys::heap_caps_get_free_size(sys::MALLOC_CAP_SPIRAM | sys::MALLOC_CAP_8BIT),
+        ]
+    }
+}
+
+fn log_capture(elapsed_us: u64, observed: u64, window_start_free: &mut [usize; 2]) {
     use esp_idf_svc::sys;
     let counters = i2s_capture::counters();
     let internal = sys::MALLOC_CAP_INTERNAL | sys::MALLOC_CAP_8BIT;
     let external = sys::MALLOC_CAP_SPIRAM | sys::MALLOC_CAP_8BIT;
-    // Heap getters read allocator statistics only; this work runs outside the capture task.
-    let (free, largest, psram_free, psram_largest) = unsafe {
+    // Minimum sums combine per-region lows that may occur at different times: a conservative
+    // bound on aggregate free memory. Largest blocks are snapshots, not window minima.
+    // Heap statistics and monitor resets run outside the capture task.
+    let (free, largest, psram_free, psram_largest, internal_min_sum, psram_min_sum) = unsafe {
         (
             sys::heap_caps_get_free_size(internal),
             sys::heap_caps_get_largest_free_block(internal),
             sys::heap_caps_get_free_size(external),
             sys::heap_caps_get_largest_free_block(external),
+            sys::heap_caps_get_minimum_free_size(internal),
+            sys::heap_caps_get_minimum_free_size(external),
         )
     };
+    let start_free = *window_start_free;
+    // Logging overhead belongs to the next window. No stop/start allocation cycle.
+    *window_start_free = start_heap_window();
     let deficit = (elapsed_us * u64::from(CAPTURE_RATE_HZ) / 1_000_000) as i64 - observed as i64;
-    log::info!("audio: frames={} callbacks={} queue_overflows={} software_dropped_frames={} read_errors={} restarts={} discontinuities={} raw_work_max_us={} store_work_max_us={} timing_deficit_estimate_frames={} (clock drift/scheduling; not proof of loss) internal_free={} internal_largest={} psram_free={} psram_largest={}",
+    log::info!("audio: frames={} callbacks={} queue_overflows={} software_dropped_frames={} read_errors={} restarts={} discontinuities={} raw_work_max_us={} store_work_max_us={} timing_deficit_estimate_frames={} (clock drift/scheduling; not proof of loss) internal_free={} internal_largest={} psram_free={} psram_largest={} internal_min_sum={} psram_min_sum={} internal_window_start_free={} psram_window_start_free={} (minima sum per-region lows; largest is a snapshot)",
         FRAMES.load(Ordering::Relaxed), counters.callbacks, counters.queue_overflows,
         DROPPED.load(Ordering::Relaxed), READ_ERRORS.load(Ordering::Relaxed),
         RESTARTS.load(Ordering::Relaxed), GAPS.load(Ordering::Relaxed),
         RAW_WORK_US.swap(0, Ordering::Relaxed), STORE_WORK_US.swap(0, Ordering::Relaxed),
-        deficit, free, largest, psram_free, psram_largest);
+        deficit, free, largest, psram_free, psram_largest, internal_min_sum, psram_min_sum,
+        start_free[0], start_free[1]);
 }
