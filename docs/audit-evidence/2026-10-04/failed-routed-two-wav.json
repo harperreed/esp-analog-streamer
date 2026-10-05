@@ -1,0 +1,57 @@
+{
+  "passed": false,
+  "error": "missing UART evidence: stream: .*no fresh audio for 2 s",
+  "mode": "capture",
+  "host": "192.168.200.224",
+  "path": "/stream.wav",
+  "elapsed_seconds": 33.02,
+  "evidence": {},
+  "log_directory": "target/audit-capture-fault-wav/20261005T035510.089672Z",
+  "uart_log": "target/audit-capture-fault-wav/20261005T035510.089672Z/uart.log",
+  "note": "UART is private; decoded duration establishes playback, not independent DMA continuity.",
+  "source_commit": "5032a49",
+  "events": [
+    {
+      "kind": "reset_seen",
+      "elapsed_seconds": 0.464,
+      "mode": "capture",
+      "host": "192.168.200.224",
+      "ip": "192.168.200.224"
+    },
+    {
+      "kind": "state",
+      "elapsed_seconds": 5.923,
+      "shazam_enabled": false,
+      "level_dbfs": -89.0
+    },
+    {
+      "kind": "marker",
+      "elapsed_seconds": 16.654,
+      "marker": "SHORT_SUSPEND",
+      "board_ms": 15047
+    },
+    {
+      "kind": "marker",
+      "elapsed_seconds": 16.655,
+      "marker": "SHORT_RESUME",
+      "board_ms": 15074
+    },
+    {
+      "kind": "marker",
+      "elapsed_seconds": 26.53,
+      "marker": "RECOVERY_SUSPEND",
+      "board_ms": 25076
+    },
+    {
+      "kind": "freshness_eof",
+      "elapsed_seconds": 30.929,
+      "seconds_after_marker": 4.398,
+      "maximum_seconds": 4.5
+    },
+    {
+      "kind": "failure",
+      "elapsed_seconds": 32.977,
+      "error": "missing UART evidence: stream: .*no fresh audio for 2 s"
+    }
+  ]
+}

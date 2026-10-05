@@ -1,0 +1,150 @@
+{
+  "passed": true,
+  "error": null,
+  "mode": "network",
+  "host": "192.168.200.224",
+  "path": "/stream.flac",
+  "listeners": 2,
+  "admission_cap_checked": true,
+  "elapsed_seconds": 52.111,
+  "evidence": {
+    "network": {
+      "request_line": 126,
+      "result_line": 132,
+      "disconnected_line": 143,
+      "reconnected_line": 155,
+      "baseline": {
+        "frames": 963120,
+        "callbacks": 4041,
+        "queue_overflows": 11,
+        "software_dropped_frames": 240,
+        "read_errors": 0,
+        "restarts": 1,
+        "discontinuities": 1,
+        "raw_work_max_us": 3534,
+        "store_work_max_us": 257,
+        "timing_deficit_estimate_frames": 2400,
+        "internal_free": 76343,
+        "internal_largest": 73728,
+        "psram_free": 782604,
+        "psram_largest": 753664,
+        "internal_min_sum": 75955,
+        "psram_min_sum": 761716,
+        "internal_window_start_free": 76415,
+        "psram_window_start_free": 865560
+      },
+      "capture_heap": [
+        {
+          "frames": 1445520,
+          "callbacks": 6051,
+          "queue_overflows": 11,
+          "software_dropped_frames": 240,
+          "read_errors": 0,
+          "restarts": 1,
+          "discontinuities": 1,
+          "raw_work_max_us": 6375,
+          "store_work_max_us": 528,
+          "timing_deficit_estimate_frames": 2400,
+          "internal_free": 91471,
+          "internal_largest": 73728,
+          "psram_free": 920736,
+          "psram_largest": 901120,
+          "internal_min_sum": 75683,
+          "psram_min_sum": 768008,
+          "internal_window_start_free": 76343,
+          "psram_window_start_free": 782604
+        },
+        {
+          "frames": 1930800,
+          "callbacks": 8073,
+          "queue_overflows": 11,
+          "software_dropped_frames": 240,
+          "read_errors": 0,
+          "restarts": 1,
+          "discontinuities": 1,
+          "raw_work_max_us": 1979,
+          "store_work_max_us": 309,
+          "timing_deficit_estimate_frames": 2400,
+          "internal_free": 80635,
+          "internal_largest": 73728,
+          "psram_free": 802804,
+          "psram_largest": 753664,
+          "internal_min_sum": 80383,
+          "psram_min_sum": 749720,
+          "internal_window_start_free": 91471,
+          "psram_window_start_free": 920736
+        },
+        {
+          "frames": 2414160,
+          "callbacks": 10087,
+          "queue_overflows": 11,
+          "software_dropped_frames": 240,
+          "read_errors": 0,
+          "restarts": 1,
+          "discontinuities": 1,
+          "raw_work_max_us": 6071,
+          "store_work_max_us": 1250,
+          "timing_deficit_estimate_frames": 2393,
+          "internal_free": 80635,
+          "internal_largest": 73728,
+          "psram_free": 862224,
+          "psram_largest": 819200,
+          "internal_min_sum": 80155,
+          "psram_min_sum": 763000,
+          "internal_window_start_free": 80635,
+          "psram_window_start_free": 802804
+        }
+      ]
+    }
+  },
+  "log_directory": "target/audit-network-fault/20261005T040532.930606Z",
+  "uart_log": "target/audit-network-fault/20261005T040532.930606Z/uart.log",
+  "note": "UART is private; decoded duration establishes playback, not independent DMA continuity.",
+  "source_commit": "ce5db1c",
+  "events": [
+    {
+      "kind": "reset_seen",
+      "elapsed_seconds": 0.447,
+      "mode": "network",
+      "host": "192.168.200.224",
+      "ip": "192.168.200.224"
+    },
+    {
+      "kind": "state",
+      "elapsed_seconds": 5.9,
+      "shazam_enabled": false,
+      "level_dbfs": -88.5
+    },
+    {
+      "kind": "state",
+      "elapsed_seconds": 40.127,
+      "shazam_enabled": false,
+      "level_dbfs": -89.0
+    },
+    {
+      "kind": "http_status",
+      "elapsed_seconds": 45.366,
+      "expected": 503,
+      "actual": 503
+    },
+    {
+      "kind": "decoded",
+      "elapsed_seconds": 52.013,
+      "label": "network-recovered-1",
+      "decoded_seconds": 10.0,
+      "decoded_audio_frames": 480000
+    },
+    {
+      "kind": "decoded",
+      "elapsed_seconds": 52.015,
+      "label": "network-recovered-2",
+      "decoded_seconds": 10.0,
+      "decoded_audio_frames": 480000
+    },
+    {
+      "kind": "assertions_passed",
+      "elapsed_seconds": 52.072,
+      "mode": "network"
+    }
+  ]
+}

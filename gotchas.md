@@ -229,3 +229,14 @@ The fault harness originally used a 4 s ffmpeg read timeout, shorter than the
 8.02 s FLAC write allowance. Use the existing stream-check's 10 s read timeout
 while retaining completion/error assertions; that correction does not explain
 the underlying routed stall.
+
+On-device loopback TCP separated WAV freshness from that routed limit: both real
+WAV peers received EOF at about 2.03 s during capture suspension, then both slots
+admitted fresh clients. A separate real Wi-Fi disconnect/reconnect left capture
+fault counters unchanged. Keep those contract tests distinct from network endurance.
+
+Fallible pthread creation is not a complete internal-OOM guarantee: Rust allocates
+thread Arc/Box metadata before the IDF call, and task stacks share the internal
+reserve with DMA. PSRAM exhaustion tests prove strict frame placement, not safety
+under arbitrary internal-heap exhaustion. Do not invent a reserve threshold from
+one observed free-memory sample.

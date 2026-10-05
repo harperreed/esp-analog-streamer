@@ -1,0 +1,226 @@
+{
+  "passed": true,
+  "error": null,
+  "mode": "capture",
+  "host": "192.168.200.224",
+  "path": "/stream.flac",
+  "elapsed_seconds": 77.956,
+  "evidence": {
+    "recovery": {
+      "request_line": 135,
+      "before": {
+        "frames": 959760,
+        "callbacks": 4036,
+        "queue_overflows": 12,
+        "software_dropped_frames": 480,
+        "read_errors": 0,
+        "restarts": 2,
+        "discontinuities": 2,
+        "raw_work_max_us": 3074,
+        "store_work_max_us": 256,
+        "timing_deficit_estimate_frames": 2400,
+        "internal_free": 76271,
+        "internal_largest": 73728,
+        "psram_free": 835784,
+        "psram_largest": 802816,
+        "internal_min_sum": 75727,
+        "psram_min_sum": 757968,
+        "internal_window_start_free": 76383,
+        "psram_window_start_free": 792076
+      },
+      "after": {
+        "frames": 1274640,
+        "callbacks": 6047,
+        "queue_overflows": 704,
+        "software_dropped_frames": 720,
+        "read_errors": 0,
+        "restarts": 3,
+        "discontinuities": 3,
+        "raw_work_max_us": 3081,
+        "store_work_max_us": 150,
+        "timing_deficit_estimate_frames": 170640,
+        "internal_free": 81251,
+        "internal_largest": 77824,
+        "psram_free": 880496,
+        "psram_largest": 868352,
+        "internal_min_sum": 75543,
+        "psram_min_sum": 761832,
+        "internal_window_start_free": 76271,
+        "psram_window_start_free": 835784
+      }
+    },
+    "ordered_reboot_lines": [
+      144,
+      146,
+      148,
+      282
+    ],
+    "post_reboot_capture_heap": [
+      {
+        "frames": 480720,
+        "callbacks": 2031,
+        "queue_overflows": 11,
+        "software_dropped_frames": 240,
+        "read_errors": 0,
+        "restarts": 1,
+        "discontinuities": 1,
+        "raw_work_max_us": 25159,
+        "store_work_max_us": 527,
+        "timing_deficit_estimate_frames": 2400,
+        "internal_free": 87427,
+        "internal_largest": 77824,
+        "psram_free": 919488,
+        "psram_largest": 917504,
+        "internal_min_sum": 86587,
+        "psram_min_sum": 910764,
+        "internal_window_start_free": 201959,
+        "psram_window_start_free": 3421100
+      },
+      {
+        "frames": 965520,
+        "callbacks": 4051,
+        "queue_overflows": 11,
+        "software_dropped_frames": 240,
+        "read_errors": 0,
+        "restarts": 1,
+        "discontinuities": 1,
+        "raw_work_max_us": 3350,
+        "store_work_max_us": 173,
+        "timing_deficit_estimate_frames": 2400,
+        "internal_free": 80991,
+        "internal_largest": 73728,
+        "psram_free": 865336,
+        "psram_largest": 802816,
+        "internal_min_sum": 78875,
+        "psram_min_sum": 766396,
+        "internal_window_start_free": 87427,
+        "psram_window_start_free": 919488
+      },
+      {
+        "frames": 1446480,
+        "callbacks": 6055,
+        "queue_overflows": 11,
+        "software_dropped_frames": 240,
+        "read_errors": 0,
+        "restarts": 1,
+        "discontinuities": 1,
+        "raw_work_max_us": 3710,
+        "store_work_max_us": 594,
+        "timing_deficit_estimate_frames": 2400,
+        "internal_free": 91327,
+        "internal_largest": 77824,
+        "psram_free": 919260,
+        "psram_largest": 802816,
+        "internal_min_sum": 80991,
+        "psram_min_sum": 766568,
+        "internal_window_start_free": 80991,
+        "psram_window_start_free": 865336
+      }
+    ]
+  },
+  "log_directory": "target/audit-capture-fault/20261005T035333.169410Z",
+  "uart_log": "target/audit-capture-fault/20261005T035333.169410Z/uart.log",
+  "note": "UART is private; decoded duration establishes playback, not independent DMA continuity.",
+  "source_commit": "5032a49",
+  "events": [
+    {
+      "kind": "reset_seen",
+      "elapsed_seconds": 0.466,
+      "mode": "capture",
+      "host": "192.168.200.224",
+      "ip": "192.168.200.224"
+    },
+    {
+      "kind": "state",
+      "elapsed_seconds": 5.993,
+      "shazam_enabled": false,
+      "level_dbfs": -89.4
+    },
+    {
+      "kind": "marker",
+      "elapsed_seconds": 16.553,
+      "marker": "SHORT_SUSPEND",
+      "board_ms": 15047
+    },
+    {
+      "kind": "marker",
+      "elapsed_seconds": 16.554,
+      "marker": "SHORT_RESUME",
+      "board_ms": 15074
+    },
+    {
+      "kind": "marker",
+      "elapsed_seconds": 26.653,
+      "marker": "RECOVERY_SUSPEND",
+      "board_ms": 25078
+    },
+    {
+      "kind": "freshness_eof",
+      "elapsed_seconds": 28.427,
+      "seconds_after_marker": 1.769,
+      "maximum_seconds": 4.5
+    },
+    {
+      "kind": "marker",
+      "elapsed_seconds": 30.155,
+      "marker": "RECOVERY_RESUME",
+      "board_ms": 28584
+    },
+    {
+      "kind": "decoded",
+      "elapsed_seconds": 38.216,
+      "label": "capture-recovered",
+      "decoded_seconds": 6.0,
+      "decoded_audio_frames": 288000
+    },
+    {
+      "kind": "marker",
+      "elapsed_seconds": 40.051,
+      "marker": "FINAL_SUSPEND",
+      "board_ms": 38594
+    },
+    {
+      "kind": "marker",
+      "elapsed_seconds": 62.46,
+      "marker": "BOOT",
+      "board_ms": 15044
+    },
+    {
+      "kind": "marker",
+      "elapsed_seconds": 62.462,
+      "marker": "POST_REBOOT",
+      "board_ms": 15045
+    },
+    {
+      "kind": "state",
+      "elapsed_seconds": 62.519,
+      "shazam_enabled": false,
+      "level_dbfs": -89.4
+    },
+    {
+      "kind": "http_status",
+      "elapsed_seconds": 66.779,
+      "expected": 503,
+      "actual": 503
+    },
+    {
+      "kind": "decoded",
+      "elapsed_seconds": 72.365,
+      "label": "capture-post-reboot-1",
+      "decoded_seconds": 8.0,
+      "decoded_audio_frames": 384000
+    },
+    {
+      "kind": "decoded",
+      "elapsed_seconds": 72.367,
+      "label": "capture-post-reboot-2",
+      "decoded_seconds": 8.0,
+      "decoded_audio_frames": 384000
+    },
+    {
+      "kind": "assertions_passed",
+      "elapsed_seconds": 77.911,
+      "mode": "capture"
+    }
+  ]
+}

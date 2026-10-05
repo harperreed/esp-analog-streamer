@@ -1,0 +1,47 @@
+{
+  "passed": false,
+  "error": "capture-baseline: decoder exited before required progress; see its ffmpeg log",
+  "mode": "capture",
+  "host": "192.168.200.224",
+  "path": "/stream.wav",
+  "listeners": 1,
+  "admission_cap_checked": false,
+  "elapsed_seconds": 16.614,
+  "evidence": {},
+  "log_directory": "target/audit-capture-fault-wav-one/20261005T035925.930645Z",
+  "uart_log": "target/audit-capture-fault-wav-one/20261005T035925.930645Z/uart.log",
+  "note": "UART is private; decoded duration establishes playback, not independent DMA continuity.",
+  "source_commit": "11a88ed",
+  "events": [
+    {
+      "kind": "reset_seen",
+      "elapsed_seconds": 0.506,
+      "mode": "capture",
+      "host": "192.168.200.224",
+      "ip": "192.168.200.224"
+    },
+    {
+      "kind": "state",
+      "elapsed_seconds": 5.915,
+      "shazam_enabled": false,
+      "level_dbfs": -88.2
+    },
+    {
+      "kind": "marker",
+      "elapsed_seconds": 16.573,
+      "marker": "SHORT_SUSPEND",
+      "board_ms": 15047
+    },
+    {
+      "kind": "marker",
+      "elapsed_seconds": 16.574,
+      "marker": "SHORT_RESUME",
+      "board_ms": 15074
+    },
+    {
+      "kind": "failure",
+      "elapsed_seconds": 16.574,
+      "error": "capture-baseline: decoder exited before required progress; see its ffmpeg log"
+    }
+  ]
+}

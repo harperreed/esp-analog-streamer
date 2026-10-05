@@ -1,0 +1,146 @@
+{
+  "passed": true,
+  "error": null,
+  "mode": "pressure",
+  "host": "192.168.200.224",
+  "elapsed_seconds": 61.965,
+  "evidence": {
+    "pressure_capture_heap": [
+      {
+        "frames": 959280,
+        "callbacks": 4034,
+        "queue_overflows": 12,
+        "software_dropped_frames": 480,
+        "read_errors": 0,
+        "restarts": 2,
+        "discontinuities": 2,
+        "raw_work_max_us": 1339,
+        "store_work_max_us": 281,
+        "timing_deficit_estimate_frames": 2400,
+        "internal_free": 82019,
+        "internal_largest": 77824,
+        "psram_free": 458436,
+        "psram_largest": 16384,
+        "internal_min_sum": 76195,
+        "psram_min_sum": 4,
+        "internal_window_start_free": 87447,
+        "psram_window_start_free": 919492
+      },
+      {
+        "frames": 1440240,
+        "callbacks": 6038,
+        "queue_overflows": 12,
+        "software_dropped_frames": 480,
+        "read_errors": 0,
+        "restarts": 2,
+        "discontinuities": 2,
+        "raw_work_max_us": 1347,
+        "store_work_max_us": 115,
+        "timing_deficit_estimate_frames": 2400,
+        "internal_free": 82019,
+        "internal_largest": 77824,
+        "psram_free": 458436,
+        "psram_largest": 16384,
+        "internal_min_sum": 81795,
+        "psram_min_sum": 451524,
+        "internal_window_start_free": 82019,
+        "psram_window_start_free": 458436
+      }
+    ],
+    "post_pressure_capture_heap": {
+      "frames": 2884560,
+      "callbacks": 12056,
+      "queue_overflows": 12,
+      "software_dropped_frames": 480,
+      "read_errors": 0,
+      "restarts": 2,
+      "discontinuities": 2,
+      "raw_work_max_us": 2416,
+      "store_work_max_us": 255,
+      "timing_deficit_estimate_frames": 2400,
+      "internal_free": 90847,
+      "internal_largest": 77824,
+      "psram_free": 918836,
+      "psram_largest": 786432,
+      "internal_min_sum": 80379,
+      "psram_min_sum": 762716,
+      "internal_window_start_free": 80519,
+      "psram_window_start_free": 778824
+    }
+  },
+  "log_directory": "target/audit-pressure/20261005T034646.847875Z",
+  "uart_log": "target/audit-pressure/20261005T034646.847875Z/uart.log",
+  "note": "UART is private; decoded duration establishes playback, not independent DMA continuity.",
+  "source_commit": "8efd61f",
+  "events": [
+    {
+      "kind": "reset_seen",
+      "elapsed_seconds": 0.519,
+      "mode": "pressure",
+      "host": "192.168.200.224",
+      "ip": "192.168.200.224"
+    },
+    {
+      "kind": "state",
+      "elapsed_seconds": 6.003,
+      "shazam_enabled": false,
+      "level_dbfs": -28.4
+    },
+    {
+      "kind": "pressure_ready",
+      "elapsed_seconds": 18.198,
+      "requested": 24591,
+      "psram_free": 458868,
+      "psram_largest": 16384
+    },
+    {
+      "kind": "http_status",
+      "elapsed_seconds": 18.322,
+      "expected": 503,
+      "actual": 503
+    },
+    {
+      "kind": "http_status",
+      "elapsed_seconds": 18.364,
+      "expected": 503,
+      "actual": 503
+    },
+    {
+      "kind": "state",
+      "elapsed_seconds": 18.504,
+      "shazam_enabled": false,
+      "level_dbfs": -31.0
+    },
+    {
+      "kind": "state",
+      "elapsed_seconds": 38.39,
+      "shazam_enabled": false,
+      "level_dbfs": -28.3
+    },
+    {
+      "kind": "http_status",
+      "elapsed_seconds": 42.345,
+      "expected": 503,
+      "actual": 503
+    },
+    {
+      "kind": "decoded",
+      "elapsed_seconds": 53.113,
+      "label": "pressure-recovered-1",
+      "decoded_seconds": 10.0,
+      "decoded_audio_frames": 480000
+    },
+    {
+      "kind": "decoded",
+      "elapsed_seconds": 53.114,
+      "label": "pressure-recovered-2",
+      "decoded_seconds": 10.0,
+      "decoded_audio_frames": 480000
+    },
+    {
+      "kind": "assertions_passed",
+      "elapsed_seconds": 61.921,
+      "mode": "pressure"
+    }
+  ]
+}

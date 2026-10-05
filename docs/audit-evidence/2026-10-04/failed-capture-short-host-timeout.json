@@ -1,0 +1,149 @@
+{
+  "passed": false,
+  "error": "capture-post-reboot-1: decode failed; see its ffmpeg log",
+  "mode": "capture",
+  "host": "192.168.200.224",
+  "elapsed_seconds": 74.587,
+  "evidence": {
+    "recovery": {
+      "request_line": 135,
+      "before": {
+        "frames": 957360,
+        "callbacks": 4026,
+        "queue_overflows": 12,
+        "software_dropped_frames": 480,
+        "read_errors": 0,
+        "restarts": 2,
+        "discontinuities": 2,
+        "raw_work_max_us": 4597,
+        "store_work_max_us": 202,
+        "timing_deficit_estimate_frames": 2400,
+        "internal_free": 76399,
+        "internal_largest": 73728,
+        "psram_free": 802856,
+        "psram_largest": 753664,
+        "internal_min_sum": 76159,
+        "psram_min_sum": 766772,
+        "internal_window_start_free": 76511,
+        "psram_window_start_free": 862440
+      },
+      "after": {
+        "frames": 1271040,
+        "callbacks": 6033,
+        "queue_overflows": 705,
+        "software_dropped_frames": 720,
+        "read_errors": 0,
+        "restarts": 3,
+        "discontinuities": 3,
+        "raw_work_max_us": 5788,
+        "store_work_max_us": 320,
+        "timing_deficit_estimate_frames": 170880,
+        "internal_free": 81383,
+        "internal_largest": 77824,
+        "psram_free": 893656,
+        "psram_largest": 884736,
+        "internal_min_sum": 76035,
+        "psram_min_sum": 766576,
+        "internal_window_start_free": 76399,
+        "psram_window_start_free": 802856
+      }
+    },
+    "ordered_reboot_lines": [
+      144,
+      146,
+      148,
+      282
+    ]
+  },
+  "log_directory": "target/audit-capture-fault/20261005T035018.801715Z",
+  "uart_log": "target/audit-capture-fault/20261005T035018.801715Z/uart.log",
+  "note": "UART is private; decoded duration establishes playback, not independent DMA continuity.",
+  "source_commit": "8efd61f",
+  "events": [
+    {
+      "kind": "reset_seen",
+      "elapsed_seconds": 0.459,
+      "mode": "capture",
+      "host": "192.168.200.224",
+      "ip": "192.168.200.224"
+    },
+    {
+      "kind": "state",
+      "elapsed_seconds": 5.909,
+      "shazam_enabled": false,
+      "level_dbfs": -32.9
+    },
+    {
+      "kind": "marker",
+      "elapsed_seconds": 16.497,
+      "marker": "SHORT_SUSPEND",
+      "board_ms": 15048
+    },
+    {
+      "kind": "marker",
+      "elapsed_seconds": 16.674,
+      "marker": "SHORT_RESUME",
+      "board_ms": 15087
+    },
+    {
+      "kind": "marker",
+      "elapsed_seconds": 26.502,
+      "marker": "RECOVERY_SUSPEND",
+      "board_ms": 25094
+    },
+    {
+      "kind": "freshness_eof",
+      "elapsed_seconds": 28.484,
+      "seconds_after_marker": 1.94,
+      "maximum_seconds": 4.5
+    },
+    {
+      "kind": "marker",
+      "elapsed_seconds": 30.036,
+      "marker": "RECOVERY_RESUME",
+      "board_ms": 28604
+    },
+    {
+      "kind": "decoded",
+      "elapsed_seconds": 38.291,
+      "label": "capture-recovered",
+      "decoded_seconds": 6.0,
+      "decoded_audio_frames": 288000
+    },
+    {
+      "kind": "marker",
+      "elapsed_seconds": 40.125,
+      "marker": "FINAL_SUSPEND",
+      "board_ms": 38614
+    },
+    {
+      "kind": "marker",
+      "elapsed_seconds": 62.578,
+      "marker": "BOOT",
+      "board_ms": 15044
+    },
+    {
+      "kind": "marker",
+      "elapsed_seconds": 62.581,
+      "marker": "POST_REBOOT",
+      "board_ms": 15045
+    },
+    {
+      "kind": "state",
+      "elapsed_seconds": 62.706,
+      "shazam_enabled": false,
+      "level_dbfs": -34.4
+    },
+    {
+      "kind": "http_status",
+      "elapsed_seconds": 65.54,
+      "expected": 503,
+      "actual": 503
+    },
+    {
+      "kind": "failure",
+      "elapsed_seconds": 74.548,
+      "error": "capture-post-reboot-1: decode failed; see its ffmpeg log"
+    }
+  ]
+}

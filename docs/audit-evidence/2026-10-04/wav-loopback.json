@@ -1,0 +1,109 @@
+{
+  "passed": true,
+  "error": null,
+  "mode": "wav-local",
+  "host": "192.168.200.224",
+  "path": "/stream.flac",
+  "listeners": 2,
+  "admission_cap_checked": true,
+  "elapsed_seconds": 52.217,
+  "evidence": {
+    "wav_local": {
+      "suspend_line": 124,
+      "resume_line": 133,
+      "fixture_pass_line": 146,
+      "restart_request_line": 131,
+      "baseline": {
+        "frames": 481200,
+        "callbacks": 2033,
+        "queue_overflows": 10,
+        "software_dropped_frames": 240,
+        "read_errors": 0,
+        "restarts": 1,
+        "discontinuities": 1,
+        "raw_work_max_us": 1885,
+        "store_work_max_us": 204,
+        "timing_deficit_estimate_frames": 2400,
+        "internal_free": 87327,
+        "internal_largest": 77824,
+        "psram_free": 919480,
+        "psram_largest": 917504,
+        "internal_min_sum": 86287,
+        "psram_min_sum": 913988,
+        "internal_window_start_free": 201967,
+        "psram_window_start_free": 3421100
+      },
+      "restored": {
+        "frames": 1281840,
+        "callbacks": 6068,
+        "queue_overflows": 702,
+        "software_dropped_frames": 480,
+        "read_errors": 0,
+        "restarts": 2,
+        "discontinuities": 2,
+        "raw_work_max_us": 1366,
+        "store_work_max_us": 148,
+        "timing_deficit_estimate_frames": 170640,
+        "internal_free": 90275,
+        "internal_largest": 57344,
+        "psram_free": 919036,
+        "psram_largest": 917504,
+        "internal_min_sum": 56383,
+        "psram_min_sum": 884684,
+        "internal_window_start_free": 75623,
+        "psram_window_start_free": 919036
+      },
+      "note": "Fixture checks exact WAV headers and byte progress, not decoded waveforms; host recovery decodes FLAC."
+    }
+  },
+  "log_directory": "target/audit-wav-local/20261005T040938.203802Z",
+  "uart_log": "target/audit-wav-local/20261005T040938.203802Z/uart.log",
+  "note": "UART is private; decoded duration establishes playback, not independent DMA continuity.",
+  "source_commit": "df60f15",
+  "events": [
+    {
+      "kind": "reset_seen",
+      "elapsed_seconds": 0.485,
+      "mode": "wav-local",
+      "host": "192.168.200.224",
+      "ip": "192.168.200.224"
+    },
+    {
+      "kind": "state",
+      "elapsed_seconds": 5.925,
+      "shazam_enabled": false,
+      "level_dbfs": -88.0
+    },
+    {
+      "kind": "state",
+      "elapsed_seconds": 32.093,
+      "shazam_enabled": false,
+      "level_dbfs": -89.1
+    },
+    {
+      "kind": "http_status",
+      "elapsed_seconds": 34.854,
+      "expected": 503,
+      "actual": 503
+    },
+    {
+      "kind": "decoded",
+      "elapsed_seconds": 43.977,
+      "label": "wav-local-host-flac-recovered-1",
+      "decoded_seconds": 10.0,
+      "decoded_audio_frames": 480000
+    },
+    {
+      "kind": "decoded",
+      "elapsed_seconds": 43.978,
+      "label": "wav-local-host-flac-recovered-2",
+      "decoded_seconds": 10.0,
+      "decoded_audio_frames": 480000
+    },
+    {
+      "kind": "assertions_passed",
+      "elapsed_seconds": 52.195,
+      "mode": "wav-local"
+    }
+  ]
+}

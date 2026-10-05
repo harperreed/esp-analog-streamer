@@ -171,3 +171,22 @@ Current work: real Wi-Fi disconnect/reconnect fixture and WAV loopback freshness
 fixture, then restore production for churn and soak. `c7b709a` provides bounded
 two-decoder soak checks with private logs and a checked 128 MiB output budget.
 No long-soak result exists yet.
+
+`ce5db1c` real Wi-Fi disconnect/reconnect passed: two original FLAC streams
+advanced before injection, production reconnected, and two new 10 s decodes plus
+third-client 503 passed. Capture fault counters did not change. The test injects
+one disconnect; it does not establish behavior under every loss/latency pattern.
+
+`df60f15` real board-loopback WAV test passed. Both EOFs arrived about 2.03 s
+after suspension with production fresh-audio timeout reasons. Restart/gap counters
+increased 1 to 2, both WAV slots admitted new peers with valid headers/data, then
+two host FLAC decodes passed. WAV byte progress is not waveform decoding. `5es1`
+is closed with this evidence and the real-lock/socket host tests.
+
+Sanitized structured results, including all three failed runs, are versioned in
+`docs/audit-evidence/2026-10-04/`; raw UART remains local under the paths recorded
+there. The export commands are throwaway; these files are the lasting evidence.
+`f3de476` safely samples actual TCP lists through the lwIP task, using generated
+pinned private layouts. Canonical checks and target build pass. Idle board smoke
+reported valid samples, no invalid observations, and port 8000 LISTEN only.
+Churn/reclamation measurements and the production soak remain next.
