@@ -2,7 +2,7 @@
 // ABOUTME: Shares the firmware's producer-wait and slot-release behavior with real host tests.
 
 use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex, MutexGuard, TryLockError};
 use std::time::{Duration, Instant};
 
 #[derive(Debug, PartialEq, Eq)]
@@ -27,6 +27,39 @@ pub fn read_fresh<E>(
             Ok(0) => std::thread::sleep(interval),
             Ok(n) => return Ok(n),
             Err(error) => return Err(WaitError::Read(error)),
+        }
+    }
+}
+
+/// Reads a shared ring within one fresh-data budget, including contention on its mutex.
+pub fn read_locked_fresh<T, E>(
+    ring: &Mutex<T>,
+    limit: Duration,
+    interval: Duration,
+    mut read: impl FnMut(&T) -> Result<usize, E>,
+) -> Result<usize, WaitError<E>> {
+    read_fresh(limit, interval, || match ring.try_lock() {
+        Ok(ring) => read(&ring),
+        Err(TryLockError::WouldBlock) => Ok(0),
+        Err(TryLockError::Poisoned(_)) => panic!("stream ring lock poisoned"),
+    })
+}
+
+/// Acquires a shared ring before one absolute deadline, for cursor/capacity snapshots.
+pub fn lock_before<T>(
+    ring: &Mutex<T>,
+    deadline: Instant,
+    interval: Duration,
+) -> Option<MutexGuard<'_, T>> {
+    assert!(!interval.is_zero());
+    loop {
+        if Instant::now() >= deadline {
+            return None;
+        }
+        match ring.try_lock() {
+            Ok(ring) => return Some(ring),
+            Err(TryLockError::WouldBlock) => std::thread::sleep(interval),
+            Err(TryLockError::Poisoned(_)) => panic!("stream ring lock poisoned"),
         }
     }
 }
@@ -109,9 +142,7 @@ mod tests {
                         let mut cursor = raw.lock().unwrap().cursor_now();
                         let mut out = [0; 2];
                         matches!(
-                            read_fresh(LIMIT, INTERVAL, || raw
-                                .lock()
-                                .unwrap()
+                            read_locked_fresh(&raw, LIMIT, INTERVAL, |ring| ring
                                 .read(&mut cursor, &mut out)),
                             Err(WaitError::Stalled)
                         )
@@ -120,9 +151,7 @@ mod tests {
                         let mut cursor = encoded.lock().unwrap().cursor_now();
                         let mut out = [0; 16];
                         matches!(
-                            read_fresh(LIMIT, INTERVAL, || encoded
-                                .lock()
-                                .unwrap()
+                            read_locked_fresh(&encoded, LIMIT, INTERVAL, |ring| ring
                                 .read(&mut cursor, &mut out)),
                             Err(WaitError::Stalled)
                         )
@@ -165,9 +194,7 @@ mod tests {
         });
         let mut out = [1; 4];
         assert_eq!(
-            read_fresh(Duration::from_secs(1), INTERVAL, || ring
-                .lock()
-                .unwrap()
+            read_locked_fresh(&ring, Duration::from_secs(1), INTERVAL, |ring| ring
                 .read(&mut cursor, &mut out)),
             Ok(2)
         );
@@ -193,9 +220,7 @@ mod tests {
         });
         let mut out = vec![0; crate::flac::MAX_FRAME_BYTES];
         assert_eq!(
-            read_fresh(Duration::from_secs(1), INTERVAL, || ring
-                .lock()
-                .unwrap()
+            read_locked_fresh(&ring, Duration::from_secs(1), INTERVAL, |ring| ring
                 .read(&mut cursor, &mut out)),
             Ok(expected.len())
         );
@@ -234,5 +259,60 @@ mod tests {
             );
             assert!(started.elapsed() >= LIMIT);
         }
+    }
+
+    fn held_ring_timeout<T: Send + 'static>(
+        ring: T,
+        operation: impl FnOnce(Arc<Mutex<T>>) -> bool + Send + 'static,
+    ) {
+        let ring = Arc::new(Mutex::new(ring));
+        let (locked, ready) = mpsc::channel();
+        let (release, released) = mpsc::channel();
+        let owner_ring = ring.clone();
+        let owner = thread::spawn(move || {
+            let _guard = owner_ring.lock().unwrap();
+            locked.send(()).unwrap();
+            released.recv().unwrap();
+        });
+        ready.recv().unwrap();
+        let (finished, result) = mpsc::channel();
+        let reader = thread::spawn(move || finished.send(operation(ring)).unwrap());
+        let timed_out = result.recv_timeout(Duration::from_millis(150));
+        // Release/join before any assertion: a broken blocking implementation must not hang tests.
+        release.send(()).unwrap();
+        owner.join().unwrap();
+        reader.join().unwrap();
+        assert_eq!(timed_out, Ok(true), "held ring exceeded its 50 ms budget");
+    }
+
+    #[test]
+    fn a_held_raw_ring_cannot_block_the_fresh_deadline() {
+        let mut raw = StreamRing::new(8);
+        let mut cursor = raw.cursor_now();
+        raw.push(&[1, 2]);
+        held_ring_timeout(raw, move |ring| {
+            read_locked_fresh(&ring, LIMIT, INTERVAL, |raw| {
+                raw.read(&mut cursor, &mut [0; 2])
+            }) == Err(WaitError::Stalled)
+        });
+    }
+
+    #[test]
+    fn a_held_encoded_ring_cannot_block_the_fresh_deadline() {
+        let mut encoded = FlacRing::try_new(2, 16).unwrap();
+        let mut cursor = encoded.cursor_now();
+        encoded.push(&[1, 2, 3]).unwrap();
+        held_ring_timeout(encoded, move |ring| {
+            read_locked_fresh(&ring, LIMIT, INTERVAL, |encoded| {
+                encoded.read(&mut cursor, &mut [0; 16])
+            }) == Err(WaitError::Stalled)
+        });
+    }
+
+    #[test]
+    fn initial_cursor_lock_cannot_outlive_its_absolute_deadline() {
+        held_ring_timeout(StreamRing::new(8), |ring| {
+            lock_before(&ring, Instant::now() + LIMIT, INTERVAL).is_none()
+        });
     }
 }

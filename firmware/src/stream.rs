@@ -15,7 +15,7 @@ use esp_idf_svc::sys;
 use esp_shazam_core::flac_ring::FlacRing;
 use esp_shazam_core::stream_http::{self, DeadlineReader, DeadlineWriter, Format, Route, Status};
 use esp_shazam_core::stream_ring::{Cursor, Overrun};
-use esp_shazam_core::stream_wait::{read_fresh, Slot, WaitError};
+use esp_shazam_core::stream_wait::{lock_before, read_locked_fresh, Slot, WaitError};
 use esp_shazam_core::{flac, wav};
 
 use crate::audio_in::{SharedStreamRing, CAPTURE_RATE_HZ};
@@ -346,8 +346,8 @@ impl fmt::Display for End {
 /// How long writing one frame may take: as long as the ring holds. A listener that takes longer has
 /// stopped reading, and by then the ring has overwritten everything it wasn't sent. The limit holds
 /// for the whole frame (`DeadlineWriter`), not for each send of it, so a trickle can't stretch it.
-fn frame_write_limit(ring: &SharedStreamRing) -> Duration {
-    let capacity = ring.lock().expect("stream ring lock").capacity() as u64;
+fn frame_write_limit(capacity: usize) -> Duration {
+    let capacity = capacity as u64;
     Duration::from_millis(1_000 * capacity / u64::from(CAPTURE_RATE_HZ))
 }
 
@@ -359,24 +359,29 @@ fn read_some(
     cursor: &mut Cursor,
     out: &mut [i32],
 ) -> Result<usize, WaitError<Overrun>> {
-    read_fresh(FRESH_AUDIO_TIMEOUT, CAUGHT_UP_SLEEP, || {
+    read_locked_fresh(ring, FRESH_AUDIO_TIMEOUT, CAUGHT_UP_SLEEP, |ring| {
         // The lock is held for this statement only, never during encoding or socket work.
-        ring.lock().expect("stream ring lock").read(cursor, out)
+        ring.read(cursor, out)
     })
 }
 
 /// Sends the response head and the WAV header, then frames from the ring as they arrive, until the
 /// listener goes, stops reading, or falls a ring behind.
 fn stream_wav(sock: &TcpStream, ring: &SharedStreamRing) -> End {
-    let write_limit = frame_write_limit(ring);
+    let (write_limit, mut cursor) = {
+        let Some(ring) = lock_before(ring, Instant::now() + FRESH_AUDIO_TIMEOUT, CAUGHT_UP_SLEEP)
+        else {
+            return End::CaptureStalled;
+        };
+        (frame_write_limit(ring.capacity()), ring.cursor_now())
+    };
     let mut writer = DeadlineWriter::new(sock);
     let mut frames = vec![0i32; 2 * CHUNK_FRAMES];
     let mut bytes = Vec::with_capacity(3 * frames.len());
     bytes.extend_from_slice(Format::Wav.response_head().as_bytes());
     bytes.extend_from_slice(&wav::endless_header_s24le(CAPTURE_RATE_HZ, 2));
-    let mut cursor = ring.lock().expect("stream ring lock").cursor_now();
     loop {
-        if let Err(e) = writer.write_all_before(&bytes, Instant::now() + write_limit) {
+        if let Err(e) = write_frame(&mut writer, &bytes, write_limit) {
             return End::from_write_error(e);
         }
         let frames_read = match read_some(ring, &mut cursor, &mut frames) {
@@ -388,6 +393,26 @@ fn stream_wav(sock: &TcpStream, ring: &SharedStreamRing) -> End {
     }
 }
 
+/// Reports the real frame-write duration only when its existing absolute deadline times out.
+fn write_frame(writer: &mut DeadlineWriter<'_>, bytes: &[u8], limit: Duration) -> io::Result<()> {
+    let started = Instant::now();
+    let result = writer.write_all_before(bytes, started + limit);
+    if let Err(error) = &result {
+        if matches!(
+            error.kind(),
+            io::ErrorKind::WouldBlock | io::ErrorKind::TimedOut
+        ) {
+            log::info!(
+                "stream: frame write timed out elapsed_ms={} limit_ms={} bytes={}",
+                started.elapsed().as_millis(),
+                limit.as_millis(),
+                bytes.len()
+            );
+        }
+    }
+    result
+}
+
 /// One encoder follows raw capture and publishes whole FLAC frames for every listener.
 /// A raw overrun discards the partial block and invalidates old encoded cursors: existing
 /// listeners disconnect rather than hearing discontinuous audio presented as a continuous stream.
@@ -395,9 +420,9 @@ fn encode(raw: SharedStreamRing, encoded: SharedFlacRing, listeners: Arc<AtomicU
     let mut chunk = vec![0i32; flac::CHANNELS * CHUNK_FRAMES];
     let mut encoder = flac::Encoder::new();
     let mut bytes = Vec::with_capacity(flac::MAX_FRAME_BYTES);
-    let mut cursor = raw.lock().expect("stream ring lock").cursor_now();
     let mut block_number = 0u32;
     let mut metrics = EncoderMetrics::new(&listeners);
+    let mut cursor = encoder_cursor(&raw, &listeners, &mut metrics);
     loop {
         let frames = CHUNK_FRAMES.min(encoder.frames_wanted());
         match read_some(&raw, &mut cursor, &mut chunk[..flac::CHANNELS * frames]) {
@@ -412,7 +437,7 @@ fn encode(raw: SharedStreamRing, encoded: SharedFlacRing, listeners: Arc<AtomicU
                 log::warn!("stream: encoder fell behind capture; disconnecting FLAC listeners");
                 encoded.lock().expect("FLAC ring lock").reset();
                 encoder.reset();
-                cursor = raw.lock().expect("stream ring lock").cursor_now();
+                cursor = encoder_cursor(&raw, &listeners, &mut metrics);
                 block_number = 0;
                 metrics.resets += 1;
                 metrics.log_if_due(&listeners);
@@ -430,6 +455,22 @@ fn encode(raw: SharedStreamRing, encoded: SharedFlacRing, listeners: Arc<AtomicU
             metrics.frames += 1;
             metrics.log_if_due(&listeners);
         }
+    }
+}
+
+/// The shared encoder stays alive if capture is suspended while owning the raw ring.
+/// Each failed acquisition waits a full budget; initial and reset cursors use the same path.
+fn encoder_cursor(
+    raw: &SharedStreamRing,
+    listeners: &AtomicUsize,
+    metrics: &mut EncoderMetrics,
+) -> Cursor {
+    loop {
+        if let Some(ring) = lock_before(raw, Instant::now() + FRESH_AUDIO_TIMEOUT, CAUGHT_UP_SLEEP)
+        {
+            return ring.cursor_now();
+        }
+        metrics.log_if_due(listeners);
     }
 }
 
@@ -499,21 +540,25 @@ fn stream_flac(sock: &TcpStream, ring: &SharedFlacRing, bytes: &mut [u8]) -> End
     let mut writer = DeadlineWriter::new(sock);
     let mut header = Format::Flac.response_head().as_bytes().to_vec();
     header.extend_from_slice(&flac::stream_header());
-    let mut cursor = ring.lock().expect("FLAC ring lock").cursor_now();
-    if let Err(e) = writer.write_all_before(&header, Instant::now() + write_limit) {
+    let mut cursor = {
+        let Some(ring) = lock_before(ring, Instant::now() + FRESH_AUDIO_TIMEOUT, CAUGHT_UP_SLEEP)
+        else {
+            return End::CaptureStalled;
+        };
+        ring.cursor_now()
+    };
+    if let Err(e) = write_frame(&mut writer, &header, write_limit) {
         return End::from_write_error(e);
     }
     loop {
-        let n = match read_fresh(FRESH_AUDIO_TIMEOUT, CAUGHT_UP_SLEEP, || {
-            ring.lock()
-                .expect("FLAC ring lock")
-                .read(&mut cursor, bytes)
+        let n = match read_locked_fresh(ring, FRESH_AUDIO_TIMEOUT, CAUGHT_UP_SLEEP, |ring| {
+            ring.read(&mut cursor, bytes)
         }) {
             Ok(n) => n,
             Err(WaitError::Stalled) => return End::CaptureStalled,
             Err(WaitError::Read(_)) => return End::FellBehind,
         };
-        if let Err(e) = writer.write_all_before(&bytes[..n], Instant::now() + write_limit) {
+        if let Err(e) = write_frame(&mut writer, &bytes[..n], write_limit) {
             return End::from_write_error(e);
         }
     }
