@@ -1,8 +1,9 @@
 # Validate the physical network path
 
 Doctor Biz authorized autonomous completion of the kata audit with sol-6.1
-subagents. Shazam stays off. No system routes, VPN settings, or firmware network
-limits change in this phase.
+subagents. Shazam stays off. No system routes or VPN settings change. Temporary
+firmware experiments require verified generated settings and preserved controls;
+no permanent network-limit change follows from one observation.
 
 ## Evidence and scope
 
@@ -46,4 +47,23 @@ Relay evidence must say **en0-relayed**. An added TCP hop and buffering cannot
 establish the default-route slow-reader envelope. Successful direct-path playback
 does not close the tunnel-path reliability or physical worst-case input gaps.
 
-State: implementation in progress. Compaction count inherited from audit: 5.
+## Updated evidence and next experiment
+
+Both en0 files have 641 sequential CRC-valid complete frames and decode 54.6987 s
+of source audio. Their final partial frames were cut by the host stop. Receipt
+was not real-time throughout: first/middle/final 20-second windows delivered
+17.7493 / 22.1867 / 14.7627 s of PCM. The output observer counted 128 actual
+single-pbuf driver allocation failures. The default-route repeat again lost
+both listeners, with 114 such failures. Capture counters stayed flat.
+
+Root approved one cache-64 comparison using the same en0 direct-file collector,
+without relay buffering. This revisits capacity under the higher delivered load;
+the earlier tunnel cache comparison remains inconclusive. Keep static TX 16,
+MSS 1440, send buffer 46080, source, observer and deadlines unchanged. Verify boot
+configuration and heap placement, per-window PCM rate and driver errors. Restore
+cache 32 if the comparison gives no meaningful benefit. No MSS experiment runs
+while this comparison is active.
+
+State: relay review fixes and cache comparison in progress. Compaction count
+inherited from audit: 5. Production restoration and strict decoded recovery are
+still required.

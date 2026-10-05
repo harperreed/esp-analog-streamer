@@ -11,6 +11,12 @@ esac
 cd "$(dirname "$0")/.."
 exec uv run --quiet --no-project python3 - <<'PY'
 import ast
+import argparse
+import contextlib
+import io
+import math
+import sys
+from types import SimpleNamespace
 import tempfile
 from pathlib import Path
 
@@ -60,11 +66,56 @@ def geometry_checks(source):
         raise AssertionError(f'geometry case {index} incorrectly accepted')
 
 
+def endpoint_checks(source, name):
+    python = source.split("<<'PY'\n", 1)[1].rsplit('\nPY', 1)[0]
+    tree = ast.parse(python)
+    main = next(node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name == 'main')
+    end = next(index for index, node in enumerate(main.body)
+               if isinstance(node, ast.Assign) and any(isinstance(target, ast.Name) and target.id == 'args' for target in node.targets))
+    parser_code = compile(ast.Module(body=main.body[:end + 1], type_ignores=[]), name, 'exec')
+    namespace = dict(argparse=argparse, math=math)
+    extracted(source, 'port', namespace)
+    if name == 'stream-soak':
+        extracted(source, 'seconds', namespace)
+    original = sys.argv
+    prefix = [name] + (['--mode', 'capture'] if name == 'fault-check' else [])
+    try:
+        for flags, expected in [([], (8000, 80)), (['--stream-port', '18000', '--state-port', '18080'], (18000, 18080)),
+                                (['--stream-port', '1', '--state-port', '65535'], (1, 65535))]:
+            sys.argv = prefix + flags
+            exec(parser_code, namespace)
+            args = namespace['args']
+            assert (args.stream_port, args.state_port) == expected
+        for option in ['--stream-port', '--state-port']:
+            for invalid in ['0', '65536', '-1', 'abc', '1.5', '１２', '9' * 5000]:
+                sys.argv = prefix + [option, invalid]
+                try:
+                    with contextlib.redirect_stderr(io.StringIO()):
+                        exec(parser_code, namespace)
+                except SystemExit as error:
+                    assert error.code == 2
+                else:
+                    raise AssertionError(f'{name}: accepted invalid {option}')
+    finally:
+        sys.argv = original
+    environment = dict(ip='127.0.0.1', args=SimpleNamespace(stream_port=18000, state_port=18080, path='/stream.flac'))
+    urls = [eval(compile(ast.Expression(node), name, 'eval'), environment)
+            for node in ast.walk(tree) if isinstance(node, ast.JoinedStr)
+            and isinstance(node.values[0], ast.Constant) and node.values[0].value == 'http://']
+    assert 'http://127.0.0.1:18080/api/state' in urls
+    assert 'http://127.0.0.1:18000/stream.flac' in urls
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute) and node.func.attr == 'create_connection':
+            assert eval(compile(ast.Expression(node.args[0]), name, 'eval'), environment) == ('127.0.0.1', 18000)
+
+
 def main():
     for name in ['fault-check', 'encoder-fault-check']:
         reader_checks(Path('scripts', name).read_text(), name)
     geometry_checks(Path('scripts/fault-check').read_text())
-    print('PASS harness UART framing and internal geometry checks (no hardware)')
+    for name in ['fault-check', 'stream-soak']:
+        endpoint_checks(Path('scripts', name).read_text(), name)
+    print('PASS harness UART framing, internal geometry and actual endpoint parser checks (no hardware)')
 
 
 if __name__ == '__main__':

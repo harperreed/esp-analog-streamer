@@ -1,0 +1,185 @@
+#!/usr/bin/env bash
+# ABOUTME: Exercises the interface relay with real loopback sockets and binary data on the host.
+# ABOUTME: Checks forwarding, half-close draining and bounded cancellation without board traffic.
+set -euo pipefail
+case "${1:-}" in
+    --help) echo "Usage: scripts/test-interface-relay (no arguments). Runs real loopback forwarding and cleanup tests."; exit 0 ;;
+    '') ;;
+    *) echo "FAIL unknown argument (see --help)" >&2; exit 2 ;;
+esac
+[ "$#" -eq 0 ] || { echo "FAIL unexpected arguments" >&2; exit 2; }
+cd "$(dirname "$0")/.."
+exec uv run --quiet --no-project python3 - <<'PY'
+import socket
+import sys
+import threading
+import time
+import unittest
+from pathlib import Path
+
+source = Path('scripts/interface-relay').read_text().split("<<'PY'\n", 1)[1].rsplit('\nPY', 1)[0]
+namespace = {'__name__': 'relay_test'}
+exec(compile(source, 'interface-relay', 'exec'), namespace)
+Relay = namespace['Relay']
+
+def receive_exact(peer, length):
+    data = bytearray()
+    while len(data) < length:
+        chunk = peer.recv(length - len(data))
+        if not chunk:
+            raise AssertionError('unexpected EOF before fixed-length transfer completed')
+        data.extend(chunk)
+    return bytes(data)
+
+
+class RelayTests(unittest.TestCase):
+    def setUp(self):
+        self.targets, self.workers = [], []
+        self.stop = threading.Event()
+        self.relay = None
+        self.runner = None
+        self.runner_errors = []
+        self.target_receive_buffer = None
+        self.refuse_first = False
+
+    def tearDown(self):
+        self.stop.set()
+        if self.runner:
+            self.runner.join(2)
+            self.assertFalse(self.runner.is_alive(), 'relay cancellation exceeded bound')
+            self.assertEqual(self.runner_errors, [], 'relay runner raised an exception')
+        for target in self.targets:
+            target.close()
+        for worker in self.workers:
+            worker.join(2)
+            self.assertFalse(worker.is_alive(), 'target socket worker leaked')
+
+    def start(self):
+        for _ in range(2):
+            target = socket.socket()
+            target.bind(('127.0.0.1', 0))
+            if self.target_receive_buffer:
+                target.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, self.target_receive_buffer)
+            if not (self.refuse_first and not self.targets):
+                target.listen(1)
+            target.settimeout(2)
+            self.targets.append(target)
+        index = socket.if_nametoindex('lo0') if sys.platform == 'darwin' else None
+        self.relay = Relay('127.0.0.1', [s.getsockname()[1] for s in self.targets], index, lambda **fields: None)
+        def run():
+            try:
+                self.relay.run(self.stop)
+            except BaseException as error:
+                self.runner_errors.append(error)
+        self.runner = threading.Thread(target=run)
+        self.runner.start()
+
+    def test_binary_forwarding_and_drained_half_close_on_both_mappings(self):
+        self.start()
+        payload = bytes(range(256)) * 1024
+        received, errors = [], []
+        def target_worker(target):
+            try:
+                with target.accept()[0] as peer:
+                    peer.settimeout(3)
+                    data = bytearray()
+                    while chunk := peer.recv(4096):
+                        data.extend(chunk)
+                    received.append(bytes(data))
+                    peer.sendall(bytes(reversed(data)))
+                    peer.shutdown(socket.SHUT_WR)
+            except Exception as error:
+                errors.append(error)
+        for target in self.targets:
+            worker = threading.Thread(target=target_worker, args=(target,))
+            self.workers.append(worker)
+            worker.start()
+        for port in self.relay.listen_ports:
+            with socket.create_connection(('127.0.0.1', port), timeout=3) as peer:
+                peer.sendall(payload)
+                peer.shutdown(socket.SHUT_WR)
+                data = bytearray()
+                while chunk := peer.recv(8192):
+                    data.extend(chunk)
+                self.assertEqual(bytes(data), bytes(reversed(payload)))
+        self.assertEqual(received, [payload, payload])
+        self.assertEqual(errors, [])
+
+    def test_stalled_receiver_bounds_buffer_and_backpressure(self):
+        self.target_receive_buffer = 1024
+        self.start()
+        with socket.create_connection(('127.0.0.1', self.relay.listen_ports[0]), timeout=2) as peer:
+            with self.targets[0].accept()[0]:
+                peer.setblocking(False)
+                block = b'x' * 65536
+                deadline = time.monotonic() + 3
+                full = blocked = False
+                sent = 0
+                while time.monotonic() < deadline:
+                    if sent < 16 * 1024 * 1024:
+                        try:
+                            sent += peer.send(block)
+                        except BlockingIOError:
+                            blocked = True
+                    for connection in list(self.relay.connections):
+                        for endpoint in connection['endpoints']:
+                            size = len(endpoint['buffer'])
+                            self.assertLessEqual(size, self.relay.BUFFER)
+                            full = full or size == self.relay.BUFFER
+                    if full and blocked:
+                        break
+                    time.sleep(0.005)
+                self.assertTrue(full, 'stalled receiver never filled relay buffer')
+                self.assertTrue(blocked, 'stalled receiver did not backpressure sender')
+                self.assertLess(sent, 16 * 1024 * 1024)
+
+    def test_refused_upstream_closes_peer_and_relay_remains_usable(self):
+        self.refuse_first = True
+        self.start()
+        with socket.create_connection(('127.0.0.1', self.relay.listen_ports[0]), timeout=3) as peer:
+            self.assertEqual(peer.recv(1), b'')
+        with socket.create_connection(('127.0.0.1', self.relay.listen_ports[1]), timeout=2) as peer:
+            with self.targets[1].accept()[0] as upstream:
+                peer.sendall(b'still usable')
+                upstream.settimeout(2)
+                self.assertEqual(receive_exact(upstream, 12), b'still usable')
+                upstream.sendall(b'yes')
+                self.assertEqual(receive_exact(peer, 3), b'yes')
+
+    def test_connection_limit_and_cleanup(self):
+        self.start()
+        clients, upstreams = [], []
+        try:
+            for _ in range(self.relay.LIMIT):
+                clients.append(socket.create_connection(('127.0.0.1', self.relay.listen_ports[0]), timeout=2))
+                upstreams.append(self.targets[0].accept()[0])
+            with socket.create_connection(('127.0.0.1', self.relay.listen_ports[0]), timeout=2) as refused:
+                self.assertEqual(refused.recv(1), b'')
+            self.assertEqual(len(self.relay.connections), self.relay.LIMIT)
+            self.stop.set()
+            self.runner.join(1)
+            self.assertFalse(self.runner.is_alive())
+            for peer in clients + upstreams:
+                peer.settimeout(1)
+                self.assertEqual(peer.recv(1), b'')
+        finally:
+            for peer in clients + upstreams:
+                peer.close()
+
+    def test_cancellation_closes_live_connection(self):
+        self.start()
+        with socket.create_connection(('127.0.0.1', self.relay.listen_ports[0]), timeout=2) as peer:
+            with self.targets[0].accept()[0] as upstream:
+                peer.sendall(b'live')
+                upstream.settimeout(2)
+                self.assertEqual(receive_exact(upstream, 4), b'live')
+                began = time.monotonic()
+                self.stop.set()
+                self.runner.join(1)
+                self.assertFalse(self.runner.is_alive())
+                self.assertLess(time.monotonic() - began, 1)
+                self.assertEqual(peer.recv(1), b'')
+                self.assertEqual(upstream.recv(1), b'')
+
+unittest.main()
+PY

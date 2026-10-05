@@ -1,0 +1,239 @@
+#!/usr/bin/env bash
+# ABOUTME: Relays loopback state and stream TCP clients through one macOS interface to a fixed board.
+# ABOUTME: Keeps HTTP bytes untouched; logs private metadata and never changes routes or board state.
+set -euo pipefail
+exec uv run --quiet --no-project python3 - "$@" <<'PY'
+import argparse
+import errno
+import ipaddress
+import json
+import os
+import selectors
+import signal
+import socket
+import sys
+import threading
+import time
+from pathlib import Path
+
+class Relay:
+    BUFFER = 16 * 1024
+    LIMIT = 8
+    CONNECT_SECONDS = 2
+
+    def __init__(self, host, ports, interface_index, log):
+        self.host, self.interface_index, self.log = host, interface_index, log
+        self.selector = selectors.DefaultSelector()
+        self.listeners, self.connections = [], []
+        self.sequence = 0
+        try:
+            for port in ports:
+                listener = socket.socket()
+                self.listeners.append(listener)
+                listener.bind(('127.0.0.1', 0))
+                listener.listen(self.LIMIT)
+                listener.setblocking(False)
+                self.selector.register(listener, selectors.EVENT_READ, port)
+        except Exception:
+            self.close()
+            raise
+        self.listen_ports = [s.getsockname()[1] for s in self.listeners]
+
+    def accept(self, listener, port):
+        client, _ = listener.accept()
+        if len(self.connections) >= self.LIMIT:
+            client.close()
+            self.log(kind='connection_limit', upstream_port=port)
+            return
+        upstream = None
+        connection = None
+        try:
+            upstream = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            # Public macOS SDK netinet/in.h: IP_BOUND_IF=25. Scope routing before connect.
+            # None is used only by portable loopback host tests, never by the CLI.
+            if self.interface_index is not None:
+                upstream.setsockopt(socket.IPPROTO_IP, 25, self.interface_index)
+                if upstream.getsockopt(socket.IPPROTO_IP, 25) != self.interface_index:
+                    raise OSError('IP_BOUND_IF verification failed')
+            upstream.setblocking(False)
+            client.setblocking(False)
+            result = upstream.connect_ex((self.host, port))
+            if result not in (0, errno.EINPROGRESS, errno.EWOULDBLOCK, errno.EALREADY):
+                raise OSError(result, os.strerror(result))
+            self.sequence += 1
+            endpoints = [dict(socket=s, buffer=bytearray(), eof=False, write_closed=False,
+                              connecting=s is upstream, read_bytes=0) for s in (client, upstream)]
+            connection = dict(id=self.sequence, endpoints=endpoints, port=port,
+                              deadline=time.monotonic() + self.CONNECT_SECONDS)
+            self.connections.append(connection)
+            self.log(kind='accepted', connection=connection['id'], upstream_port=port)
+            self.refresh(connection)
+        except Exception:
+            if connection in self.connections:
+                self.remove(connection, 'setup_failed')
+            else:
+                client.close()
+                if upstream is not None:
+                    upstream.close()
+            raise
+
+    def remove(self, connection, reason):
+        if connection not in self.connections:
+            return
+        self.connections.remove(connection)
+        for endpoint in connection['endpoints']:
+            sock = endpoint['socket']
+            try:
+                self.selector.unregister(sock)
+            except KeyError:
+                pass
+            sock.close()
+        self.log(kind='closed', connection=connection['id'], reason=reason,
+                 client_bytes=connection['endpoints'][0]['read_bytes'],
+                 upstream_bytes=connection['endpoints'][1]['read_bytes'])
+
+    def refresh(self, connection):
+        endpoints = connection['endpoints']
+        if all(e['eof'] and not e['buffer'] for e in endpoints):
+            self.remove(connection, 'both_eof')
+            return
+        for index, endpoint in enumerate(endpoints):
+            other = endpoints[1 - index]
+            if not endpoint['connecting'] and other['eof'] and not endpoint['buffer'] and not endpoint['write_closed']:
+                endpoint['socket'].shutdown(socket.SHUT_WR)
+                endpoint['write_closed'] = True
+            events = 0
+            if endpoint['connecting']:
+                events = selectors.EVENT_WRITE
+            else:
+                if not endpoint['eof'] and len(other['buffer']) < self.BUFFER:
+                    events |= selectors.EVENT_READ
+                if endpoint['buffer']:
+                    events |= selectors.EVENT_WRITE
+            try:
+                self.selector.unregister(endpoint['socket'])
+            except KeyError:
+                pass
+            if events:
+                self.selector.register(endpoint['socket'], events, (connection, index))
+
+    def service(self, connection, index, events):
+        endpoint = connection['endpoints'][index]
+        other = connection['endpoints'][1 - index]
+        sock = endpoint['socket']
+        try:
+            if endpoint['connecting']:
+                error = sock.getsockopt(socket.SOL_SOCKET, socket.SO_ERROR)
+                if error:
+                    raise OSError(error, os.strerror(error))
+                endpoint['connecting'] = False
+                self.log(kind='connected', connection=connection['id'], upstream_port=connection['port'])
+            else:
+                if events & selectors.EVENT_WRITE and endpoint['buffer']:
+                    sent = sock.send(endpoint['buffer'])
+                    del endpoint['buffer'][:sent]
+                if events & selectors.EVENT_READ:
+                    available = self.BUFFER - len(other['buffer'])
+                    if available:
+                        data = sock.recv(available)
+                        if data:
+                            other['buffer'].extend(data)
+                            endpoint['read_bytes'] += len(data)
+                        else:
+                            endpoint['eof'] = True
+            self.refresh(connection)
+        except BlockingIOError:
+            try:
+                self.refresh(connection)
+            except OSError as error:
+                self.remove(connection, f'io_errno_{error.errno}')
+        except OSError as error:
+            self.remove(connection, f'io_errno_{error.errno}')
+
+    def run(self, stop):
+        try:
+            while not stop.is_set():
+                for key, events in self.selector.select(0.1):
+                    if isinstance(key.data, int):
+                        try:
+                            self.accept(key.fileobj, key.data)
+                        except OSError as error:
+                            self.log(kind='connect_failed', upstream_port=key.data, errno=error.errno)
+                    else:
+                        connection, index = key.data
+                        if connection in self.connections:
+                            self.service(connection, index, events)
+                for connection in list(self.connections):
+                    if any(e['connecting'] for e in connection['endpoints']) and time.monotonic() >= connection['deadline']:
+                        self.remove(connection, 'connect_timeout')
+        finally:
+            self.close()
+
+    def close(self):
+        error = None
+        for connection in list(self.connections):
+            try:
+                self.remove(connection, 'cancelled')
+            except Exception as failure:
+                error = error or failure
+        for listener in self.listeners:
+            listener.close()
+        self.selector.close()
+        if error:
+            raise error
+
+
+def main():
+    parser = argparse.ArgumentParser(description='Relay loopback TCP bytes to one board via a macOS interface; no routes or board state change.')
+    parser.add_argument('--host', required=True, help='literal board IPv4 address; upstream ports are fixed at 8000 and 80')
+    parser.add_argument('--interface', required=True, help='macOS interface name, for example en0')
+    parser.add_argument('--out', required=True, help='new private JSONL metadata file (no audio/HTTP payload)')
+    args = parser.parse_args()
+    try:
+        host = str(ipaddress.IPv4Address(args.host))
+        if sys.platform != 'darwin':
+            parser.error('interface binding requires macOS')
+        index = socket.if_nametoindex(args.interface)
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as probe:
+            probe.setsockopt(socket.IPPROTO_IP, 25, index)
+            if probe.getsockopt(socket.IPPROTO_IP, 25) != index:
+                parser.error('IP_BOUND_IF verification failed')
+    except (ValueError, OSError) as error:
+        parser.error(str(error))
+    os.umask(0o077)
+    output = Path(args.out)
+    output.parent.mkdir(parents=True, exist_ok=True)
+    stop = threading.Event()
+    for sig in (signal.SIGINT, signal.SIGTERM):
+        signal.signal(sig, lambda *_: stop.set())
+    with output.open('x') as handle:
+        log_bytes = 0
+        def log(**fields):
+            nonlocal log_bytes
+            line = json.dumps(dict(monotonic_seconds=round(time.monotonic(), 6), **fields)) + '\n'
+            log_bytes += len(line.encode())
+            if log_bytes > 8 * 1024 * 1024:
+                raise RuntimeError('private metadata log exceeded 8 MiB; relay stopped')
+            handle.write(line)
+            handle.flush()
+        relay = Relay(host, [8000, 80], index, log)
+        ready = dict(kind='ready', host=host, interface=args.interface, interface_index=index,
+                     listen_host='127.0.0.1', stream_port=relay.listen_ports[0], state_port=relay.listen_ports[1])
+        try:
+            log(**ready)
+            print(json.dumps(ready), flush=True)
+        except Exception:
+            relay.close()
+            raise
+        relay.run(stop)
+    return 0
+
+
+if __name__ == '__main__':
+    try:
+        sys.exit(main())
+    except Exception as error:
+        print(f'FAIL interface-relay: {error}', file=sys.stderr)
+        sys.exit(1)
+
+PY

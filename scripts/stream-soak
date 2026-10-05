@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ABOUTME: Runs two real FLAC decoders while checking live capture counters and heap telemetry.
-# ABOUTME: Usage: scripts/stream-soak [HOST] [--seconds N] [--out DIR]; resets once and keeps UART private.
+# ABOUTME: Usage: scripts/stream-soak [HOST] [--seconds N] [--stream-port PORT] [--state-port PORT] [--out DIR]; resets once and keeps UART private.
 set -euo pipefail
 repo="$(cd "$(dirname "$0")/.." && pwd)"
 STREAM_SOAK_REPO="$repo" exec uv run --quiet --no-project python3 - "$@" <<'PY'
@@ -64,6 +64,12 @@ class Tail:
             self.handle.close()
 
 
+def port(value):
+    if not 1 <= len(value) <= 5 or not value.isascii() or not value.isdecimal() or not 1 <= int(value) <= 65535:
+        raise argparse.ArgumentTypeError('port must be an integer from 1 to 65535')
+    return int(value)
+
+
 def main():
     parser = argparse.ArgumentParser(
         prog='scripts/stream-soak',
@@ -75,6 +81,8 @@ def main():
         'A checked 128 MiB total output budget stops the run on overflow; logs are retained, not rotated.')
     parser.add_argument('host', nargs='?', default='esp-shazam.local')
     parser.add_argument('--seconds', type=seconds, default=21600.0)
+    parser.add_argument('--stream-port', type=port, default=8000, help='stream TCP port (default: 8000)')
+    parser.add_argument('--state-port', type=port, default=80, help='state HTTP port (default: 80)')
     parser.add_argument('--out', help='parent output directory (default: target/stream-soak)')
     args = parser.parse_args()
     def interrupted(_number, _frame):
@@ -122,7 +130,7 @@ def main():
     def state():
         nonlocal state_polls
         opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
-        with opener.open(f'http://{ip}/api/state', timeout=3) as response:
+        with opener.open(f'http://{ip}:{args.state_port}/api/state', timeout=3) as response:
             value = json.load(response)
         if value.get('shazam_enabled') is not False:
             raise Failure('/api/state must report shazam_enabled=false')
@@ -199,7 +207,7 @@ def main():
                 process.wait(timeout=3)
 
     try:
-        ip = socket.getaddrinfo(args.host, 8000, socket.AF_INET, socket.SOCK_STREAM)[0][4][0]
+        ip = socket.getaddrinfo(args.host, args.stream_port, socket.AF_INET, socket.SOCK_STREAM)[0][4][0]
         # Refuse a reset of firmware running with recognition enabled.
         state()
         raw = (out / 'uart.log').open('wb')
@@ -210,7 +218,7 @@ def main():
         processes.append(serial)
         uart_tail = Tail(out / 'uart.log')
         tails.append(uart_tail)
-        record('start', host=args.host, ip=ip, requested_seconds=args.seconds, listeners=2)
+        record('start', host=args.host, stream_port=args.stream_port, state_port=args.state_port, ip=ip, requested_seconds=args.seconds, listeners=2)
         startup_deadline = time.monotonic() + 60
         state_seen = False
         next_state = 0
@@ -246,7 +254,7 @@ def main():
             process = subprocess.Popen(
                 ['ffmpeg', '-nostdin', '-v', 'error', '-xerror', '-stats_period', '1',
                  '-progress', str(progress), '-rw_timeout', '10000000', '-i',
-                 f'http://{ip}:8000/stream.flac', '-t', str(args.seconds), '-f', 'null', '-'],
+                 f'http://{ip}:{args.stream_port}/stream.flac', '-t', str(args.seconds), '-f', 'null', '-'],
                 stdout=subprocess.DEVNULL, stderr=error_handle, start_new_session=True)
             processes.append(process)
             tail = Tail(progress)
@@ -311,7 +319,7 @@ def main():
             check_output_budget()
         except Exception as error:
             failure = failure or str(error)
-        summary = dict(passed=failure is None, error=failure, host=args.host, ip=ip,
+        summary = dict(passed=failure is None, error=failure, host=args.host, stream_port=args.stream_port, state_port=args.state_port, ip=ip,
                        requested_seconds=args.seconds, elapsed_seconds=round(time.monotonic() - started, 3),
                        decoded_seconds=[job['decoded_seconds'] for job in jobs], state_polls=state_polls,
                        baseline=baseline, last_capture=latest, captured_frames_observed=captured,

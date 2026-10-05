@@ -25,6 +25,7 @@ stage fmt cargo fmt --all -- --check
 stage clippy cargo clippy --workspace --all-targets -- -D warnings
 stage test cargo test --workspace
 stage harnesses scripts/check-harnesses
+stage interface-relay scripts/test-interface-relay
 
 if [ -d firmware ]; then
   stage firmware-fmt rustfmt --edition 2021 --check firmware/build.rs firmware/src/*.rs

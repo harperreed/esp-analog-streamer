@@ -4,11 +4,12 @@
 set -euo pipefail
 usage() {
     cat <<'HELP'
-Usage: scripts/fault-check --mode capture|pressure|internal-pressure|network|wav-local|health [HOST] [--path /stream.flac|/stream.wav] [--listeners 1|2] [--out DIR]
+Usage: scripts/fault-check --mode capture|pressure|internal-pressure|network|wav-local|health [HOST] [--path /stream.flac|/stream.wav] [--listeners 1|2] [--stream-port PORT] [--state-port PORT] [--out DIR]
 Flash capture-faults, listener-pressure, internal-pressure, network-faults, or wav-freshness first, with Shazam disabled. This check resets
 the board through scripts/serial-log and records private UART logs. Health uses capture-faults
 without stream clients: it proves capture restart/reset policy, not freshness or decoded playback.
 Keep audio playing and run under caffeinate -is to prevent host sleep. No flashing occurs.
+Stream/state ports default to 8000/80; each must be 1..65535.
 HOST defaults to esp-shazam.local; output defaults to target/fault-check/<dated run>.
 Capture defaults to /stream.flac; /stream.wav checks WAV freshness.
 Listeners default to 2; capture supports 1 to isolate WAV freshness without two-stream load.
@@ -38,6 +39,9 @@ while [ "$#" -gt 0 ]; do
         --listeners)
             [ "$#" -ge 2 ] && [ -z "$listeners_seen" ] && [[ "$2" = 1 || "$2" = 2 ]] || { echo 'FAIL --listeners requires 1 or 2 once' >&2; exit 2; }
             listeners="$2"; listeners_seen=yes; shift 2 ;;
+        --stream-port|--state-port)
+            [ "$#" -ge 2 ] && [[ "$2" =~ ^[0-9]{1,5}$ ]] && [ "$((10#$2))" -ge 1 ] && [ "$((10#$2))" -le 65535 ] || { echo "FAIL $1 requires an integer from 1 to 65535" >&2; exit 2; }
+            shift 2 ;;
         --out)
             [ "$#" -ge 2 ] && [ -n "$2" ] && [[ "$2" != --* ]] || { echo 'FAIL --out requires a directory' >&2; exit 2; }
             shift 2 ;;
@@ -88,10 +92,18 @@ def validate_internal_geometry(fields):
         raise Failure('internal fixture crossed its sampled experimental floor')
 
 
+def port(value):
+    if not 1 <= len(value) <= 5 or not value.isascii() or not value.isdecimal() or not 1 <= int(value) <= 65535:
+        raise argparse.ArgumentTypeError('port must be an integer from 1 to 65535')
+    return int(value)
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--mode', required=True, choices=['capture', 'pressure', 'internal-pressure', 'network', 'wav-local', 'health'])
     parser.add_argument('host', nargs='?', default='esp-shazam.local')
+    parser.add_argument('--stream-port', type=port, default=8000, help='stream TCP port (default: 8000)')
+    parser.add_argument('--state-port', type=port, default=80, help='state HTTP port (default: 80)')
     parser.add_argument('--out')
     parser.add_argument('--path', default='/stream.flac', choices=['/stream.flac', '/stream.wav'])
     parser.add_argument('--listeners', type=int, default=2, choices=[1, 2])
@@ -155,7 +167,7 @@ def main():
         def fetch():
             try:
                 opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
-                with opener.open(f'http://{ip}/api/state', timeout=1) as response:
+                with opener.open(f'http://{ip}:{args.state_port}/api/state', timeout=1) as response:
                     value = json.load(response)
             except Exception:
                 return None
@@ -166,7 +178,7 @@ def main():
         return wait(fetch, seconds, '/api/state unavailable before the required fixture stage')
 
     def status(expected):
-        with socket.create_connection((ip, 8000), timeout=2) as peer:
+        with socket.create_connection((ip, args.stream_port), timeout=2) as peer:
             peer.settimeout(2)
             peer.sendall(f'GET {args.path} HTTP/1.1\r\nHost: esp-shazam\r\n\r\n'.encode('ascii'))
             head = bytearray()
@@ -185,7 +197,7 @@ def main():
     def refused_eof():
         deadline = time.monotonic() + 3
         received = 0
-        with socket.create_connection((ip, 8000), timeout=2) as peer:
+        with socket.create_connection((ip, args.stream_port), timeout=2) as peer:
             peer.settimeout(max(0.001, deadline - time.monotonic()))
             peer.sendall(f'GET {args.path} HTTP/1.1\r\nHost: esp-shazam\r\n\r\n'.encode('ascii'))
             while True:
@@ -208,7 +220,7 @@ def main():
         # Allow the production FLAC write budget (~8.02 s) before the host gives up;
         # stream-check uses the same 10 s timeout. Decode completion remains bounded.
         command = ['ffmpeg', '-nostdin', '-v', 'error', '-xerror', '-stats_period', '0.2',
-                   '-progress', str(progress), '-rw_timeout', '10000000', '-i', f'http://{ip}:8000{args.path}']
+                   '-progress', str(progress), '-rw_timeout', '10000000', '-i', f'http://{ip}:{args.stream_port}{args.path}']
         if seconds is not None:
             command += ['-t', str(seconds)]
         command += ['-f', 'null', '-']
@@ -272,7 +284,7 @@ def main():
             raise Failure(f'{label}: captured frames did not advance')
 
     def drain_observer():
-        peer = socket.create_connection((ip, 8000), timeout=2)
+        peer = socket.create_connection((ip, args.stream_port), timeout=2)
         result = dict(peer=peer, stopping=threading.Event(), eof=None, error=None)
         readers.append(result)
         peer.settimeout(2)
@@ -349,7 +361,7 @@ def main():
         return reboot
 
     try:
-        ip = socket.getaddrinfo(args.host, 8000, socket.AF_INET, socket.SOCK_STREAM)[0][4][0]
+        ip = socket.getaddrinfo(args.host, args.stream_port, socket.AF_INET, socket.SOCK_STREAM)[0][4][0]
         raw = uart.open('wb')
         serial_errors = (out / 'serial.log').open('wb')
         handles += [raw, serial_errors]
@@ -357,7 +369,7 @@ def main():
                                   start_new_session=True)
         processes.append(serial)
         uart_match(r'rst:0x', seconds=20)
-        record('reset_seen', mode=args.mode, host=args.host, ip=ip)
+        record('reset_seen', mode=args.mode, host=args.host, stream_port=args.stream_port, state_port=args.state_port, ip=ip)
         state_ready()
         if args.mode == 'health':
             health_start = len(lines())
@@ -676,7 +688,7 @@ def main():
                 failure = failure or 'subprocess cleanup failed'
         for handle in handles:
             handle.close()
-        summary = dict(passed=failure is None, error=failure, mode=args.mode, host=args.host, path=None if args.mode == 'health' else args.path,
+        summary = dict(passed=failure is None, error=failure, mode=args.mode, host=args.host, stream_port=args.stream_port, state_port=args.state_port, path=None if args.mode == 'health' else args.path,
                        listeners=0 if args.mode == 'health' else args.listeners, admission_cap_checked=admission_cap_checked,
                        scope='capture supervisor only; no freshness or decoded playback' if args.mode == 'health' else 'stream and capture assertions',
                        elapsed_seconds=round(time.monotonic() - started, 3), evidence=evidence,
