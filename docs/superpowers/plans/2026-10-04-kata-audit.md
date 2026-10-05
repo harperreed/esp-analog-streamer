@@ -2,7 +2,7 @@
 
 ## Current state
 
-Compaction count: 6. Playback reliability remains unresolved. All speculative
+Compaction count: 7. Playback reliability remains unresolved. All speculative
 production changes from this resumed investigation were reverted. Normal
 production was restored at 2026-10-05 13:02:47 UTC with static TX16/cache32,
 mandatory PSRAM, original DeadlineWriter and Shazam off. Root's UART collectors,
@@ -17,13 +17,20 @@ data (202,787 / 243,360 bytes) and some duplicate data. Latest harness failure
 at 78.931 s was specifically the relay's two-second upstream API connect
 timeout; streams were then stopped by cleanup. Do not call that a natural EOF.
 
-Doctor Biz reported that the requested packet capture is running, but neither
-`target/fix-stream-packets/en0.pcap` nor a tcpdump process is visible here. Both
-repository path aliases have matching device/inode numbers. A follow-up asks
-whether Terminal is waiting for sudo, reporting an error, or on another Mac.
-Resolve that before treating a capture as available. No privileged action,
-global power setting or route change has been made. Read-only source audit also
-found public macOS per-socket TCP_SENDMOREACKS; it has not been tested or enabled.
+Doctor Biz is away from the computer. The prior capture-selection reply did not
+establish that a capture exists: neither `target/fix-stream-packets/en0.pcap` nor
+a tcpdump process is visible here. Do not keep asking for Terminal operation.
+No privileged action, global power setting or route change has been made.
+The bounded default/more/default ACK-policy comparison is complete; it establishes
+no fix. Both first runs delivered about 120 s of CRC-valid decoded audio, but
+the repeated default lost both peers after about 84 s to eight-second frame-write
+deadlines. The Mac's sampled receive windows remained at least 64,095 bytes;
+capture-counter deltas stayed zero after each initial telemetry snapshot.
+All owned clients and UART processes are stopped; production is unchanged and
+Shazam remains off. Final en0 state probe answered HTTP 200 in 73.5 ms.
+Retire this long session after this recorded phase. Next useful discriminator
+is packet timing across the network path; current evidence does not locate
+driver, radio, router, or Mac loss and does not justify another firmware tweak.
 
 Canonical checks passed: 188 Rust tests, two pre-existing ignored, five relay
 tests, seven new real-socket collector tests, harness regressions, formatting,
@@ -32,6 +39,44 @@ also built cleanly and passed independent ownership/timing review. Evidence is
 under `docs/audit-evidence/2026-10-05/`; raw UART and network logs remain private.
 The brief -30 dBFS startup reading in the last run returned near -80 dBFS;
 it does not establish sustained music or broadband input.
+
+## Native ACK-policy diagnostic, 2026-10-05 18:51 UTC
+
+Doctor Biz clarified that they are away from the computer. No BPF capture was
+available, so root used a reviewed throwaway receiver with public macOS socket
+counters. Two direct en0 peers ran with default ACK option 0, then
+TCP_SENDMOREACKS=1, then fresh default sockets. Readbacks confirmed each policy;
+the read-only global delayed_ack value was 3. Firmware and global settings did
+not change. Each run reset identically and checked Shazam off before/after;
+there was no periodic API polling or live-decoder backpressure.
+
+- First default: 119.979 / 119.893 s of CRC-valid audio in 120 s. Largest observed
+  gaps between body receives were 1.883 / 2.034 s.
+- More ACKs: 119.979 s each in 120 s; largest gaps 1.408 / 1.816 s.
+- Repeated default: natural EOF at 83.771 / 83.846 s, with only 73.813 / 73.387 s
+  of complete audio. UART independently shows 8027 / 8033 ms frame-write
+  timeouts against 8021 ms limits, followed by checked close in 243 / 305 ms.
+
+All six complete prefixes decoded without error. Capture deltas stayed flat;
+startup RSSI was -49 / -50 / -50 dBm. ACK-policy causality remains inconclusive:
+the unchanged control itself both passed and failed. Short runs do not establish
+endurance, sustained source music, or worst-case FLAC throughput.
+
+Evidence: `docs/audit-evidence/2026-10-05/ack-policy-comparison.json`.
+Private raw data: `target/ack-comparison-20261005T185104Z/`.
+Tools: `target/ack-policy-check.py`, `target/run-ack-comparison.py`, and
+`target/export-ack-comparison.py`. Real local TCP tests verified option 0/1,
+112-byte native info, exact 100,000-byte capture, eight CRC-valid frames and
+0.682667 s of decoded audio; premature HTTP-header EOF was correctly rejected.
+Independent review corrected metadata bounds, exit status and cleanup races
+before hardware use. No repository production code changed in this phase.
+
+Public TCP_CONNECTION_INFO has no duplicate-byte field; offset 104 is transmitted
+retransmission packets. Its TX packet count excludes pure ACKs, and RX packet
+counts can reflect coalesced buffers. Out-of-order bytes do not locate loss or
+measure lost-packet percentage. Public ESP-IDF station getters expose RSSI and
+PHY/AP context, but no supported ordinary-TCP retry-count API was established;
+do not treat the raw-80211 TX callback as a proven TCP completion observer.
 
 ## Resumed investigation sequence (historical)
 

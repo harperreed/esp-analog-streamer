@@ -1,0 +1,862 @@
+{
+  "raw_directory": "target/ack-comparison-20261005T185104Z",
+  "scope": "Two direct en0 receivers, production unchanged, default/more/default ACK option; no endurance acceptance",
+  "runs": [
+    {
+      "name": "a-default",
+      "policy": "default",
+      "exit": 0,
+      "elapsed_seconds": 141.90037945800577,
+      "summary": "/Users/harper/Public/src/personal/esp-shazam/target/ack-comparison-20261005T185104Z/a-default/summary.json",
+      "cleanup_errors": [],
+      "initial_state": {
+        "passed": true,
+        "elapsed_seconds": 0.062291624999488704,
+        "shazam_enabled": false
+      },
+      "final_state": {
+        "passed": true,
+        "elapsed_seconds": 0.03589374999864958,
+        "shazam_enabled": false
+      },
+      "results": [
+        {
+          "index": 0,
+          "bytes": 16137154,
+          "interface_index": 11,
+          "ack_original": 0,
+          "ack_preconnect": 0,
+          "ack_postconnect": 0,
+          "local_endpoint": [
+            "192.168.99.151",
+            62982
+          ],
+          "remote_endpoint": [
+            "192.168.200.224",
+            8000
+          ],
+          "head_seconds": 0.07467329100472853,
+          "host_cut_seconds": 120.00103212500107,
+          "body_elapsed_seconds": 120.00201866700081,
+          "total_elapsed_seconds": 120.07684941600019,
+          "collection_reached_host_bound": true,
+          "prefix_decode_ok": true,
+          "analysis": {
+            "complete_frames": 1406,
+            "pcm_seconds": 119.97866666666667,
+            "terminal_bytes": 10080,
+            "prefix_decode": {
+              "exit": 0,
+              "decoded_seconds": 119.978667
+            },
+            "scope": "Source-derived fixed FLAC headers and CRC-valid sequential frames; host-cut partial tail is not encoder corruption"
+          },
+          "whole_seconds_without_body_bytes": [
+            67
+          ],
+          "maximum_gap_between_body_receives_seconds": 1.8830155410105363,
+          "twenty_second_pcm_windows": [
+            {
+              "start_seconds": 0,
+              "end_seconds": 20,
+              "observed_seconds": 20,
+              "pcm_seconds": 19.968
+            },
+            {
+              "start_seconds": 20,
+              "end_seconds": 40,
+              "observed_seconds": 20,
+              "pcm_seconds": 20.053333333333335
+            },
+            {
+              "start_seconds": 40,
+              "end_seconds": 60,
+              "observed_seconds": 20,
+              "pcm_seconds": 19.882666666666665
+            },
+            {
+              "start_seconds": 60,
+              "end_seconds": 80,
+              "observed_seconds": 20,
+              "pcm_seconds": 19.968
+            },
+            {
+              "start_seconds": 80,
+              "end_seconds": 100,
+              "observed_seconds": 20,
+              "pcm_seconds": 19.882666666666665
+            },
+            {
+              "start_seconds": 100,
+              "end_seconds": 120,
+              "observed_seconds": 20,
+              "pcm_seconds": 20.224
+            }
+          ],
+          "tcp_first": {
+            "seconds": 0.00021266700059641153,
+            "body_bytes": 0,
+            "state": 4,
+            "snd_wscale": 0,
+            "rcv_wscale": 0,
+            "flags": 0,
+            "rto_ms": 0,
+            "maxseg": 1440,
+            "snd_cwnd": 14447,
+            "snd_wnd": 5713,
+            "snd_sbbytes": 0,
+            "rcv_wnd": 65535,
+            "rttcur_ms": 100,
+            "srtt_ms": 19,
+            "rttvar_ms": 16,
+            "txpackets": 1,
+            "txbytes": 47,
+            "txretransmitbytes": 0,
+            "rxpackets": 1,
+            "rxbytes": 131,
+            "rxoutoforderbytes": 0,
+            "txretransmitpackets": 0
+          },
+          "tcp_final": {
+            "seconds": 120.0010394169949,
+            "body_bytes": 16137154,
+            "final": true,
+            "state": 4,
+            "snd_wscale": 0,
+            "rcv_wscale": 0,
+            "flags": 0,
+            "rto_ms": 0,
+            "maxseg": 1440,
+            "snd_cwnd": 14447,
+            "snd_wnd": 5713,
+            "snd_sbbytes": 0,
+            "rcv_wnd": 65535,
+            "rttcur_ms": 944,
+            "srtt_ms": 19,
+            "rttvar_ms": 16,
+            "txpackets": 1,
+            "txbytes": 47,
+            "txretransmitbytes": 0,
+            "rxpackets": 4564,
+            "rxbytes": 16137243,
+            "rxoutoforderbytes": 97641,
+            "txretransmitpackets": 0
+          },
+          "minimum_sampled_receive_window": 64095
+        },
+        {
+          "index": 1,
+          "bytes": 16115626,
+          "interface_index": 11,
+          "ack_original": 0,
+          "ack_preconnect": 0,
+          "ack_postconnect": 0,
+          "local_endpoint": [
+            "192.168.99.151",
+            62983
+          ],
+          "remote_endpoint": [
+            "192.168.200.224",
+            8000
+          ],
+          "head_seconds": 0.08700329199200496,
+          "host_cut_seconds": 120.00279637500353,
+          "body_elapsed_seconds": 120.00361662500654,
+          "total_elapsed_seconds": 120.0907960839977,
+          "collection_reached_host_bound": true,
+          "prefix_decode_ok": true,
+          "analysis": {
+            "complete_frames": 1405,
+            "pcm_seconds": 119.89333333333333,
+            "terminal_bytes": 0,
+            "prefix_decode": {
+              "exit": 0,
+              "decoded_seconds": 119.893333
+            },
+            "scope": "Source-derived fixed FLAC headers and CRC-valid sequential frames; host-cut partial tail is not encoder corruption"
+          },
+          "whole_seconds_without_body_bytes": [
+            113
+          ],
+          "maximum_gap_between_body_receives_seconds": 2.0342332500003977,
+          "twenty_second_pcm_windows": [
+            {
+              "start_seconds": 0,
+              "end_seconds": 20,
+              "observed_seconds": 20,
+              "pcm_seconds": 19.882666666666665
+            },
+            {
+              "start_seconds": 20,
+              "end_seconds": 40,
+              "observed_seconds": 20,
+              "pcm_seconds": 20.053333333333335
+            },
+            {
+              "start_seconds": 40,
+              "end_seconds": 60,
+              "observed_seconds": 20,
+              "pcm_seconds": 19.882666666666665
+            },
+            {
+              "start_seconds": 60,
+              "end_seconds": 80,
+              "observed_seconds": 20,
+              "pcm_seconds": 20.053333333333335
+            },
+            {
+              "start_seconds": 80,
+              "end_seconds": 100,
+              "observed_seconds": 20,
+              "pcm_seconds": 19.882666666666665
+            },
+            {
+              "start_seconds": 100,
+              "end_seconds": 120,
+              "observed_seconds": 20,
+              "pcm_seconds": 20.138666666666666
+            }
+          ],
+          "tcp_first": {
+            "seconds": 0.00015979200543370098,
+            "body_bytes": 0,
+            "state": 4,
+            "snd_wscale": 0,
+            "rcv_wscale": 0,
+            "flags": 0,
+            "rto_ms": 0,
+            "maxseg": 1440,
+            "snd_cwnd": 14447,
+            "snd_wnd": 5713,
+            "snd_sbbytes": 0,
+            "rcv_wnd": 65535,
+            "rttcur_ms": 100,
+            "srtt_ms": 21,
+            "rttvar_ms": 20,
+            "txpackets": 1,
+            "txbytes": 47,
+            "txretransmitbytes": 0,
+            "rxpackets": 1,
+            "rxbytes": 131,
+            "rxoutoforderbytes": 0,
+            "txretransmitpackets": 0
+          },
+          "tcp_final": {
+            "seconds": 120.00280266700429,
+            "body_bytes": 16115626,
+            "final": true,
+            "state": 4,
+            "snd_wscale": 0,
+            "rcv_wscale": 0,
+            "flags": 0,
+            "rto_ms": 0,
+            "maxseg": 1440,
+            "snd_cwnd": 14447,
+            "snd_wnd": 5713,
+            "snd_sbbytes": 0,
+            "rcv_wnd": 65535,
+            "rttcur_ms": 880,
+            "srtt_ms": 21,
+            "rttvar_ms": 20,
+            "txpackets": 1,
+            "txbytes": 47,
+            "txretransmitbytes": 0,
+            "rxpackets": 4373,
+            "rxbytes": 16117155,
+            "rxoutoforderbytes": 72000,
+            "txretransmitpackets": 0
+          },
+          "minimum_sampled_receive_window": 64095
+        }
+      ],
+      "capture_snapshots": 13,
+      "capture_deltas": {
+        "queue_overflows": 0,
+        "software_dropped_frames": 0,
+        "read_errors": 0,
+        "restarts": 0,
+        "discontinuities": 0
+      },
+      "startup_rssi": [
+        -49
+      ],
+      "stream_close_events": [
+        "I (137999) esp_shazam_firmware::stream: stream: 192.168.99.151:62983 left after 120.0 s: Connection reset by peer (os error 104)",
+        "I (138009) esp_shazam_firmware::stream: stream: 192.168.99.151:62983 socket closed in 0 ms; releasing slot (2 held)",
+        "I (138069) esp_shazam_firmware::stream: stream: 192.168.99.151:62982 left after 120.1 s: Connection reset by peer (os error 104)",
+        "I (138069) esp_shazam_firmware::stream: stream: 192.168.99.151:62982 socket closed in 0 ms; releasing slot (1 held)"
+      ]
+    },
+    {
+      "name": "b-more",
+      "policy": "more",
+      "exit": 0,
+      "elapsed_seconds": 141.8765991669934,
+      "summary": "/Users/harper/Public/src/personal/esp-shazam/target/ack-comparison-20261005T185104Z/b-more/summary.json",
+      "cleanup_errors": [],
+      "initial_state": {
+        "passed": true,
+        "elapsed_seconds": 0.06747399999585468,
+        "shazam_enabled": false
+      },
+      "final_state": {
+        "passed": true,
+        "elapsed_seconds": 0.06783441599691287,
+        "shazam_enabled": false
+      },
+      "results": [
+        {
+          "index": 0,
+          "bytes": 16135721,
+          "interface_index": 11,
+          "ack_original": 0,
+          "ack_preconnect": 1,
+          "ack_postconnect": 1,
+          "local_endpoint": [
+            "192.168.99.151",
+            63037
+          ],
+          "remote_endpoint": [
+            "192.168.200.224",
+            8000
+          ],
+          "head_seconds": 0.058356499997898936,
+          "host_cut_seconds": 120.00190974998986,
+          "body_elapsed_seconds": 120.00359316599497,
+          "total_elapsed_seconds": 120.0622165829991,
+          "collection_reached_host_bound": true,
+          "prefix_decode_ok": true,
+          "analysis": {
+            "complete_frames": 1406,
+            "pcm_seconds": 119.97866666666667,
+            "terminal_bytes": 0,
+            "prefix_decode": {
+              "exit": 0,
+              "decoded_seconds": 119.978667
+            },
+            "scope": "Source-derived fixed FLAC headers and CRC-valid sequential frames; host-cut partial tail is not encoder corruption"
+          },
+          "whole_seconds_without_body_bytes": [
+            31
+          ],
+          "maximum_gap_between_body_receives_seconds": 1.4079733749968,
+          "twenty_second_pcm_windows": [
+            {
+              "start_seconds": 0,
+              "end_seconds": 20,
+              "observed_seconds": 20,
+              "pcm_seconds": 19.882666666666665
+            },
+            {
+              "start_seconds": 20,
+              "end_seconds": 40,
+              "observed_seconds": 20,
+              "pcm_seconds": 20.053333333333335
+            },
+            {
+              "start_seconds": 40,
+              "end_seconds": 60,
+              "observed_seconds": 20,
+              "pcm_seconds": 19.968
+            },
+            {
+              "start_seconds": 60,
+              "end_seconds": 80,
+              "observed_seconds": 20,
+              "pcm_seconds": 19.968
+            },
+            {
+              "start_seconds": 80,
+              "end_seconds": 100,
+              "observed_seconds": 20,
+              "pcm_seconds": 20.053333333333335
+            },
+            {
+              "start_seconds": 100,
+              "end_seconds": 120,
+              "observed_seconds": 20,
+              "pcm_seconds": 20.053333333333335
+            }
+          ],
+          "tcp_first": {
+            "seconds": 0.00023095800133887678,
+            "body_bytes": 0,
+            "state": 4,
+            "snd_wscale": 0,
+            "rcv_wscale": 0,
+            "flags": 0,
+            "rto_ms": 0,
+            "maxseg": 1440,
+            "snd_cwnd": 14447,
+            "snd_wnd": 5713,
+            "snd_sbbytes": 0,
+            "rcv_wnd": 65535,
+            "rttcur_ms": 100,
+            "srtt_ms": 12,
+            "rttvar_ms": 13,
+            "txpackets": 1,
+            "txbytes": 47,
+            "txretransmitbytes": 0,
+            "rxpackets": 1,
+            "rxbytes": 131,
+            "rxoutoforderbytes": 0,
+            "txretransmitpackets": 0
+          },
+          "tcp_final": {
+            "seconds": 120.00191958299547,
+            "body_bytes": 16135721,
+            "final": true,
+            "state": 4,
+            "snd_wscale": 0,
+            "rcv_wscale": 0,
+            "flags": 0,
+            "rto_ms": 0,
+            "maxseg": 1440,
+            "snd_cwnd": 14447,
+            "snd_wnd": 5713,
+            "snd_sbbytes": 0,
+            "rcv_wnd": 65535,
+            "rttcur_ms": 1023,
+            "srtt_ms": 12,
+            "rttvar_ms": 13,
+            "txpackets": 1,
+            "txbytes": 47,
+            "txretransmitbytes": 0,
+            "rxpackets": 4517,
+            "rxbytes": 16135810,
+            "rxoutoforderbytes": 69120,
+            "txretransmitpackets": 0
+          },
+          "minimum_sampled_receive_window": 65535
+        },
+        {
+          "index": 1,
+          "bytes": 16135721,
+          "interface_index": 11,
+          "ack_original": 0,
+          "ack_preconnect": 1,
+          "ack_postconnect": 1,
+          "local_endpoint": [
+            "192.168.99.151",
+            63038
+          ],
+          "remote_endpoint": [
+            "192.168.200.224",
+            8000
+          ],
+          "head_seconds": 0.06337845900270622,
+          "host_cut_seconds": 120.0023652910022,
+          "body_elapsed_seconds": 120.00369383300131,
+          "total_elapsed_seconds": 120.06728608401318,
+          "collection_reached_host_bound": true,
+          "prefix_decode_ok": true,
+          "analysis": {
+            "complete_frames": 1406,
+            "pcm_seconds": 119.97866666666667,
+            "terminal_bytes": 0,
+            "prefix_decode": {
+              "exit": 0,
+              "decoded_seconds": 119.978667
+            },
+            "scope": "Source-derived fixed FLAC headers and CRC-valid sequential frames; host-cut partial tail is not encoder corruption"
+          },
+          "whole_seconds_without_body_bytes": [
+            32
+          ],
+          "maximum_gap_between_body_receives_seconds": 1.8158105829934357,
+          "twenty_second_pcm_windows": [
+            {
+              "start_seconds": 0,
+              "end_seconds": 20,
+              "observed_seconds": 20,
+              "pcm_seconds": 19.968
+            },
+            {
+              "start_seconds": 20,
+              "end_seconds": 40,
+              "observed_seconds": 20,
+              "pcm_seconds": 19.968
+            },
+            {
+              "start_seconds": 40,
+              "end_seconds": 60,
+              "observed_seconds": 20,
+              "pcm_seconds": 19.968
+            },
+            {
+              "start_seconds": 60,
+              "end_seconds": 80,
+              "observed_seconds": 20,
+              "pcm_seconds": 19.968
+            },
+            {
+              "start_seconds": 80,
+              "end_seconds": 100,
+              "observed_seconds": 20,
+              "pcm_seconds": 20.053333333333335
+            },
+            {
+              "start_seconds": 100,
+              "end_seconds": 120,
+              "observed_seconds": 20,
+              "pcm_seconds": 20.053333333333335
+            }
+          ],
+          "tcp_first": {
+            "seconds": 0.00015729101141914725,
+            "body_bytes": 0,
+            "state": 4,
+            "snd_wscale": 0,
+            "rcv_wscale": 0,
+            "flags": 0,
+            "rto_ms": 0,
+            "maxseg": 1440,
+            "snd_cwnd": 14447,
+            "snd_wnd": 5713,
+            "snd_sbbytes": 0,
+            "rcv_wnd": 65535,
+            "rttcur_ms": 100,
+            "srtt_ms": 12,
+            "rttvar_ms": 13,
+            "txpackets": 1,
+            "txbytes": 47,
+            "txretransmitbytes": 0,
+            "rxpackets": 1,
+            "rxbytes": 131,
+            "rxoutoforderbytes": 0,
+            "txretransmitpackets": 0
+          },
+          "tcp_final": {
+            "seconds": 120.00237245800963,
+            "body_bytes": 16135721,
+            "final": true,
+            "state": 4,
+            "snd_wscale": 0,
+            "rcv_wscale": 0,
+            "flags": 0,
+            "rto_ms": 0,
+            "maxseg": 1440,
+            "snd_cwnd": 14447,
+            "snd_wnd": 5713,
+            "snd_sbbytes": 0,
+            "rcv_wnd": 65535,
+            "rttcur_ms": 1012,
+            "srtt_ms": 12,
+            "rttvar_ms": 13,
+            "txpackets": 1,
+            "txbytes": 47,
+            "txretransmitbytes": 0,
+            "rxpackets": 4606,
+            "rxbytes": 16135810,
+            "rxoutoforderbytes": 53323,
+            "txretransmitpackets": 0
+          },
+          "minimum_sampled_receive_window": 65535
+        }
+      ],
+      "capture_snapshots": 13,
+      "capture_deltas": {
+        "queue_overflows": 0,
+        "software_dropped_frames": 0,
+        "read_errors": 0,
+        "restarts": 0,
+        "discontinuities": 0
+      },
+      "startup_rssi": [
+        -50
+      ],
+      "stream_close_events": [
+        "I (138139) esp_shazam_firmware::stream: stream: 192.168.99.151:63038 left after 120.1 s: Connection reset by peer (os error 104)",
+        "I (138139) esp_shazam_firmware::stream: stream: 192.168.99.151:63037 left after 120.1 s: Connection reset by peer (os error 104)",
+        "I (138149) esp_shazam_firmware::stream: stream: 192.168.99.151:63038 socket closed in 4 ms; releasing slot (2 held)",
+        "I (138159) esp_shazam_firmware::stream: stream: 192.168.99.151:63037 socket closed in 1 ms; releasing slot (2 held)"
+      ]
+    },
+    {
+      "name": "c-default",
+      "policy": "default",
+      "exit": 1,
+      "elapsed_seconds": 104.41337095900963,
+      "summary": "/Users/harper/Public/src/personal/esp-shazam/target/ack-comparison-20261005T185104Z/c-default/summary.json",
+      "cleanup_errors": [],
+      "initial_state": {
+        "passed": true,
+        "elapsed_seconds": 0.03566229100397322,
+        "shazam_enabled": false
+      },
+      "final_state": {
+        "passed": true,
+        "elapsed_seconds": 0.13012616700143553,
+        "shazam_enabled": false
+      },
+      "results": [
+        {
+          "index": 0,
+          "bytes": 9946238,
+          "interface_index": 11,
+          "ack_original": 0,
+          "ack_preconnect": 0,
+          "ack_postconnect": 0,
+          "local_endpoint": [
+            "192.168.99.151",
+            63080
+          ],
+          "remote_endpoint": [
+            "192.168.200.224",
+            8000
+          ],
+          "head_seconds": 0.06807670800480992,
+          "natural_eof_seconds": 83.77129166699888,
+          "body_elapsed_seconds": 83.77290541700495,
+          "total_elapsed_seconds": 83.84119887500128,
+          "collection_reached_host_bound": false,
+          "prefix_decode_ok": true,
+          "analysis": {
+            "complete_frames": 865,
+            "pcm_seconds": 73.81333333333333,
+            "terminal_bytes": 10355,
+            "prefix_decode": {
+              "exit": 0,
+              "decoded_seconds": 73.813333
+            },
+            "scope": "Source-derived fixed FLAC headers and CRC-valid sequential frames; host-cut partial tail is not encoder corruption"
+          },
+          "whole_seconds_without_body_bytes": [
+            9,
+            76,
+            77,
+            78,
+            80
+          ],
+          "maximum_gap_between_body_receives_seconds": 3.8227721670118626,
+          "twenty_second_pcm_windows": [
+            {
+              "start_seconds": 0,
+              "end_seconds": 20,
+              "observed_seconds": 20,
+              "pcm_seconds": 19.968
+            },
+            {
+              "start_seconds": 20,
+              "end_seconds": 40,
+              "observed_seconds": 20,
+              "pcm_seconds": 19.882666666666665
+            },
+            {
+              "start_seconds": 40,
+              "end_seconds": 60,
+              "observed_seconds": 20,
+              "pcm_seconds": 20.053333333333335
+            },
+            {
+              "start_seconds": 60,
+              "end_seconds": 80,
+              "observed_seconds": 20,
+              "pcm_seconds": 13.568
+            },
+            {
+              "start_seconds": 80,
+              "end_seconds": 83.77290541700495,
+              "observed_seconds": 3.7729054170049494,
+              "pcm_seconds": 0.3413333333333333
+            }
+          ],
+          "tcp_first": {
+            "seconds": 0.00018854200607165694,
+            "body_bytes": 0,
+            "state": 4,
+            "snd_wscale": 0,
+            "rcv_wscale": 0,
+            "flags": 0,
+            "rto_ms": 0,
+            "maxseg": 1440,
+            "snd_cwnd": 14447,
+            "snd_wnd": 5713,
+            "snd_sbbytes": 0,
+            "rcv_wnd": 65535,
+            "rttcur_ms": 100,
+            "srtt_ms": 25,
+            "rttvar_ms": 14,
+            "txpackets": 1,
+            "txbytes": 47,
+            "txretransmitbytes": 0,
+            "rxpackets": 1,
+            "rxbytes": 131,
+            "rxoutoforderbytes": 0,
+            "txretransmitpackets": 0
+          },
+          "tcp_final": {
+            "seconds": 83.77131804199598,
+            "body_bytes": 9946238,
+            "final": true,
+            "state": 5,
+            "snd_wscale": 0,
+            "rcv_wscale": 0,
+            "flags": 0,
+            "rto_ms": 0,
+            "maxseg": 1440,
+            "snd_cwnd": 14447,
+            "snd_wnd": 5713,
+            "snd_sbbytes": 0,
+            "rcv_wnd": 65535,
+            "rttcur_ms": 2644,
+            "srtt_ms": 25,
+            "rttvar_ms": 14,
+            "txpackets": 1,
+            "txbytes": 47,
+            "txretransmitbytes": 0,
+            "rxpackets": 2866,
+            "rxbytes": 9957847,
+            "rxoutoforderbytes": 92160,
+            "txretransmitpackets": 0
+          },
+          "minimum_sampled_receive_window": 64095
+        },
+        {
+          "index": 1,
+          "bytes": 9881438,
+          "interface_index": 11,
+          "ack_original": 0,
+          "ack_preconnect": 0,
+          "ack_postconnect": 0,
+          "local_endpoint": [
+            "192.168.99.151",
+            63081
+          ],
+          "remote_endpoint": [
+            "192.168.200.224",
+            8000
+          ],
+          "head_seconds": 0.08076729200547561,
+          "natural_eof_seconds": 83.84615420800401,
+          "body_elapsed_seconds": 83.84807587500836,
+          "total_elapsed_seconds": 83.92906154200318,
+          "collection_reached_host_bound": false,
+          "prefix_decode_ok": true,
+          "analysis": {
+            "complete_frames": 860,
+            "pcm_seconds": 73.38666666666667,
+            "terminal_bytes": 2063,
+            "prefix_decode": {
+              "exit": 0,
+              "decoded_seconds": 73.386667
+            },
+            "scope": "Source-derived fixed FLAC headers and CRC-valid sequential frames; host-cut partial tail is not encoder corruption"
+          },
+          "whole_seconds_without_body_bytes": [
+            76,
+            78,
+            80,
+            81,
+            82
+          ],
+          "maximum_gap_between_body_receives_seconds": 4.014001375006046,
+          "twenty_second_pcm_windows": [
+            {
+              "start_seconds": 0,
+              "end_seconds": 20,
+              "observed_seconds": 20,
+              "pcm_seconds": 19.882666666666665
+            },
+            {
+              "start_seconds": 20,
+              "end_seconds": 40,
+              "observed_seconds": 20,
+              "pcm_seconds": 19.968
+            },
+            {
+              "start_seconds": 40,
+              "end_seconds": 60,
+              "observed_seconds": 20,
+              "pcm_seconds": 20.053333333333335
+            },
+            {
+              "start_seconds": 60,
+              "end_seconds": 80,
+              "observed_seconds": 20,
+              "pcm_seconds": 13.141333333333334
+            },
+            {
+              "start_seconds": 80,
+              "end_seconds": 83.84807587500836,
+              "observed_seconds": 3.8480758750083623,
+              "pcm_seconds": 0.3413333333333333
+            }
+          ],
+          "tcp_first": {
+            "seconds": 0.00013250000483822078,
+            "body_bytes": 0,
+            "state": 4,
+            "snd_wscale": 0,
+            "rcv_wscale": 0,
+            "flags": 0,
+            "rto_ms": 0,
+            "maxseg": 1440,
+            "snd_cwnd": 14447,
+            "snd_wnd": 5713,
+            "snd_sbbytes": 0,
+            "rcv_wnd": 65535,
+            "rttcur_ms": 100,
+            "srtt_ms": 26,
+            "rttvar_ms": 17,
+            "txpackets": 1,
+            "txbytes": 47,
+            "txretransmitbytes": 0,
+            "rxpackets": 1,
+            "rxbytes": 131,
+            "rxoutoforderbytes": 0,
+            "txretransmitpackets": 0
+          },
+          "tcp_final": {
+            "seconds": 83.84616275000735,
+            "body_bytes": 9881438,
+            "final": true,
+            "state": 5,
+            "snd_wscale": 0,
+            "rcv_wscale": 0,
+            "flags": 0,
+            "rto_ms": 0,
+            "maxseg": 1440,
+            "snd_cwnd": 14447,
+            "snd_wnd": 5713,
+            "snd_sbbytes": 0,
+            "rcv_wnd": 65535,
+            "rttcur_ms": 1295,
+            "srtt_ms": 26,
+            "rttvar_ms": 17,
+            "txpackets": 1,
+            "txbytes": 47,
+            "txretransmitbytes": 0,
+            "rxpackets": 2972,
+            "rxbytes": 9881527,
+            "rxoutoforderbytes": 60480,
+            "txretransmitpackets": 0
+          },
+          "minimum_sampled_receive_window": 64095
+        }
+      ],
+      "capture_snapshots": 10,
+      "capture_deltas": {
+        "queue_overflows": 0,
+        "software_dropped_frames": 0,
+        "read_errors": 0,
+        "restarts": 0,
+        "discontinuities": 0
+      },
+      "startup_rssi": [
+        -50
+      ],
+      "stream_close_events": [
+        "I (101539) esp_shazam_firmware::stream: stream: frame write timed out elapsed_ms=8027 limit_ms=8021 bytes=11473",
+        "I (101539) esp_shazam_firmware::stream: stream: 192.168.99.151:63080 left after 83.5 s: stopped reading",
+        "I (101569) esp_shazam_firmware::stream: stream: frame write timed out elapsed_ms=8033 limit_ms=8021 bytes=11322",
+        "I (101569) esp_shazam_firmware::stream: stream: 192.168.99.151:63081 left after 83.5 s: stopped reading",
+        "I (101789) esp_shazam_firmware::stream: stream: 192.168.99.151:63080 socket closed in 243 ms; releasing slot (2 held)",
+        "I (101879) esp_shazam_firmware::stream: stream: 192.168.99.151:63081 socket closed in 305 ms; releasing slot (1 held)"
+      ]
+    }
+  ],
+  "diagnostic_sha256": "6f9a82a7f5909d1fe0e6d296aceacb0df7d97184396caa21ba3730d6d22c2fcc",
+  "mac_ack_policy": "net.inet.tcp.delayed_ack: 3",
+  "tcp_counter_limits": "Public TCP_CONNECTION_INFO has no duplicate-byte counter. Transmitted packets exclude pure ACKs; received packet counts can reflect coalesced buffers. Out-of-order byte accounting does not locate loss or count lost packets. RTT fields describe the Mac sending side."
+}

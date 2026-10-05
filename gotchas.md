@@ -200,6 +200,19 @@ counters showed out-of-order received bytes during a production reproduction;
 they do not locate the loss. A relay connect-timeout failure ends downstream
 HTTP without a response; distinguish that from a board handler closing it.
 
+A native macOS default/more/default ACK-policy comparison delivered about 120 s
+of valid audio in its first two runs, then lost both default peers around 84 s
+with receive windows still above 64 KB and flat capture-counter deltas. The
+control both passed and failed: TCP_SENDMOREACKS is not a demonstrated fix.
+Public TCP_CONNECTION_INFO has no duplicate-byte field; offset 104 counts
+transmitted retransmission packets. Its TX packet count excludes pure ACKs,
+and RX packet counts can reflect coalesced input buffers, not wire segments.
+
+Verify a capture by its process and file, not a dialog selection. Doctor Biz
+may be away from the Mac; selecting a response does not run a Terminal command.
+Owned-socket TCP statistics work without BPF administrator access, but cannot
+locate where missing or reordered data disappears along the network path.
+
 ## Formatting a float to a precision takes 1 KB of stack
 Rust's `{:.1}` on a float goes through `float_to_decimal_common_exact`, which puts a 1,024-byte buffer on the stack. On the 4 KiB stream threads, log integers.
 
