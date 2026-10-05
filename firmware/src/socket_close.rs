@@ -65,24 +65,19 @@ pub struct CloseReport {
 
 /// The caller must retain its listener slot and apply its recovery policy on failure.
 /// Some(socket) means close was never called; None means descriptor validity is uncertain.
-/// A raw descriptor is diagnostic only: ESP-IDF VFS close must not be blindly retried.
+/// Retain this value through recovery; ESP-IDF VFS close must not be blindly retried.
 #[must_use]
 pub struct CloseFailure {
-    pub error: io::Error,
-    pub socket: Option<TcpStream>,
-    pub raw_fd: i32,
+    _socket: Option<TcpStream>,
 }
 
 /// Close exactly once, keeping the caller's slot held until this outcome is handled.
 /// The stream must have no clones or concurrent users, and configure must have succeeded.
 /// A nonblocking lwIP socket can return EWOULDBLOCK without closing when linger is enabled.
 pub fn close(sock: TcpStream) -> Result<CloseReport, CloseFailure> {
-    let raw_fd = sock.as_raw_fd();
-    if let Err(error) = sock.set_nonblocking(false) {
+    if sock.set_nonblocking(false).is_err() {
         return Err(CloseFailure {
-            error,
-            socket: Some(sock),
-            raw_fd,
+            _socket: Some(sock),
         });
     }
     let started = Instant::now();
@@ -90,11 +85,7 @@ pub fn close(sock: TcpStream) -> Result<CloseReport, CloseFailure> {
     // SAFETY: ownership transfers into this one close call; Rust will not also close the FD.
     // On error the VFS may have changed descriptor bookkeeping, so no retry/reconstruction is safe.
     if unsafe { sys::close(raw_fd) } < 0 {
-        return Err(CloseFailure {
-            error: io::Error::last_os_error(),
-            socket: None,
-            raw_fd,
-        });
+        return Err(CloseFailure { _socket: None });
     }
     Ok(CloseReport {
         elapsed: started.elapsed(),

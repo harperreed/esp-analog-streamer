@@ -71,15 +71,9 @@ impl Drop for ListenerConnection {
                     report.elapsed.as_millis(),
                     self.slot.taken()
                 ),
-                Err(failure) => {
-                    log::error!(
-                        "stream: {} socket close failed: fd={} close_called={} errno={:?} error={}; slot held, rebooting",
-                        self.peer,
-                        failure.raw_fd,
-                        failure.socket.is_none(),
-                        failure.error.raw_os_error(),
-                        failure.error
-                    );
+                Err(_failure) => {
+                    // Keep the failure's owned socket and this slot alive through restart.
+                    // Logging here could block recovery on a lock held by another task.
                     // SAFETY: ESP-IDF is initialized, and restart never returns or unwinds.
                     // The failed owned socket and slot stay held until reset reclaims them.
                     unsafe { esp_idf_svc::sys::esp_restart() }
