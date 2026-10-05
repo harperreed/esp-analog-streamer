@@ -21,6 +21,7 @@ use esp_shazam_core::{flac, wav};
 use crate::audio_in::{SharedStreamRing, CAPTURE_RATE_HZ};
 use crate::config::CONFIG;
 use crate::psram::PsramBytes;
+use crate::socket_close;
 use crate::threads::ThreadSpec;
 
 type SharedFlacRing = Arc<Mutex<FlacRing>>;
@@ -37,6 +38,47 @@ impl ListenerBuffer {
         match format {
             Format::Wav => Ok(Self::Wav),
             Format::Flac => PsramBytes::try_new(flac::MAX_FRAME_BYTES).map(Self::Flac),
+        }
+    }
+}
+
+/// Keeps the listener slot until its socket close succeeds, including spawn failure.
+struct ListenerConnection {
+    sock: Option<TcpStream>,
+    slot: Slot,
+    peer: String,
+}
+
+impl ListenerConnection {
+    fn socket(&self) -> &TcpStream {
+        self.sock.as_ref().expect("listener owns its socket")
+    }
+}
+
+impl Drop for ListenerConnection {
+    fn drop(&mut self) {
+        if let Some(sock) = self.sock.take() {
+            match socket_close::close(sock) {
+                Ok(report) => log::info!(
+                    "stream: {} socket closed in {} ms; releasing slot ({} held)",
+                    self.peer,
+                    report.elapsed.as_millis(),
+                    self.slot.taken()
+                ),
+                Err(failure) => {
+                    log::error!(
+                        "stream: {} socket close failed: fd={} close_called={} errno={:?} error={}; slot held, rebooting",
+                        self.peer,
+                        failure.raw_fd,
+                        failure.socket.is_none(),
+                        failure.error.raw_os_error(),
+                        failure.error
+                    );
+                    // SAFETY: ESP-IDF is initialized, and restart never returns or unwinds.
+                    // The failed owned socket and slot stay held until reset reclaims them.
+                    unsafe { esp_idf_svc::sys::esp_restart() }
+                }
+            }
         }
     }
 }
@@ -162,42 +204,67 @@ fn answer(
         }
     };
     match stream_http::route(&request_line) {
-        Route::Stream(format) => match Slot::take(listeners, MAX_LISTENERS) {
-            Some(slot) => {
-                // Required frame storage is admitted before spawning or sending HTTP 200.
-                // A failed allocation cannot fall back to memory needed by DMA or stacks.
-                let buffer = match ListenerBuffer::try_new(format) {
-                    Ok(buffer) => buffer,
-                    Err(error) => {
-                        log::warn!("stream: {peer}: listener buffer unavailable ({error})");
-                        refuse(sock, &peer, &request_line, Status::ServiceUnavailable);
-                        drop(slot);
-                        return;
-                    }
-                };
-                log::info!(
-                    "stream: {peer} joined {} ({} of {MAX_LISTENERS})",
-                    format.path(),
-                    slot.taken()
-                );
-                let ring = ring.clone();
-                let encoded = encoded.clone();
-                // On failure the closure is dropped with the socket and the slot: the client sees
-                // the connection close.
-                if let Err(e) =
-                    LISTENER_THREAD.spawn(move || listen(sock, ring, encoded, slot, peer, buffer))
-                {
-                    log::warn!("stream: no thread for a listener: {e}");
-                }
+        Route::Stream(format) => {
+            // Reject unsupported close configuration before taking a slot or allocating audio.
+            if let Err(error) = socket_close::configure(&sock) {
+                log::warn!("stream: {peer}: close policy unavailable ({error})");
+                refuse(sock, &peer, &request_line, Status::ServiceUnavailable);
+                return;
             }
-            None => refuse(sock, &peer, &request_line, Status::ServiceUnavailable),
-        },
+            match Slot::take(listeners, MAX_LISTENERS) {
+                Some(slot) => {
+                    let connection = ListenerConnection {
+                        sock: Some(sock),
+                        slot,
+                        peer,
+                    };
+                    // Required frame storage is admitted before spawning or sending HTTP 200.
+                    // A failed allocation cannot fall back to memory needed by DMA or stacks.
+                    let buffer = match ListenerBuffer::try_new(format) {
+                        Ok(buffer) => buffer,
+                        Err(error) => {
+                            log::warn!(
+                                "stream: {}: listener buffer unavailable ({error})",
+                                connection.peer
+                            );
+                            send_refusal(
+                                connection.socket(),
+                                &connection.peer,
+                                &request_line,
+                                Status::ServiceUnavailable,
+                            );
+                            return;
+                        }
+                    };
+                    log::info!(
+                        "stream: {} joined {} ({} of {MAX_LISTENERS})",
+                        connection.peer,
+                        format.path(),
+                        connection.slot.taken()
+                    );
+                    let ring = ring.clone();
+                    let encoded = encoded.clone();
+                    // The owned connection's drop observes close even if no thread can be created.
+                    if let Err(e) =
+                        LISTENER_THREAD.spawn(move || listen(connection, ring, encoded, buffer))
+                    {
+                        log::warn!("stream: no thread for a listener: {e}");
+                    }
+                }
+                None => refuse(sock, &peer, &request_line, Status::ServiceUnavailable),
+            }
+        }
         Route::Refuse(status) => refuse(sock, &peer, &request_line, status),
     }
 }
 
 /// Sends `status`'s complete response, then closes the connection.
-fn refuse(mut sock: TcpStream, peer: &str, request_line: &str, status: Status) {
+fn refuse(sock: TcpStream, peer: &str, request_line: &str, status: Status) {
+    send_refusal(&sock, peer, request_line, status);
+}
+
+/// Sends a refusal while the caller retains socket ownership and its close policy.
+fn send_refusal(mut sock: &TcpStream, peer: &str, request_line: &str, status: Status) {
     let response = status.response();
     let status_line = response.lines().next().unwrap_or_default();
     log::info!("stream: {peer} {request_line:?}: {status_line}");
@@ -212,17 +279,17 @@ fn refuse(mut sock: TcpStream, peer: &str, request_line: &str, status: Status) {
 
 /// A listener's thread: streams `format` until the listener goes or falls behind, then frees its slot.
 fn listen(
-    sock: TcpStream,
+    connection: ListenerConnection,
     ring: SharedStreamRing,
     encoded: SharedFlacRing,
-    slot: Slot,
-    peer: String,
     buffer: ListenerBuffer,
 ) {
+    let sock = connection.socket();
+    let peer = &connection.peer;
     let started = Instant::now();
     let end = match buffer {
-        ListenerBuffer::Wav => stream_wav(&sock, &ring),
-        ListenerBuffer::Flac(mut bytes) => stream_flac(&sock, &encoded, bytes.as_mut_slice()),
+        ListenerBuffer::Wav => stream_wav(sock, &ring),
+        ListenerBuffer::Flac(mut bytes) => stream_flac(sock, &encoded, bytes.as_mut_slice()),
     };
     // Integer tenths: formatting a float to a precision puts a 1 KB buffer on this small stack.
     let tenths = started.elapsed().as_millis() / 100;
@@ -231,16 +298,13 @@ fn listen(
         tenths / 10,
         tenths % 10
     );
-    // Close first, so the slot never frees while this connection still holds a socket. Closing sends
-    // a FIN after any unsent audio. A reset would free lwIP's buffers sooner, but a stalled listener
-    // never sees it: after zero-window probes lwIP's reset is one byte past what the peer expects
-    // (RFC 5961 drops it), and a NAT such as Tailscale's subnet router closes its state on it, so
-    // the client hangs. lwIP keeps a stalled peer's unsent audio, up to its 46,080-byte send buffer
-    // (PSRAM: lwIP allocates there first), until the FIN gets through or 12 window probes (about
-    // 7.6 minutes) run out. Such a closing connection no longer holds a slot, so `MAX_LISTENERS`
-    // doesn't bound how many of them there are.
-    drop(sock);
-    drop(slot);
+    // The connection holds its slot through blocking close: queued payload gets two seconds to
+    // drain, plus lwIP's 500 ms close poll and scheduling delay, before abort reclaims it. On this
+    // routed path the final RST may never reach a stalled peer; board reclamation does not depend
+    // on its arrival. FIN/TIME_WAIT control PCBs can still outlive successful close, so the slot
+    // cap bounds active/draining payloads rather than every TCP object. Failures retain the slot
+    // until reboot instead of admitting another listener against uncertain resources.
+    drop(connection);
 }
 
 /// Why a listener's stream ended.

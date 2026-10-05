@@ -10,6 +10,7 @@ mod net;
 mod psram;
 mod recognizer;
 mod shazam_http;
+mod socket_close;
 mod stream;
 mod threads;
 mod web;

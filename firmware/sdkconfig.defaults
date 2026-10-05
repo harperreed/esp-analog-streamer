@@ -42,6 +42,8 @@ CONFIG_FREERTOS_RUN_TIME_COUNTER_TYPE_U32=y
 # With httpd's up to 6 (listener, control, 4 clients), MQTT and the Shazam request, that's 12, over
 # lwIP's default of 10. Each extra socket costs only a small table entry.
 CONFIG_LWIP_MAX_SOCKETS=16
+# Listener close drains queued audio for two seconds, then lwIP aborts any remaining payload.
+CONFIG_LWIP_SO_LINGER=y
 
 # lwIP keeps at most its TCP send buffer in flight per connection, so a stream listener gets at most
 # that much per round trip. The WAV needs 288 kB/s and FLAC about 193 kB/s. Round trips from Harper's
