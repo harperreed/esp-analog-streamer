@@ -210,6 +210,7 @@ The Mac E2E test uses it, and it saves real responses as parser fixtures.
 | Per WAV listener: read and send buffers | 3,360 bytes | internal |
 | Shared FLAC encoder: block and output | 32,768 + 24,591 bytes | large heap allocations, prefer PSRAM |
 | Per FLAC listener: frame copy | 24,591 bytes | fallible, strictly SPIRAM + 8BIT |
+| Wi-Fi TX cache, 32 slots | 54,272 requested bytes, before allocator overhead | preallocated; prefers PSRAM with internal fallback |
 | Signature, base64 and body (Shazam on) | under 64 KB | heap |
 | Response (Shazam on) | capped at 128 KB | heap |
 
@@ -218,6 +219,13 @@ The deployed profile has Shazam off (R26). Its 94 encoded slots hold 8.021333 s;
 [sdkconfig.defaults](../../../firmware/sdkconfig.defaults) requires PSRAM at boot and enables PSRAM-first Wi-Fi/lwIP allocation with internal fallback. Static Wi-Fi TX uses 16 internal DMA buffers and 32 cache buffers; RX remains 10 static and 32 dynamic buffers. Strict listener frame allocation uses [psram.rs](../../../firmware/src/psram.rs) and rejects admission with `503` if a contiguous buffer cannot be allocated. General malloc prefers internal RAM through 8,191 bytes and PSRAM above that threshold, with fallback. Historical Task 15/16 internal-memory lows used a different stream/configuration and are not a current reserve guarantee. Window heap minima sum each region's minimum conservatively; largest-block telemetry is only a snapshot. See the [audit record](../plans/2026-10-04-kata-audit.md) for actual measurements and pending validation.
 
 Flash gets one factory app partition sized for the binary, with no OTA.
+
+Pinned source and driver-binary review identified 1,696 requested bytes per TX
+cache slot. Observed driver allocation failures were traced to an empty cache free list;
+doubling the cache removed those errors in test runs but did not restore sustained
+playback, so 32 remains configured. See the [static analysis](../../audit-evidence/2026-10-04/tx-cache-static-analysis.json)
+and [final validation record](../plans/2026-10-04-kata-audit.md). This is measured
+resource behavior, not a transport fix or an unconditional internal-memory reserve.
 
 ## Listen policy
 

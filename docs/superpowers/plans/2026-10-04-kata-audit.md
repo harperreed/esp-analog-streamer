@@ -2,15 +2,17 @@
 
 ## Current state
 
-Compaction count: 5. Exclusive validation controller `/root/overnight_verify`
-owns live board, UART and flash state; message it before hardware access. Root
-owns ticket integration. FINAL PRODUCTION RESTORED: normal image 7ee8a2a
-with ac93d16 close fix flashed successfully 2026-10-05 07:21:26 UTC; generated
-and boot cache 32/static TX 16/MSS 1440/send 46080 verified, no fixture markers.
+Compaction count: 5. The validation controller released board ownership after
+cleanup; no UART, flash, relay or client process remains active. Root owns ticket
+integration. FINAL PRODUCTION RESTORED: normal image 7ee8a2a with ac93d16 close
+fix flashed successfully 2026-10-05 07:21:26 UTC. Generated settings are cache 32,
+static TX 16, MSS 1440 and send buffer 46080; boot cache 32 and absence of fixture
+markers were verified.
 Last bounded tests failed: two-peer 300 s at 32.159 s on API timeout; one-peer 600 s
 at 96.052 s on API timeout with independent ring lag after 71.3 s. All owned host
 clients, UART collectors and relay were cleaned; production remains running.
-Message the controller before hardware access. No long soak acceptance pass.
+Final framed HTTP state probe at 07:27:59 UTC answered in 828 ms with Shazam off.
+No long soak acceptance pass.
 No merges or pushes are authorized. Shazam stays off under R26.
 
 - Isolated capture health policy passed after complete-line UART reader repair.
@@ -32,12 +34,23 @@ No merges or pushes are authorized. Shazam stays off under R26.
   matching complete CRC-valid frames (54.6987 s PCM), then host-cut tails after
   60 s. Output still recorded 128 driver ERR_MEM among 10,492 calls. API polls
   used default routing; production decoded endurance is still unverified.
-- Cache 32 → 64 → 32 observations had zero driver errors in both repeats, but
-  transport still failed. Original cache 32 remains; no causal fix claim.
+- The default-route cache 32 → 64 → 32 experiment had zero driver errors in both
+  repeats, but transport still failed. On en0, cache 64 also removed measured
+  errors yet lost both streams earlier. Original cache 32 remains; no fix claim.
 - Early -120 dBFS readings later became quiet ADC noise; decoded RMS about
   -82.42 dBFS. No FIP music or worst-case input acceptance follows.
 - User-owned `.gitignore` and `.kata.toml` stay untouched. Failed evidence lives
   in `docs/audit-evidence/2026-10-04/`; raw files remain private under `target/`.
+
+Full canonical verification passed for the final source: 188 Rust tests, two
+existing ignored tests, five real relay socket tests, harness regressions,
+formatting, clippy, firmware build and warning checks. Eight katas are closed
+(three completed fixes and five archived-only issues closed as out of scope);
+nine remain open. Playback/API reliability is the high-severity shipping blocker.
+Do not increase buffers again without new evidence. The next useful network
+evidence is packet-level delivery/ACK tracing; local BPF capture was unavailable.
+Physical broadband-input and Shazam-on acceptance remain unperformed; R26 still
+excludes enabling recognition.
 
 Doctor Biz resumed the audit with `gpt-6.1-sol` subagents on 2026-10-04.
 The approved architecture and acceptance criteria remain in the 2026-10-03 plan.

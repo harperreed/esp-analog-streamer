@@ -83,7 +83,16 @@ The small correction keeps the failure-owned socket and slot alive and reaches
 target compilation; close-failure injection and an unconditional SDK shutdown
 bound remain untested. No simulated reboot test was added.
 
-State: final canonical check and production restoration pending. Run two decoded
-listeners for 300 s; if that fails, test the common one-listener case for 600 s.
-Do not start a long soak without a passing bounded run or retune network buffers
-without new evidence. Compaction count inherited from audit: 5.
+State: implementation, canonical verification and production restoration complete;
+hardware acceptance failed. Two decoded listeners requested for 300 s failed on
+an API timeout after 32.159 s. The 600-second one-listener test failed after
+96.052 s; it decoded 59.050667 s before a ring-lag disconnect at 71.3 s. The
+encoder produced 118 frames per roughly 10.07 s with no encoder resets and about
+15–16.5% task runtime. Capture fault counters stayed flat. This does not identify
+the transport cause.
+
+Normal production with cache 32 remains running. A final framed HTTP response
+verified Shazam off; all owned UART, relay and client processes were cleaned up.
+No five-minute, ten-minute or six-hour playback pass is claimed. Do not retune
+buffers without new evidence. Full results and next steps are in the audit plan.
+Compaction count inherited from audit: 5.
