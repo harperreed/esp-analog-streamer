@@ -308,6 +308,11 @@ The output observer counts all STA ports; this does not identify a proprietary
 pool or a rejected stream packet. A chained-pbuf ERR_MEM can also come from the
 coalescing allocation, so keep those counters separate.
 
+On this Mac, setting TCP_MAXSEG before connect does not clamp advertised MSS:
+connection setup replaces it. TCP_NOOPT does suppress SYN options and lowered
+the peer MSS in a real loopback test, but it also removes other TCP options.
+Use that only as a labelled diagnostic, not as proof of a path-MTU fault.
+
 Pinned binary/source review maps the by-reference single-pbuf allocation failure
 to an empty preallocated class 9 TX-cache free list; runtime does not allocate
 another object on that branch. Why occupied slots fail to retire remains open.

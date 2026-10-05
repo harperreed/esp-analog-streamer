@@ -1,0 +1,119 @@
+{
+  "schema_version": 1,
+  "analysis_kind": "Read-only static analysis of the pinned ESP-IDF Wi-Fi driver",
+  "sdk": "firmware/.embuild/espressif/esp-idf/v5.5.5",
+  "scope": "No firmware execution, hardware access, build, configuration change or network call was performed by this investigator.",
+  "configuration_snapshot": "Configuration values and built-artifact hashes were observed on the baseline cache-32 build before the controller's cache 32 to 64 to 32 experiment. Generated build paths are mutable and can describe a later configuration when this report is read.",
+  "tool": {
+    "path": "/Users/harper/Public/src/personal/esp-shazam/firmware/.embuild/espressif/tools/xtensa-esp-elf/esp-14.2.0_20260121/xtensa-esp-elf/bin/xtensa-esp32-elf-objdump",
+    "version": "GNU objdump (crosstool-NG esp-14.2.0_20260121) 2.43.1",
+    "environment": {
+      "XTENSA_GNU_CONFIG": "/Users/harper/Public/src/personal/esp-shazam/firmware/.embuild/espressif/tools/xtensa-esp-elf/esp-14.2.0_20260121/xtensa-esp-elf/lib/xtensa_esp32.so"
+    },
+    "options": ["-dr"],
+    "companion_tool": "xtensa-esp32-elf-readelf in the same bin directory, with -rW",
+    "limitations": "GNU decoding was checked on these vendor C objects. LLVM decoding desynchronized on compact branch instructions and was not used for branch conclusions. These are object section offsets, not linked firmware addresses."
+  },
+  "artifacts": [
+    {
+      "path": "firmware/.embuild/espressif/esp-idf/v5.5.5/components/esp_wifi/lib/esp32/libnet80211.a",
+      "sha256": "97790012b24f35e30f72d426ea69a23e636e8eb6ac3d81c11b42658840f1b110"
+    },
+    {
+      "path": "firmware/.embuild/espressif/esp-idf/v5.5.5/components/esp_wifi/lib/esp32/libpp.a",
+      "sha256": "dba76f58e886c5e407f52ec6de7ef6b9aaa66bb21250bfee0cd3d73bf6c6aead"
+    },
+    {
+      "path": "target/audit-tx-resource/ieee80211_output.o",
+      "archive_member": "libnet80211.a:ieee80211_output.o",
+      "sha256": "52804ab12b978c88d7e6f9e766265922f535ac6d94f3d305cf2b20fa5a6fec3f"
+    },
+    {
+      "path": "target/audit-tx-resource/esf_buf.o",
+      "archive_member": "libpp.a:esf_buf.o",
+      "sha256": "fd72a2c43e317f989b7e710e434d97e01281f0a7425a8314d1009fb8e5e7e9b6"
+    },
+    {
+      "path": "target/audit-tx-resource/if_hwctrl.o",
+      "archive_member": "libpp.a:if_hwctrl.o",
+      "sha256": "04544dc89b166e7dc59d4bd62f75d718a582b781f4a6b513eedf10f473684fa6"
+    },
+    {
+      "path": "firmware/target/xtensa-esp32-espidf/release/build/esp-idf-sys-ab65b92b02b2e55a/out/build/esp-idf/esp_wifi/CMakeFiles/__idf_esp_wifi.dir/esp32/esp_adapter.c.obj",
+      "sha256": "82982ee796f6e767b88d799be5877166ca66835fe59b72a9a45339d3807944df"
+    }
+  ],
+  "private_raw_evidence": [
+    "target/audit-tx-resource/output-gnu.txt",
+    "target/audit-tx-resource/hw-gnu.txt",
+    "target/audit-tx-resource/esf-gnu.txt",
+    "target/audit-tx-resource/esf-rodata.txt",
+    "target/audit-tx-resource/esf-relocations.txt"
+  ],
+  "facts": [
+    {
+      "id": "configuration",
+      "claim": "The observed baseline generated configuration selected static TX with 16 buffers, cache TX with 32 buffers, and the by-reference transmit path.",
+      "evidence": "Generated out/sdkconfig lines 1082 and 1088: CONFIG_SPIRAM_IGNORE_NOTFOUND is unset and CONFIG_SPIRAM_TRY_ALLOCATE_WIFI_LWIP=y. Lines 1251 through 1254 select static TX, static count 16 and cache count 32."
+    },
+    {
+      "id": "forwarding",
+      "claim": "A single pbuf reaches the Wi-Fi by-reference transmit function through forwarding wrappers. The wrappers do not allocate a replacement pbuf or return an allocation failure.",
+      "evidence": "components/esp_netif/lwip/netif/wlanif.c:92 forwards the single pbuf; line 114 maps ESP_ERR_NO_MEM to ERR_MEM. components/esp_netif/lwip/esp_netif_lwip.c:1373-1385 forwards to driver_transmit_wrap. components/esp_wifi/src/wifi_netif.c:70-76 selects esp_wifi_internal_tx_by_ref under CONFIG_SPIRAM_TRY_ALLOCATE_WIFI_LWIP && !CONFIG_SPIRAM_IGNORE_NOTFOUND."
+    },
+    {
+      "id": "return_path",
+      "claim": "The by-reference entry forwards the original netstack reference to ieee80211_output_do. The latter returns 0x101 after its TX-buffer allocator returns NULL.",
+      "evidence": "ieee80211_output.o, .text.esp_wifi_internal_tx_by_ref, function at 0x08: argument forwarding at 0x16-0x1f, call at 0x25, return at 0x28-0x2a. In .wifiextrairam.4, ieee80211_output_do starts at 0x44: ieee80211_alloc_tx_buf call at 0x159, non-NULL branch at 0x15c, 0x101 return value at 0x168. With cache enabled, the WAPI selection also routes to this allocator at 0x138-0x14f."
+    },
+    {
+      "id": "class9_request",
+      "claim": "With cache enabled and a non-NULL netstack reference, the allocator requests class 9 with a NULL source payload. It retains the netstack reference only after successful allocation.",
+      "evidence": "ieee80211_output.o, .wifiextrairam.3, ieee80211_alloc_tx_buf at 0x14: cache test at 0x26, netstack-reference test at 0x2a, class 9 at 0x28, NULL payload at 0x2c and ic_ebuf_alloc call at 0x31. NULL branch at 0x36 returns unchanged. Success stores references at 0x38-0x3c and calls s_netstack_ref at 0x4a. if_hwctrl.o, .text.ic_ebuf_alloc at 0x04, forwards to esf_buf_alloc at 0x11."
+    },
+    {
+      "id": "class9_free_list",
+      "claim": "The class 9 runtime allocation path pops a preallocated free-list object. An empty list returns NULL without attempting a dynamic allocation.",
+      "evidence": "esf_buf.o, .wifislprxiram.6, esf_buf_alloc at 0x24: class-minus-one dispatch at 0x2b-0x3b. Class 9 uses .rodata offset 0x20, raw little-endian value 0x50, with R_XTENSA_32 relocation against .wifislprxiram.6. At 0x50-0x77 the code loads g_eb_list_desc + 9 * 20. At 0x80 an empty head branches to 0xb5, increments a failure counter, unlocks and returns NULL at 0x15c."
+    },
+    {
+      "id": "cache_setup",
+      "claim": "The class 9 pool is preallocated at setup using the 32-bit count at byte offset 20 in g_wifi_menuconfig. The driver labels this count as the TX-cache buffer count.",
+      "evidence": "esf_buf.o, .text.esf_buf_setup, function at 0x60: cache-enable test at 0x168-0x16e; class 9 at 0x179; 32-bit count load from g_wifi_menuconfig + 20 at 0x17b; esf_buf_setup_static call at 0x181. The same count is logged at 0x188-0x192 using .rodata_wlog_info.16, whose text is 'Init tx cache buffer num: %d'. esf_buf_setup_static allocates each slot through esf_buf_alloc_dynamic and recycles it into its pool."
+    },
+    {
+      "id": "allocation_size_and_callback",
+      "claim": "Each class 9 slot uses one combined allocation of 1696 bytes through the Wi-Fi malloc callback, rather than separate metadata and payload allocations.",
+      "evidence": "Class 9 descriptor offset is 36. Cache setup passes length 1600 - 36. In esf_buf_alloc_dynamic, .wifiextrairam.4, class 9 follows 0x94 to 0x9c to 0xb8, loads OS callback offset 0x16c at 0xc0 and calls it at 0xc5. Requested size is length + 96 + descriptor offset = 1564 + 96 + 36 = 1696. The already-built esp_adapter.c.obj .rela.data.g_wifi_osi_funcs maps offset 0x16c to wifi_malloc and offset 0x15c to esp_coex_common_malloc_internal_wrapper."
+    },
+    {
+      "id": "heap_capabilities",
+      "claim": "Under the generated configuration, class 9 allocations prefer PSRAM and may fall back to internal memory.",
+      "evidence": "components/esp_wifi/esp32/esp_adapter.c:715 assigns _wifi_malloc = wifi_malloc. Lines 77-84 implement heap_caps_malloc_prefer(size, 2, MALLOC_CAP_DEFAULT | MALLOC_CAP_SPIRAM, MALLOC_CAP_DEFAULT | MALLOC_CAP_INTERNAL) when CONFIG_SPIRAM_TRY_ALLOCATE_WIFI_LWIP is enabled. The internal-only callback at OS offset 0x15c uses MALLOC_CAP_8BIT | MALLOC_CAP_DMA | MALLOC_CAP_INTERNAL in components/esp_coex/esp32/esp_coex_adapter.c:124-126; class 9 does not select that callback. Adding 32 slots requests 54272 bytes, or 53 KiB, before allocator overhead. Actual placement still requires boot heap deltas."
+    },
+    {
+      "id": "recycle_contract",
+      "claim": "Ordinary class 9 recycling releases its retained upper-layer pbuf reference, then returns the slot to its fixed pool while retaining the slot allocation. Teardown frees the slot allocation.",
+      "evidence": "components/esp_wifi/src/wifi_default.c:65 registers the netstack reference and free callbacks; components/esp_netif/lwip/esp_netif_lwip.c:1304-1311 implement pbuf_ref and pbuf_free. ieee80211_recycle_cache_eb restores its owned payload pointer, calls s_netstack_free when present, then forwards to ic_ebuf_recycle_tx. In esf_buf.o the class 9 recycle table entry is .rodata offset 0x44, raw value 0x52, with R_XTENSA_32 relocation against .wifirxiram.8. esf_buf_recycle at 0x52 clears TX metadata, and 0x85-0x89 reinserts the object in g_eb_list_desc + 9 * 20 without free. esf_buf_free_static traverses and frees pool allocations during teardown."
+    }
+  ],
+  "inferences": [
+    {
+      "claim": "For an initialized driver with cache enabled and a valid single pbuf on the by-reference path, the observed late ESP_ERR_NO_MEM is strongly localized to an empty class 9 TX-cache free list.",
+      "supported_by": ["configuration", "forwarding", "return_path", "class9_request", "class9_free_list", "cache_setup"],
+      "scope_limit": "This identifies the allocation failure condition. It does not establish why occupied cache slots fail to retire fast enough."
+    },
+    {
+      "claim": "A controlled cache 32 to 64 to 32 experiment is technically justified as a capacity-sensitivity diagnostic, subject to verified boot heap placement and otherwise constant workload and observer.",
+      "supported_by": ["class9_free_list", "cache_setup", "allocation_size_and_callback", "heap_capabilities"],
+      "scope_limit": "Fewer ERR_MEM returns alone do not prove healthy transport or justify a permanent setting. Improved ACK progression, complete drain duration and capture continuity are needed; a delayed recurrence may merely reflect additional backlog capacity."
+    }
+  ],
+  "unresolved": [
+    "The reason cache slots remain occupied: throughput or retry pressure, scheduling or recycling delay, a retention leak, or another failure that creates backlog.",
+    "All normal transmit-completion and retirement paths, and their exact latency, have not been traced.",
+    "Static analysis cannot establish actual boot allocation placement or internal fallback usage.",
+    "No six-hour acceptance or transport root-cause claim follows from this analysis."
+  ],
+  "independent_review": "The ring_spec investigator independently confirmed the raw class 9 jump tables, relocations, return path and built OS callback mapping. Root reviews this durable export before commit."
+}
