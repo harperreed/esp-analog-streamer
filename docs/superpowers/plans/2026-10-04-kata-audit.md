@@ -209,3 +209,27 @@ separate bound audit. Do not increase buffers or weaken capture-loss assertions.
 
 Board remains `tcp-retention`; restore production after fixtures. No six-hour
 soak has started. Shazam remains off; physical input is currently quiet.
+
+`7cb5ae6` fixes staging order and adds narrowly scoped raw-read/staging timings.
+Canonical checks pass 188 tests (two pre-existing ignored), build and warnings.
+Two instrumented retention attempts stopped around 30 s on web-status timeouts.
+A separate 110 s UART observation kept capture counters flat through a churn
+attempt, but churn failed on round-two replacement admission timeout. Measured
+read closure maximum was 14,046 us; this excludes acquisition/unlock tails.
+These runs do not establish the prior loss mechanism or retention acceptance.
+Their structured results are versioned; raw UART remains private.
+
+`31e28cf` moves heap/UART telemetry to priority3 metrics and leaves priority11
+health polling free of logs and heap work. It adds a 4 KiB stack plus metadata.
+Restart-request counts are atomic and logged asynchronously. The capture fault
+harness now requires actual SW_CPU_RESET within the tested eight-second bound,
+then ESP_RST_SW3 and recovered playback, rather than a blocking reboot log.
+Independent review and canonical checks pass; board revalidation is next.
+Source audit found Wi-Fi shutdown and untimed timekeeping locks in esp_restart;
+no unconditional reset bound is claimed. Metrics can still inherit a logger
+waiter's priority; its base priority is not a universal scheduling guarantee.
+
+HTTP source audit found no direct raw-ring dependency in /api/state: store
+serialization unlocks before socket writes. The HTTP server is single-threaded
+with five-second socket timeouts. Timeout location remains unproven; phase-timed
+HTTP probes are being added rather than blaming the route or weakening tests.

@@ -1,0 +1,166 @@
+{
+  "passed": false,
+  "error": "<urlopen error timed out>",
+  "host": "192.168.200.224",
+  "ip": "192.168.200.224",
+  "elapsed_seconds": 30.07,
+  "runs": [],
+  "capture_baseline": {
+    "frames": 962640,
+    "callbacks": 4049,
+    "queue_overflows": 13,
+    "software_dropped_frames": 480,
+    "read_errors": 0,
+    "restarts": 2,
+    "discontinuities": 2,
+    "raw_work_max_us": 1640,
+    "store_work_max_us": 124,
+    "raw_read_max_us": 363,
+    "staged_frames": 0,
+    "staged_max_frames": 240,
+    "staging_pending_attempts": 0,
+    "staging_pending_max_attempts": 1,
+    "staging_pending_us": 0,
+    "staging_pending_max_us": 5111,
+    "timing_deficit_estimate_frames": 2400,
+    "internal_free": 87223,
+    "internal_largest": 77824,
+    "psram_free": 919492,
+    "psram_largest": 917504,
+    "internal_min_sum": 86995,
+    "psram_min_sum": 912548,
+    "internal_window_start_free": 87335,
+    "psram_window_start_free": 919492
+  },
+  "capture_final": {
+    "frames": 962640,
+    "callbacks": 4049,
+    "queue_overflows": 13,
+    "software_dropped_frames": 480,
+    "read_errors": 0,
+    "restarts": 2,
+    "discontinuities": 2,
+    "raw_work_max_us": 1640,
+    "store_work_max_us": 124,
+    "raw_read_max_us": 363,
+    "staged_frames": 0,
+    "staged_max_frames": 240,
+    "staging_pending_attempts": 0,
+    "staging_pending_max_attempts": 1,
+    "staging_pending_us": 0,
+    "staging_pending_max_us": 5111,
+    "timing_deficit_estimate_frames": 2400,
+    "internal_free": 87223,
+    "internal_largest": 77824,
+    "psram_free": 919492,
+    "psram_largest": 917504,
+    "internal_min_sum": 86995,
+    "psram_min_sum": 912548,
+    "internal_window_start_free": 87335,
+    "psram_window_start_free": 919492
+  },
+  "tcp_valid_reports": 10,
+  "tcp_lists_final": [
+    0,
+    4,
+    1,
+    2
+  ],
+  "port8000_final": {
+    "CLOSED": 0,
+    "LISTEN": 1,
+    "SYN_SENT": 0,
+    "SYN_RCVD": 0,
+    "ESTABLISHED": 2,
+    "FIN_WAIT_1": 0,
+    "FIN_WAIT_2": 0,
+    "CLOSE_WAIT": 0,
+    "CLOSING": 0,
+    "LAST_ACK": 0,
+    "TIME_WAIT": 1
+  },
+  "tcp_lists_peaks": [
+    0,
+    4,
+    1,
+    2
+  ],
+  "port8000_peaks": {
+    "CLOSED": 0,
+    "LISTEN": 1,
+    "SYN_SENT": 0,
+    "SYN_RCVD": 1,
+    "ESTABLISHED": 2,
+    "FIN_WAIT_1": 0,
+    "FIN_WAIT_2": 0,
+    "CLOSE_WAIT": 0,
+    "CLOSING": 0,
+    "LAST_ACK": 0,
+    "TIME_WAIT": 1
+  },
+  "port8000_occupancy_histograms": {
+    "CLOSED": {
+      "0": 10
+    },
+    "LISTEN": {
+      "1": 10
+    },
+    "SYN_SENT": {
+      "0": 10
+    },
+    "SYN_RCVD": {
+      "0": 10
+    },
+    "ESTABLISHED": {
+      "0": 5,
+      "2": 5
+    },
+    "FIN_WAIT_1": {
+      "0": 10
+    },
+    "FIN_WAIT_2": {
+      "0": 10
+    },
+    "CLOSE_WAIT": {
+      "0": 10
+    },
+    "CLOSING": {
+      "0": 10
+    },
+    "LAST_ACK": {
+      "0": 10
+    },
+    "TIME_WAIT": {
+      "0": 5,
+      "1": 5
+    }
+  },
+  "heap_lows": {
+    "internal_min_sum": 86607,
+    "psram_min_sum": 912548,
+    "internal_free": 87223,
+    "psram_free": 919492,
+    "internal_largest": 77824,
+    "psram_largest": 917504
+  },
+  "close_count": 0,
+  "max_close_ms": 0,
+  "frame_timeouts": {
+    "2000": {
+      "count": 0,
+      "max_ms": 0
+    },
+    "8021": {
+      "count": 0,
+      "max_ms": 0
+    }
+  },
+  "ending_reasons": {},
+  "output_bytes_before_summary": 22866,
+  "output_budget_bytes": 67108864,
+  "log_directory": "target/audit-retention-timing/20261005T044108.726099Z",
+  "uart_log": "target/audit-retention-timing/20261005T044108.726099Z/uart.log",
+  "note": "TCP control/state counts are not queued payload bytes or host descriptors. Occupancy histograms count latest one-second reports; peaks use valid callback samples. Heap minima sum per-region lows; largest blocks are snapshots. Counters cannot detect every omitted DMA interrupt.",
+  "source_commit": "7cb5ae6",
+  "interpretation": "Instrumented high-priority telemetry build. Web state request timed out before the next capture sample; no retention acceptance or diagnosis inferred."
+}
