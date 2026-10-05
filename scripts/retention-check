@@ -1,0 +1,314 @@
+#!/usr/bin/env bash
+# ABOUTME: Measures board TCP retention, close deadlines and heap through four real stream-churn runs.
+# ABOUTME: Flash tcp-retention first; --help describes private logs, assertions and the 130 s cleanup grace.
+set -euo pipefail
+repo="$(cd "$(dirname "$0")/.." && pwd)"
+RETENTION_CHECK_REPO="$repo" exec uv run --quiet --no-project python3 - "$@" <<'PY'
+import argparse
+import json
+import os
+import re
+import signal
+import socket
+import subprocess
+import sys
+import time
+import urllib.request
+from datetime import datetime, timezone
+from pathlib import Path
+
+
+class Failure(Exception):
+    pass
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        prog='scripts/retention-check',
+        description='Flash tcp-retention first, disable Shazam, play LINE IN audio and remove other stream clients. '
+        'Reset once through serial-log. Run FLAC stopped/trickle then WAV stopped/trickle: three rounds each, '
+        'holds 14/8 s, trickle 128 bytes per 0.5 s, retained peers within each run; 3 s between runs. '
+        'Require real frame timeouts for both formats, closes <=3 s, unchanged capture fault counters and valid '
+        'board TCP samples. Wait 130 s after final clients close (pinned TCP_MSL=60 s, TIME_WAIT=2*MSL); '
+        'require port 8000 LISTEN only and zero listener slots. Private UART/child logs have a checked 64 MiB '
+        'budget; polling/cleanup can overshoot. About five minutes; no flashing. Run under caffeinate -is. '
+        'PCB states measure control connections, not queued audio bytes or host descriptors.')
+    parser.add_argument('host', nargs='?', default='esp-shazam.local')
+    parser.add_argument('--out', help='parent output directory (default: target/retention-check)')
+    args = parser.parse_args()
+    def interrupt(_number, _frame):
+        raise KeyboardInterrupt
+    signal.signal(signal.SIGTERM, interrupt)
+    signal.signal(signal.SIGHUP, interrupt)
+    os.umask(0o077)
+    repo = Path(os.environ['RETENTION_CHECK_REPO'])
+    out = Path(args.out or repo / 'target/retention-check').resolve() / datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%S.%fZ')
+    out.mkdir(parents=True)
+    events = (out / 'events.jsonl').open('w')
+    processes, handles = [], []
+    started = time.monotonic()
+    failure = None
+    ip = None
+    uart_handle = None
+    pending = b''
+    boots = 0
+    baseline = None
+    previous_audio = None
+    latest_audio = None
+    audio_at = started
+    latest_tcp = None
+    tcp_at = started
+    tcp_samples = 0
+    tcp_peaks = [0] * 15
+    state_histograms = [{} for _ in range(11)]
+    slots = None
+    slots_at = started
+    heap_lows = {}
+    timeouts = {limit: dict(count=0, max_ms=0) for limit in (2000, 8021)}
+    closes = 0
+    max_close_ms = 0
+    reasons = {}
+    runs = []
+    fault_keys = ['queue_overflows', 'software_dropped_frames', 'read_errors', 'restarts', 'discontinuities']
+    heap_keys = ['internal_min_sum', 'psram_min_sum', 'internal_free', 'psram_free', 'internal_largest', 'psram_largest']
+    state_names = ['CLOSED', 'LISTEN', 'SYN_SENT', 'SYN_RCVD', 'ESTABLISHED', 'FIN_WAIT_1',
+                   'FIN_WAIT_2', 'CLOSE_WAIT', 'CLOSING', 'LAST_ACK', 'TIME_WAIT']
+
+    def record(kind, **fields):
+        value = dict(kind=kind, elapsed_seconds=round(time.monotonic() - started, 3), **fields)
+        events.write(json.dumps(value) + '\n')
+        events.flush()
+        print(json.dumps(value), flush=True)
+
+    def output_bytes():
+        return sum(path.stat().st_size for path in out.rglob('*') if path.is_file())
+
+    def state():
+        opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+        with opener.open(f'http://{ip}/api/state', timeout=2) as response:
+            value = json.load(response)
+        if value.get('shazam_enabled') is not False:
+            raise Failure('/api/state must report shazam_enabled=false')
+
+    def update():
+        nonlocal uart_handle, pending, boots, previous_audio, latest_audio, audio_at
+        nonlocal latest_tcp, tcp_at, tcp_samples, slots, slots_at, closes, max_close_ms
+        if output_bytes() > 64 * 1024 * 1024:
+            raise Failure('64 MiB output budget exceeded; see retained private logs')
+        if serial.poll() is not None:
+            raise Failure('UART collector exited before verification finished; see serial.log')
+        if uart_handle is None:
+            uart_handle = (out / 'uart.log').open('rb')
+        chunk = uart_handle.read(65536)
+        rows = (pending + chunk).split(b'\n')
+        pending = rows.pop()
+        if len(pending) > 16384:
+            raise Failure('oversized UART line')
+        for raw in rows:
+            line = raw.decode('utf-8', 'replace')
+            if 'rst:0x' in line:
+                boots += 1
+                if boots > 1:
+                    raise Failure('unexpected board reboot')
+            if any(text in line for text in ['Guru Meditation', 'panicked at', 'Task watchdog got triggered',
+                                              'requesting restart', 'rebooting']):
+                raise Failure('production panic/watchdog/capture supervisor trip; see private uart.log')
+            if 'tcp-retention: invalid' in line:
+                raise Failure('invalid or overdue board TCP sample; see private uart.log')
+            if 'tcp-retention: valid_samples=' in line:
+                match = re.search(r'valid_samples=(\d+) invalid_samples=(\d+).*latest=Some\(\[([\d, ]+)\]\) peaks=\[([\d, ]+)\]', line)
+                if match is None or int(match[1]) == 0 or int(match[2]) != 0:
+                    raise Failure('missing valid complete TCP snapshot')
+                counts = [int(value) for value in match[3].split(',')]
+                peaks = [int(value) for value in match[4].split(',')]
+                if len(counts) != 15 or len(peaks) != 15:
+                    raise Failure('TCP snapshot does not match pinned state layout')
+                latest_tcp, tcp_at = counts, time.monotonic()
+                tcp_samples += 1
+                for index, value in enumerate(peaks):
+                    tcp_peaks[index] = max(tcp_peaks[index], value)
+                for histogram, count in zip(state_histograms, counts[4:]):
+                    histogram[count] = histogram.get(count, 0) + 1
+                record('tcp', lists=counts[:4], port8000=dict(zip(state_names, counts[4:])), peaks=peaks)
+            if 'audio: frames=' in line:
+                sample = {key: int(value) for key, value in re.findall(r'\b([a-z_]+)=(-?\d+)', line)}
+                if any(key not in sample for key in ['frames', *fault_keys, *heap_keys]):
+                    raise Failure('capture/heap telemetry missing required fields')
+                if baseline is not None:
+                    for key in fault_keys:
+                        if sample[key] != baseline[key]:
+                            raise Failure(f'capture fault counter changed: {key}')
+                    delta = (sample['frames'] - latest_audio['frames']) & 0xffffffff
+                    if delta == 0 or delta >= 0x80000000:
+                        raise Failure('capture frame counter stopped or moved backward')
+                previous_audio, latest_audio, audio_at = latest_audio, sample, time.monotonic()
+                for key in heap_keys:
+                    heap_lows[key] = min(heap_lows.get(key, sample[key]), sample[key])
+                record('capture_heap', counters=sample)
+            match = re.search(r'frame write timed out elapsed_ms=(\d+) limit_ms=(\d+) bytes=(\d+)', line)
+            if match:
+                elapsed, limit, size = map(int, match.groups())
+                if limit not in timeouts or not limit - 1 <= elapsed <= limit + 500:
+                    raise Failure(f'frame deadline outside expected limit/slack: elapsed={elapsed} limit={limit}')
+                timeouts[limit]['count'] += 1
+                timeouts[limit]['max_ms'] = max(timeouts[limit]['max_ms'], elapsed)
+                record('frame_timeout', elapsed_ms=elapsed, limit_ms=limit, bytes=size)
+            match = re.search(r'socket closed in (\d+) ms; releasing slot \((\d+) held\)', line)
+            if match:
+                elapsed, held = map(int, match.groups())
+                if elapsed > 3000:
+                    raise Failure(f'socket close exceeded 3 s: {elapsed} ms')
+                closes += 1
+                max_close_ms = max(max_close_ms, elapsed)
+                record('socket_close', elapsed_ms=elapsed, held_before_release=held)
+            match = re.search(r'stream: .*left after \d+\.\d+ s: (.*)', line)
+            if match:
+                reason = match[1]
+                # Keep only known reason classes; raw peer/error text stays in private UART.
+                category = ('ring_overrun' if 'fell a ring behind' in reason else
+                            'frame_timeout' if 'stopped reading' in reason else
+                            'capture_freshness' if 'no fresh audio' in reason else 'socket_error')
+                reasons[category] = reasons.get(category, 0) + 1
+                record('listener_end', reason=category)
+                if category == 'capture_freshness':
+                    raise Failure('continuous capture unexpectedly produced a no-fresh-audio closure')
+            match = re.search(r'stream-encode: .*listeners_end=(\d+)', line)
+            if match:
+                slots, slots_at = int(match[1]), time.monotonic()
+        if baseline is not None:
+            if time.monotonic() - audio_at > 25 or time.monotonic() - tcp_at > 4:
+                raise Failure('capture or TCP telemetry missing beyond its observation deadline')
+
+    def monitor(seconds, child=None):
+        until = time.monotonic() + seconds
+        next_state = 0
+        while time.monotonic() < until:
+            update()
+            if time.monotonic() >= next_state:
+                state()
+                next_state = time.monotonic() + 5
+            if child is not None and child.poll() is not None:
+                return
+            time.sleep(0.2)
+        if child is not None:
+            raise Failure('stream-churn exceeded its bounded run deadline')
+
+    def stop(process):
+        if process.poll() is None:
+            try:
+                os.killpg(process.pid, signal.SIGINT)
+            except ProcessLookupError:
+                return
+            try:
+                process.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                try:
+                    os.killpg(process.pid, signal.SIGKILL)
+                except ProcessLookupError:
+                    pass
+                process.wait(timeout=3)
+
+    try:
+        ip = socket.getaddrinfo(args.host, 8000, socket.AF_INET, socket.SOCK_STREAM)[0][4][0]
+        state()  # Refuse to reset recognition-enabled firmware.
+        raw = (out / 'uart.log').open('wb')
+        errors = (out / 'serial.log').open('wb')
+        handles += [raw, errors]
+        serial = subprocess.Popen([str(repo / 'scripts/serial-log'), '600'], stdout=raw, stderr=errors, start_new_session=True)
+        processes.append(serial)
+        record('start', host=args.host, ip=ip, output=str(out))
+        startup_deadline = time.monotonic() + 60
+        while baseline is None:
+            update()
+            if (boots == 1 and tcp_samples >= 2 and previous_audio is not None and latest_audio is not None
+                    and latest_audio['frames'] > previous_audio['frames']
+                    and all(latest_audio[key] == previous_audio[key] for key in fault_keys)):
+                if latest_tcp[5] != 1 or any(value for index, value in enumerate(latest_tcp[4:]) if index != 1):
+                    raise Failure('remove existing port-8000 clients before retention test')
+                baseline = dict(latest_audio)
+                record('baseline', capture_heap=baseline, tcp=latest_tcp)
+            if time.monotonic() >= startup_deadline:
+                raise Failure('stable startup capture/TCP baseline missing within 60 s')
+            time.sleep(0.2)
+        state()
+        for path, hold in [('/stream.flac', 14), ('/stream.wav', 8)]:
+            for trickle in (False, True):
+                label = ('flac' if path.endswith('flac') else 'wav') + ('-trickle' if trickle else '-stopped')
+                run_out = out / label
+                child_log = (out / f'{label}.log').open('wb')
+                handles.append(child_log)
+                command = [str(repo / 'scripts/stream-churn'), ip, '--path', path, '--rounds', '3',
+                           '--hold', str(hold), '--out', str(run_out)]
+                if trickle:
+                    command += ['--trickle-bytes', '128', '--trickle-interval', '0.5']
+                child = subprocess.Popen(command, stdout=child_log, stderr=subprocess.STDOUT, start_new_session=True)
+                processes.append(child)
+                record('churn_start', label=label, path=path, hold_seconds=hold, rounds=3, trickle=trickle)
+                monitor(3 * (hold + 10 + 1) + 15, child)
+                summaries = list(run_out.glob('*/summary.json'))
+                if child.returncode != 0 or len(summaries) != 1:
+                    raise Failure(f'{label}: churn failed; see private child log')
+                result = json.loads(summaries[0].read_text())
+                if (result.get('passed') is not True or result.get('completed_rounds') != 3
+                        or result.get('retained_peer_count') != 6):
+                    raise Failure(f'{label}: actual churn admission/recovery/retention assertions failed')
+                runs.append(dict(label=label, summary=str(summaries[0]), elapsed_seconds=result['elapsed_seconds']))
+                record('churn_passed', **runs[-1])
+                monitor(3)
+        # All retained host peers were closed by stream-churn's finally block before it exited.
+        record('cleanup_grace_start', seconds=130, tcp_msl_ms=60000)
+        monitor(130)
+        if (latest_tcp is None or latest_tcp[5] != 1
+                or any(value for index, value in enumerate(latest_tcp[4:]) if index != 1)):
+            raise Failure('port-8000 client/control PCBs remain after 130 s cleanup grace')
+        if slots != 0 or time.monotonic() - slots_at > 15:
+            raise Failure('listener slots not demonstrably released after cleanup grace')
+        if not all(value['count'] for value in timeouts.values()):
+            raise Failure('need at least one actual frame-timeout observation for both WAV and FLAC')
+        if closes < 48:
+            raise Failure('missing checked close telemetry for the 48 admitted payload clients')
+        record('assertions_passed', final_port8000=dict(zip(state_names, latest_tcp[4:])),
+               max_close_ms=max_close_ms, frame_timeouts=timeouts)
+    except KeyboardInterrupt:
+        failure = 'interrupted'
+        record('failure', error=failure)
+    except Exception as error:
+        failure = str(error)
+        record('failure', error=failure)
+    finally:
+        for process in reversed(processes):
+            try:
+                stop(process)
+            except Exception:
+                failure = failure or 'subprocess cleanup failed'
+        if uart_handle is not None:
+            uart_handle.close()
+        for handle in handles:
+            handle.close()
+        size = output_bytes()
+        if size > 64 * 1024 * 1024:
+            failure = failure or '64 MiB output budget exceeded during cleanup'
+        summary = dict(passed=failure is None, error=failure, host=args.host, ip=ip,
+                       elapsed_seconds=round(time.monotonic() - started, 3), runs=runs,
+                       capture_baseline=baseline, capture_final=latest_audio,
+                       tcp_valid_reports=tcp_samples, tcp_lists_final=latest_tcp[:4] if latest_tcp else None,
+                       port8000_final=dict(zip(state_names, latest_tcp[4:])) if latest_tcp else None,
+                       tcp_lists_peaks=tcp_peaks[:4], port8000_peaks=dict(zip(state_names, tcp_peaks[4:])),
+                       port8000_occupancy_histograms=dict(zip(state_names, state_histograms)),
+                       heap_lows=heap_lows, close_count=closes, max_close_ms=max_close_ms,
+                       frame_timeouts=timeouts, ending_reasons=reasons,
+                       output_bytes_before_summary=size, output_budget_bytes=64 * 1024 * 1024,
+                       log_directory=str(out), uart_log=str(out / 'uart.log'),
+                       note='TCP control/state counts are not queued payload bytes or host descriptors. '
+                       'Occupancy histograms count latest one-second reports; peaks use valid callback samples. '
+                       'Heap minima sum per-region lows; largest blocks are snapshots. '
+                       'Counters cannot detect every omitted DMA interrupt.')
+        (out / 'summary.json').write_text(json.dumps(summary, indent=2) + '\n')
+        events.close()
+        print(f"{'PASS' if failure is None else 'FAIL'} {out / 'summary.json'}", flush=True)
+    return 0 if failure is None else 1
+
+
+if __name__ == '__main__':
+    sys.exit(main())
+PY
