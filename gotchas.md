@@ -209,3 +209,7 @@ send exceeded 700 ms against a 400 ms timeout while a peer drained in bursts.
 `DeadlineWriter` now uses nonblocking sends and `poll` against one absolute
 deadline, then restores the exact original flags. Callers must exclusively own
 the socket and its clones during each write.
+
+Doctor Biz corrected the audit's physical source on 2026-10-04: LINE IN is a player
+streaming FIP, not the turntable from older notes. Audit playback measurements use
+real FIP music. They do not establish worst-case incompressible-input throughput.
