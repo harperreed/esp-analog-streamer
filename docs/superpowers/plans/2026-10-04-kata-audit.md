@@ -4,11 +4,11 @@
 
 Compaction count: 5. Exclusive validation controller `/root/overnight_verify`
 owns live board, UART and flash state; message it before hardware access. Root
-owns ticket integration. Last confirmed completed image/test: `66f2717` TCP
-output observer with restored cache 32, en0-bound observation begun 2026-10-05
-06:56:38 UTC cache64 en0 control. That control lost both peers to ring lag
-near 22 s despite zero driver errors; source cache 32 is restored, board awaits next flash. Corrected strict pressure run reached actual refusal
-but failed decoded recovery. Restore production after remaining reviewed fixtures.
+owns ticket integration. Last confirmed completed image/test: corrected
+internal-pressure at cache 32, strict en0-relayed check begun 2026-10-05
+07:04:23 UTC. Actual geometry/refusal passed, decoded recovery failed again.
+Reviewed encoder fixture collection follows, then mandatory production restore
+and bounded actual decoding. Message the controller for current process state.
 No merges or pushes are authorized. Shazam stays off under R26.
 
 - Isolated capture health policy passed after complete-line UART reader repair.
@@ -504,3 +504,27 @@ Sourcecache32 restored; no permanent firmware configuration change. Reviewed
 host relay changes and canonical check follow, then strict pressure via explicit
 en0 relay and mandatory final production flash. No 6 h soak before bounded decoded
 production acceptance.
+
+
+## Strict pressure via en0 relay — 2026-10-05 07:04 UTC
+
+Reviewed relay/harness endpoints forwarded real traffic through en0 index 11,
+with 16 KiB relay buffers and no routing changes. Cache32/MSS1440 were generated
+and flashed. Ready free 35119 B/largest 3712 B with 10 holes; both 4096-byte probes
+returned NULL. Two real pthread ENOMEM refusals produced zero-byte EOF and
+checked closes. End free 34895 B/largest 3712 B; sampled minimum 34483 B remained
+above 32768 B. Release free 80039 B/largest 77824 B.
+
+Strict result FAIL: recovered 1 did not reach required decoded progress within
+5 s. Both recovery sockets were actually admitted, relay forwarded 116771 bytes
+per peer, and both decoders reported only 0.085333 s at cleanup with empty stderr.
+The third-peer cap was unchecked. UART capture fault counters stayed flat
+through pressure, release and sampled recovery (last 41.572 s board time).
+No natural recovery close was recorded before harness cleanup. Keep nr6z open;
+no threshold changes or blind rerun. Structured failure:
+`docs/audit-evidence/2026-10-04/failed-internal-pressure-en0-recovery.json`;
+private raw: `target/audit-internal-pressure-en0/20261005T070423.159120Z`.
+
+Canonical host/production check at 84d0128 passed 188 Rust tests, two preexisting
+ignored tests, five real relay tests, harness regressions, formatting/clippy,
+firmware build and warnings. Refreshed dd79c11 canonical verification passed the same full stages. Production restoration remains mandatory after fixtures.
