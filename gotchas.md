@@ -176,6 +176,15 @@ proved sampled reclamation, not a universal lifetime bound. Direct draining stil
 lost one connection to generation overrun with nonzero window and ACK/retransmit
 stalls; the six-hour soak failed. Normal routed playback remains unverified.
 
+The historical successful ten-minute runB used dynamic TX32, unlike static16/cache32.
+IDF 5.5.5 allows dynamic TX with PSRAM preference only when IGNORE_NOTFOUND is on.
+Despite its Kconfig prose, that flag does not disable allocator PSRAM preference:
+lwipopts.h and esp_adapter.c gate that on TRY_ALLOCATE alone. It disables the TX
+cache/by-reference path. A temporary dynamic-profile experiment must verify mapped
+PSRAM; production still needs an explicit boot-memory requirement. Fresh static
+tests on October 5 passed one listener for 120 s but lost one of two to ring lag
+after 41.9 s, so one short pass cannot establish a transport fix.
+
 ## Formatting a float to a precision takes 1 KB of stack
 Rust's `{:.1}` on a float goes through `float_to_decimal_common_exact`, which puts a 1,024-byte buffer on the stack. On the 4 KiB stream threads, log integers.
 

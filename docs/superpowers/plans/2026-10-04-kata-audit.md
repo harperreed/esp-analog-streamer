@@ -2,6 +2,36 @@
 
 ## Current state
 
+Resumed after Doctor Biz asked to fix the playback blocker. Root owns the board
+and build; clean-context sol-6.1 agents audit the target socket contract and the
+historical successful run. Compaction count: 6. The current static profile is
+being reproduced with one 120-second en0-relayed decoder before a controlled
+Wi-Fi profile comparison. No production fix is established yet.
+
+Historical runB decoded 600.064 seconds in 601 seconds with dynamic TX32 and
+577/579 successful API polls. Its exact image source hash is unavailable; input
+and routed source address also differ. IDF forbids dynamic TX with mandatory
+PSRAM and Wi-Fi/lwIP PSRAM preference together, so the experiment must explicitly
+account for coupled driver behavior. The temporary diagnostic enables
+IGNORE_NOTFOUND and verifies mapped PSRAM on this board before client tests;
+it preserves TRY_ALLOCATE_WIFI_LWIP, whose source still prefers PSRAM regardless
+of IGNORE_NOTFOUND. The profile changes static/cache/by-reference TX into
+dynamic/no-cache/copying TX. Restore the boot guarantee before any production
+adoption. Preserve current encoder/deadline/close policy.
+Source audit found no fcntl/send/poll contract bug;
+nonblocking readiness low-water hysteresis remains an unproven alternative.
+
+Fresh unchanged-production control, 2026-10-05 12:17 UTC: one en0-relayed
+listener decoded 120.0 seconds; 31 API polls passed and capture fault deltas
+stayed zero. Two listeners requested for 300 seconds then failed at 65.458
+seconds: UART independently records ring lag after 41.9 seconds and checked
+close in 449 ms. This reproduces the blocker despite a short one-listener pass.
+Evidence is in `docs/audit-evidence/2026-10-05/static-*.json`. The temporary
+dynamic profile passed all canonical stages; its generated config confirms
+TX type 1/count 32, no cache/static count, PSRAM preference, unchanged RX and
+TCP limits. ELF SHA256 `ba2aa653e447f430a264a27c5d0c479fcfb20625ec98b749f877bad77e48dc55`.
+Root is flashing that diagnostic; no causal result yet.
+
 Compaction count: 5. The validation controller released board ownership after
 cleanup; no UART, flash, relay or client process remains active. Root owns ticket
 integration. FINAL PRODUCTION RESTORED: normal image 7ee8a2a with ac93d16 close
