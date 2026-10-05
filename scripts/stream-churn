@@ -20,6 +20,10 @@ class CheckFailure(Exception):
     pass
 
 
+class ConfigurationFailure(CheckFailure):
+    pass
+
+
 def positive_float(value):
     number = float(value)
     if not 0 < number < float("inf"):
@@ -40,7 +44,9 @@ def main():
         description="Open two real stream listeners, require 503 for a third, stop or trickle reads, "
         "then require two replacement listeners within 10 seconds after the hold. Keep every "
         "stalled peer open until the test ends to expose closing TCP connection retention. "
-        "Requires Shazam off and continuous captured audio. Very compressible silence or a "
+        "Requires Shazam off and continuous captured audio. Transport poll failures are recorded "
+        "while later rounds continue, but any poll failure makes the overall result FAIL. "
+        "Invalid configuration stops promptly. Very compressible silence or a "
         "large receive window can take longer to fill TCP buffers; increase --hold in that case. "
         "Trickle reads must stay below the stream byte rate to force a timeout. "
         "Admission recovery does not prove RAM reclamation: compare the board's heap logs.",
@@ -66,6 +72,8 @@ def main():
     events = []
     lock = threading.Lock()
     errors = []
+    configuration_errors = []
+    configuration_failed = threading.Event()
     stalled_peers = []
     replacements = []
     stop_polling = threading.Event()
@@ -86,18 +94,37 @@ def main():
     def state():
         opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
         with opener.open(f"http://{ip}/api/state", timeout=3) as response:
-            value = json.load(response)
+            try:
+                value = json.load(response)
+            except (ValueError, UnicodeError) as error:
+                raise ConfigurationFailure("/api/state returned malformed JSON") from error
         record("state", state=value)
-        if value.get("shazam_enabled") is not False:
-            raise CheckFailure("/api/state must report shazam_enabled=false")
+        if not isinstance(value, dict) or value.get("shazam_enabled") is not False:
+            raise ConfigurationFailure("/api/state must report shazam_enabled=false")
+
+    def observe_state():
+        try:
+            state()
+        except ConfigurationFailure as error:
+            configuration_errors.append(str(error))
+            record("state_error", error=str(error), critical=True)
+            configuration_failed.set()
+            stop_polling.set()  # Wake the main thread's paced waits for prompt refusal.
+            raise
+        except Exception as error:
+            errors.append(str(error))
+            record("state_error", error=str(error), critical=False)
+
+    def check_configuration():
+        if configuration_failed.is_set():
+            raise ConfigurationFailure(configuration_errors[-1])
 
     def poll_state():
         while not stop_polling.wait(1):
             try:
-                state()
-            except Exception as error:
-                errors.append(str(error))
-                record("state_error", error=str(error))
+                observe_state()
+            except ConfigurationFailure:
+                return
 
     def connect(label, timeout=3):
         peer = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -221,7 +248,9 @@ def main():
         poller = threading.Thread(target=poll_state)
         poller.start()
         for round_number in range(1, args.rounds + 1):
+            check_configuration()
             for index in (1, 2):
+                check_configuration()
                 label = f"round {round_number} listener {index}"
                 peer = require_status(label, 200)
                 stopping = threading.Event()
@@ -231,6 +260,7 @@ def main():
                 stalled_peers.append((peer, stopping, worker, evidence))
                 if worker is not None:
                     worker.start()
+            check_configuration()
             require_status(f"round {round_number} third listener", 503).close()
             stall_started = time.monotonic()
             record("hold", round=round_number, seconds=args.hold, retained_peers=len(stalled_peers))
@@ -239,8 +269,7 @@ def main():
             probe_started = time.monotonic()
             deadline = probe_started + 10
             while len(replacements) < 2:
-                if errors:
-                    raise CheckFailure(f"board liveness/configuration poll failed: {errors[-1]}")
+                check_configuration()
                 if any(ended.is_set() for _, ended, _, _ in replacements):
                     raise CheckFailure("a replacement stream ended before both slots recovered; check capture health")
                 left = deadline - time.monotonic()
@@ -265,10 +294,12 @@ def main():
             require_status(f"round {round_number} third replacement", 503).close()
             if any(ended.is_set() for _, ended, _, _ in replacements):
                 raise CheckFailure("replacement streams ended during the active-slot check")
-            state()
+            check_configuration()
+            observe_state()
             close_replacements()
             completed += 1
-            record("round_passed", round=round_number, retained_stalled_peers=len(stalled_peers))
+            record("round_completed", round=round_number, retained_stalled_peers=len(stalled_peers),
+                   admission_checks_passed=True, transport_poll_errors=len(errors))
             # Let the server observe the replacement peers' closes before the next admission.
             stop_polling.wait(1)
     except KeyboardInterrupt:
@@ -291,8 +322,10 @@ def main():
         stop_polling.set()
         if poller is not None and poller.ident is not None:
             poller.join()
+        if configuration_errors and failure is None:
+            failure = f"board configuration poll failed: {configuration_errors[-1]}"
         if errors and failure is None:
-            failure = f"board liveness/configuration poll failed: {errors[-1]}"
+            failure = f"board transport poll failed: {errors[-1]}"
         summary = {"passed": failure is None, "error": failure, "host": args.host, "ip": ip,
                    "requested_rounds": args.rounds, "completed_rounds": completed,
                    "hold_seconds": args.hold, "elapsed_seconds": round(time.monotonic() - started, 3),
@@ -300,6 +333,7 @@ def main():
                    "trickle_interval": args.trickle_interval,
                    "retained_peer_reads": [evidence for _, _, _, evidence in stalled_peers],
                    "retained_peer_count": len(stalled_peers), "state_errors": errors,
+                   "configuration_errors": configuration_errors,
                    "ram_reclamation_verified": False,
                    "note": "Compare supervisor heap logs to assess closing TCP PCB retention."}
         (out / "summary.json").write_text(json.dumps(summary, indent=2) + "\n")

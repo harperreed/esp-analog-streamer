@@ -4,9 +4,10 @@
 set -euo pipefail
 usage() {
     cat <<'HELP'
-Usage: scripts/fault-check --mode capture|pressure|network|wav-local [HOST] [--path /stream.flac|/stream.wav] [--listeners 1|2] [--out DIR]
+Usage: scripts/fault-check --mode capture|pressure|network|wav-local|health [HOST] [--path /stream.flac|/stream.wav] [--listeners 1|2] [--out DIR]
 Flash capture-faults, listener-pressure, network-faults, or wav-freshness first, with Shazam disabled. This check resets
-the board through scripts/serial-log, records private UART logs, and uses real HTTP audio.
+the board through scripts/serial-log and records private UART logs. Health uses capture-faults
+without stream clients: it proves capture restart/reset policy, not freshness or decoded playback.
 Keep audio playing and run under caffeinate -is to prevent host sleep. No flashing occurs.
 HOST defaults to esp-shazam.local; output defaults to target/fault-check/<dated run>.
 Capture defaults to /stream.flac; /stream.wav checks WAV freshness.
@@ -28,7 +29,7 @@ while [ "$#" -gt 0 ]; do
     case "$1" in
         --help) usage; exit 0 ;;
         --mode)
-            [ "$#" -ge 2 ] && [ -z "$mode" ] && [[ "$2" = capture || "$2" = pressure || "$2" = network || "$2" = wav-local ]] || { echo 'FAIL --mode requires capture, pressure, network, or wav-local' >&2; exit 2; }
+            [ "$#" -ge 2 ] && [ -z "$mode" ] && [[ "$2" = capture || "$2" = pressure || "$2" = network || "$2" = wav-local || "$2" = health ]] || { echo 'FAIL --mode requires capture, pressure, network, wav-local, or health' >&2; exit 2; }
             mode="$2"; shift 2 ;;
         --path)
             [ "$#" -ge 2 ] && [ -z "$path_seen" ] && [[ "$2" = /stream.flac || "$2" = /stream.wav ]] || { echo 'FAIL --path requires /stream.flac or /stream.wav once' >&2; exit 2; }
@@ -44,6 +45,7 @@ while [ "$#" -gt 0 ]; do
     esac
 done
 [ -n "$mode" ] || { echo 'FAIL --mode is required (see --help)' >&2; exit 2; }
+[[ "$mode" != health || ( -z "$path_seen" && -z "$listeners_seen" ) ]] || { echo 'FAIL health does not accept stream path/listener options' >&2; exit 2; }
 [[ "$mode" = capture || "$stream_path" = /stream.flac ]] || { echo 'FAIL pressure/network/wav-local require --path /stream.flac' >&2; exit 2; }
 [[ "$mode" = capture || "$listeners" = 2 ]] || { echo 'FAIL pressure/network/wav-local require --listeners 2' >&2; exit 2; }
 repo="$(cd "$(dirname "$0")/.." && pwd)"
@@ -69,12 +71,14 @@ class Failure(Exception):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--mode', required=True, choices=['capture', 'pressure', 'network', 'wav-local'])
+    parser.add_argument('--mode', required=True, choices=['capture', 'pressure', 'network', 'wav-local', 'health'])
     parser.add_argument('host', nargs='?', default='esp-shazam.local')
     parser.add_argument('--out')
     parser.add_argument('--path', default='/stream.flac', choices=['/stream.flac', '/stream.wav'])
     parser.add_argument('--listeners', type=int, default=2, choices=[1, 2])
     args = parser.parse_args()
+    if args.mode == 'health' and any(option in sys.argv for option in ['--path', '--listeners']):
+        parser.error('health does not accept stream path/listener options')
     if args.mode != 'capture' and args.path != '/stream.flac':
         parser.error('pressure/network/wav-local require --path /stream.flac')
     if args.mode != 'capture' and args.listeners != 2:
@@ -285,6 +289,26 @@ def main():
         if reader.get('worker') is not None and reader['worker'].ident is not None:
             reader['worker'].join(timeout=1)
 
+    def supervisor_reset(final, final_observed):
+        restart, _ = uart_match(r'audio: no captured-frame progress .*requesting restart', after=final, seconds=5)
+        # Recovery cannot wait for a logger lock. Require the actual software-reset
+        # boot line within the tested six-second policy plus two seconds of slack.
+        reboot, _ = uart_match(r'rst:0xc \(SW_CPU_RESET\)', after=restart + 1,
+                               seconds=max(0.001, 8 - (time.monotonic() - final_observed)))
+        reset_elapsed = time.monotonic() - final_observed
+        if reset_elapsed > 8:
+            raise Failure('software reset exceeded the observed eight-second recovery bound')
+        if any(text in line for line in lines()[final:reboot]
+               for text in ['Guru Meditation', 'panicked at', 'Task watchdog got triggered', 'socket close failed']):
+            raise Failure('panic/watchdog/socket-close failure confounded capture-supervisor software reset')
+        record('supervisor_reset', seconds_after_final_marker=round(reset_elapsed, 3), maximum_seconds=8)
+        boot = marker('BOOT', after=reboot + 1, seconds=22)
+        if not re.search(r'reset_reason=3\b', lines()[boot]):
+            raise Failure('post-fault BOOT reset reason is not ESP_RST_SW (3)')
+        marker('POST_REBOOT', after=boot + 1, seconds=3)
+        evidence['ordered_reboot_lines'] = [final, restart, reboot, boot]
+        return reboot
+
     try:
         ip = socket.getaddrinfo(args.host, 8000, socket.AF_INET, socket.SOCK_STREAM)[0][4][0]
         raw = uart.open('wb')
@@ -296,7 +320,45 @@ def main():
         uart_match(r'rst:0x', seconds=20)
         record('reset_seen', mode=args.mode, host=args.host, ip=ip)
         state_ready()
-        if args.mode == 'wav-local':
+        if args.mode == 'health':
+            health_start = len(lines())
+            short = marker('SHORT_SUSPEND', seconds=20)
+            marker('SHORT_RESUME', after=short)
+            recovery = marker('RECOVERY_SUSPEND', after=short, seconds=15)
+            before_short = telemetry(before=short)
+            after_short = telemetry(after=short, before=recovery)
+            if not before_short or not after_short:
+                raise Failure('health short-pause capture observations missing')
+            unchanged(before_short[-1], after_short[-1], 'health short pause')
+            if any('requesting restart' in line or 'rebooting' in line for line in lines()[short:recovery]):
+                raise Failure('short pause caused a health supervisor trip')
+            resumed = marker('RECOVERY_RESUME', after=recovery, seconds=6)
+            request, _ = uart_match(r'audio: no captured-frame progress .*requesting restart', after=recovery, seconds=1)
+            if request >= resumed:
+                raise Failure('health recovery restart request did not precede actual resume')
+            final = marker('FINAL_SUSPEND', after=resumed, seconds=15)
+            final_observed = time.monotonic()
+            prior = telemetry(before=recovery)
+            restored = telemetry(after=resumed, before=final)
+            if not prior or not restored:
+                raise Failure('health recovery capture observations missing')
+            require_capture_fields(prior[-1], 'before health recovery')
+            require_capture_fields(restored[0], 'after health recovery')
+            for key in ['frames', 'restarts', 'discontinuities']:
+                if restored[0][key] <= prior[-1][key]:
+                    raise Failure(f'health recovery: {key} did not increase')
+            evidence['recovery'] = dict(request_line=request, before=prior[-1], after=restored[0])
+            reboot = supervisor_reset(final, final_observed)
+            state_ready(5)
+            wait(lambda: True if len(telemetry(after=reboot + 1)) >= 2 else None,
+                 22, 'two post-reboot health capture samples missing')
+            post_reboot = telemetry(after=reboot + 1)
+            unchanged(post_reboot[0], post_reboot[-1], 'post-reboot health')
+            if any(text in line for line in lines()[health_start:]
+                   for text in ['Guru Meditation', 'panicked at', 'Task watchdog got triggered', 'socket close failed']):
+                raise Failure('panic/watchdog/socket-close failure confounded health validation')
+            evidence['post_reboot_capture_heap'] = post_reboot
+        elif args.mode == 'wav-local':
             def wav_marker(name, after=0, seconds=20):
                 index, found = uart_match(r'wav-freshness: marker=' + name + r'\b(.*)', after=after, seconds=seconds)
                 fields = {key: int(value) for key, value in re.findall(r'\b([a-z_]+)=(\d+)', found.group(1))}
@@ -493,23 +555,7 @@ def main():
                 if restored[key] <= prior[key]:
                     raise Failure(f'recovery: {key} did not increase after resume')
             evidence['recovery'] = dict(request_line=recovery_restart, before=prior, after=restored)
-            restart, _ = uart_match(r'audio: no captured-frame progress .*requesting restart', after=final, seconds=5)
-            # Recovery cannot wait for a logger lock. Require the actual software-reset
-            # boot line within the tested six-second policy plus two seconds of slack.
-            reboot, _ = uart_match(r'rst:0xc \(SW_CPU_RESET\)', after=restart + 1,
-                                   seconds=max(0.001, 8 - (time.monotonic() - final_observed)))
-            reset_elapsed = time.monotonic() - final_observed
-            if reset_elapsed > 8:
-                raise Failure('software reset exceeded the observed eight-second recovery bound')
-            if any(text in line for line in lines()[final:reboot]
-                   for text in ['Guru Meditation', 'panicked at', 'Task watchdog got triggered', 'socket close failed']):
-                raise Failure('panic/watchdog/socket-close failure confounded capture-supervisor software reset')
-            record('supervisor_reset', seconds_after_final_marker=round(reset_elapsed, 3), maximum_seconds=8)
-            boot = marker('BOOT', after=reboot + 1, seconds=22)
-            if not re.search(r'reset_reason=3\b', lines()[boot]):
-                raise Failure('post-fault BOOT reset reason is not ESP_RST_SW (3)')
-            marker('POST_REBOOT', after=boot + 1, seconds=3)
-            evidence['ordered_reboot_lines'] = [final, restart, reboot, boot]
+            reboot = supervisor_reset(final, final_observed)
             state_ready(5)
             if args.listeners == 2:
                 pair(8, 'capture-post-reboot')
@@ -541,11 +587,13 @@ def main():
                 failure = failure or 'subprocess cleanup failed'
         for handle in handles:
             handle.close()
-        summary = dict(passed=failure is None, error=failure, mode=args.mode, host=args.host, path=args.path,
-                       listeners=args.listeners, admission_cap_checked=admission_cap_checked,
+        summary = dict(passed=failure is None, error=failure, mode=args.mode, host=args.host, path=None if args.mode == 'health' else args.path,
+                       listeners=0 if args.mode == 'health' else args.listeners, admission_cap_checked=admission_cap_checked,
+                       scope='capture supervisor only; no freshness or decoded playback' if args.mode == 'health' else 'stream and capture assertions',
                        elapsed_seconds=round(time.monotonic() - started, 3), evidence=evidence,
                        log_directory=str(out), uart_log=str(uart),
-                       note='UART is private; decoded duration establishes playback, not independent DMA continuity.')
+                       note='UART is private; health mode provides no stream freshness or decoded-playback evidence.' if args.mode == 'health' else
+                       'UART is private; decoded duration establishes playback, not independent DMA continuity.')
         (out / 'summary.json').write_text(json.dumps(summary, indent=2) + '\n')
         event_file.close()
         print(f"{'PASS' if failure is None else 'FAIL'} {out / 'summary.json'}", flush=True)
