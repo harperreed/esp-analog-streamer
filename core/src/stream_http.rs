@@ -1,8 +1,9 @@
 // ABOUTME: HTTP for the stream server on port 8000: reading a request's head, routing its request line, the responses.
 // ABOUTME: Only GET /stream.flac and GET /stream.wav stream; anything else gets a short, complete response and the connection closes.
 
-use std::io::{self, BufRead, Read, Write};
+use std::io::{self, BufRead, Read};
 use std::net::TcpStream;
+use std::os::fd::AsRawFd;
 use std::time::{Duration, Instant};
 
 /// Reads a socket with one deadline for all its reads, so a client that sends a request head a
@@ -37,33 +38,29 @@ impl Read for DeadlineReader<'_> {
 }
 
 /// Writes to a socket with one deadline for each whole write, so a peer that reads a trickle can't
-/// hold a stream listener past it. A socket's write timeout restarts with every send, and lwIP's
-/// send returns a partial count when its timeout runs out after some progress, so `write_all`
-/// would give each remaining part a fresh timeout.
+/// hold a stream listener past it. Nonblocking sends and readiness waits share that deadline;
+/// socket timeouts can restart inside a blocking send when the peer makes progress.
 pub struct DeadlineWriter<'a> {
     sock: &'a TcpStream,
-    /// The socket's write timeout as this writer last set it.
-    timeout: Option<Duration>,
 }
-
-/// How far a send's timeout may run past the deadline before the writer sets it again. Setting it
-/// is a call through lwIP's thread, which counts timeouts in 10 ms ticks anyway. So when each of a
-/// stream's writes gets a deadline the same distance ahead, only the first sets the timeout.
-const TIMEOUT_SLACK: Duration = Duration::from_millis(10);
 
 impl<'a> DeadlineWriter<'a> {
     pub fn new(sock: &'a TcpStream) -> Self {
-        Self {
-            sock,
-            timeout: None,
-        }
+        Self { sock }
     }
 
-    /// Writes all of `buf` before `deadline`: each send may wait only for the time left (plus at
-    /// most `TIMEOUT_SLACK`). Past the deadline it fails with `TimedOut`, and part of `buf` may have
-    /// been sent; a send that runs out of time fails as the socket reports it (`WouldBlock` on
-    /// ESP-IDF and macOS).
-    pub fn write_all_before(&mut self, mut buf: &[u8], deadline: Instant) -> io::Result<()> {
+    /// Writes all of `buf` before `deadline`, restoring the socket's original flags afterward.
+    /// The caller must exclusively use the socket, including clones, during this write:
+    /// its blocking mode temporarily changes, because macOS send ignores MSG_DONTWAIT.
+    /// Past the deadline it fails with `TimedOut`, and part of `buf` may have been sent.
+    pub fn write_all_before(&mut self, buf: &[u8], deadline: Instant) -> io::Result<()> {
+        let mut mode = SocketMode::nonblocking(self.sock)?;
+        let result = self.write_nonblocking(buf, deadline);
+        mode.restore()?;
+        result
+    }
+
+    fn write_nonblocking(&self, mut buf: &[u8], deadline: Instant) -> io::Result<()> {
         while !buf.is_empty() {
             let left = deadline.saturating_duration_since(Instant::now());
             if left.is_zero() {
@@ -72,28 +69,126 @@ impl<'a> DeadlineWriter<'a> {
                     "write deadline passed",
                 ));
             }
-            let timeout = socket_timeout(left);
-            if self
-                .timeout
-                .is_none_or(|set| set < timeout || set > timeout + TIMEOUT_SLACK)
-            {
-                self.sock.set_write_timeout(Some(timeout))?;
-                self.timeout = Some(timeout);
-            }
-            let mut sock = self.sock;
-            match sock.write(buf) {
-                Ok(0) => {
+            // SAFETY: the borrowed socket stays open, and buf is readable for its full length.
+            // O_NONBLOCK prevents waiting for buffer space; MSG_NOSIGNAL suppresses SIGPIPE.
+            let sent = unsafe {
+                libc::send(
+                    self.sock.as_raw_fd(),
+                    buf.as_ptr().cast(),
+                    buf.len(),
+                    libc::MSG_NOSIGNAL,
+                )
+            };
+            match sent {
+                0 => {
                     return Err(io::Error::new(
                         io::ErrorKind::WriteZero,
                         "failed to write whole buffer",
                     ))
                 }
-                Ok(n) => buf = &buf[n..],
-                Err(e) if e.kind() == io::ErrorKind::Interrupted => {}
-                Err(e) => return Err(e),
+                n if n > 0 => buf = &buf[n as usize..],
+                _ => {
+                    let error = io::Error::last_os_error();
+                    match error.kind() {
+                        io::ErrorKind::Interrupted => continue,
+                        io::ErrorKind::WouldBlock => self.wait_writable(deadline)?,
+                        _ => return Err(error),
+                    }
+                }
             }
         }
         Ok(())
+    }
+
+    fn wait_writable(&self, deadline: Instant) -> io::Result<()> {
+        let mut fd = libc::pollfd {
+            fd: self.sock.as_raw_fd(),
+            events: libc::POLLOUT,
+            revents: 0,
+        };
+        loop {
+            let left = deadline.saturating_duration_since(Instant::now());
+            if left.is_zero() {
+                return Err(io::Error::new(
+                    io::ErrorKind::TimedOut,
+                    "write deadline passed",
+                ));
+            }
+            let timeout = i32::try_from(left.as_nanos().div_ceil(1_000_000)).unwrap_or(i32::MAX);
+            // SAFETY: fd is one initialized pollfd, and the borrowed socket remains open.
+            let ready = unsafe { libc::poll(&mut fd, 1, timeout) };
+            if ready > 0 {
+                // Retry send to report a closed peer or socket error through its normal errno.
+                return Ok(());
+            }
+            if ready < 0 {
+                let error = io::Error::last_os_error();
+                if error.kind() != io::ErrorKind::Interrupted {
+                    return Err(error);
+                }
+            }
+        }
+    }
+}
+
+/// Restores the original descriptor flags after normal results and during unwinding.
+struct SocketMode<'a> {
+    sock: &'a TcpStream,
+    flags: libc::c_int,
+    restore_pending: bool,
+}
+
+impl<'a> SocketMode<'a> {
+    fn nonblocking(sock: &'a TcpStream) -> io::Result<Self> {
+        let flags = loop {
+            // SAFETY: the borrowed socket remains open; F_GETFL has no third argument.
+            let flags = unsafe { libc::fcntl(sock.as_raw_fd(), libc::F_GETFL) };
+            if flags >= 0 {
+                break flags;
+            }
+            let error = io::Error::last_os_error();
+            if error.kind() != io::ErrorKind::Interrupted {
+                return Err(error);
+            }
+        };
+        let mut mode = Self {
+            sock,
+            flags,
+            restore_pending: false,
+        };
+        if flags & libc::O_NONBLOCK == 0 {
+            mode.set_flags(flags | libc::O_NONBLOCK)?;
+            mode.restore_pending = true;
+        }
+        Ok(mode)
+    }
+
+    fn set_flags(&self, flags: libc::c_int) -> io::Result<()> {
+        loop {
+            // SAFETY: the borrowed socket remains open; F_SETFL takes integer descriptor flags.
+            if unsafe { libc::fcntl(self.sock.as_raw_fd(), libc::F_SETFL, flags) } >= 0 {
+                return Ok(());
+            }
+            let error = io::Error::last_os_error();
+            if error.kind() != io::ErrorKind::Interrupted {
+                return Err(error);
+            }
+        }
+    }
+
+    fn restore(&mut self) -> io::Result<()> {
+        if self.restore_pending {
+            self.set_flags(self.flags)?;
+            self.restore_pending = false;
+        }
+        Ok(())
+    }
+}
+
+impl Drop for SocketMode<'_> {
+    fn drop(&mut self) {
+        // Normal returns surface restoration errors; unwinding can only attempt restoration.
+        let _ = self.restore();
     }
 }
 
@@ -429,16 +524,16 @@ mod tests {
         (server, client.into())
     }
 
-    /// Reads from `client` in bursts of 64 KB, one every 500 ms, until the writer closes or 4 s
-    /// have passed; returns how many bytes it read. A writer whose send timeout is under 500 ms
-    /// sees each send make some progress, then time out.
+    /// Reads from `client` in bursts of 64 KB, one every 300 ms, until the writer closes or 4 s
+    /// have passed; returns how many bytes it read. Progress inside a blocking send can restart
+    /// macOS's socket timeout, so that send can outlive the whole write's deadline.
     fn bursty_reader(mut client: TcpStream) -> thread::JoinHandle<usize> {
         thread::spawn(move || {
             let started = Instant::now();
             let mut buf = vec![0u8; 64 << 10];
             let mut total = 0;
             while started.elapsed() < Duration::from_secs(4) {
-                thread::sleep(Duration::from_millis(500));
+                thread::sleep(Duration::from_millis(300));
                 let mut burst = 0;
                 while burst < buf.len() {
                     match client.read(&mut buf[burst..]) {
@@ -454,8 +549,7 @@ mod tests {
 
     #[test]
     fn a_write_to_a_peer_that_reads_in_bursts_fails_at_its_deadline() {
-        // Each send moves some bytes, then times out and returns a partial count, as lwIP's does.
-        // A fresh timeout for each remaining part would keep the write going for many timeouts.
+        // A single blocking send can exceed its timeout when the peer keeps making progress.
         let (server, client) = small_buffered_pair();
         let reader = bursty_reader(client);
         let started = Instant::now();
@@ -509,11 +603,65 @@ mod tests {
         assert!(got.is_empty(), "sent {got:?}");
     }
 
+    fn socket_flags(sock: &TcpStream) -> libc::c_int {
+        // SAFETY: sock owns an open descriptor; F_GETFL has no third argument.
+        let flags = unsafe { libc::fcntl(sock.as_raw_fd(), libc::F_GETFL) };
+        assert!(flags >= 0, "{}", io::Error::last_os_error());
+        flags
+    }
+
+    #[test]
+    fn a_successful_write_preserves_blocking_and_nonblocking_socket_flags() {
+        for nonblocking in [false, true] {
+            let (server, mut client) = connected_pair();
+            server.set_nonblocking(nonblocking).unwrap();
+            let flags = socket_flags(&server);
+            DeadlineWriter::new(&server)
+                .write_all_before(b"whole", Instant::now() + Duration::from_secs(1))
+                .unwrap();
+            assert_eq!(socket_flags(&server), flags);
+            let mut got = [0; 5];
+            client.read_exact(&mut got).unwrap();
+            assert_eq!(&got, b"whole");
+        }
+    }
+
+    #[test]
+    fn a_timed_out_write_preserves_blocking_and_nonblocking_socket_flags() {
+        for nonblocking in [false, true] {
+            let (server, _client) = small_buffered_pair();
+            server.set_nonblocking(nonblocking).unwrap();
+            let flags = socket_flags(&server);
+            let error = DeadlineWriter::new(&server)
+                .write_all_before(
+                    &vec![0; 8 << 20],
+                    Instant::now() + Duration::from_millis(50),
+                )
+                .unwrap_err();
+            assert_eq!(error.kind(), io::ErrorKind::TimedOut);
+            assert_eq!(socket_flags(&server), flags);
+        }
+    }
+
+    #[test]
+    fn a_broken_pipe_preserves_flags_without_a_signal() {
+        for nonblocking in [false, true] {
+            let (server, _client) = connected_pair();
+            server.set_nonblocking(nonblocking).unwrap();
+            server.shutdown(std::net::Shutdown::Write).unwrap();
+            let flags = socket_flags(&server);
+            let error = DeadlineWriter::new(&server)
+                .write_all_before(b"closed", Instant::now() + Duration::from_secs(1))
+                .unwrap_err();
+            assert_eq!(error.kind(), io::ErrorKind::BrokenPipe);
+            assert_eq!(socket_flags(&server), flags);
+        }
+    }
+
     #[test]
     fn a_later_write_gets_its_own_deadline() {
-        // The first write runs out its short deadline against a peer that isn't reading, which
-        // leaves a short timeout on the socket. The second, with a long deadline, must still wait
-        // for the peer instead of failing at the old timeout.
+        // The first write fills the socket against a peer that isn't reading and times out.
+        // The second write must wait for the peer using its own, longer deadline.
         let (server, mut client) = connected_pair();
         let mut writer = DeadlineWriter::new(&server);
         let started = Instant::now();

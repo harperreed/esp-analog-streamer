@@ -624,6 +624,7 @@ dependencies = [
  "byteorder",
  "chfft",
  "crc32fast",
+ "libc",
  "serde",
  "serde_json",
 ]
