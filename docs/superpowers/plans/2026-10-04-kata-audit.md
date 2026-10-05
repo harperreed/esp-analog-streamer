@@ -255,3 +255,31 @@ one-client input did not reach two decoded seconds within its six-second check
 `47114f6` provides a reviewed, target-built real encoder-stall fixture; board test
 still pending. `cbbd69e` adds port80 state and public Wi-Fi signal/channel samples
 to the separate TCP observer. Production remains unchanged by these diagnostics.
+
+## Fresh validation handoff
+
+`cbbd69e` TCP observer ran 270 s. The child churn stopped on an API poll timeout
+after one of three rounds; UART continued. Capture counters remained flat.
+FLAC frame timeouts were 8,029/8,025 ms; slow socket closes 2,207/2,123 ms. Both
+ports returned to LISTEN-only by log time 193.131 s and stayed clear. Baseline to
+final: PSRAM free 919,492 to 919,516 B, largest 917,504 to 851,968 B; internal
+free 82,211 to 80,871 B, largest 77,824 to 73,728 B. AP samples were -56 to
+-52 dBm on channel1. These samples do not identify the transport root cause.
+Structured evidence is `partial-churn-reclamation.json`; no complete churn
+acceptance or memory reserve is claimed.
+
+`159319c` adds an isolated UART-only health mode to fault-check and defers
+transient state-poll failures in stream-churn until its final verdict. Any poll
+error still makes the run FAIL; bad/malformed Shazam configuration stops promptly.
+Admissions retain the same deadlines. Independent review and syntax checks pass.
+
+After this long session checkpoint, fresh Sol6.1 controller `/root/overnight_verify`
+owns board/serial/flash and validation. Encoder-faults has been flashed and its
+real harness is running. Next: capture-faults with `--mode health`; remaining
+slow-client/reclamation evidence if feasible; restore production; canonical
+checks; sustained two-listener soak. Root retains issue integration/final reporting.
+No other agent may flash or open UART. Shazam stays off; current source is quiet.
+The six-hour production soak has NOT begun. User-owned .gitignore/.kata.toml
+remain untouched. Nine tickets remain open; do not claim them done without their
+original acceptance evidence. Physical broadband and Shazam-on checks remain
+unavailable under current constraints.
