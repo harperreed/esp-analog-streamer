@@ -77,3 +77,34 @@ payload; control PCB retention remains a separate measurement requirement.
 
 Board evidence: `target/audit-capture-one/summary.txt` and
 `target/audit-capture-churn/20261005T030101.350958Z/summary.json`.
+
+## Overnight continuation
+
+Doctor Biz authorized continued work while sleeping and asked for independent
+judgment. He approved reboot on an unrecoverable TCP close failure. Shazam remains
+disabled under R26. Physical source correction: the player is streaming FIP.
+
+- `r759` is closed: `021d411`'s real ESP32 benchmark passed all assertions. Zero/DC
+  frames are 16 B, ~6.44 ms encoding elapsed and ~6.47 ms task CPU each over 128
+  blocks. Mixed frames are 12,301 B, noise 24,586 B. This measures encoder cost;
+  it does not send synthetic noise through the actual capture/network path.
+- Shared encoder stable-window medians on `57a59e7`: 18.00% of one core idle,
+  18.76% with one FLAC listener, 19.17% with two. Output stays ~11.72 blocks/s,
+  resets zero. One/two-listener FIP checks all passed. Worst-case source and
+  Shazam-on evidence remain outstanding.
+- `01cf98d` requires PSRAM and enables static TX16/cache32 while preserving
+  RX10/dynamicRX32/BA6/OOSEQ4. Generated config, source review, and canonical
+  checks pass. It adds rolling heap minimum sums; board candidate tests remain.
+- `05bde2a` enables two-second positive linger and keeps the listener slot until
+  checked close, including allocation/spawn failures. Configuration failure gets
+  503; unrecoverable close failure reboots as approved. Full checks and reviews
+  pass. FIN/TIME_WAIT control PCBs remain distinct from queued payload retention.
+- `aa94814` adds a real PSRAM exhaustion/fragmentation example. It is flashed;
+  serial assertions are currently being captured. Restore production firmware
+  after hardware examples; do not leave a test image running.
+
+Next: real production-boot capture suspension/recovery fixture, actual HTTP
+admission under fragmented PSRAM, frame-timeout logs plus WAV/FLAC trickle checks,
+then playback/churn with the PSRAM/static-TX and linger changes. Agents own current
+implementation scopes. Board examples run no Shazam calls. User-owned `.gitignore`
+and `.kata.toml` remain unmodified by this audit.
