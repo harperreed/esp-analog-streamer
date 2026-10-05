@@ -266,3 +266,8 @@ Only LF-terminated byte lines are observations; decode each completed line after
 framing. The overnight isolated health test falsely admitted an unfinished second
 post-reset sample and failed on its absent read_errors field. Keep that failed
 run, fix the reader with a real-file regression, then rerun the hardware check.
+
+Read each decoder's stderr with its filename attached. Concatenating two files
+without labels made the overnight soak's one errored decoder look like two.
+Listener 2 had premature HTTP EOF, demux I/O and then invalid residual; listener 1
+had empty stderr. Log byte counts can verify that attribution without guessing.
