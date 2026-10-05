@@ -4,11 +4,12 @@
 
 Compaction count: 5. Exclusive validation controller `/root/overnight_verify`
 owns live board, UART and flash state; message it before hardware access. Root
-owns ticket integration. Last confirmed completed image/test: corrected
-internal-pressure at cache 32, strict en0-relayed check begun 2026-10-05
-07:04:23 UTC. Actual geometry/refusal passed, decoded recovery failed again.
-Reviewed encoder fixture collection follows, then mandatory production restore
-and bounded actual decoding. Message the controller for current process state.
+owns ticket integration. Last confirmed completed image/test: encoder-faults
+at cache 32, en0-relayed check begun 2026-10-05 07:12:00 UTC. Both peers hit
+write deadlines before ARM; recent-body precondition failed. The earlier strict
+pressure run also failed decoded recovery. Hold final production flash for the
+reviewed close-failure logger correction, then bounded actual decoding. Message
+the controller for current process state.
 No merges or pushes are authorized. Shazam stays off under R26.
 
 - Isolated capture health policy passed after complete-line UART reader repair.
@@ -528,3 +529,23 @@ private raw: `target/audit-internal-pressure-en0/20261005T070423.159120Z`.
 Canonical host/production check at 84d0128 passed 188 Rust tests, two preexisting
 ignored tests, five real relay tests, harness regressions, formatting/clippy,
 firmware build and warnings. Refreshed dd79c11 canonical verification passed the same full stages. Production restoration remains mandatory after fixtures.
+
+
+## Encoder fault via en0 relay — 2026-10-05 07:12 UTC
+
+Strict result FAIL at 44.667 s: peer lacked recent pre-suspension body progress.
+UART recorded both frame-write deadlines at 18.060/18.070 s board time,
+8031/8037 ms against 8021 ms, then checked closes 2028/2011 ms. ARM arrived 31.190 s;
+the actual scheduled 13 s suspension/resume occurred after both peers had already
+failed. Capture fault counters remained flat, but no attributed fault EOF,
+recovered decoding or admission cap acceptance follows. Structured evidence:
+`docs/audit-evidence/2026-10-04/failed-encoder-en0-progress.json` with actual
+pre-close-logger-fix ELF hash; private raw directory
+`target/audit-encoder-en0/20261005T071200.303392Z`.
+
+Final canonical dd79c11 passed every stage: 188 Rust tests and two preexisting
+ignored, five relay tests, harness regressions, fmt/clippy, firmware build and
+warnings. A newly reviewed narrow logger fix requires another canonical check
+before mandatory final production restoration. Then two actual decoders run
+for five minutes through en0 relay; if that fails, collect one-listener 10 min
+without further buffer/MSS changes. No long soak starts from held socket counts.
