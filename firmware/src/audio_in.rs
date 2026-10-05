@@ -62,6 +62,7 @@ static FRAMES: AtomicU32 = AtomicU32::new(0);
 static DROPPED: AtomicU32 = AtomicU32::new(0);
 static READ_ERRORS: AtomicU32 = AtomicU32::new(0);
 static RESTARTS: AtomicU32 = AtomicU32::new(0);
+static HEALTH_RESTART_REQUESTS: AtomicU32 = AtomicU32::new(0);
 static GAPS: AtomicU32 = AtomicU32::new(0);
 static RAW_WORK_US: AtomicU32 = AtomicU32::new(0);
 static STORE_WORK_US: AtomicU32 = AtomicU32::new(0);
@@ -115,6 +116,14 @@ pub fn spawn_capture(
         stack_bytes: 4 * 1024,
     }
     .spawn(supervise)?;
+    // Keep ordinary UART and heap work below the shared encoder's priority.
+    ThreadSpec {
+        name: c"audio-metrics",
+        core: Core::Core1,
+        priority: 3,
+        stack_bytes: 4 * 1024,
+    }
+    .spawn(metrics)?;
     ThreadSpec {
         name: c"audio",
         core: Core::Core0,
@@ -262,6 +271,32 @@ fn record_staging(frames: usize, now: u64, since: &mut Option<u64>, attempts: &m
 }
 
 fn supervise() {
+    let launched = micros();
+    // Startup shares the stall grace even if capture is blocked before STARTED.
+    let mut health = CaptureHealth::new(
+        STALL_MS,
+        RECOVERY_MS,
+        launched / 1_000,
+        FRAMES.load(Ordering::Relaxed),
+    );
+    loop {
+        match health.observe(micros() / 1_000, FRAMES.load(Ordering::Relaxed)) {
+            Action::None => {}
+            Action::Restart => {
+                RESTART.store(true, Ordering::Release);
+                HEALTH_RESTART_REQUESTS.fetch_add(1, Ordering::Relaxed);
+            }
+            Action::Reboot => {
+                // Do not wait for asynchronous metrics/UART. IDF's restart internals can
+                // still wait on Wi-Fi/locks; this call is not a hard reboot-time guarantee.
+                unsafe { esp_idf_svc::sys::esp_restart() }
+            }
+        }
+        std::thread::sleep(Duration::from_millis(100));
+    }
+}
+
+fn metrics() {
     // Sole owner of IDF's process-global minimum-heap monitor. Allocate its small saved
     // minima array once at boot, before measuring rolling windows under listener load.
     let mut window_start_free = start_heap_window();
@@ -269,8 +304,7 @@ fn supervise() {
     let mut epoch = None;
     let mut previous = FRAMES.load(Ordering::Relaxed);
     let mut observed = 0u64;
-    // Startup shares the stall grace: a capture task blocked before STARTED still gets recovery.
-    let mut health = CaptureHealth::new(STALL_MS, RECOVERY_MS, launched / 1_000, previous);
+    let mut requests_seen = 0;
     let mut next_log = launched + 10_000_000;
     loop {
         let now = micros();
@@ -282,21 +316,11 @@ fn supervise() {
             observed += u64::from(frames.wrapping_sub(previous));
         }
         previous = frames;
-        match health.observe(now / 1_000, frames) {
-            Action::None => {}
-            Action::Restart => {
-                log::warn!(
-                    "audio: no captured-frame progress for {STALL_MS} ms; requesting restart"
-                );
-                RESTART.store(true, Ordering::Release);
-            }
-            Action::Reboot => {
-                log::error!(
-                    "audio: restart did not restore progress within {RECOVERY_MS} ms; rebooting"
-                );
-                // Independent of the capture owner and every stream/store mutex.
-                unsafe { esp_idf_svc::sys::esp_restart() }
-            }
+        let requests = HEALTH_RESTART_REQUESTS.load(Ordering::Relaxed);
+        if requests != requests_seen {
+            requests_seen = requests;
+            // Event delivery is asynchronous and may lag the capture owner's restart.
+            log::warn!("audio: no captured-frame progress for {STALL_MS} ms; requesting restart (asynchronously observed; health_restart_requests={requests})");
         }
         if now >= next_log {
             if let Some(epoch) = epoch {
@@ -310,7 +334,7 @@ fn supervise() {
 
 fn start_heap_window() -> [usize; 2] {
     use esp_idf_svc::sys;
-    // SAFETY: only the supervisor calls this process-global API. In pinned IDF 5.5.5,
+    // SAFETY: only the metrics task calls this process-global API. In pinned IDF 5.5.5,
     // repeated start resets local minima and retains metadata, without allocating again
     // (heap_caps.c:314-343), despite the header saying an active start would fail.
     unsafe {
@@ -347,10 +371,11 @@ fn log_capture(elapsed_us: u64, observed: u64, window_start_free: &mut [usize; 2
     // Logging overhead belongs to the next window. No stop/start allocation cycle.
     *window_start_free = start_heap_window();
     let deficit = (elapsed_us * u64::from(CAPTURE_RATE_HZ) / 1_000_000) as i64 - observed as i64;
-    log::info!("audio: frames={} callbacks={} queue_overflows={} software_dropped_frames={} read_errors={} restarts={} discontinuities={} raw_work_max_us={} store_work_max_us={} raw_read_max_us={} staged_frames={} staged_max_frames={} staging_pending_attempts={} staging_pending_max_attempts={} staging_pending_us={} staging_pending_max_us={} timing_deficit_estimate_frames={} (clock drift/scheduling; not proof of loss) internal_free={} internal_largest={} psram_free={} psram_largest={} internal_min_sum={} psram_min_sum={} internal_window_start_free={} psram_window_start_free={} (minima sum per-region lows; largest is a snapshot; staging current values sampled at publish/reset)",
+    log::info!("audio: frames={} callbacks={} queue_overflows={} software_dropped_frames={} read_errors={} restarts={} discontinuities={} health_restart_requests={} raw_work_max_us={} store_work_max_us={} raw_read_max_us={} staged_frames={} staged_max_frames={} staging_pending_attempts={} staging_pending_max_attempts={} staging_pending_us={} staging_pending_max_us={} timing_deficit_estimate_frames={} (clock drift/scheduling; not proof of loss) internal_free={} internal_largest={} psram_free={} psram_largest={} internal_min_sum={} psram_min_sum={} internal_window_start_free={} psram_window_start_free={} (minima sum per-region lows; largest is a snapshot; staging current values sampled at publish/reset)",
         FRAMES.load(Ordering::Relaxed), counters.callbacks, counters.queue_overflows,
         DROPPED.load(Ordering::Relaxed), READ_ERRORS.load(Ordering::Relaxed),
         RESTARTS.load(Ordering::Relaxed), GAPS.load(Ordering::Relaxed),
+        HEALTH_RESTART_REQUESTS.load(Ordering::Relaxed),
         RAW_WORK_US.swap(0, Ordering::Relaxed), STORE_WORK_US.swap(0, Ordering::Relaxed),
         crate::stream::take_raw_read_max_us(), STAGED_FRAMES.load(Ordering::Relaxed),
         STAGED_MAX_FRAMES.swap(0, Ordering::Relaxed),

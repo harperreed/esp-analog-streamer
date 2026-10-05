@@ -3,7 +3,8 @@
 
 // Only this hardware example injects faults; production has no injection endpoint or mode.
 // The host must observe SHORT_SUSPEND/RESUME, RECOVERY_SUSPEND/RESUME, FINAL_SUSPEND,
-// the production supervisor's restart/reboot logs, and then ESP_RST_SW plus POST_REBOOT.
+// the asynchronous restart report, actual software reset, and ESP_RST_SW plus POST_REBOOT.
+// Recovery must not wait for a reboot log: the UART logger can itself be blocked.
 // POST_REBOOT alone proves nothing: any software reset skips injection on the next boot.
 // Suspending at an arbitrary instruction can also freeze a held mutex, so host checks must
 // distinguish freshness timeout, reset invalidation, and blocked-lock recovery from logs.

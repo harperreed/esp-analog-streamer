@@ -481,6 +481,7 @@ def main():
             recovered = decoder('capture-recovered', 6)
             completed(recovered)
             final = marker('FINAL_SUSPEND', after=resumed, seconds=15)
+            final_observed = time.monotonic()
             before_recovery = telemetry(before=recovery)
             after_recovery = telemetry(after=resumed, before=final)
             if not before_recovery or not after_recovery:
@@ -493,7 +494,17 @@ def main():
                     raise Failure(f'recovery: {key} did not increase after resume')
             evidence['recovery'] = dict(request_line=recovery_restart, before=prior, after=restored)
             restart, _ = uart_match(r'audio: no captured-frame progress .*requesting restart', after=final, seconds=5)
-            reboot, _ = uart_match(r'audio: restart did not restore progress .*rebooting', after=restart + 1, seconds=5)
+            # Recovery cannot wait for a logger lock. Require the actual software-reset
+            # boot line within the tested six-second policy plus two seconds of slack.
+            reboot, _ = uart_match(r'rst:0xc \(SW_CPU_RESET\)', after=restart + 1,
+                                   seconds=max(0.001, 8 - (time.monotonic() - final_observed)))
+            reset_elapsed = time.monotonic() - final_observed
+            if reset_elapsed > 8:
+                raise Failure('software reset exceeded the observed eight-second recovery bound')
+            if any(text in line for line in lines()[final:reboot]
+                   for text in ['Guru Meditation', 'panicked at', 'Task watchdog got triggered', 'socket close failed']):
+                raise Failure('panic/watchdog/socket-close failure confounded capture-supervisor software reset')
+            record('supervisor_reset', seconds_after_final_marker=round(reset_elapsed, 3), maximum_seconds=8)
             boot = marker('BOOT', after=reboot + 1, seconds=22)
             if not re.search(r'reset_reason=3\b', lines()[boot]):
                 raise Failure('post-fault BOOT reset reason is not ESP_RST_SW (3)')
