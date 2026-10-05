@@ -1,0 +1,12 @@
+{
+  "passed": false,
+  "error": "peer lacks recent pre-suspension body progress",
+  "host": "192.168.200.224",
+  "elapsed_seconds": 44.70676725001249,
+  "evidence": {},
+  "uart_log": "/Users/harper/Public/src/personal/esp-shazam/target/audit-encoder/20261005T051208.429099Z/uart.log",
+  "output_budget_bytes": 134217728,
+  "note": "Pre-fault peers validate byte progress; recovered peers decode real FLAC. UART is private.",
+  "raw_summary": "target/audit-encoder/20261005T051208.429099Z/summary.json",
+  "interpretation": "No encoder-stall acceptance: one original draining client exceeded frame write deadline; original pre-suspension body-progress requirement also failed. Capture counters observed flat. Cause of routed stalls remains unknown."
+}

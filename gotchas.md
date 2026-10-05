@@ -260,3 +260,9 @@ The encoder fixture uses a short, pinned-IDF-verified local scheduler suspension
 Default ESP-IDF log prefixes and esp_timer_get_time marker times have different
 origins. Sample esp_log_timestamp and esp_timer together before logging, then
 convert clocks for comparisons; a UART marker's receipt is not exact clock sync.
+
+Live UART files can end midway through a telemetry line while a producer writes.
+Only LF-terminated byte lines are observations; decode each completed line after
+framing. The overnight isolated health test falsely admitted an unfinished second
+post-reset sample and failed on its absent read_errors field. Keep that failed
+run, fix the reader with a real-file regression, then rerun the hardware check.

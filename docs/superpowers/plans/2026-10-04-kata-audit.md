@@ -283,3 +283,20 @@ The six-hour production soak has NOT begun. User-owned .gitignore/.kata.toml
 remain untouched. Nine tickets remain open; do not claim them done without their
 original acceptance evidence. Physical broadband and Shazam-on checks remain
 unavailable under current constraints.
+
+## Controller hardware checkpoint
+
+The encoder-fault run `20261005T051208.429099Z` failed its recent pre-suspension
+body-progress assertion. Independently, one draining peer reached an 8,025 ms
+frame timeout against its 8,021 ms budget; the other reported freshness closure.
+Capture counters remained 13 overflows, 480 software-dropped frames, zero read
+errors, two restarts and two gaps through the sampled interval. This does not
+establish encoder-stall acceptance. Preserve `failed-encoder-routed-progress.json`.
+
+The isolated health run `20261005T051548.085310Z` recorded recovery restart,
+resumed capture and actual SW_CPU_RESET 6.177 s after the final marker, then
+ESP_RST_SW (3). Overall FAIL remains: the harness counted a partially written
+UART line as a second post-reset sample and failed on its absent read_errors
+field. `failed-health-partial-uart.json` preserves this failure. A complete-line
+reader regression and fix are under independent review before fresh rerun.
+The board currently runs capture-faults; production restoration remains required.
