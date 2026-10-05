@@ -12,7 +12,20 @@ use esp_shazam_core::signal::{
 #[test]
 fn ffmpeg_decodes_the_stream_to_the_same_samples() {
     // Music, silence, a full-scale square wave and noise, with changes in the middle of blocks.
-    let mut frames = chord_and_chirp_stereo_48k(60_000);
+    let mut frames = Vec::new();
+    for pair in [[0, 0], [123_456, -654_321], [i32::MAX, i32::MIN]] {
+        for _ in 0..BLOCK_FRAMES {
+            frames.extend_from_slice(&pair);
+        }
+    }
+    let noise = full_scale_noise_stereo(BLOCK_FRAMES);
+    for pair in noise.chunks_exact(CHANNELS) {
+        frames.extend_from_slice(&[42, pair[1]]);
+    }
+    for pair in noise.chunks_exact(CHANNELS) {
+        frames.extend_from_slice(&[pair[0], -42]);
+    }
+    frames.extend(chord_and_chirp_stereo_48k(60_000));
     frames.extend(vec![0; 2 * 15_000]);
     frames.extend(full_scale_square_stereo_48k(20_000));
     frames.extend(full_scale_noise_stereo(10_000));
@@ -47,7 +60,10 @@ fn ffmpeg_decodes_the_stream_to_the_same_samples() {
         .chunks_exact(4)
         .map(|bytes| i32::from_le_bytes(bytes.try_into().unwrap()))
         .collect();
-    let expected: Vec<i32> = frames.iter().map(|&sample| sample << 8).collect();
+    let expected: Vec<i32> = frames
+        .iter()
+        .map(|&sample| sample.clamp(-0x80_0000, 0x7F_FFFF) << 8)
+        .collect();
     assert_eq!(decoded.len(), expected.len(), "samples decoded");
     if let Some(i) = decoded.iter().zip(&expected).position(|(a, b)| a != b) {
         panic!(

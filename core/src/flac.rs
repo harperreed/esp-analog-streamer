@@ -1,5 +1,5 @@
 // ABOUTME: A small FLAC encoder (RFC 9639) for the LINE IN stream: 48 kHz, 24-bit stereo in blocks of 4,096 frames.
-// ABOUTME: Fixed predictors of order 0-4 and partitioned Rice codes, one block at a time, allocating nothing per block.
+// ABOUTME: Constant subframes, fixed predictors of order 0-4 and partitioned Rice codes, allocating nothing per block.
 
 /// Frames per block: 85 ms at 48 kHz. Each FLAC frame codes one block, and every block has this
 /// size, so the stream has a fixed block size.
@@ -208,11 +208,26 @@ impl Encoder {
         self.sums.fill(0);
     }
 
-    /// Writes `channel` of the block as a fixed-predictor subframe with partitioned Rice codes, or
-    /// verbatim when that comes out no smaller than 24 bits a sample. The predictor is the order whose
+    /// Writes an exact constant channel as one sample, otherwise a fixed-predictor subframe with
+    /// partitioned Rice codes, or verbatim when that comes out no smaller than 24 bits a sample.
+    /// The predictor is the order whose
     /// residuals add up smallest, as libFLAC picks among its fixed predictors; the partitioning and
     /// the Rice parameters are the ones with the smallest estimated size.
     fn write_subframe(&mut self, channel: usize, bits: &mut BitWriter) {
+        // Order 1 skips the first sample: a zero sum means every clipped sample equals the
+        // one before it. Reuse the sums from `push`, without scanning the block again.
+        let first_difference = row(channel, 1);
+        if self.sums[first_difference..first_difference + PARTITIONS]
+            .iter()
+            .all(|&sum| sum == 0)
+        {
+            bits.put(8, 0); // constant subframe, no wasted bits (RFC 9639, section 9.2.3)
+            bits.put(
+                BITS_PER_SAMPLE,
+                self.samples[channel * BLOCK_FRAMES] as u32 & SAMPLE_MASK,
+            );
+            return;
+        }
         let order = (0..=MAX_FIXED_ORDER)
             .min_by_key(|&order| {
                 let row = row(channel, order);
@@ -715,6 +730,50 @@ mod tests {
     }
 
     #[test]
+    fn constant_channels_use_four_byte_subframes() {
+        for (left, right) in [(0, 0), (123_456, -654_321), (i32::MAX, i32::MIN)] {
+            let frames: Vec<i32> = [left, right]
+                .into_iter()
+                .cycle()
+                .take(CHANNELS * BLOCK_FRAMES)
+                .collect();
+            let stream = encode_stream(&frames);
+            assert_eq!(
+                stream.len() - STREAM_HEADER_LEN,
+                16,
+                "constant stereo frame"
+            );
+            let frame = &stream[STREAM_HEADER_LEN..];
+            assert_eq!(frame[6], 0, "left constant subframe header");
+            assert_eq!(frame[10], 0, "right constant subframe header");
+            let expected: Vec<i32> = frames.into_iter().map(clip).collect();
+            assert_same_samples(&decode_with_claxon(&stream).1, &expected);
+        }
+    }
+
+    #[test]
+    fn constant_channels_change_independently_between_blocks() {
+        let noise = full_scale_noise_stereo(BLOCK_FRAMES);
+        let mut frames = Vec::new();
+        for block in 0..4 {
+            for pair in noise.chunks_exact(CHANNELS) {
+                frames.extend_from_slice(&match block {
+                    0 => [321, pair[1]],
+                    1 => [pair[0], -123],
+                    2 => [0, 0],
+                    _ => [pair[0], pair[1]],
+                });
+            }
+        }
+        let mixed = 6 + 4 + 1 + 3 * BLOCK_FRAMES + 2;
+        assert_eq!(
+            frame_sizes(&frames),
+            [mixed, mixed, 16, 6 + 2 * (1 + 3 * BLOCK_FRAMES) + 2]
+        );
+        assert_same_samples(&decode_with_claxon(&encode_stream(&frames)).1, &frames);
+    }
+
+    #[test]
     fn claxon_decodes_silence_exactly() {
         let silence = vec![0; 3 * CHANNELS * BLOCK_FRAMES];
         assert_same_samples(&decode_with_claxon(&encode_stream(&silence)).1, &silence);
@@ -804,7 +863,7 @@ mod tests {
             music.iter().all(|&size| size * 100 < PCM_BLOCK_BYTES * 70),
             "chord and chirp frames {music:?}, against {PCM_BLOCK_BYTES} bytes of PCM"
         );
-        // Silence costs a bit a sample: a Rice parameter of 0 codes each 0 as a lone stop bit.
+        // Silence stores only one 24-bit sample per channel.
         let silence = frame_sizes(&vec![0; 2 * CHANNELS * BLOCK_FRAMES]);
         assert!(
             silence.iter().all(|&size| size < PCM_BLOCK_BYTES / 16),

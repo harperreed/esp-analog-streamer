@@ -189,3 +189,9 @@ On 2026-10-04 one `scripts/flash` failed with `Error while running FlashDeflData
 
 ## Tell Harper the moment a feature works on the board
 On 2026-10-04 `/stream.flac` played on the board at about 16:45, but the agent kept optimizing, soaking and documenting until 18:30, and Harper, who was waiting to test, heard nothing for over two hours ("you have been spiraling again?"). A background implementer should `SendMessage` the main session as soon as the feature first works on the board, and the main session tells Harper right away. Polish and measurements follow. On long runs, send Harper a one-line status every 30 minutes or so.
+
+## Kata audit work can overlap another live session
+On 2026-10-04 another session changed firmware and committed `ee68892` and `cf42331` while the Sol 6.1 agents worked on constant FLAC subframes. Keep file ownership explicit and coordinate before flashing. The board responds at `192.168.200.224`; `192.168.200.8` is the MQTT broker.
+
+## Five audit tickets concern archived diagnostics
+`hb9p`, `sznz`, `b69f`, `3db1`, and `vya4` concern the temporary module saved under `target/task15b/` and `target/task16/`. It is absent from current firmware. Its absence does not fix those bugs: repair and verify the diagnostics before using them again, and do not cite their unsafe measurements as validation.
