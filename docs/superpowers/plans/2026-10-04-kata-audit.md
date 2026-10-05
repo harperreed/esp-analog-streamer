@@ -2,23 +2,27 @@
 
 ## Current state
 
-Compaction count: 4. Fresh validation controller `/root/overnight_verify` owns the
-board, UART, flashes and evidence; root owns ticket integration. No board process
-is running. Board is parked in its bootloader after the first pressure flash;
-restore production after the remaining fixtures. Shazam remains off under R26. Physical
-input is quiet (roughly -84 to -90 dBFS), so no worst-case input claim is valid.
+Compaction count: 4. Exclusive validation controller `/root/overnight_verify`
+owns live board, UART and flash state; message it before hardware access. Root
+owns ticket integration. Last confirmed completed image/test: `66f2717` TCP
+output observer, 90 s observation begun 2026-10-05 06:03:01 UTC. Next approved
+pressure geometry-observer flash/test uses `7099af7`; restore production after
+fixtures. No merges or pushes are authorized. Shazam stays off under R26.
 
-- Isolated capture health policy passed after the complete-line UART reader fix.
+- Isolated capture health policy passed after complete-line UART reader repair.
 - One FLAC and one WAV trickle admission round passed; TCP states reclaimed.
-- The requested six-hour production soak failed after 33.156 seconds. A separate
-  raw diagnosis confirmed terminal-frame truncation with valid complete frames;
-  no six-hour acceptance or transport root cause is established.
-- PCB send-state/direct-drain diagnosis found nonzero windows and ACK stalls.
-  The hook-free internal-pressure fixture/harness is under review; a safe
-  linkoutput observer may follow. Flash only reviewed builds and restore
-  production after fixtures. No merges or pushes are authorized.
-- User-owned `.gitignore` and `.kata.toml` stay untouched. All failed evidence
-  remains in `docs/audit-evidence/2026-10-04/`, with raw files private in `target/`.
+- Six-hour production soak failed after 33.156 s. Raw diagnostics confirmed
+  terminal-frame truncation with valid complete frames; no endurance pass.
+- Direct drainers showed nonzero windows and ACK/retransmission stalls. The
+  output observer recorded 49 actual single-pbuf driver ESP_ERR_NO_MEM results
+  among 2364 calls. Pool and per-stream cause remain unknown; `tx_resource`
+  investigates pinned driver binaries read-only.
+- Internal-pressure geometry failed before admission. Unchanged-policy geometry
+  diagnostics justify the next observation; no safe internal reserve is proved.
+- Early -120 dBFS readings later became quiet ADC noise; decoded RMS about
+  -82.42 dBFS. No FIP music or worst-case input acceptance follows.
+- User-owned `.gitignore` and `.kata.toml` stay untouched. Failed evidence lives
+  in `docs/audit-evidence/2026-10-04/`; raw files remain private under `target/`.
 
 Doctor Biz resumed the audit with `gpt-6.1-sol` subagents on 2026-10-04.
 The approved architecture and acceptance criteria remain in the 2026-10-03 plan.
@@ -403,3 +407,11 @@ This was quiet nonconstant input, not constant silence, FIP music or worst-case
 input. `driver-output-errors.json` preserves all counters and raw references.
 No transport/endurance pass follows. Failure-only pressure geometry diagnostics
 are being reviewed before one further observation; no allocation policy changes.
+
+Failure-only geometry observer `7099af7` again FAILED before READY, now with
+bounded evidence: free 37,143 B, largest 11,776 B, sampled minimum 37,135 B above
+32,768 B floor, eight holes released and 30 owners (all rows reported). Four
+initial holes remained contiguous/unreleased. The conservative filler admission
+requires floor + 8,192 B, exceeding remaining free, while a stack-sized tail
+remains. No stack/admission failure was exercised. Preserve
+`failed-internal-pressure-tail.json`; no floor/policy relaxation occurred.

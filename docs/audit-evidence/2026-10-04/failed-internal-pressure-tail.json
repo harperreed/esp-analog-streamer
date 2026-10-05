@@ -1,0 +1,241 @@
+{
+  "passed": false,
+  "error": "fixture reported failure; see private uart.log",
+  "mode": "internal-pressure",
+  "host": "192.168.200.224",
+  "path": "/stream.flac",
+  "listeners": 2,
+  "admission_cap_checked": false,
+  "scope": "stream and capture assertions",
+  "elapsed_seconds": 17.592,
+  "evidence": {},
+  "log_directory": "/Users/harper/Public/src/personal/esp-shazam/target/audit-internal-pressure/20261005T060902.471935Z",
+  "uart_log": "/Users/harper/Public/src/personal/esp-shazam/target/audit-internal-pressure/20261005T060902.471935Z/uart.log",
+  "note": "UART is private; decoded duration establishes playback, not independent DMA continuity.",
+  "raw_summary": "target/audit-internal-pressure/20261005T060902.471935Z/summary.json",
+  "geometry_failure": {
+    "free": 37143,
+    "largest": 11776,
+    "sampled_min": 37135,
+    "experiment_floor": 32768,
+    "released": 8,
+    "owners": 30,
+    "dump_rows": 30,
+    "allocations": 30,
+    "max_allocated": 4096,
+    "max_free_delta": 4168
+  },
+  "geometry_owners": [
+    {
+      "index": 0,
+      "requested": 512,
+      "role": "guard",
+      "address": "0x3ffe37d0",
+      "released": false
+    },
+    {
+      "index": 1,
+      "requested": 512,
+      "role": "guard",
+      "address": "0x3ffe39d4",
+      "released": false
+    },
+    {
+      "index": 2,
+      "requested": 512,
+      "role": "guard",
+      "address": "0x3ffe3bd8",
+      "released": false
+    },
+    {
+      "index": 3,
+      "requested": 3072,
+      "role": "hole",
+      "address": "0x3ffecec4",
+      "released": false
+    },
+    {
+      "index": 4,
+      "requested": 3072,
+      "role": "hole",
+      "address": "0x3ffedac8",
+      "released": false
+    },
+    {
+      "index": 5,
+      "requested": 3072,
+      "role": "hole",
+      "address": "0x3ffee6cc",
+      "released": false
+    },
+    {
+      "index": 6,
+      "requested": 3072,
+      "role": "hole",
+      "address": "0x3ffef2d0",
+      "released": false
+    },
+    {
+      "index": 7,
+      "requested": 512,
+      "role": "guard",
+      "address": "0x3ffefed4",
+      "released": false
+    },
+    {
+      "index": 8,
+      "requested": 3072,
+      "role": "hole",
+      "address": "0x00000000",
+      "released": true
+    },
+    {
+      "index": 9,
+      "requested": 512,
+      "role": "guard",
+      "address": "0x3fff0cdc",
+      "released": false
+    },
+    {
+      "index": 10,
+      "requested": 3072,
+      "role": "hole",
+      "address": "0x00000000",
+      "released": true
+    },
+    {
+      "index": 11,
+      "requested": 512,
+      "role": "guard",
+      "address": "0x3fff1ae4",
+      "released": false
+    },
+    {
+      "index": 12,
+      "requested": 3072,
+      "role": "hole",
+      "address": "0x00000000",
+      "released": true
+    },
+    {
+      "index": 13,
+      "requested": 512,
+      "role": "guard",
+      "address": "0x3fff28ec",
+      "released": false
+    },
+    {
+      "index": 14,
+      "requested": 3072,
+      "role": "hole",
+      "address": "0x00000000",
+      "released": true
+    },
+    {
+      "index": 15,
+      "requested": 512,
+      "role": "guard",
+      "address": "0x3fff36f4",
+      "released": false
+    },
+    {
+      "index": 16,
+      "requested": 3072,
+      "role": "hole",
+      "address": "0x00000000",
+      "released": true
+    },
+    {
+      "index": 17,
+      "requested": 512,
+      "role": "guard",
+      "address": "0x3fff44fc",
+      "released": false
+    },
+    {
+      "index": 18,
+      "requested": 3072,
+      "role": "hole",
+      "address": "0x00000000",
+      "released": true
+    },
+    {
+      "index": 19,
+      "requested": 512,
+      "role": "guard",
+      "address": "0x3fff5304",
+      "released": false
+    },
+    {
+      "index": 20,
+      "requested": 3072,
+      "role": "hole",
+      "address": "0x00000000",
+      "released": true
+    },
+    {
+      "index": 21,
+      "requested": 512,
+      "role": "guard",
+      "address": "0x3fff610c",
+      "released": false
+    },
+    {
+      "index": 22,
+      "requested": 3072,
+      "role": "hole",
+      "address": "0x00000000",
+      "released": true
+    },
+    {
+      "index": 23,
+      "requested": 512,
+      "role": "guard",
+      "address": "0x3fff6f14",
+      "released": false
+    },
+    {
+      "index": 24,
+      "requested": 4096,
+      "role": "filler",
+      "address": "0x3fff7118",
+      "released": false
+    },
+    {
+      "index": 25,
+      "requested": 4096,
+      "role": "filler",
+      "address": "0x3fff811c",
+      "released": false
+    },
+    {
+      "index": 26,
+      "requested": 4096,
+      "role": "filler",
+      "address": "0x3fff9120",
+      "released": false
+    },
+    {
+      "index": 27,
+      "requested": 4096,
+      "role": "filler",
+      "address": "0x3fffa124",
+      "released": false
+    },
+    {
+      "index": 28,
+      "requested": 4096,
+      "role": "filler",
+      "address": "0x3fffb128",
+      "released": false
+    },
+    {
+      "index": 29,
+      "requested": 4096,
+      "role": "filler",
+      "address": "0x3fffc12c",
+      "released": false
+    }
+  ],
+  "interpretation": "The unchanged experimental floor remained satisfied, but required fragmentation was not formed: 8 isolated holes released, largest block 11776 bytes, free 37143 bytes. Conservative filler admission needs floor plus 8192 bytes, exceeding current free, so it admits no further filler. No actual listener stack failure or admission refusal was tested. Original geometry has contiguous unreleased hole runs; allocator tail and placement need study before refinement. Overall FAIL retained."
+}

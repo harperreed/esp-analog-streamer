@@ -301,3 +301,9 @@ An early post-reset level of -120 dBFS does not prove that the physical source
 went silent. Keep the reading's time and compare later meter samples and decoded
 RMS. The output probe began at -120 then read -86/-84.6, while decoded audio RMS
 was about -82.42 dBFS and encoded frames stayed roughly 11 KB.
+
+The pinned single-pbuf STA linkoutput path has no coalescing allocation before
+Wi-Fi transmit, so its ERR_MEM result proves actual driver ESP_ERR_NO_MEM.
+The output observer counts all STA ports; this does not identify a proprietary
+pool or a rejected stream packet. A chained-pbuf ERR_MEM can also come from the
+coalescing allocation, so keep those counters separate.
