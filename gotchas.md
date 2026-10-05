@@ -328,3 +328,11 @@ Cache 32 → 64 → 32 repeats both had zero errors while transport still failed
 so keep cache 32 and do not infer a fix from one larger-capacity observation.
 The extra 32 slots reduced sampled PSRAM free by 54,400 B, with no sampled
 internal decrease; setup still permits internal fallback.
+
+
+Held sockets are not proof of realtime playback. Match CRC-valid frame ends to
+actual cumulative receive timestamps: the en0 control held 60 s but delivered
+only 14.7627 s PCM in its final 20 s, with 128 driver ERR_MEM results. Preserve
+late delivery rate and raw tails alongside socket lifetime. Its unchanged
+default-route repeat lost both peers to ring lag; en0 success does not satisfy
+routed acceptance or establish the transport cause.

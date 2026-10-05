@@ -5,10 +5,11 @@
 Compaction count: 5. Exclusive validation controller `/root/overnight_verify`
 owns live board, UART and flash state; message it before hardware access. Root
 owns ticket integration. Last confirmed completed image/test: `66f2717` TCP
-output observer with restored cache 32, observation begun 2026-10-05
-06:23:58 UTC. A/B evidence is complete; reviewed corrected pressure geometry
-build/test follows. Restore production after
-fixtures. No merges or pushes are authorized. Shazam stays off under R26.
+output observer with restored cache 32, en0-bound observation begun 2026-10-05
+06:49:07 UTC default-route repeat, following the en0-bound control. Both en0
+sockets held 60 s; both default-route peers ended early from ring lag. Corrected strict pressure run reached actual refusal
+but failed decoded recovery. Restore production after remaining reviewed fixtures.
+No merges or pushes are authorized. Shazam stays off under R26.
 
 - Isolated capture health policy passed after complete-line UART reader repair.
 - One FLAC and one WAV trickle admission round passed; TCP states reclaimed.
@@ -19,9 +20,16 @@ fixtures. No merges or pushes are authorized. Shazam stays off under R26.
   among 2364 calls. Independent pinned binary/source review identifies the
   class 9 preallocated TX-cache free-list empty return, with PSRAM-first setup;
   why slots fail to retire and per-stream cause remain unresolved.
-- Internal-pressure geometry failed before admission. Reviewed pinned TLSF
-  placement/adjacency correction is ready to build/test with the floor unchanged;
-  no safe internal reserve is proved.
+- Corrected internal-pressure geometry reached free 35,087 B/largest 3,712 B,
+  both real 4096-byte probes returned NULL, and two actual pthread ENOMEM
+  admissions closed and released slots. Sampled minimum was 34,439 B above the
+  32,768 B floor; capture counters stayed flat. Strict decoded recovery failed,
+  so nr6z remains open.
+- Client TCP_NOOPT flags were set, but actual board MSS stayed 1440; no smaller
+  segment or PMTU conclusion follows. en0 direct sockets each delivered 641
+  matching complete CRC-valid frames (54.6987 s PCM), then host-cut tails after
+  60 s. Output still recorded 128 driver ERR_MEM among 10,492 calls. API polls
+  used default routing; production decoded endurance is still unverified.
 - Cache 32 → 64 → 32 observations had zero driver errors in both repeats, but
   transport still failed. Original cache 32 remains; no causal fix claim.
 - Early -120 dBFS readings later became quiet ADC noise; decoded RMS about
@@ -443,3 +451,34 @@ stayed flat through release. Strict run still FAILED: decoder 1 did not meet
 five-second progress check; final cleanup showed 0.597333/3.754667 s real decoded
 audio, no full 10 s decodes or third-client cap check. No nr6z closure or global
 OOM guarantee follows. Preserve `failed-internal-pressure-recovery.json`.
+
+
+## Interface-scoped comparison — 2026-10-05 06:43–06:50 UTC
+
+A real en0-bound `/api/state` request answered HTTP 200 with Shazam false in
+67.438 ms. Two en0-bound raw drainers then held the 60-second host bound;
+641 sequential complete frames per peer passed CRC16 and clean prefix decode.
+All shared complete frames matched. Host-cut tails were incomplete. Actual
+PCM delivery in successive 20-second windows was 17.7493, 22.1867 and 14.7627 s;
+the late deficit prevents a realtime/endurance claim. Output counts were
+10,492 single-pbuf calls and 128 driver ERR_MEM results. Capture fault counters
+were flat. API meter polls still used default routing and one timed out.
+
+The unchanged default-route repeat produced natural EOF after 17.7662 and
+43.5155 s receiving. Its files contained 92 and 407 complete sequential frames,
+no terminal partial frames, and decoded cleanly. UART reported both peers fell
+a ring behind; checked closes took 165 and 185 ms. Output recorded 114 actual
+driver ERR_MEM among 4,174 calls; capture fault counters stayed flat and one
+API poll timed out. This path comparison identifies a useful direct-interface
+control, without proving a transport root cause or fixing routed acceptance.
+
+Structured evidence: `client-noopt-observation.json`, `en0-preflight.json`,
+`en0-direct-drain-observation.json`, `default-route-repeat-observation.json`
+under `docs/audit-evidence/2026-10-04/`. Private byte/timing/UART evidence remains
+in `target/audit-flac-tee/20261005T064355.718928Z` and
+`target/audit-flac-tee/20261005T064907.073755Z`.
+
+Next: reviewed local en0 relay for strict pressure recovery, then mandatory
+production restoration, refreshed canonical check after host harness changes,
+and at least five minutes of actual two-decoder production validation before
+considering a long soak. Cache32/MSS1440 remain unchanged.

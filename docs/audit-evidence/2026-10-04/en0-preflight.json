@@ -1,0 +1,12 @@
+{
+  "passed": true,
+  "failed": 0,
+  "count": 1,
+  "host": "192.168.200.224",
+  "ip": "192.168.200.224",
+  "dns_ms": 2.959,
+  "deadline_seconds": 3.0,
+  "log": "/Users/harper/Public/src/personal/esp-shazam/target/audit-en0-preflight/20261005T064255.285427Z/events.jsonl",
+  "raw_summary": "target/audit-en0-preflight/20261005T064255.285427Z/summary.json",
+  "method": "Actual existing http-probe Python parser and deadline logic with one throwaway insertion: raw IPv4 socket sets IP_BOUND_IF (25) to actual en0 index 11 before connect, verified by getsockopt. One three-second probe, no route/admin changes and no NOOPT."
+}
