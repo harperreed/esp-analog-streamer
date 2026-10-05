@@ -313,6 +313,14 @@ connection setup replaces it. TCP_NOOPT does suppress SYN options and lowered
 the peer MSS in a real loopback test, but it also removes other TCP options.
 Use that only as a labelled diagnostic, not as proof of a path-MTU fault.
 
+Verify the board's actual MSS after client-option experiments. TCP_NOOPT was set
+before connect in this audit, but every observed board connection still used
+1440 bytes; the experiment never established smaller segments on that path.
+Per-socket IP_BOUND_IF=25 on macOS can scope an upstream socket to en0 without
+changing system routes. Both direct en0 stream sockets held a 60-second bound;
+default-route reliability remains separate. A local relay adds buffering, so
+label relayed results and do not reuse them as direct slow-reader acceptance.
+
 Pinned binary/source review maps the by-reference single-pbuf allocation failure
 to an empty preallocated class 9 TX-cache free list; runtime does not allocate
 another object on that branch. Why occupied slots fail to retire remains open.
