@@ -61,9 +61,16 @@ fn allocate(
 ) -> io::Result<bool> {
     let before = heap().0;
     *minimum = (*minimum).min(before);
-    // Twice the requested size conservatively covers alignment/header/unsplittable tail
-    // for these KiB-sized TLSF blocks. Actual free is checked again after allocation.
-    if before < FLOOR + 2 * bytes {
+    // Pair construction keeps its conservative guard. The pinned 32-bit IDF 5.5.5 TLSF
+    // filler bound is 4096 + 12 unsplittable bytes + 4 header bytes: tlsf_control_functions.h
+    // block_can_split requires request + sizeof(block_header_t) (16 B); alignment is 4 B.
+    // Poisoning is disabled and task tracking is off in the generated sdkconfig.
+    let debit_bound = if bytes == STACK {
+        STACK + 16
+    } else {
+        2 * bytes
+    };
+    if before < FLOOR + debit_bound {
         return Ok(false);
     }
     if owners.len() == MAX_OWNERS {
@@ -101,10 +108,16 @@ fn allocate(
     observations.allocations += 1;
     observations.max_allocated = observations.max_allocated.max(allocated);
     observations.max_free_delta = observations.max_free_delta.max(free_delta);
-    // Other tasks can affect this sampled delta; exceeding the guard fails conservatively.
-    if allocated > 2 * bytes || free_delta > 2 * bytes {
+    // Payload excludes the 4 B header. Sampled free delta also includes other tasks;
+    // record it separately and enforce the actual floor rather than calling it overhead.
+    let payload_bound = if bytes == STACK {
+        STACK + 12
+    } else {
+        2 * bytes
+    };
+    if allocated > payload_bound {
         return Err(io::Error::other(
-            "observed footprint exceeds conservative allocation guard",
+            "allocated payload exceeds pinned allocator bound",
         ));
     }
     if after < FLOOR {
@@ -129,7 +142,37 @@ fn stack_probe() -> io::Result<()> {
     Ok(())
 }
 
+fn adjacent(left: &Owner, right: &Owner) -> bool {
+    if left.address == 0 || right.address == 0 {
+        return false;
+    }
+    // SAFETY: both owners remain live; query payload size without copying allocator metadata.
+    let allocated = unsafe { sys::heap_caps_get_allocated_size((left.address as *mut u8).cast()) };
+    // IDF 5.5.5 TLSF exposes one 32-bit size header between adjacent payloads.
+    allocated
+        .checked_add(4)
+        .and_then(|stride| left.address.checked_add(stride))
+        == Some(right.address)
+}
+
+#[allow(unexpected_cfgs)] // embuild emits enabled IDF cfgs; disabled symbols have no declaration.
+fn allocator_assumptions() -> bool {
+    (
+        sys::ESP_IDF_VERSION_MAJOR,
+        sys::ESP_IDF_VERSION_MINOR,
+        sys::ESP_IDF_VERSION_PATCH,
+    ) == (5, 5, 5)
+        && cfg!(esp_idf_heap_poisoning_disabled)
+        && !cfg!(esp_idf_heap_task_tracking)
+        && std::mem::size_of::<usize>() == 4
+}
+
 fn pressure() -> io::Result<()> {
+    if !allocator_assumptions() {
+        return Err(io::Error::other(
+            "allocator bound requires IDF 5.5.5 and unpoisoned 32-bit heap without task tracking",
+        ));
+    }
     let mut owners = Vec::<Owner>::with_capacity(MAX_OWNERS);
     // Preallocate bounded internal metadata before fragmentation; no owner-list growth follows.
     // SAFETY: this nonempty Vec allocation has a live address.
@@ -152,13 +195,14 @@ fn pressure() -> io::Result<()> {
         }
     }
     owners.sort_unstable_by_key(|owner| owner.address);
-    // Retain boundary allocations and guards. Only release holes whose sorted neighbors
-    // are guards; actual largest/free statistics below decide whether geometry succeeded.
+    // Retain boundary owners. A live hole can separate released holes just as a guard can.
+    // Exact physical adjacency prevents a sorted owner in another heap acting as a boundary.
+    // Left-to-right release never frees two neighboring owners.
     let mut released = 0;
     for index in 1..owners.len().saturating_sub(1) {
         if owners[index].bytes == HOLE
-            && owners[index - 1].bytes == GUARD
-            && owners[index + 1].bytes == GUARD
+            && adjacent(&owners[index - 1], &owners[index])
+            && adjacent(&owners[index], &owners[index + 1])
         {
             // SAFETY: this owner is live and becomes empty immediately after its single free.
             unsafe { sys::heap_caps_free((owners[index].address as *mut u8).cast()) };
