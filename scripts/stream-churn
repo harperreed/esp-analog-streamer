@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# ABOUTME: Exercises real FLAC listener admission and slot recovery while keeping stalled peers open.
+# ABOUTME: Exercises real stream admission and slot recovery while keeping stopped or trickling peers open.
 # ABOUTME: Usage: scripts/stream-churn [HOST] [--rounds N] [--hold SECONDS] [--out DIR]; records status, timing and /api/state evidence.
 set -euo pipefail
 repo="$(cd "$(dirname "$0")/.." && pwd)"
@@ -37,18 +37,25 @@ def positive_int(value):
 def main():
     parser = argparse.ArgumentParser(
         prog="scripts/stream-churn",
-        description="Open two real FLAC listeners, require 503 for a third, stop reading both, "
+        description="Open two real stream listeners, require 503 for a third, stop or trickle reads, "
         "then require two replacement listeners within 10 seconds after the hold. Keep every "
         "stalled peer open until the test ends to expose closing TCP connection retention. "
         "Requires Shazam off and continuous captured audio. Very compressible silence or a "
         "large receive window can take longer to fill TCP buffers; increase --hold in that case. "
+        "Trickle reads must stay below the stream byte rate to force a timeout. "
         "Admission recovery does not prove RAM reclamation: compare the board's heap logs.",
     )
     parser.add_argument("host", nargs="?", default="esp-shazam.local",
                         help="board hostname or IPv4 address (default: esp-shazam.local)")
     parser.add_argument("--rounds", type=positive_int, default=3, help="churn rounds (default: 3)")
     parser.add_argument("--hold", type=positive_float, default=12.0,
-                        help="seconds without reading; exceeds the 8.02 s frame deadline (default: 12)")
+                        help="seconds with stopped or trickling reads (default: 12)")
+    parser.add_argument("--path", choices=["/stream.flac", "/stream.wav"], default="/stream.flac",
+                        help="stream endpoint (default: /stream.flac)")
+    parser.add_argument("--trickle-bytes", type=positive_int,
+                        help="read at most this many bytes each interval from retained peers; otherwise stop reading")
+    parser.add_argument("--trickle-interval", type=positive_float, default=0.5,
+                        help="seconds between retained-peer reads (default: 0.5)")
     parser.add_argument("--out", default=os.environ["STREAM_CHURN_DEFAULT_OUT"],
                         help="output directory; each run writes a dated subdirectory (default: target/stream-churn)")
     args = parser.parse_args()
@@ -95,14 +102,14 @@ def main():
     def connect(label, timeout=3):
         peer = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         try:
-            # Set before connect so the SYN advertises a small window; no body reads follow
-            # admission for a stalled peer. Record the OS's actual buffer value as evidence.
+            # Set before connect so the SYN advertises a small window. Retained peers only
+            # read after admission when trickling is requested; record the OS buffer as evidence.
             peer.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 4096)
             receive_buffer = peer.getsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF)
             deadline = time.monotonic() + timeout
             peer.settimeout(timeout)
             peer.connect((ip, 8000))
-            peer.sendall(b"GET /stream.flac HTTP/1.1\r\nHost: esp-shazam\r\n\r\n")
+            peer.sendall(f"GET {args.path} HTTP/1.1\r\nHost: esp-shazam\r\n\r\n".encode("ascii"))
             head = bytearray()
             while b"\r\n\r\n" not in head:
                 left = deadline - time.monotonic()
@@ -138,8 +145,8 @@ def main():
         return peer
 
     def drain(peer, ended, stopping):
-        peer.settimeout(0.5)
         try:
+            peer.settimeout(0.5)
             while not stopping.is_set():
                 try:
                     if not peer.recv(16 << 10):
@@ -152,6 +159,25 @@ def main():
         finally:
             ended.set()
 
+    def trickle(peer, stopping, evidence):
+        try:
+            peer.settimeout(min(0.5, args.trickle_interval))
+            while not stopping.wait(args.trickle_interval):
+                try:
+                    data = peer.recv(args.trickle_bytes)
+                except socket.timeout:
+                    continue
+                if not data:
+                    record("retained_eof", label=evidence["label"], bytes_read=evidence["bytes_read"])
+                    break
+                evidence["bytes_read"] += len(data)
+                record("trickle_read", label=evidence["label"], bytes_read=len(data),
+                       total_bytes_read=evidence["bytes_read"])
+        except OSError as error:
+            if not stopping.is_set():
+                record("retained_error", label=evidence["label"], error=str(error),
+                       bytes_read=evidence["bytes_read"])
+
     def close_replacements():
         for peer, ended, stopping, worker in replacements:
             stopping.set()
@@ -161,23 +187,32 @@ def main():
                 pass
             peer.close()
             if worker.ident is not None:
-                worker.join(timeout=1)
+                worker.join()
         replacements.clear()
 
     try:
         ip = socket.getaddrinfo(args.host, 8000, socket.AF_INET, socket.SOCK_STREAM)[0][4][0]
         record("start", host=args.host, ip=ip, rounds=args.rounds, hold_seconds=args.hold,
+               path=args.path, trickle_bytes=args.trickle_bytes, trickle_interval=args.trickle_interval,
                note="Slots and HTTP statuses are measured; RAM reclamation requires board heap logs.")
         state()
         poller = threading.Thread(target=poll_state)
         poller.start()
         for round_number in range(1, args.rounds + 1):
             for index in (1, 2):
-                stalled_peers.append(require_status(f"round {round_number} listener {index}", 200))
+                label = f"round {round_number} listener {index}"
+                peer = require_status(label, 200)
+                stopping = threading.Event()
+                evidence = {"label": label, "bytes_read": 0}
+                worker = (threading.Thread(target=trickle, args=(peer, stopping, evidence))
+                          if args.trickle_bytes is not None else None)
+                stalled_peers.append((peer, stopping, worker, evidence))
+                if worker is not None:
+                    worker.start()
             require_status(f"round {round_number} third listener", 503).close()
             stall_started = time.monotonic()
             record("hold", round=round_number, seconds=args.hold, retained_peers=len(stalled_peers))
-            # A deliberate resource pause: no reads from any stalled peer.
+            # Retained peers stay open; optional reads remain paced even during recovery probes.
             stop_polling.wait(args.hold)
             probe_started = time.monotonic()
             deadline = probe_started + 10
@@ -190,7 +225,7 @@ def main():
                 if left <= 0:
                     raise CheckFailure(
                         f"round {round_number}: only {len(replacements)} of 2 slots recovered within 10 s "
-                        f"after the {args.hold:g} s hold; verify capture and actual FLAC byte rate/window size")
+                        f"after the {args.hold:g} s hold; verify capture and actual stream byte rate/window size")
                 peer, status = connect(f"round {round_number} recovery probe", min(3, left))
                 if status == 200:
                     ended, stopping = threading.Event(), threading.Event()
@@ -222,16 +257,26 @@ def main():
         record("failure", error=failure)
     finally:
         close_replacements()
-        for peer in stalled_peers:
+        for peer, stopping, worker, _ in stalled_peers:
+            stopping.set()
+            try:
+                peer.shutdown(socket.SHUT_RDWR)
+            except OSError:
+                pass
             peer.close()
+            if worker is not None and worker.ident is not None:
+                worker.join()
         stop_polling.set()
-        if poller is not None:
+        if poller is not None and poller.ident is not None:
             poller.join()
         if errors and failure is None:
             failure = f"board liveness/configuration poll failed: {errors[-1]}"
         summary = {"passed": failure is None, "error": failure, "host": args.host, "ip": ip,
                    "requested_rounds": args.rounds, "completed_rounds": completed,
                    "hold_seconds": args.hold, "elapsed_seconds": round(time.monotonic() - started, 3),
+                   "path": args.path, "trickle_bytes": args.trickle_bytes,
+                   "trickle_interval": args.trickle_interval,
+                   "retained_peer_reads": [evidence for _, _, _, evidence in stalled_peers],
                    "retained_peer_count": len(stalled_peers), "state_errors": errors,
                    "ram_reclamation_verified": False,
                    "note": "Compare supervisor heap logs to assess closing TCP PCB retention."}
