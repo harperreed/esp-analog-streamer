@@ -1,5 +1,5 @@
 // ABOUTME: The LINE IN stream on port 8000: GET /stream.flac and GET /stream.wav send the stream ring as endless 48 kHz, 24-bit stereo.
-// ABOUTME: Its threads run on core 1 and only copy out of the ring, so capture never waits on a socket; a listener 2 s behind is dropped.
+// ABOUTME: Its threads run on core 1 and only copy out of the ring, so capture never waits on a socket; a listener a ring behind is dropped.
 
 use std::fmt;
 use std::io::{self, BufReader, Write};
@@ -11,7 +11,7 @@ use std::time::{Duration, Instant};
 use anyhow::Result;
 use esp_idf_svc::hal::cpu::Core;
 use esp_idf_svc::mdns::EspMdns;
-use esp_shazam_core::stream_http::{self, DeadlineReader, Format, Route, Status};
+use esp_shazam_core::stream_http::{self, DeadlineReader, DeadlineWriter, Format, Route, Status};
 use esp_shazam_core::stream_ring::{Cursor, Overrun};
 use esp_shazam_core::{flac, wav};
 
@@ -169,11 +169,11 @@ impl Drop for Slot {
 }
 
 /// A listener's thread: streams `format` until the listener goes or falls behind, then frees its slot.
-fn listen(mut sock: TcpStream, ring: SharedStreamRing, slot: Slot, peer: String, format: Format) {
+fn listen(sock: TcpStream, ring: SharedStreamRing, slot: Slot, peer: String, format: Format) {
     let started = Instant::now();
     let end = match format {
-        Format::Wav => stream_wav(&mut sock, &ring),
-        Format::Flac => stream_flac(&mut sock, &ring),
+        Format::Wav => stream_wav(&sock, &ring),
+        Format::Flac => stream_flac(&sock, &ring),
     };
     // Integer tenths: formatting a float to a precision puts a 1 KB buffer on this small stack.
     let tenths = started.elapsed().as_millis() / 100;
@@ -186,8 +186,10 @@ fn listen(mut sock: TcpStream, ring: SharedStreamRing, slot: Slot, peer: String,
     // a FIN after any unsent audio. A reset would free lwIP's buffers sooner, but a stalled listener
     // never sees it: after zero-window probes lwIP's reset is one byte past what the peer expects
     // (RFC 5961 drops it), and a NAT such as Tailscale's subnet router closes its state on it, so
-    // the client hangs. lwIP keeps a stalled peer's unsent audio, at most its 5.7 KB send buffer,
-    // until the FIN gets through or 12 window probes (about 7.6 minutes) run out.
+    // the client hangs. lwIP keeps a stalled peer's unsent audio, up to its 46,080-byte send buffer
+    // (PSRAM: lwIP allocates there first), until the FIN gets through or 12 window probes (about
+    // 7.6 minutes) run out. Such a closing connection no longer holds a slot, so `MAX_LISTENERS`
+    // doesn't bound how many of them there are.
     drop(sock);
     drop(slot);
 }
@@ -196,7 +198,8 @@ fn listen(mut sock: TcpStream, ring: SharedStreamRing, slot: Slot, peer: String,
 enum End {
     /// The ring overwrote frames the listener hadn't been sent: it read too slowly.
     FellBehind,
-    /// A write waited as long as the ring holds: the listener stopped reading.
+    /// Writing a frame took as long as the ring holds: the listener stopped reading, or reads too
+    /// little to matter.
     StoppedReading,
     /// The socket failed, usually because the listener closed it.
     Failed(io::Error),
@@ -204,7 +207,7 @@ enum End {
 
 impl End {
     fn from_write_error(e: io::Error) -> Self {
-        // lwIP reports a send timeout as EAGAIN.
+        // lwIP reports a send timeout as EAGAIN; the deadline running out is TimedOut.
         match e.kind() {
             io::ErrorKind::WouldBlock | io::ErrorKind::TimedOut => End::StoppedReading,
             _ => End::Failed(e),
@@ -222,12 +225,12 @@ impl fmt::Display for End {
     }
 }
 
-/// A write that waits as long as the ring holds means the listener has stopped reading: by then the
-/// ring has overwritten everything it wasn't sent. Sets that write timeout on `sock`.
-fn set_ring_write_timeout(sock: &TcpStream, ring: &SharedStreamRing) -> io::Result<()> {
+/// How long writing one frame may take: as long as the ring holds. A listener that takes longer has
+/// stopped reading, and by then the ring has overwritten everything it wasn't sent. The limit holds
+/// for the whole frame (`DeadlineWriter`), not for each send of it, so a trickle can't stretch it.
+fn frame_write_limit(ring: &SharedStreamRing) -> Duration {
     let capacity = ring.lock().expect("stream ring lock").capacity() as u64;
-    let ring_time = Duration::from_millis(1_000 * capacity / u64::from(CAPTURE_RATE_HZ));
-    sock.set_write_timeout(Some(ring_time))
+    Duration::from_millis(1_000 * capacity / u64::from(CAPTURE_RATE_HZ))
 }
 
 /// Copies the frames after `cursor` into `out`, as many as are there and fit, and waits for some
@@ -249,17 +252,16 @@ fn read_some(
 
 /// Sends the response head and the WAV header, then frames from the ring as they arrive, until the
 /// listener goes, stops reading, or falls a ring behind.
-fn stream_wav(sock: &mut TcpStream, ring: &SharedStreamRing) -> End {
-    if let Err(e) = set_ring_write_timeout(sock, ring) {
-        return End::Failed(e);
-    }
+fn stream_wav(sock: &TcpStream, ring: &SharedStreamRing) -> End {
+    let write_limit = frame_write_limit(ring);
+    let mut writer = DeadlineWriter::new(sock);
     let mut frames = vec![0i32; 2 * CHUNK_FRAMES];
     let mut bytes = Vec::with_capacity(3 * frames.len());
     bytes.extend_from_slice(Format::Wav.response_head().as_bytes());
     bytes.extend_from_slice(&wav::endless_header_s24le(CAPTURE_RATE_HZ, 2));
     let mut cursor = ring.lock().expect("stream ring lock").cursor_now();
     loop {
-        if let Err(e) = sock.write_all(&bytes) {
+        if let Err(e) = writer.write_all_before(&bytes, Instant::now() + write_limit) {
             return End::from_write_error(e);
         }
         let Ok(frames_read) = read_some(ring, &mut cursor, &mut frames) else {
@@ -272,10 +274,9 @@ fn stream_wav(sock: &mut TcpStream, ring: &SharedStreamRing) -> End {
 /// Sends the response head and the FLAC stream header, then one FLAC frame per 4,096 frames from the
 /// ring, until the listener goes, stops reading, or falls a ring behind. Each listener encodes for
 /// itself, on core 1.
-fn stream_flac(sock: &mut TcpStream, ring: &SharedStreamRing) -> End {
-    if let Err(e) = set_ring_write_timeout(sock, ring) {
-        return End::Failed(e);
-    }
+fn stream_flac(sock: &TcpStream, ring: &SharedStreamRing) -> End {
+    let write_limit = frame_write_limit(ring);
+    let mut writer = DeadlineWriter::new(sock);
     // Ring reads land in a 1,920-byte chunk in internal RAM, and the encoder sorts each into its
     // block and sums its residuals while it's hot. The encoder's block (32 KB) and the frame (up to
     // 24.6 KB) are over malloc's 8,191-byte line, so they go to PSRAM; the chunk and the encoder's
@@ -288,7 +289,7 @@ fn stream_flac(sock: &mut TcpStream, ring: &SharedStreamRing) -> End {
     let mut cursor = ring.lock().expect("stream ring lock").cursor_now();
     let mut block_number = 0u32;
     loop {
-        if let Err(e) = sock.write_all(&bytes) {
+        if let Err(e) = writer.write_all_before(&bytes, Instant::now() + write_limit) {
             return End::from_write_error(e);
         }
         while encoder.frames_wanted() > 0 {

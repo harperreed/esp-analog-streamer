@@ -1,7 +1,7 @@
 // ABOUTME: HTTP for the stream server on port 8000: reading a request's head, routing its request line, the responses.
 // ABOUTME: Only GET /stream.flac and GET /stream.wav stream; anything else gets a short, complete response and the connection closes.
 
-use std::io::{self, BufRead, Read};
+use std::io::{self, BufRead, Read, Write};
 use std::net::TcpStream;
 use std::time::{Duration, Instant};
 
@@ -30,15 +30,76 @@ impl Read for DeadlineReader<'_> {
                 "request head deadline passed",
             ));
         }
-        self.sock.set_read_timeout(Some(read_timeout(left)))?;
+        self.sock.set_read_timeout(Some(socket_timeout(left)))?;
         let mut sock = self.sock;
         sock.read(buf)
     }
 }
 
-/// The read timeout for `left` time left: whole milliseconds, rounded up. lwIP truncates a timeout
+/// Writes to a socket with one deadline for each whole write, so a peer that reads a trickle can't
+/// hold a stream listener past it. A socket's write timeout restarts with every send, and lwIP's
+/// send returns a partial count when its timeout runs out after some progress, so `write_all`
+/// would give each remaining part a fresh timeout.
+pub struct DeadlineWriter<'a> {
+    sock: &'a TcpStream,
+    /// The socket's write timeout as this writer last set it.
+    timeout: Option<Duration>,
+}
+
+/// How far a send's timeout may run past the deadline before the writer sets it again. Setting it
+/// is a call through lwIP's thread, which counts timeouts in 10 ms ticks anyway. So when each of a
+/// stream's writes gets a deadline the same distance ahead, only the first sets the timeout.
+const TIMEOUT_SLACK: Duration = Duration::from_millis(10);
+
+impl<'a> DeadlineWriter<'a> {
+    pub fn new(sock: &'a TcpStream) -> Self {
+        Self {
+            sock,
+            timeout: None,
+        }
+    }
+
+    /// Writes all of `buf` before `deadline`: each send may wait only for the time left (plus at
+    /// most `TIMEOUT_SLACK`). Past the deadline it fails with `TimedOut`, and part of `buf` may have
+    /// been sent; a send that runs out of time fails as the socket reports it (`WouldBlock` on
+    /// ESP-IDF and macOS).
+    pub fn write_all_before(&mut self, mut buf: &[u8], deadline: Instant) -> io::Result<()> {
+        while !buf.is_empty() {
+            let left = deadline.saturating_duration_since(Instant::now());
+            if left.is_zero() {
+                return Err(io::Error::new(
+                    io::ErrorKind::TimedOut,
+                    "write deadline passed",
+                ));
+            }
+            let timeout = socket_timeout(left);
+            if self
+                .timeout
+                .is_none_or(|set| set < timeout || set > timeout + TIMEOUT_SLACK)
+            {
+                self.sock.set_write_timeout(Some(timeout))?;
+                self.timeout = Some(timeout);
+            }
+            let mut sock = self.sock;
+            match sock.write(buf) {
+                Ok(0) => {
+                    return Err(io::Error::new(
+                        io::ErrorKind::WriteZero,
+                        "failed to write whole buffer",
+                    ))
+                }
+                Ok(n) => buf = &buf[n..],
+                Err(e) if e.kind() == io::ErrorKind::Interrupted => {}
+                Err(e) => return Err(e),
+            }
+        }
+        Ok(())
+    }
+}
+
+/// The socket timeout for `left` time left: whole milliseconds, rounded up. lwIP truncates a timeout
 /// to milliseconds, and to lwIP 0 ms means no timeout at all, so nothing above zero may round to 0.
-fn read_timeout(left: Duration) -> Duration {
+fn socket_timeout(left: Duration) -> Duration {
     Duration::from_millis(u64::try_from(left.as_nanos().div_ceil(1_000_000)).unwrap_or(u64::MAX))
 }
 
@@ -294,15 +355,15 @@ mod tests {
     }
 
     #[test]
-    fn the_read_timeout_is_the_time_left_in_whole_milliseconds_rounded_up() {
+    fn the_socket_timeout_is_the_time_left_in_whole_milliseconds_rounded_up() {
         // lwIP truncates to milliseconds and takes 0 ms as "no timeout", so nothing may round to 0.
         let ms = Duration::from_millis;
-        assert_eq!(read_timeout(Duration::from_nanos(1)), ms(1));
-        assert_eq!(read_timeout(Duration::from_nanos(500)), ms(1));
-        assert_eq!(read_timeout(Duration::from_micros(999)), ms(1));
-        assert_eq!(read_timeout(ms(1)), ms(1));
-        assert_eq!(read_timeout(Duration::from_nanos(1_000_001)), ms(2));
-        assert_eq!(read_timeout(ms(1_999)), ms(1_999));
+        assert_eq!(socket_timeout(Duration::from_nanos(1)), ms(1));
+        assert_eq!(socket_timeout(Duration::from_nanos(500)), ms(1));
+        assert_eq!(socket_timeout(Duration::from_micros(999)), ms(1));
+        assert_eq!(socket_timeout(ms(1)), ms(1));
+        assert_eq!(socket_timeout(Duration::from_nanos(1_000_001)), ms(2));
+        assert_eq!(socket_timeout(ms(1_999)), ms(1_999));
     }
 
     #[test]
@@ -349,6 +410,127 @@ mod tests {
             took >= Duration::from_millis(150) && took < Duration::from_millis(1_000),
             "timed out after {took:?}"
         );
+    }
+
+    /// A connected pair of real localhost sockets with fixed 64 KB buffers: (server side, client
+    /// side). A fixed buffer turns off macOS's autotuning, which grows a send buffer to megabytes.
+    fn small_buffered_pair() -> (TcpStream, TcpStream) {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let client =
+            socket2::Socket::new(socket2::Domain::IPV4, socket2::Type::STREAM, None).unwrap();
+        client.set_recv_buffer_size(64 << 10).unwrap();
+        client
+            .connect(&listener.local_addr().unwrap().into())
+            .unwrap();
+        let (server, _) = listener.accept().unwrap();
+        socket2::SockRef::from(&server)
+            .set_send_buffer_size(64 << 10)
+            .unwrap();
+        (server, client.into())
+    }
+
+    /// Reads from `client` in bursts of 64 KB, one every 500 ms, until the writer closes or 4 s
+    /// have passed; returns how many bytes it read. A writer whose send timeout is under 500 ms
+    /// sees each send make some progress, then time out.
+    fn bursty_reader(mut client: TcpStream) -> thread::JoinHandle<usize> {
+        thread::spawn(move || {
+            let started = Instant::now();
+            let mut buf = vec![0u8; 64 << 10];
+            let mut total = 0;
+            while started.elapsed() < Duration::from_secs(4) {
+                thread::sleep(Duration::from_millis(500));
+                let mut burst = 0;
+                while burst < buf.len() {
+                    match client.read(&mut buf[burst..]) {
+                        Ok(0) | Err(_) => return total + burst,
+                        Ok(n) => burst += n,
+                    }
+                }
+                total += burst;
+            }
+            total
+        })
+    }
+
+    #[test]
+    fn a_write_to_a_peer_that_reads_in_bursts_fails_at_its_deadline() {
+        // Each send moves some bytes, then times out and returns a partial count, as lwIP's does.
+        // A fresh timeout for each remaining part would keep the write going for many timeouts.
+        let (server, client) = small_buffered_pair();
+        let reader = bursty_reader(client);
+        let started = Instant::now();
+        let result = DeadlineWriter::new(&server)
+            .write_all_before(&vec![0u8; 8 << 20], started + Duration::from_millis(400));
+        let took = started.elapsed();
+        let error = result.expect_err("8 MB can't reach a slow peer in 400 ms");
+        assert!(is_timeout(&error), "{error:?}");
+        assert!(
+            took >= Duration::from_millis(350) && took < Duration::from_millis(700),
+            "the write gave up after {took:?}"
+        );
+        drop(server);
+        assert!(
+            reader.join().unwrap() > 0,
+            "the peer got part of the write first"
+        );
+    }
+
+    #[test]
+    fn a_write_the_peer_takes_in_time_arrives_whole() {
+        let (server, mut client) = connected_pair();
+        let reader = thread::spawn(move || {
+            let mut got = Vec::new();
+            client.read_to_end(&mut got).unwrap();
+            got
+        });
+        let data: Vec<u8> = (0..1_000_000u32).map(|i| (i % 251) as u8).collect();
+        let mut writer = DeadlineWriter::new(&server);
+        for half in data.chunks(500_000) {
+            writer
+                .write_all_before(half, Instant::now() + Duration::from_secs(5))
+                .unwrap();
+        }
+        drop(server);
+        assert_eq!(reader.join().unwrap(), data);
+    }
+
+    #[test]
+    fn a_write_past_its_deadline_sends_nothing() {
+        let (server, mut client) = connected_pair();
+        let deadline = Instant::now();
+        thread::sleep(Duration::from_millis(2));
+        let error = DeadlineWriter::new(&server)
+            .write_all_before(b"too late", deadline)
+            .unwrap_err();
+        assert_eq!(error.kind(), io::ErrorKind::TimedOut);
+        drop(server);
+        let mut got = Vec::new();
+        client.read_to_end(&mut got).unwrap();
+        assert!(got.is_empty(), "sent {got:?}");
+    }
+
+    #[test]
+    fn a_later_write_gets_its_own_deadline() {
+        // The first write runs out its short deadline against a peer that isn't reading, which
+        // leaves a short timeout on the socket. The second, with a long deadline, must still wait
+        // for the peer instead of failing at the old timeout.
+        let (server, mut client) = connected_pair();
+        let mut writer = DeadlineWriter::new(&server);
+        let started = Instant::now();
+        writer
+            .write_all_before(&vec![0u8; 8 << 20], started + Duration::from_millis(200))
+            .expect_err("nobody reads");
+        let reader = thread::spawn(move || {
+            thread::sleep(Duration::from_millis(500));
+            let mut got = Vec::new();
+            client.read_to_end(&mut got).unwrap();
+            got.len()
+        });
+        writer
+            .write_all_before(b"later", Instant::now() + Duration::from_secs(10))
+            .expect("the peer reads after 500 ms, inside the second deadline");
+        drop(server);
+        assert!(reader.join().unwrap() >= b"later".len());
     }
 
     #[test]

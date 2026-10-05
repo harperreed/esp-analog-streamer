@@ -465,6 +465,7 @@ dependencies = [
  "hound",
  "serde",
  "serde_json",
+ "socket2",
  "songrec-lib",
 ]
 
