@@ -356,3 +356,10 @@ within 32.159 s; one peer naturally fell a ring behind after 71.3 s and decoded
 59.050667 s. Per-socket interface control is useful evidence, not a proven
 solution. Keep state timeouts, natural UART close reasons and cleanup decoder
 errors distinct, and do not launch a long soak from socket lifetime alone.
+
+
+Read HTTP framing completion rather than waiting for TCP EOF. A final en0 state
+probe received all 240 chunked-response bytes but an EOF-sensitive throwaway
+collector called it a timeout. The canonical framing-aware probe then passed
+in 828.055 ms with Shazam false. Preserve the collector failure separately; it
+is not proof of an API blackout.

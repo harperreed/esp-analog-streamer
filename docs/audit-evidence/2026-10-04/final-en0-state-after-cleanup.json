@@ -1,0 +1,47 @@
+{
+  "initial_eof_sensitive_collector": {
+    "timestamp_utc": "2026-10-05T07:27:21.461494+00:00",
+    "scope": "Throwaway collector observation:240 wirebytes received, but collector incorrectly requiredTCP EOF beforeframing parse; timeout is not establishedAPI failure",
+    "host": "192.168.200.224",
+    "interface": "en0",
+    "timeout_seconds": 3,
+    "interface_index": 11,
+    "local_endpoint": [
+      "192.168.99.151",
+      49561
+    ],
+    "passed": false,
+    "error": "timed out",
+    "received_wire_bytes": 240,
+    "elapsed_seconds": 3.003139292006381
+  },
+  "corrected_framing_aware_probe": {
+    "passed": true,
+    "failed": 0,
+    "count": 1,
+    "host": "192.168.200.224",
+    "ip": "192.168.200.224",
+    "dns_ms": 2.936,
+    "deadline_seconds": 3.0,
+    "log": "/Users/harper/Public/src/personal/esp-shazam/target/audit-final-en0-state/20261005T072759.130108Z/events.jsonl"
+  },
+  "actual_sample": {
+    "sample": 1,
+    "passed": true,
+    "timings_ms": {
+      "connect": 742.404,
+      "send": 0.158,
+      "headers": 84.9,
+      "body": 0.456,
+      "local_close": 0.132
+    },
+    "first_byte_ms": 812.516,
+    "framing": "chunked",
+    "body_bytes": 110,
+    "total_ms": 828.055,
+    "response_bytes_received": 240
+  },
+  "method": "Actual canonical scripts/http-probe functions with only per-socket IP_BOUND_IF en0 insertion beforeconnect;3s deadline unchanged. No mocked socket; realchunkedHTTP/JSON/Shazamfalse checks, noTCP EOF prerequisite. One justified correction run, no UART reset.",
+  "production_remains_running": true,
+  "owned_clients_cleaned": true
+}

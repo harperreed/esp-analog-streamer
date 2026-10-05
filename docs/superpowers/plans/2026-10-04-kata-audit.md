@@ -584,3 +584,16 @@ All owned decoders/UART/relay were cleaned; relay termination exited0 and a
 process inventory confirmed no owned client remained. Board stays on normal
 production with Shazam off. Routed playback, strict pressure/encoder recovery,
 worst-case physical input, on-profile tests and long endurance remain open.
+
+
+Final post-cleanup en0 state probe at 07:27:59 UTC passed the unchanged canonical
+framing/JSON/Shazam false checks in 828.055 ms (240 wire bytes,110 decoded body bytes).
+A first throwaway collector incorrectly waited for TCP EOF despite receiving
+240 bytes and timed out; preserve that as a collector defect, not a board API
+blackout. The corrected run reused actual scripts/http-probe with only en0
+socket binding added; no UART reset or config changes. Evidence:
+`docs/audit-evidence/2026-10-04/final-en0-state-after-cleanup.json`.
+
+Production UART also recorded 118 encoded frames per ~10.07 s with resets 0 and
+encoder task runtime ~1.50–1.66 s/window. That supports sampled real-time production
+while delivery lagged; it does not identify the transport cause.
