@@ -277,3 +277,9 @@ tee diagnosis received three CRC16-valid FLAC frames then 1,980 bytes of a fourt
 that partial tail matched the other peer's complete frame, and complete prefixes
 decoded cleanly. ffmpeg reported invalid residual only when it read the truncated
 tail. Check complete-frame CRCs and decode the prefix before blaming the encoder.
+
+Pinned ESP-IDF 5.5.5 stores and reads the heap failed-allocation callback through
+a plain global function pointer. One registration owner and allocator thread
+safety prose do not establish safe late publication to concurrent callers.
+The pressure fixture uses direct real allocation probes and actual admission
+errors instead. Verify pinned source before adding a diagnostic callback.

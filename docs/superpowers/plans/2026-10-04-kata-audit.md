@@ -4,7 +4,8 @@
 
 Compaction count: 4. Fresh validation controller `/root/overnight_verify` owns the
 board, UART, flashes and evidence; root owns ticket integration. No board process
-is running. Production was restored and Shazam remains off under R26. Physical
+is running. Board is parked in its bootloader after the first pressure flash;
+restore production after the remaining fixtures. Shazam remains off under R26. Physical
 input is quiet (roughly -84 to -90 dBFS), so no worst-case input claim is valid.
 
 - Isolated capture health policy passed after the complete-line UART reader fix.
@@ -12,9 +13,10 @@ input is quiet (roughly -84 to -90 dBFS), so no worst-case input claim is valid.
 - The requested six-hour production soak failed after 33.156 seconds. A separate
   raw diagnosis confirmed terminal-frame truncation with valid complete frames;
   no six-hour acceptance or transport root cause is established.
-- Independently reviewed PCB send-state observer and internal-pressure fixture
-  are being target-built. Do not flash until root hands over their clean builds.
-  Restore production after fixtures. No merges or pushes are authorized.
+- PCB send-state/direct-drain diagnosis found nonzero windows and ACK stalls.
+  The hook-free internal-pressure fixture/harness is under review; a safe
+  linkoutput observer may follow. Flash only reviewed builds and restore
+  production after fixtures. No merges or pushes are authorized.
 - User-owned `.gitignore` and `.kata.toml` stay untouched. All failed evidence
   remains in `docs/audit-evidence/2026-10-04/`, with raw files private in `target/`.
 
@@ -361,3 +363,20 @@ mapping was not recorded. This sample finds transport truncation, not a malforme
 complete encoder frame; it does not make the failed soak pass or prove its exact
 mechanism. Evidence: `partial-flac-terminal-frame.json`; raw private bodies under
 `target/audit-flac-tee/20261005T053523.231346Z/`. Board remains production.
+
+`b70afc4` PCB send-state observer with direct raw-file draining recorded 68 send
+rows and 64 valid reports. All sampled windows were 65,535 bytes. One connection
+showed an ACK plateau at log times 26.521/27.701/28.901 s, retransmission count 1,
+congestion window 1,440 B and queued unsent/unacked data; ACKs later advanced and
+it fell behind at 18.8 s since admission. The second ran to its 60 s host bound.
+This excludes observed zero-window backpressure and live decoder-pipe blocking
+in this run, without locating the network failure. Eight capture samples stayed
+flat. Naturally ended peer: 109 complete frames, clean decode. Host-bounded peer:
+703 valid complete frames, clean prefix decode, host-cut terminal tail. All 109
+shared frames match. `direct-drain-send-state.json` preserves structured evidence.
+
+Internal-pressure `783be6c` was flashed but immediately parked in the bootloader
+before running its harness, after root identified late failed-callback publication
+as unsafe to assume. No pressure acceptance is claimed. Its replacement removes
+the hook and uses real strict allocation probes. Board is currently parked;
+callback-free fixture review/build precedes the next flash, then restore production.
