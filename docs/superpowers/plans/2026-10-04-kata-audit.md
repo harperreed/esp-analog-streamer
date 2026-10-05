@@ -434,3 +434,12 @@ PSRAM placement, not an unconditional fallback guarantee. Source cache 32 is
 fully restored, no config commit. Evidence: `cache-capacity-comparison.json` and
 both detailed observation JSONs. Board remains A32 observer pending next phase;
 mandatory production restore/final canonical check still required.
+
+Corrected pressure geometry `5d4ea21` produced READY free 35,087 B / largest
+3,712 B, ten holes, and real NULL 4,096 B probes before/after. Two real pthread
+ENOMEM failures returned zero-byte EOF, checked close 1 ms and released slots.
+Sampled end minimum 34,439 B exceeded unchanged 32,768 B floor; capture counters
+stayed flat through release. Strict run still FAILED: decoder 1 did not meet
+five-second progress check; final cleanup showed 0.597333/3.754667 s real decoded
+audio, no full 10 s decodes or third-client cap check. No nr6z closure or global
+OOM guarantee follows. Preserve `failed-internal-pressure-recovery.json`.
