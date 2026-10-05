@@ -1,0 +1,246 @@
+#!/usr/bin/env bash
+# ABOUTME: Exercises real FLAC listener admission and slot recovery while keeping stalled peers open.
+# ABOUTME: Usage: scripts/stream-churn [HOST] [--rounds N] [--hold SECONDS] [--out DIR]; records status, timing and /api/state evidence.
+set -euo pipefail
+repo="$(cd "$(dirname "$0")/.." && pwd)"
+STREAM_CHURN_DEFAULT_OUT="$repo/target/stream-churn" exec uv run --quiet --no-project python3 - "$@" <<'PY'
+import argparse
+import json
+import os
+import socket
+import sys
+import threading
+import time
+import urllib.request
+from datetime import datetime, timezone
+from pathlib import Path
+
+
+class CheckFailure(Exception):
+    pass
+
+
+def positive_float(value):
+    number = float(value)
+    if not 0 < number < float("inf"):
+        raise argparse.ArgumentTypeError("must be a finite positive number")
+    return number
+
+
+def positive_int(value):
+    number = int(value)
+    if number <= 0:
+        raise argparse.ArgumentTypeError("must be positive")
+    return number
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        prog="scripts/stream-churn",
+        description="Open two real FLAC listeners, require 503 for a third, stop reading both, "
+        "then require two replacement listeners within 10 seconds after the hold. Keep every "
+        "stalled peer open until the test ends to expose closing TCP connection retention. "
+        "Requires Shazam off and continuous captured audio. Very compressible silence or a "
+        "large receive window can take longer to fill TCP buffers; increase --hold in that case. "
+        "Admission recovery does not prove RAM reclamation: compare the board's heap logs.",
+    )
+    parser.add_argument("host", nargs="?", default="esp-shazam.local",
+                        help="board hostname or IPv4 address (default: esp-shazam.local)")
+    parser.add_argument("--rounds", type=positive_int, default=3, help="churn rounds (default: 3)")
+    parser.add_argument("--hold", type=positive_float, default=12.0,
+                        help="seconds without reading; exceeds the 8.02 s frame deadline (default: 12)")
+    parser.add_argument("--out", default=os.environ["STREAM_CHURN_DEFAULT_OUT"],
+                        help="output directory; each run writes a dated subdirectory (default: target/stream-churn)")
+    args = parser.parse_args()
+    run_name = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S.%fZ")
+    out = Path(args.out).resolve() / run_name
+    out.mkdir(parents=True)
+    started = time.monotonic()
+    events = []
+    lock = threading.Lock()
+    errors = []
+    stalled_peers = []
+    replacements = []
+    stop_polling = threading.Event()
+    poller = None
+    completed = 0
+    failure = None
+    ip = None
+    log = (out / "events.jsonl").open("w")
+
+    def record(kind, **fields):
+        event = {"elapsed_seconds": round(time.monotonic() - started, 3), "kind": kind, **fields}
+        with lock:
+            events.append(event)
+            log.write(json.dumps(event) + "\n")
+            log.flush()
+            print(json.dumps(event), flush=True)
+
+    def state():
+        opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+        with opener.open(f"http://{ip}/api/state", timeout=3) as response:
+            value = json.load(response)
+        record("state", state=value)
+        if value.get("shazam_enabled") is not False:
+            raise CheckFailure("/api/state must report shazam_enabled=false")
+
+    def poll_state():
+        while not stop_polling.wait(1):
+            try:
+                state()
+            except Exception as error:
+                errors.append(str(error))
+                record("state_error", error=str(error))
+
+    def connect(label, timeout=3):
+        peer = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        try:
+            # Set before connect so the SYN advertises a small window; no body reads follow
+            # admission for a stalled peer. Record the OS's actual buffer value as evidence.
+            peer.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 4096)
+            receive_buffer = peer.getsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF)
+            deadline = time.monotonic() + timeout
+            peer.settimeout(timeout)
+            peer.connect((ip, 8000))
+            peer.sendall(b"GET /stream.flac HTTP/1.1\r\nHost: esp-shazam\r\n\r\n")
+            head = bytearray()
+            while b"\r\n\r\n" not in head:
+                left = deadline - time.monotonic()
+                if left <= 0:
+                    raise CheckFailure(f"{label}: response head deadline passed")
+                peer.settimeout(left)
+                chunk = peer.recv(1024)
+                if not chunk:
+                    raise CheckFailure(f"{label}: connection closed before response head")
+                head.extend(chunk)
+                if len(head) > 4096:
+                    raise CheckFailure(f"{label}: response head exceeds 4096 bytes")
+            line = bytes(head).split(b"\r\n", 1)[0].decode("ascii")
+            parts = line.split(" ", 2)
+            if len(parts) < 2 or parts[0] != "HTTP/1.1":
+                raise CheckFailure(f"{label}: invalid HTTP status line {line!r}")
+            status = int(parts[1])
+            record("admission", label=label, status=status, status_line=line,
+                   receive_buffer_bytes=receive_buffer,
+                   initial_body_bytes=len(head.split(b"\r\n\r\n", 1)[1]))
+            return peer, status
+        except Exception as error:
+            peer.close()
+            if isinstance(error, CheckFailure):
+                raise
+            raise CheckFailure(f"{label}: {error}") from error
+
+    def require_status(label, expected):
+        peer, status = connect(label)
+        if status != expected:
+            peer.close()
+            raise CheckFailure(f"{label}: expected HTTP {expected}, received HTTP {status}")
+        return peer
+
+    def drain(peer, ended, stopping):
+        peer.settimeout(0.5)
+        try:
+            while not stopping.is_set():
+                try:
+                    if not peer.recv(16 << 10):
+                        break
+                except socket.timeout:
+                    continue
+        except OSError as error:
+            if not stopping.is_set():
+                record("replacement_error", error=str(error))
+        finally:
+            ended.set()
+
+    def close_replacements():
+        for peer, ended, stopping, worker in replacements:
+            stopping.set()
+            try:
+                peer.shutdown(socket.SHUT_RDWR)
+            except OSError:
+                pass
+            peer.close()
+            if worker.ident is not None:
+                worker.join(timeout=1)
+        replacements.clear()
+
+    try:
+        ip = socket.getaddrinfo(args.host, 8000, socket.AF_INET, socket.SOCK_STREAM)[0][4][0]
+        record("start", host=args.host, ip=ip, rounds=args.rounds, hold_seconds=args.hold,
+               note="Slots and HTTP statuses are measured; RAM reclamation requires board heap logs.")
+        state()
+        poller = threading.Thread(target=poll_state)
+        poller.start()
+        for round_number in range(1, args.rounds + 1):
+            for index in (1, 2):
+                stalled_peers.append(require_status(f"round {round_number} listener {index}", 200))
+            require_status(f"round {round_number} third listener", 503).close()
+            stall_started = time.monotonic()
+            record("hold", round=round_number, seconds=args.hold, retained_peers=len(stalled_peers))
+            # A deliberate resource pause: no reads from any stalled peer.
+            stop_polling.wait(args.hold)
+            probe_started = time.monotonic()
+            deadline = probe_started + 10
+            while len(replacements) < 2:
+                if errors:
+                    raise CheckFailure(f"board liveness/configuration poll failed: {errors[-1]}")
+                if any(ended.is_set() for _, ended, _, _ in replacements):
+                    raise CheckFailure("a replacement stream ended before both slots recovered; check capture health")
+                left = deadline - time.monotonic()
+                if left <= 0:
+                    raise CheckFailure(
+                        f"round {round_number}: only {len(replacements)} of 2 slots recovered within 10 s "
+                        f"after the {args.hold:g} s hold; verify capture and actual FLAC byte rate/window size")
+                peer, status = connect(f"round {round_number} recovery probe", min(3, left))
+                if status == 200:
+                    ended, stopping = threading.Event(), threading.Event()
+                    worker = threading.Thread(target=drain, args=(peer, ended, stopping))
+                    replacements.append((peer, ended, stopping, worker))
+                    worker.start()
+                    record("slot_recovered", round=round_number, recovered_slots=len(replacements),
+                           seconds_since_stall=round(time.monotonic() - stall_started, 3),
+                           seconds_since_probe=round(time.monotonic() - probe_started, 3))
+                else:
+                    peer.close()
+                    if status != 503:
+                        raise CheckFailure(f"round {round_number}: recovery probe returned HTTP {status}")
+                    stop_polling.wait(min(0.25, max(0, deadline - time.monotonic())))
+            require_status(f"round {round_number} third replacement", 503).close()
+            if any(ended.is_set() for _, ended, _, _ in replacements):
+                raise CheckFailure("replacement streams ended during the active-slot check")
+            state()
+            close_replacements()
+            completed += 1
+            record("round_passed", round=round_number, retained_stalled_peers=len(stalled_peers))
+            # Let the server observe the replacement peers' closes before the next admission.
+            stop_polling.wait(1)
+    except KeyboardInterrupt:
+        failure = "interrupted"
+        record("failure", error=failure)
+    except Exception as error:
+        failure = str(error)
+        record("failure", error=failure)
+    finally:
+        close_replacements()
+        for peer in stalled_peers:
+            peer.close()
+        stop_polling.set()
+        if poller is not None:
+            poller.join()
+        if errors and failure is None:
+            failure = f"board liveness/configuration poll failed: {errors[-1]}"
+        summary = {"passed": failure is None, "error": failure, "host": args.host, "ip": ip,
+                   "requested_rounds": args.rounds, "completed_rounds": completed,
+                   "hold_seconds": args.hold, "elapsed_seconds": round(time.monotonic() - started, 3),
+                   "retained_peer_count": len(stalled_peers), "state_errors": errors,
+                   "ram_reclamation_verified": False,
+                   "note": "Compare supervisor heap logs to assess closing TCP PCB retention."}
+        (out / "summary.json").write_text(json.dumps(summary, indent=2) + "\n")
+        log.close()
+        print(f"{'PASS' if failure is None else 'FAIL'} {out / 'summary.json'}", flush=True)
+    return 0 if failure is None else 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())
+PY

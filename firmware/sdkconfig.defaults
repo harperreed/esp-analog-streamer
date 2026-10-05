@@ -31,6 +31,12 @@ CONFIG_SPIRAM_SPEED_80M=y
 # Full speed: the fingerprint is CPU- and PSRAM-bound (ESP-IDF's ESP32 default is 160 MHz).
 CONFIG_ESP_DEFAULT_CPU_FREQ_MHZ_240=y
 
+# Encoder CPU measurements use task runtime counters, not elapsed encode-call latency.
+# ESP_TIMER counts microseconds at a fixed rate; trace support is selected by this option.
+CONFIG_FREERTOS_GENERATE_RUN_TIME_STATS=y
+CONFIG_FREERTOS_RUN_TIME_STATS_USING_ESP_TIMER=y
+CONFIG_FREERTOS_RUN_TIME_COUNTER_TYPE_U32=y
+
 # The stream server (stream.rs) holds up to 4 sockets: its listener, 2 listeners and a refused third.
 # With httpd's up to 6 (listener, control, 4 clients), MQTT and the Shazam request, that's 12, over
 # lwIP's default of 10. Each extra socket costs only a small table entry.

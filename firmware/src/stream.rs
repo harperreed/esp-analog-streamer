@@ -11,6 +11,7 @@ use std::time::{Duration, Instant};
 use anyhow::Result;
 use esp_idf_svc::hal::cpu::Core;
 use esp_idf_svc::mdns::EspMdns;
+use esp_idf_svc::sys;
 use esp_shazam_core::flac_ring::FlacRing;
 use esp_shazam_core::stream_http::{self, DeadlineReader, DeadlineWriter, Format, Route, Status};
 use esp_shazam_core::stream_ring::{Cursor, Overrun};
@@ -96,9 +97,11 @@ pub fn start(ring: SharedStreamRing, mdns: &mut EspMdns) -> Result<()> {
     let encoded = FlacRing::try_new(FLAC_RING_FRAMES, flac::MAX_FRAME_BYTES)
         .map_err(|e| anyhow::anyhow!("stream: FLAC ring allocation failed: {e:?}"))?;
     let encoded = Arc::new(Mutex::new(encoded));
+    let listeners = Arc::new(AtomicUsize::new(0));
+    let encoder_listeners = listeners.clone();
     let (encoder_raw, encoder_output) = (ring.clone(), encoded.clone());
-    ENCODER_THREAD.spawn(move || encode(encoder_raw, encoder_output))?;
-    ACCEPT_THREAD.spawn(move || accept(listener, ring, encoded))?;
+    ENCODER_THREAD.spawn(move || encode(encoder_raw, encoder_output, encoder_listeners))?;
+    ACCEPT_THREAD.spawn(move || accept(listener, ring, encoded, listeners))?;
     // The stream works without the advertisement, so a failure is only logged.
     if let Err(e) = mdns.add_service(
         Some("esp-shazam stream"),
@@ -113,8 +116,12 @@ pub fn start(ring: SharedStreamRing, mdns: &mut EspMdns) -> Result<()> {
     Ok(())
 }
 
-fn accept(listener: TcpListener, ring: SharedStreamRing, encoded: SharedFlacRing) {
-    let listeners = Arc::new(AtomicUsize::new(0));
+fn accept(
+    listener: TcpListener,
+    ring: SharedStreamRing,
+    encoded: SharedFlacRing,
+    listeners: Arc<AtomicUsize>,
+) {
     for conn in listener.incoming() {
         match conn {
             Ok(sock) => answer(sock, &ring, &encoded, &listeners),
@@ -320,25 +327,31 @@ fn stream_wav(sock: &TcpStream, ring: &SharedStreamRing) -> End {
 /// One encoder follows raw capture and publishes whole FLAC frames for every listener.
 /// A raw overrun discards the partial block and invalidates old encoded cursors: existing
 /// listeners disconnect rather than hearing discontinuous audio presented as a continuous stream.
-fn encode(raw: SharedStreamRing, encoded: SharedFlacRing) {
+fn encode(raw: SharedStreamRing, encoded: SharedFlacRing, listeners: Arc<AtomicUsize>) {
     let mut chunk = vec![0i32; flac::CHANNELS * CHUNK_FRAMES];
     let mut encoder = flac::Encoder::new();
     let mut bytes = Vec::with_capacity(flac::MAX_FRAME_BYTES);
     let mut cursor = raw.lock().expect("stream ring lock").cursor_now();
     let mut block_number = 0u32;
+    let mut metrics = EncoderMetrics::new(&listeners);
     loop {
         let frames = CHUNK_FRAMES.min(encoder.frames_wanted());
         match read_some(&raw, &mut cursor, &mut chunk[..flac::CHANNELS * frames]) {
             Ok(n) => encoder.push(&chunk[..flac::CHANNELS * n]),
             // Keep this one shared encoder alive during a pause. The next read starts a full
             // wait; a capture reset still yields Overrun and discards the partial block below.
-            Err(WaitError::Stalled) => continue,
+            Err(WaitError::Stalled) => {
+                metrics.log_if_due(&listeners);
+                continue;
+            }
             Err(WaitError::Read(Overrun)) => {
                 log::warn!("stream: encoder fell behind capture; disconnecting FLAC listeners");
                 encoded.lock().expect("FLAC ring lock").reset();
                 encoder.reset();
                 cursor = raw.lock().expect("stream ring lock").cursor_now();
                 block_number = 0;
+                metrics.resets += 1;
+                metrics.log_if_due(&listeners);
                 continue;
             }
         }
@@ -350,7 +363,65 @@ fn encode(raw: SharedStreamRing, encoded: SharedFlacRing) {
                 .push(&bytes)
                 .expect("encoder frame fits FLAC ring");
             block_number = block_number.wrapping_add(1);
+            metrics.frames += 1;
+            metrics.log_if_due(&listeners);
         }
+    }
+}
+
+/// Task runtime accounting excludes its current scheduling slice and includes interrupt/logging
+/// overhead charged to this task. Compare stable listener windows, not encode-call wall latency.
+struct EncoderMetrics {
+    since_us: u64,
+    runtime_us: u32,
+    listeners: usize,
+    frames: u64,
+    resets: u64,
+}
+
+impl EncoderMetrics {
+    fn new(listeners: &AtomicUsize) -> Self {
+        let (since_us, runtime_us) = Self::snapshot();
+        Self {
+            since_us,
+            runtime_us,
+            listeners: listeners.load(std::sync::atomic::Ordering::Acquire),
+            frames: 0,
+            resets: 0,
+        }
+    }
+
+    fn snapshot() -> (u64, u32) {
+        let mut status = sys::TaskStatus_t::default();
+        // SAFETY: NULL selects this live calling task. IDF initializes the status; pdFALSE
+        // skips stack scanning, and eRunning avoids task-state lookup. No scheduler-wide scan.
+        unsafe {
+            sys::vTaskGetInfo(
+                std::ptr::null_mut(),
+                &mut status,
+                0,
+                sys::eTaskState_eRunning,
+            );
+            (sys::esp_timer_get_time() as u64, status.ulRunTimeCounter)
+        }
+    }
+
+    fn log_if_due(&mut self, listeners: &AtomicUsize) {
+        // SAFETY: IDF initializes the monotonic timer before the encoder task starts.
+        let now = unsafe { sys::esp_timer_get_time() as u64 };
+        if now - self.since_us < 10_000_000 {
+            return;
+        }
+        let (now, runtime) = Self::snapshot();
+        let current = listeners.load(std::sync::atomic::Ordering::Acquire);
+        // U32 runtime stats lose accounting at the timer wrap (~71.6 min). Mark later
+        // windows invalid rather than presenting wrapping arithmetic as accurate CPU use.
+        log::info!("stream-encode: elapsed_us={} task_runtime_us={} runtime_valid={} encoded_frames={} resets={} listeners_start={} listeners_end={} (slots include WAV and closing listeners)",
+            now - self.since_us, runtime.wrapping_sub(self.runtime_us), now <= u64::from(u32::MAX),
+            self.frames, self.resets, self.listeners, current);
+        self.since_us = now;
+        self.runtime_us = runtime;
+        self.listeners = current;
     }
 }
 
