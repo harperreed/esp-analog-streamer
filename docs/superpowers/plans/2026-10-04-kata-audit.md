@@ -45,3 +45,35 @@ the checked generated configuration disables. Both need device validation.
 Compaction count: 1. Clean image one-listener results: `target/audit-shared-one/summary.txt`.
 The capture and freshness agents own their current edits; PSRAM buffer source is
 not yet wired or verified. User-owned `.gitignore` and `.kata.toml` remain untouched.
+
+## Capture and memory checkpoint
+
+`f67aacf` adds the approved local RX wrapper, separate overflow counters, bounded
+45 ms raw staging, nonblocking store publication, independent 3 s / 3 s recovery,
+2 s fresh-audio waits, and strict PSRAM listener-frame admission. Canonical checks
+passed 184 tests plus target build and warning checks. Independent reviews passed.
+ELF inspection found both callbacks/literals in IRAM and counters in internal DRAM;
+atomic increments are inline, without helper calls. Whole-IDF ISR cache safety is
+not established (`CONFIG_I2S_ISR_IRAM_SAFE` remains off).
+
+Actual board startup recorded 12 queue overflows and one recovery restart. Those
+counts stayed flat throughout a 60 s passing FLAC check and three passing stalled
+reconnect rounds. The restart flushed uncertain queued data and reported a gap.
+No read errors occurred. These tests do not replace forced blocked-capture and
+reboot tests, or worst-case input testing. Shazam stayed disabled.
+
+Telemetry in `target/audit-logs/capture-serial.log`: idle PSRAM free 973,956 B,
+largest 966,656; six retained stalled peers reduced sampled free PSRAM to 647,032 B
+and largest to 638,976. Sampled internal free ranged 64,363–123,423 B; largest
+61,440–77,824. These are samples, not allocator minimum-water marks. Maximum
+observed raw publication work was 2,600 us and store work 1,336 us. Frame/timer
+deficit is labeled an estimate and includes boot loss and scheduling uncertainty.
+
+`57a59e7` adds task-self runtime statistics and `scripts/stream-churn`; canonical
+checks and independent review passed. CPU-instrumented firmware is being flashed.
+A separate close helper is untracked and unwired: Doctor Biz's decision on a
+terminal close-error recovery policy is pending. Positive linger only bounds queued
+payload; control PCB retention remains a separate measurement requirement.
+
+Board evidence: `target/audit-capture-one/summary.txt` and
+`target/audit-capture-churn/20261005T030101.350958Z/summary.json`.
