@@ -19,6 +19,9 @@ impl CaptureBuffer {
             gap: false,
         }
     }
+    pub fn staged_frames(&self) -> usize {
+        self.samples.len() / 2
+    }
     pub fn invalidate(&mut self) -> usize {
         let dropped = self.samples.len() / 2;
         self.samples.clear();
@@ -27,6 +30,22 @@ impl CaptureBuffer {
     }
     pub fn publish(&mut self, samples: &[i32], ring: &Mutex<StreamRing>) -> usize {
         let whole = &samples[..samples.len() / 2 * 2];
+        match ring.try_lock() {
+            Ok(mut ring) => {
+                if self.gap {
+                    ring.reset();
+                    self.gap = false;
+                }
+                // Staging limits contention, not delivery to an available ring. Flush it
+                // before the incoming chunk so a full buffer cannot discard valid audio.
+                ring.push(&self.samples);
+                self.samples.clear();
+                ring.push(whole);
+                return 0;
+            }
+            Err(TryLockError::WouldBlock) => {}
+            Err(TryLockError::Poisoned(_)) => panic!("stream ring lock poisoned"),
+        }
         let mut dropped = 0;
         if self.samples.len() + whole.len() > self.limit {
             dropped += self.invalidate();
@@ -37,18 +56,6 @@ impl CaptureBuffer {
             dropped += skipped / 2;
         }
         self.samples.extend_from_slice(&whole[skipped..]);
-        match ring.try_lock() {
-            Ok(mut ring) => {
-                if self.gap {
-                    ring.reset();
-                    self.gap = false;
-                }
-                ring.push(&self.samples);
-                self.samples.clear();
-            }
-            Err(TryLockError::WouldBlock) => {}
-            Err(TryLockError::Poisoned(_)) => panic!("stream ring lock poisoned"),
-        }
         dropped
     }
 }
@@ -64,7 +71,7 @@ mod tests {
         let capacity = staging.samples.capacity();
         let held = ring.lock().unwrap();
         assert_eq!(staging.publish(&[1, 2, 3, 4], &ring), 0);
-        assert_eq!(staging.samples.len(), 4);
+        assert_eq!(staging.staged_frames(), 2);
         drop(held);
         assert_eq!(staging.publish(&[5, 6], &ring), 0);
         let mut out = [0; 6];
@@ -72,6 +79,23 @@ mod tests {
         assert_eq!(out, [1, 2, 3, 4, 5, 6]);
         assert_eq!(staging.samples.capacity(), capacity);
     }
+    #[test]
+    fn an_available_ring_flushes_full_staging_before_the_next_chunk() {
+        let ring = Mutex::new(StreamRing::new(8));
+        let mut cursor = ring.lock().unwrap().cursor_now();
+        let mut staging = CaptureBuffer::new(4);
+        let capacity = staging.samples.capacity();
+        let held = ring.lock().unwrap();
+        assert_eq!(staging.publish(&[1, 2, 3, 4, 5, 6, 7, 8], &ring), 0);
+        drop(held);
+        assert_eq!(staging.publish(&[9, 10], &ring), 0);
+        let mut out = [0; 10];
+        assert_eq!(ring.lock().unwrap().read(&mut cursor, &mut out), Ok(5));
+        assert_eq!(out, [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+        assert_eq!(staging.samples.capacity(), capacity);
+        assert_eq!(staging.staged_frames(), 0);
+    }
+
     #[test]
     fn overflow_is_counted_and_invalidates_old_readers() {
         let ring = Mutex::new(StreamRing::new(8));

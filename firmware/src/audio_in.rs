@@ -65,6 +65,12 @@ static RESTARTS: AtomicU32 = AtomicU32::new(0);
 static GAPS: AtomicU32 = AtomicU32::new(0);
 static RAW_WORK_US: AtomicU32 = AtomicU32::new(0);
 static STORE_WORK_US: AtomicU32 = AtomicU32::new(0);
+static STAGED_FRAMES: AtomicU32 = AtomicU32::new(0);
+static STAGED_MAX_FRAMES: AtomicU32 = AtomicU32::new(0);
+static STAGING_PENDING_ATTEMPTS: AtomicU32 = AtomicU32::new(0);
+static STAGING_PENDING_MAX_ATTEMPTS: AtomicU32 = AtomicU32::new(0);
+static STAGING_PENDING_US: AtomicU32 = AtomicU32::new(0);
+static STAGING_PENDING_MAX_US: AtomicU32 = AtomicU32::new(0);
 
 pub type SharedRing = Arc<Mutex<SampleRing>>;
 pub type SharedStreamRing = Arc<Mutex<StreamRing>>;
@@ -132,6 +138,8 @@ fn capture(
     let mut meter = LevelMeter::new(METER_WINDOW, METER_INTERVAL);
     let mut settle_frames = CAPTURE_RATE_HZ as usize / 2;
     let mut staging = CaptureBuffer::new(STAGING_FRAMES);
+    let mut pending_since = None;
+    let mut pending_attempts = 0u32;
     // Clocks ran during codec setup; flush startup backlog before the overflow baseline.
     if let Err(error) = rx.restart() {
         log::warn!("audio: initial queue flush failed: {error}");
@@ -150,6 +158,7 @@ fn capture(
             overflow_seen = overflow;
             DROPPED.fetch_add(staging.invalidate() as u32, Ordering::Relaxed);
             staging.publish(&[], &stream);
+            record_staging(0, micros(), &mut pending_since, &mut pending_attempts);
             GAPS.fetch_add(1, Ordering::Relaxed);
             if let Some(recognition) = recognition.as_mut() {
                 recognition.reset();
@@ -186,6 +195,12 @@ fn capture(
         let started = micros();
         let dropped = staging.publish(&interleaved, &stream);
         RAW_WORK_US.fetch_max((micros() - started) as u32, Ordering::Relaxed);
+        record_staging(
+            staging.staged_frames(),
+            micros(),
+            &mut pending_since,
+            &mut pending_attempts,
+        );
         if dropped > 0 {
             DROPPED.fetch_add(dropped as u32, Ordering::Relaxed);
             GAPS.fetch_add(1, Ordering::Relaxed);
@@ -221,6 +236,29 @@ fn capture(
 fn micros() -> u64 {
     // ESP-IDF initializes the monotonic timer before main; this getter has no side effects.
     unsafe { esp_idf_svc::sys::esp_timer_get_time() as u64 }
+}
+
+// Sample after each publish/reset. A streak spans repeated pending publishes, including
+// read waits and preemption; it does not imply one reader held the mutex for that duration.
+fn record_staging(frames: usize, now: u64, since: &mut Option<u64>, attempts: &mut u32) {
+    if frames > 0 {
+        let started = *since.get_or_insert(now);
+        *attempts = attempts.saturating_add(1);
+        let elapsed = now.saturating_sub(started).min(u64::from(u32::MAX)) as u32;
+        STAGING_PENDING_US.store(elapsed, Ordering::Relaxed);
+        STAGING_PENDING_MAX_US.fetch_max(elapsed, Ordering::Relaxed);
+        STAGING_PENDING_MAX_ATTEMPTS.fetch_max(*attempts, Ordering::Relaxed);
+    } else {
+        if let Some(started) = since.take() {
+            let elapsed = now.saturating_sub(started).min(u64::from(u32::MAX)) as u32;
+            STAGING_PENDING_MAX_US.fetch_max(elapsed, Ordering::Relaxed);
+        }
+        *attempts = 0;
+        STAGING_PENDING_US.store(0, Ordering::Relaxed);
+    }
+    STAGING_PENDING_ATTEMPTS.store(*attempts, Ordering::Relaxed);
+    STAGED_FRAMES.store(frames as u32, Ordering::Relaxed);
+    STAGED_MAX_FRAMES.fetch_max(frames as u32, Ordering::Relaxed);
 }
 
 fn supervise() {
@@ -309,11 +347,15 @@ fn log_capture(elapsed_us: u64, observed: u64, window_start_free: &mut [usize; 2
     // Logging overhead belongs to the next window. No stop/start allocation cycle.
     *window_start_free = start_heap_window();
     let deficit = (elapsed_us * u64::from(CAPTURE_RATE_HZ) / 1_000_000) as i64 - observed as i64;
-    log::info!("audio: frames={} callbacks={} queue_overflows={} software_dropped_frames={} read_errors={} restarts={} discontinuities={} raw_work_max_us={} store_work_max_us={} timing_deficit_estimate_frames={} (clock drift/scheduling; not proof of loss) internal_free={} internal_largest={} psram_free={} psram_largest={} internal_min_sum={} psram_min_sum={} internal_window_start_free={} psram_window_start_free={} (minima sum per-region lows; largest is a snapshot)",
+    log::info!("audio: frames={} callbacks={} queue_overflows={} software_dropped_frames={} read_errors={} restarts={} discontinuities={} raw_work_max_us={} store_work_max_us={} raw_read_max_us={} staged_frames={} staged_max_frames={} staging_pending_attempts={} staging_pending_max_attempts={} staging_pending_us={} staging_pending_max_us={} timing_deficit_estimate_frames={} (clock drift/scheduling; not proof of loss) internal_free={} internal_largest={} psram_free={} psram_largest={} internal_min_sum={} psram_min_sum={} internal_window_start_free={} psram_window_start_free={} (minima sum per-region lows; largest is a snapshot; staging current values sampled at publish/reset)",
         FRAMES.load(Ordering::Relaxed), counters.callbacks, counters.queue_overflows,
         DROPPED.load(Ordering::Relaxed), READ_ERRORS.load(Ordering::Relaxed),
         RESTARTS.load(Ordering::Relaxed), GAPS.load(Ordering::Relaxed),
         RAW_WORK_US.swap(0, Ordering::Relaxed), STORE_WORK_US.swap(0, Ordering::Relaxed),
+        crate::stream::take_raw_read_max_us(), STAGED_FRAMES.load(Ordering::Relaxed),
+        STAGED_MAX_FRAMES.swap(0, Ordering::Relaxed),
+        STAGING_PENDING_ATTEMPTS.load(Ordering::Relaxed), STAGING_PENDING_MAX_ATTEMPTS.swap(0, Ordering::Relaxed),
+        STAGING_PENDING_US.load(Ordering::Relaxed), STAGING_PENDING_MAX_US.swap(0, Ordering::Relaxed),
         deficit, free, largest, psram_free, psram_largest, internal_min_sum, psram_min_sum,
         start_free[0], start_free[1]);
 }

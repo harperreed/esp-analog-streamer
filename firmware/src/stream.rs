@@ -4,7 +4,7 @@
 use std::fmt;
 use std::io::{self, BufReader, Write};
 use std::net::{TcpListener, TcpStream};
-use std::sync::atomic::AtomicUsize;
+use std::sync::atomic::{AtomicU32, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
@@ -25,6 +25,12 @@ use crate::socket_close;
 use crate::threads::ThreadSpec;
 
 type SharedFlacRing = Arc<Mutex<FlacRing>>;
+static RAW_READ_MAX_US: AtomicU32 = AtomicU32::new(0);
+
+/// Interval maximum of the raw read closure, excluding lock acquisition and its unlock tail.
+pub fn take_raw_read_max_us() -> u32 {
+    RAW_READ_MAX_US.swap(0, Ordering::Relaxed)
+}
 
 /// A FLAC listener requires byte-addressable PSRAM for its complete encoded frame.
 /// Small headers and the WAV's small buffers retain the normal allocator's preferred placement.
@@ -360,8 +366,15 @@ fn read_some(
     out: &mut [i32],
 ) -> Result<usize, WaitError<Overrun>> {
     read_locked_fresh(ring, FRESH_AUDIO_TIMEOUT, CAUGHT_UP_SLEEP, |ring| {
-        // The lock is held for this statement only, never during encoding or socket work.
-        ring.read(cursor, out)
+        // Wall time includes preemption while copying; excludes encoding/socket work and
+        // the tiny measurement/return/unlock tail after the elapsed sample below.
+        let started = Instant::now();
+        let result = ring.read(cursor, out);
+        RAW_READ_MAX_US.fetch_max(
+            started.elapsed().as_micros().min(u128::from(u32::MAX)) as u32,
+            Ordering::Relaxed,
+        );
+        result
     })
 }
 
