@@ -95,10 +95,10 @@ const FLAC_RING_FRAMES: usize = if CONFIG.shazam_enabled {
 /// The stream's port. The page and `/api/state` stay on port 80.
 pub const PORT: u16 = 8000;
 /// WAV and FLAC listeners share the slots, and a third listener of either gets 503. Each one takes a
-/// thread, TCP buffers in internal RAM, and Wi-Fi: 2.3 Mbit/s for the WAV, less for FLAC.
+/// thread, TCP buffers that prefer PSRAM, and Wi-Fi: 2.3 Mbit/s for the WAV, less for FLAC.
 const MAX_LISTENERS: usize = 2;
-/// Frames per read from the ring: 5 ms. `read` holds the ring's lock while it copies, and the audio
-/// thread's push waits for that lock. For the WAV they pack into 1,440 bytes, one full TCP segment;
+/// Frames per read from the ring: 5 ms. `read` holds the ring's lock while it copies; capture stages
+/// audio if that lock is busy. For the WAV they pack into 1,440 bytes, one full TCP segment;
 /// the shared encoder fills its 4,096-frame block with reads of at most this many.
 const CHUNK_FRAMES: usize = 240;
 // The FLAC encoder writes 48 kHz into every frame header.

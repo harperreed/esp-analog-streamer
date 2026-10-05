@@ -194,7 +194,7 @@ On 2026-10-04 `/stream.flac` played on the board at about 16:45, but the agent k
 On 2026-10-04 another session changed firmware and committed `ee68892` and `cf42331` while the Sol 6.1 agents worked on constant FLAC subframes. Keep file ownership explicit and coordinate before flashing. The board responds at `192.168.200.224`; `192.168.200.8` is the MQTT broker.
 
 ## Five audit tickets concern archived diagnostics
-`hb9p`, `sznz`, `b69f`, `3db1`, and `vya4` concern the temporary module saved under `target/task15b/` and `target/task16/`. It is absent from current firmware. Its absence does not fix those bugs: repair and verify the diagnostics before using them again, and do not cite their unsafe measurements as validation.
+`hb9p`, `sznz`, `b69f`, `3db1`, and `vya4` concern the temporary module saved under `target/task15b/` and `target/task16/`. It is absent from current firmware. The audit retired these tickets as wontfix for obsolete diagnostics; it did not fix their bugs. Repair and verify any diagnostic before reusing it, and do not cite unsafe archived measurements as validation. Production capture/CPU/heap telemetry and separate hardware examples cover current tests; they do not supply linkoutput error counts, a raw throughput blast, or controlled encoder working-buffer placement comparisons. The Wi-Fi transmit-resource investigation remains open in `23mz`.
 
 ## Kata audit, 2026-10-04
 
@@ -213,3 +213,8 @@ the socket and its clones during each write.
 Doctor Biz corrected the audit's physical source on 2026-10-04: LINE IN is a player
 streaming FIP, not the turntable from older notes. Audit playback measurements use
 real FIP music. They do not establish worst-case incompressible-input throughput.
+
+Hardware fault checks must include the fault setup interval in their capture-counter
+baseline. A pre-READY baseline can hide loss during allocation; sample before START.
+Later playback alone does not prove supervisor recovery: require its restart request,
+the capture restart counter, and decoded audio before testing the separate reboot path.

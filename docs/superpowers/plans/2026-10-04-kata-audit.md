@@ -3,7 +3,7 @@
 Doctor Biz resumed the audit with `gpt-6.1-sol` subagents on 2026-10-04.
 The approved architecture and acceptance criteria remain in the 2026-10-03 plan.
 
-## State
+## Initial continuation state (historical)
 
 - `r759`: constant subframes implemented in `fed9e42`. Claxon and ffmpeg decode tests, independent spec and quality reviews, and `scripts/check` passed. Exact constant stereo frames shrink from 1,037 to 16 bytes. Board timing remains unverified; the issue stays open with `needs-review`.
 - `f8rn`: one core-1 encoder now feeds the shared ring; listeners copy whole frames under one write deadline. Raw overrun invalidates old cursors and resets the encoder without allocation. Off: 2 s raw + 94 encoded slots (~8 s); on: 0.5 s raw + 24 encoded slots (~2 s). Claxon and ffmpeg decode mid-stream joins bit-exact. Spec and quality reviews and the target build passed; device measurements remain pending.
@@ -23,7 +23,7 @@ The board answered `/api/state` at `192.168.200.224` with Shazam disabled.
 The replaced image was diagnostic image 3, with unsafe temporary diagnostic code. Run D recorded one persistent 240-frame capture
 deficit, so zero read errors or successful decoding cannot establish continuity.
 
-## Next
+## Initial next steps (historical)
 
 1. Finish two-listener playback and record clean-image evidence.
 2. Wire capture counters, bounded capture work, independent supervision, and listener timeouts.
@@ -42,7 +42,7 @@ the checked generated configuration disables. Both need device validation.
 
 ## Session checkpoint
 
-Compaction count: 1. Clean image one-listener results: `target/audit-shared-one/summary.txt`.
+Compaction count: 2. Clean image one-listener results: `target/audit-shared-one/summary.txt`.
 The capture and freshness agents own their current edits; PSRAM buffer source is
 not yet wired or verified. User-owned `.gitignore` and `.kata.toml` remain untouched.
 
@@ -99,12 +99,35 @@ disabled under R26. Physical source correction: the player is streaming FIP.
   checked close, including allocation/spawn failures. Configuration failure gets
   503; unrecoverable close failure reboots as approved. Full checks and reviews
   pass. FIN/TIME_WAIT control PCBs remain distinct from queued payload retention.
-- `aa94814` adds a real PSRAM exhaustion/fragmentation example. It is flashed;
-  serial assertions are currently being captured. Restore production firmware
-  after hardware examples; do not leave a test image running.
+- `aa94814` passed real PSRAM exhaustion/fragmentation assertions. Exhaustion
+  left 4 B; fragmentation left 2,081,280 B total with a 16,384 B largest block.
+  Both rejected a 24,591 B frame without consuming internal RAM (270,195 B
+  before/after). Releasing owners restored exactly 4,192,024 B. Evidence:
+  `target/audit-logs/psram-check-serial.log`. This alone does not prove HTTP refusal.
+- `3025277` fixes a held-mutex hole in fresh-audio deadlines: cursor acquisition
+  and reads now include contention in their deadline. Three real-mutex regressions
+  failed first, then passed; independent review passed. WAV and FLAC frame timeout
+  logs now report actual elapsed/limit milliseconds without per-frame allocations.
+- `d2dd0d3` provides real capture-suspension and live HTTP/PSRAM-pressure examples
+  through the production startup library. No production injection mode or route.
+  `9022278` adds WAV and trickling-reader coverage to the real reconnect harness.
+  Canonical checks pass 187 tests (two pre-existing ignored); all examples build.
 
-Next: real production-boot capture suspension/recovery fixture, actual HTTP
-admission under fragmented PSRAM, frame-timeout logs plus WAV/FLAC trickle checks,
-then playback/churn with the PSRAM/static-TX and linger changes. Agents own current
-implementation scopes. Board examples run no Shazam calls. User-owned `.gitignore`
-and `.kata.toml` remain unmodified by this audit.
+Current board: listener-pressure fixture, successfully flashed at 115200 baud.
+Next: reviewed host assertions for real HTTP refusal/recovery, then capture faults,
+then restore production and run WAV/FLAC trickle/churn and sustained playback.
+Restore production after fixtures; do not leave a fault image running. Board
+examples run no Shazam calls. User-owned `.gitignore` and `.kata.toml` remain
+unmodified by this audit. Physical noise-input and Shazam-on acceptance remain
+unavailable under the current source and R26; do not claim them from FIP playback.
+
+## Archived diagnostic disposition
+
+Retire `hb9p`, `sznz`, `b69f`, `3db1`, and `vya4` as wontfix for obsolete temporary
+diagnostics. Independent source review confirmed no active module or route uses
+that code. This changes the earlier keep-open policy; it does not repair the
+archives or validate their old measurements. No production feature is removed.
+Any future reuse needs fresh repair and verification. Production telemetry and
+separate hardware examples cover current checks, but linkoutput error counts,
+raw throughput blast, and controlled encoder working-buffer placement comparisons
+remain absent. `23mz` stays open for the unknown transmit-resource failure cause.
