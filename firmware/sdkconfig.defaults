@@ -35,3 +35,13 @@ CONFIG_ESP_DEFAULT_CPU_FREQ_MHZ_240=y
 # With httpd's up to 6 (listener, control, 4 clients), MQTT and the Shazam request, that's 12, over
 # lwIP's default of 10. Each extra socket costs only a small table entry.
 CONFIG_LWIP_MAX_SOCKETS=16
+
+# lwIP keeps at most its TCP send buffer in flight per connection, so a stream listener gets at most
+# that much per round trip. The WAV needs 288 kB/s and FLAC about 193 kB/s. Round trips from Harper's
+# Mac averaged 63-116 ms under load on 2026-10-04, so the WAV needs 33 KB in flight at 115 ms; the
+# default 5,760 bytes needs round trips under 20 ms (Task 15b).
+CONFIG_LWIP_TCP_SND_BUF_DEFAULT=46080
+# lwIP allocates from PSRAM first, so a full send buffer costs PSRAM rather than internal RAM, and idle
+# internal free rose about 12 KB. CONFIG_SPIRAM_IGNORE_NOTFOUND keeps the rest of ESP-IDF's PSRAM mode
+# for Wi-Fi off, so the Wi-Fi driver's 32 dynamic TX buffers stay in internal RAM.
+CONFIG_SPIRAM_TRY_ALLOCATE_WIFI_LWIP=y

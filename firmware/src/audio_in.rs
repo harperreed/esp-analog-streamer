@@ -17,6 +17,7 @@ use esp_shazam_core::audio::{samples_from_i2s_slots, LevelMeter, SampleRing};
 use esp_shazam_core::decimate::Decimator;
 use esp_shazam_core::stream_ring::StreamRing;
 
+use crate::config::CONFIG;
 use crate::recognizer::SharedStore;
 use crate::threads::ThreadSpec;
 
@@ -26,8 +27,13 @@ pub const CAPTURE_RATE_HZ: u32 = 48_000;
 pub const FEED_RATE_HZ: u32 = 16_000;
 /// The fingerprint's window: the newest 12 s of the feed.
 pub const WINDOW_SAMPLES: usize = 12 * FEED_RATE_HZ as usize;
-/// The stream ring keeps the newest 2 s of frames: 768,000 bytes of PSRAM.
-const STREAM_FRAMES: usize = 2 * CAPTURE_RATE_HZ as usize;
+/// The stream ring keeps the newest 8 s of frames, 3,072,000 bytes: 73% of the 4 MiB of PSRAM that's
+/// mapped. A listener rides out the network's stalls in it: on 2026-10-04 writes blocked up to 3.8 s
+/// and a FLAC listener fell 6.0 s behind, then caught up (Task 15b). With Shazam on it keeps 2 s
+/// (768,000 bytes), because a fingerprint's buffers leave only about 400 KB of PSRAM free at their
+/// peak (Task 14b).
+const STREAM_SECONDS: usize = if CONFIG.shazam_enabled { 2 } else { 8 };
+const STREAM_FRAMES: usize = STREAM_SECONDS * CAPTURE_RATE_HZ as usize;
 
 /// One I2S DMA buffer holds 240 frames (5 ms) of two 32-bit slots: 1,920 bytes. Each read takes one.
 const DMA_FRAMES: usize = 240;
@@ -76,7 +82,7 @@ pub fn start_i2s<'d>(
 }
 
 /// Spawns the capture thread. It returns the 12 s ring of the 16 kHz feed, which the recognizer
-/// fingerprints, and the 2 s ring of raw frames for stream listeners. Every 250 ms the thread writes
+/// fingerprints, and the stream ring of raw frames for stream listeners. Every 250 ms the thread writes
 /// the loudness of the feed's last second into `store`. The first 500 ms are dropped while the
 /// codec's reference voltage settles.
 pub fn spawn_capture(
