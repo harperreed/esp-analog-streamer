@@ -1,5 +1,5 @@
 // ABOUTME: Samples actual TCP PCB retention through the lwIP task while production runs.
-// ABOUTME: Reports port-8000/80 states and public signal/channel readings without hooks or routes.
+// ABOUTME: Reports TCP send state, counted link-output failures and public signal/channel readings.
 
 // Private PCB lists/layouts depend on the pinned ESP-IDF 5.5.5 lwIP headers. Generated
 // bindings avoid copied ABI assumptions. Flash this example, run real stream-churn,
@@ -9,6 +9,7 @@
 // from queued audio payload. Host-retained sockets do not count board PCBs.
 // Restore production with scripts/flash afterward. No callback logs or allocations.
 
+use std::cell::UnsafeCell;
 use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use std::time::{Duration, Instant};
 
@@ -55,7 +56,71 @@ static INVALID: AtomicBool = AtomicBool::new(false);
 static COUNTS: [AtomicU32; COUNT_LEN] = [const { AtomicU32::new(0) }; COUNT_LEN];
 static HTTP_COUNTS: [AtomicU32; STATE_COUNT] = [const { AtomicU32::new(0) }; STATE_COUNT];
 
+// Fixture-exclusive hook invariant: production and linked mDNS/SNTP use socket/API
+// messages on the sole TCP/IP task (core locking is disabled). No bridge/PPP/raw
+// output or other linkoutput hook is installed. Installation and original access
+// occur only on that task; production run retains the STA netif until reboot.
+struct OriginalOutput(UnsafeCell<lwip::netif_linkoutput_fn>);
+// SAFETY: only the sole TCP/IP task accesses this cell, including installation.
+unsafe impl Sync for OriginalOutput {}
+static ORIGINAL_OUTPUT: OriginalOutput = OriginalOutput(UnsafeCell::new(None));
+// 0 not attempted, 1 installed, 2 rejected. Callback publishes installation outcome.
+static OUTPUT_STATE: AtomicU32 = AtomicU32::new(0);
+// Single/chained calls, then single/chained ERR_MEM, then single/chained other errors.
+static OUTPUT_COUNTS: [AtomicU32; 6] = [const { AtomicU32::new(0) }; 6];
+
+unsafe fn install_output_counter() {
+    if OUTPUT_STATE.load(Ordering::Relaxed) != 0 {
+        return;
+    }
+    // SAFETY: pinned esp_netif_lwip.c212-229 executes this getter directly when
+    // already on TCP/IP; get_netif_impl495-500 only returns the retained pointer.
+    // Its ESP_LOGD is disabled by pinned LOG_MAXIMUM_LEVEL=3 (no local override).
+    unsafe {
+        let handle = sys::esp_netif_get_handle_from_ifkey(c"WIFI_STA_DEF".as_ptr());
+        let netif = sys::esp_netif_get_netif_impl(handle).cast::<lwip::netif>();
+        if netif.is_null() || (*ORIGINAL_OUTPUT.0.get()).is_some() {
+            OUTPUT_STATE.store(2, Ordering::Release);
+            return;
+        }
+        let Some(original) = (*netif).linkoutput else {
+            OUTPUT_STATE.store(2, Ordering::Release);
+            return;
+        };
+        if original as usize == count_output as *const () as usize {
+            OUTPUT_STATE.store(2, Ordering::Release);
+            return;
+        }
+        // Save the typed original before publishing the wrapper on the same task.
+        *ORIGINAL_OUTPUT.0.get() = Some(original);
+        (*netif).linkoutput = Some(count_output);
+        OUTPUT_STATE.store(1, Ordering::Release);
+    }
+}
+
+unsafe extern "C" fn count_output(netif: *mut lwip::netif, p: *mut lwip::pbuf) -> lwip::err_t {
+    // SAFETY: installed only on the sole TCP/IP task; lwIP supplies a live pbuf
+    // and netif. Read only the next pointer before calling the original once.
+    unsafe {
+        let Some(original) = *ORIGINAL_OUTPUT.0.get() else {
+            OUTPUT_STATE.store(2, Ordering::Release);
+            return lwip::err_enum_t_ERR_IF as lwip::err_t;
+        };
+        let chain = usize::from(!(*p).next.is_null());
+        OUTPUT_COUNTS[chain].fetch_add(1, Ordering::Relaxed);
+        let result = original(netif, p);
+        if result == lwip::err_enum_t_ERR_MEM as lwip::err_t {
+            OUTPUT_COUNTS[2 + chain].fetch_add(1, Ordering::Relaxed);
+        } else if result != lwip::err_enum_t_ERR_OK as lwip::err_t {
+            OUTPUT_COUNTS[4 + chain].fetch_add(1, Ordering::Relaxed);
+        }
+        result
+    }
+}
+
 unsafe extern "C" fn sample(_: *mut std::ffi::c_void) {
+    // SAFETY: sample runs in the TCP/IP task, before any list observation.
+    unsafe { install_output_counter() };
     let mut counts = [0u32; COUNT_LEN];
     let mut http_counts = [0u32; STATE_COUNT];
     let mut invalid = false;
@@ -181,6 +246,7 @@ fn observe() {
     let mut http_peaks = [0u32; STATE_COUNT];
     let mut latest_http = None;
     let mut latest_send = None;
+    let mut previous_output = [0u32; 6];
     loop {
         match PHASE.load(Ordering::Acquire) {
             2 => {
@@ -267,6 +333,15 @@ fn observe() {
                     }
                 }
             }
+            // These independent wrapping counters are sampled, not a coherent packet record.
+            // wlanif.c91-115: single ERR_MEM maps driver ESP_ERR_NO_MEM; a chain
+            // also permits coalescing pbuf allocation failure. Neither identifies a pool.
+            let output: [u32; 6] =
+                std::array::from_fn(|i| OUTPUT_COUNTS[i].load(Ordering::Relaxed));
+            let delta: [u32; 6] =
+                std::array::from_fn(|i| output[i].wrapping_sub(previous_output[i]));
+            log::info!("tcp-retention: output_hook={} output_delta={delta:?} output_total={output:?} (all STA ports; single,chain,single_ERR_MEM,chain_ERR_MEM,single_other,chain_other; wrapping counters)", OUTPUT_STATE.load(Ordering::Acquire));
+            previous_output = output;
             latest_send = None;
             reporting = Instant::now();
             valid = 0;
