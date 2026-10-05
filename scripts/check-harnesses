@@ -1,0 +1,72 @@
+#!/usr/bin/env bash
+# ABOUTME: Checks the real hardware harness UART readers and internal-fragmentation parser on the host.
+# ABOUTME: Uses temporary files and AST-extracted functions; never contacts or resets a board.
+set -euo pipefail
+case "${1:-}" in
+    --help) echo 'Usage: scripts/check-harnesses (no arguments). Checks UART framing and pressure geometry without hardware.'; exit 0 ;;
+    '') ;;
+    *) echo 'FAIL unknown argument (see scripts/check-harnesses --help)' >&2; exit 2 ;;
+esac
+[ "$#" -eq 0 ] || { echo 'FAIL unexpected arguments' >&2; exit 2; }
+cd "$(dirname "$0")/.."
+exec uv run --quiet --no-project python3 - <<'PY'
+import ast
+import tempfile
+from pathlib import Path
+
+
+def extracted(source, name, namespace):
+    python = source.split("<<'PY'\n", 1)[1].rsplit('\nPY', 1)[0]
+    nodes = [node for node in ast.walk(ast.parse(python))
+             if isinstance(node, (ast.FunctionDef, ast.ClassDef)) and node.name == name]
+    assert len(nodes) == 1, f'expected exactly one {name}'
+    exec(compile(ast.Module(body=nodes, type_ignores=[]), name, 'exec'), namespace)
+    return namespace[name]
+
+
+def reader_checks(source, label):
+    with tempfile.TemporaryDirectory() as directory:
+        uart = Path(directory) / 'uart.log'
+        read = extracted(source, 'lines', {'uart': uart})
+        assert read() == [], f'{label}: absent file'
+        uart.write_bytes(b'complete\npartial')
+        assert read() == ['complete'], f'{label}: partial line became visible'
+        with uart.open('ab') as stream:
+            stream.write(b'\r')
+        assert read() == ['complete'], f'{label}: CR completed a line'
+        with uart.open('ab') as stream:
+            stream.write(b'\ninvalid\xff\nunfinished\xff')
+        assert read() == ['complete', 'partial\r', 'invalid\ufffd'], f'{label}: LF/UTF-8 framing'
+
+
+def geometry_checks(source):
+    namespace = {}
+    failure = extracted(source, 'Failure', namespace)
+    validate = extracted(source, 'validate_internal_geometry', namespace)
+    valid = dict(free=32768, largest=4095, experiment_floor=32768, sampled_min=32768,
+                 stack_probe_failed=True, probe_before_free=32768, probe_before_largest=4095)
+    validate(valid)
+    invalid = [valid | patch for patch in
+               [dict(stack_probe_failed=False), dict(stack_probe_failed=1),
+                dict(probe_before_free=32767), dict(probe_before_largest=4096),
+                dict(probe_before_largest=-1), dict(free=32767), dict(largest=4096),
+                dict(sampled_min=32767), dict(sampled_min=32769), dict(experiment_floor=0)]]
+    invalid += [{key: value for key, value in valid.items() if key != missing} for missing in valid]
+    for index, fields in enumerate(invalid):
+        try:
+            validate(fields)
+        except failure:
+            continue
+        raise AssertionError(f'geometry case {index} incorrectly accepted')
+
+
+def main():
+    for name in ['fault-check', 'encoder-fault-check']:
+        reader_checks(Path('scripts', name).read_text(), name)
+    geometry_checks(Path('scripts/fault-check').read_text())
+    print('PASS harness UART framing and internal geometry checks (no hardware)')
+
+
+if __name__ == '__main__':
+    main()
+PY
