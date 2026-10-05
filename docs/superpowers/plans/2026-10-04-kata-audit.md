@@ -308,3 +308,15 @@ after final suspension marker, ESP_RST_SW (3), and complete post-reset capture
 samples advanced with flat faults. `capture-health.json` preserves the evidence.
 This verifies capture-only health policy; Shazam-on false-reset acceptance remains
 excluded by R26 and no stream decoding/freshness is claimed from this mode.
+
+One FLAC and one WAV trickle round passed strict existing churn assertions with
+30 s holds and one byte drained every 0.5 s. A 310.43 s UART observer included
+208.08 s after final child cleanup. Capture faults stayed flat across 30 complete
+samples; 264 TCP reports had no invalid observations. Both ports stayed LISTEN
+only from log time 214.921 s. Maximum close was 2,474 ms. Original FLAC peers hit
+8,029/8,030 ms deadlines; original WAV peers instead fell a generation behind,
+so no original-WAV deadline or decoded-playback claim follows from child PASS.
+PSRAM free returned 919,500 to 919,520 B and largest block to 917,504 B; internal
+free fell 82,319 to 80,503 B. This short collection does not prove a safe internal
+reserve or long-term stability. Evidence: `trickle-reclamation.json`.
+Production restoration is now running; the six-hour soak has not started yet.
