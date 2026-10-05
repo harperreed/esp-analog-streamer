@@ -102,7 +102,8 @@ def main():
         print(json.dumps(value), flush=True)
 
     def lines():
-        return uart.read_text(errors='replace').splitlines() if uart.exists() else []
+        # UART writes can end mid-record; only LF completes a telemetry line.
+        return [line.decode('utf-8', errors='replace') for line in uart.read_bytes().split(b'\n')[:-1]] if uart.exists() else []
 
     def wait(check, seconds, reason):
         deadline = time.monotonic() + seconds
