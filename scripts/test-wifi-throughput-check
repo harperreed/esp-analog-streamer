@@ -1,0 +1,87 @@
+#!/usr/bin/env -S uv run --quiet --no-project python3
+# ABOUTME: Exercises throughput framing and byte validation through real localhost sockets.
+# ABOUTME: Covers complete, truncated, and corrupt transfers without firmware or mocks.
+import importlib.machinery
+import socket
+import threading
+import time
+import unittest
+from pathlib import Path
+
+import importlib.util
+loader = importlib.machinery.SourceFileLoader('checker', str(Path(__file__).with_name('wifi-throughput-check')))
+spec = importlib.util.spec_from_loader(loader.name, loader)
+checker = importlib.util.module_from_spec(spec)
+loader.exec_module(checker)
+
+class TransferTests(unittest.TestCase):
+    def transfer(self, kind):
+        listener = socket.socket()
+        listener.bind(('127.0.0.1', 0))
+        listener.listen()
+        payload = bytearray(checker.pattern(0, 32769))
+        if kind == 'corrupt':
+            payload[16384] ^= 1
+        if kind == 'truncated':
+            payload = payload[:-1]
+        if kind == 'extra':
+            payload.append(0)
+        stop = threading.Event()
+        server_errors = []
+        def serve():
+            try:
+                with listener:
+                    listener.settimeout(2)
+                    sock, _ = listener.accept()
+                    with sock:
+                        if kind == 'header-truncated':
+                            sock.sendall(b'ESPTHR1 327')
+                        elif kind == 'timeout':
+                            sock.sendall(b'ESPTHR1 32769\n')
+                            if not stop.wait(2):
+                                raise AssertionError('timeout client did not finish')
+                        else:
+                            sock.sendall(b'ESPTHR1 32769\n' + payload)
+            except BaseException as error:
+                server_errors.append(error)
+        worker = threading.Thread(target=serve)
+        worker.start()
+        try:
+            with socket.create_connection(listener.getsockname(), timeout=2) as sock:
+                return checker.receive(sock, 0.08 if kind == 'timeout' else 3, 32769)
+        finally:
+            stop.set()
+            worker.join(3)
+            self.assertFalse(worker.is_alive())
+            self.assertEqual(server_errors, [])
+
+    def test_pattern_offset_boundary(self):
+        self.assertEqual(checker.pattern(254, 6), b'\xfe\xff\x01\x00\x03\x02')
+
+    def test_header_truncated(self):
+        with self.assertRaisesRegex(checker.Failure, 'truncated header'):
+            self.transfer('header-truncated')
+
+    def test_total_timeout(self):
+        started = time.monotonic()
+        with self.assertRaises(socket.timeout):
+            self.transfer('timeout')
+        self.assertLess(time.monotonic() - started, 0.5)
+
+    def test_complete(self):
+        self.assertEqual(self.transfer('complete')['bytes'], 32769)
+
+    def test_truncated(self):
+        with self.assertRaisesRegex(checker.Failure, 'truncated'):
+            self.transfer('truncated')
+
+    def test_extra(self):
+        with self.assertRaisesRegex(checker.Failure, 'exceeds'):
+            self.transfer('extra')
+
+    def test_corrupt(self):
+        with self.assertRaisesRegex(checker.Failure, 'corrupt'):
+            self.transfer('corrupt')
+
+if __name__ == '__main__':
+    unittest.main()

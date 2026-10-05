@@ -1,0 +1,143 @@
+#!/usr/bin/env -S uv run --quiet --no-project python3
+# ABOUTME: Validates two finite deterministic TCP transfers through a verified macOS interface.
+# ABOUTME: Records exact bytes, elapsed time and one-second delivery bins; never controls the board.
+import argparse
+import concurrent.futures
+import json
+import ipaddress
+import os
+import socket
+import sys
+import threading
+import time
+from pathlib import Path
+
+TARGET = 11_264 * 1_404
+
+class Failure(Exception):
+    pass
+
+
+def pattern(offset, length):
+    # Each 256-byte lane changes with its absolute high offset as well as its low byte.
+    return bytes(((at & 255) ^ ((at >> 8) & 255) ^ ((at >> 16) & 255))
+                 for at in range(offset, offset + length))
+
+
+def receive(sock, seconds, expected=TARGET, report=None):
+    report = report if report is not None else {}
+    started = time.monotonic()
+    deadline = started + seconds
+    count = 0
+    bins = {}
+    report.update(bytes=0, expected=expected, second_bins=bins)
+    def read(limit):
+        left = deadline - time.monotonic()
+        if left <= 0:
+            raise Failure('total receive deadline passed')
+        sock.settimeout(min(left, 10))
+        return sock.recv(limit)
+    try:
+        header = bytearray()
+        while not header.endswith(b'\n'):
+            if len(header) >= 64:
+                raise Failure('header exceeds 64 bytes')
+            byte = read(1)
+            if not byte:
+                raise Failure('truncated header')
+            header.extend(byte)
+        if bytes(header) != f'ESPTHR1 {expected}\n'.encode():
+            raise Failure('unexpected transfer header/count')
+        while count < expected:
+            body = read(min(65536, expected - count))
+            if not body:
+                raise Failure(f'truncated payload at {count}/{expected}')
+            if body != pattern(count, len(body)):
+                raise Failure(f'corrupt payload in range {count}:{count + len(body)}')
+            count += len(body)
+            second = int(time.monotonic() - started)
+            bins[second] = bins.get(second, 0) + len(body)
+            report['bytes'] = count
+        if read(1):
+            raise Failure('payload exceeds advertised count')
+        report['passed'] = True
+        return report
+    finally:
+        elapsed = time.monotonic() - started
+        report['elapsed_seconds'] = elapsed
+        report['average_bytes_per_second'] = count / elapsed
+        for second in range(int(elapsed) + 1):
+            bins.setdefault(second, 0)
+
+
+def client(host, port, interface, seconds, report, sockets, lock):
+    started = time.monotonic()
+    report['passed'] = False
+    try:
+        index = socket.if_nametoindex(interface)
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+            with lock:
+                sockets.append(sock)
+            sock.setsockopt(socket.IPPROTO_IP, 25, index)
+            if sock.getsockopt(socket.IPPROTO_IP, 25) != index:
+                raise Failure('IP_BOUND_IF verification failed')
+            report.update(interface=interface, interface_index=index)
+            sock.settimeout(10)
+            sock.connect((host, port))
+            report['local_address'] = sock.getsockname()
+            left = seconds - (time.monotonic() - started)
+            receive(sock, left, report=report)
+    except (Failure, OSError) as error:
+        report.update(passed=False, error=str(error))
+    finally:
+        report['total_elapsed_seconds'] = time.monotonic() - started
+    return report
+
+
+def main():
+    parser = argparse.ArgumentParser(description='Read-only check of the throwaway Wi-Fi throughput example; start firmware separately.')
+    parser.add_argument('host')
+    parser.add_argument('--port', type=int, default=8675)
+    parser.add_argument('--interface', default='en0')
+    parser.add_argument('--seconds', type=float, default=145,
+                        help='total host deadline including connect/admission (default:145)')
+    parser.add_argument('--out', type=Path, required=True, help='new JSON report path; never overwrite')
+    args = parser.parse_args()
+    try:
+        args.host = str(ipaddress.IPv4Address(args.host))
+    except ipaddress.AddressValueError:
+        parser.error('host must be a literal IPv4 address; DNS is outside the bounded experiment')
+    os.umask(0o077)
+    if sys.platform != 'darwin':
+        parser.error('interface binding requires macOS IP_BOUND_IF=25')
+    if not 1 <= args.seconds <= 180 or not 1 <= args.port <= 65535:
+        parser.error('seconds must be 1..180 and port 1..65535')
+    # Reserve the report before contacting the board; an existing report is never overwritten.
+    with args.out.open('x') as output:
+        reports = [{}, {}]
+        sockets = []
+        lock = threading.Lock()
+        try:
+            with concurrent.futures.ThreadPoolExecutor(max_workers=2) as pool:
+                futures = [pool.submit(client, args.host, args.port, args.interface, args.seconds, report, sockets, lock)
+                           for report in reports]
+                try:
+                    for future in futures:
+                        future.result()
+                except BaseException:
+                    with lock:
+                        for sock in sockets:
+                            try:
+                                sock.shutdown(socket.SHUT_RDWR)
+                            except OSError:
+                                pass
+                    raise
+        finally:
+            json.dump({'host': args.host, 'port': args.port, 'peers': reports}, output, indent=2)
+            output.write('\n')
+        passed = all(report.get('passed') for report in reports)
+    print(f'{"PASS" if passed else "FAIL"}: two transfers; report {args.out}')
+    return 0 if passed else 1
+
+if __name__ == '__main__':
+    sys.exit(main())
