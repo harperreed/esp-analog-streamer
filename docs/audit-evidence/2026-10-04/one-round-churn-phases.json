@@ -1,0 +1,29 @@
+{
+  "passed": true,
+  "error": null,
+  "host": "192.168.200.224",
+  "ip": "192.168.200.224",
+  "requested_rounds": 1,
+  "completed_rounds": 1,
+  "hold_seconds": 14.0,
+  "elapsed_seconds": 23.115,
+  "path": "/stream.flac",
+  "trickle_bytes": null,
+  "trickle_interval": 0.5,
+  "retained_peer_reads": [
+    {
+      "label": "round 1 listener 1",
+      "bytes_read": 0
+    },
+    {
+      "label": "round 1 listener 2",
+      "bytes_read": 0
+    }
+  ],
+  "retained_peer_count": 2,
+  "state_errors": [],
+  "ram_reclamation_verified": false,
+  "note": "Compare supervisor heap logs to assess closing TCP PCB retention.",
+  "firmware_source_commit": "31e28cf",
+  "harness_commit": "00ade6a"
+}

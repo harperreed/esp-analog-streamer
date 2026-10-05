@@ -1,0 +1,16 @@
+{
+  "passed": false,
+  "error": "existing client ended before recovery suspension",
+  "mode": "capture",
+  "host": "192.168.200.224",
+  "path": "/stream.flac",
+  "listeners": 2,
+  "admission_cap_checked": false,
+  "elapsed_seconds": 28.752,
+  "evidence": {},
+  "log_directory": "target/audit-capture-metrics/20261005T045248.738256Z",
+  "uart_log": "target/audit-capture-metrics/20261005T045248.738256Z/uart.log",
+  "note": "UART is private; decoded duration establishes playback, not independent DMA continuity.",
+  "firmware_source_commit": "31e28cf",
+  "harness_commit": "00ade6a"
+}

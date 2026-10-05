@@ -1,0 +1,494 @@
+{
+  "passed": false,
+  "failed": 2,
+  "count": 30,
+  "host": "192.168.200.224",
+  "ip": "192.168.200.224",
+  "dns_ms": 2.875,
+  "deadline_seconds": 2.0,
+  "log": "target/audit-http-churn/20261005T045702.887081Z/events.jsonl",
+  "firmware_source_commit": "31e28cf",
+  "harness_commit": "00ade6a",
+  "events": [
+    {
+      "sample": 1,
+      "passed": true,
+      "timings_ms": {
+        "connect": 323.848,
+        "send": 0.095,
+        "headers": 600.206,
+        "body": 0.49,
+        "local_close": 0.1
+      },
+      "first_byte_ms": 760.911,
+      "framing": "chunked",
+      "body_bytes": 109,
+      "total_ms": 924.745,
+      "response_bytes_received": 239
+    },
+    {
+      "sample": 2,
+      "passed": false,
+      "timings_ms": {
+        "connect": 1120.551,
+        "send": 0.128,
+        "headers": 881.76,
+        "local_close": 0.19
+      },
+      "first_byte_ms": null,
+      "failed_phase": "headers",
+      "error_type": "TimeoutError",
+      "reason": "request deadline expired",
+      "total_ms": 2002.639,
+      "response_bytes_received": 0
+    },
+    {
+      "sample": 3,
+      "passed": true,
+      "timings_ms": {
+        "connect": 193.478,
+        "send": 0.113,
+        "headers": 396.15,
+        "body": 0.228,
+        "local_close": 0.097
+      },
+      "first_byte_ms": 294.481,
+      "framing": "chunked",
+      "body_bytes": 109,
+      "total_ms": 590.071,
+      "response_bytes_received": 239
+    },
+    {
+      "sample": 4,
+      "passed": true,
+      "timings_ms": {
+        "connect": 84.056,
+        "send": 0.114,
+        "headers": 96.503,
+        "body": 0.15,
+        "local_close": 0.104
+      },
+      "first_byte_ms": 163.12,
+      "framing": "chunked",
+      "body_bytes": 109,
+      "total_ms": 180.931,
+      "response_bytes_received": 239
+    },
+    {
+      "sample": 5,
+      "passed": true,
+      "timings_ms": {
+        "connect": 14.596,
+        "send": 0.028,
+        "headers": 330.923,
+        "body": 0.161,
+        "local_close": 0.084
+      },
+      "first_byte_ms": 316.906,
+      "framing": "chunked",
+      "body_bytes": 109,
+      "total_ms": 345.797,
+      "response_bytes_received": 239
+    },
+    {
+      "sample": 6,
+      "passed": true,
+      "timings_ms": {
+        "connect": 875.56,
+        "send": 0.137,
+        "headers": 241.246,
+        "body": 0.164,
+        "local_close": 0.099
+      },
+      "first_byte_ms": 1091.362,
+      "framing": "chunked",
+      "body_bytes": 109,
+      "total_ms": 1117.211,
+      "response_bytes_received": 239
+    },
+    {
+      "sample": 7,
+      "passed": true,
+      "timings_ms": {
+        "connect": 129.048,
+        "send": 0.099,
+        "headers": 285.475,
+        "body": 0.17,
+        "local_close": 0.143
+      },
+      "first_byte_ms": 303.47,
+      "framing": "chunked",
+      "body_bytes": 109,
+      "total_ms": 414.944,
+      "response_bytes_received": 239
+    },
+    {
+      "sample": 8,
+      "passed": true,
+      "timings_ms": {
+        "connect": 1050.649,
+        "send": 0.114,
+        "headers": 878.169,
+        "body": 0.139,
+        "local_close": 0.122
+      },
+      "first_byte_ms": 1928.753,
+      "framing": "chunked",
+      "body_bytes": 109,
+      "total_ms": 1929.201,
+      "response_bytes_received": 239
+    },
+    {
+      "sample": 9,
+      "passed": true,
+      "timings_ms": {
+        "connect": 295.727,
+        "send": 0.146,
+        "headers": 280.248,
+        "body": 0.16,
+        "local_close": 0.135
+      },
+      "first_byte_ms": 508.423,
+      "framing": "chunked",
+      "body_bytes": 109,
+      "total_ms": 576.426,
+      "response_bytes_received": 239
+    },
+    {
+      "sample": 10,
+      "passed": true,
+      "timings_ms": {
+        "connect": 213.461,
+        "send": 0.098,
+        "headers": 205.222,
+        "body": 0.151,
+        "local_close": 0.09
+      },
+      "first_byte_ms": 309.934,
+      "framing": "chunked",
+      "body_bytes": 109,
+      "total_ms": 419.026,
+      "response_bytes_received": 239
+    },
+    {
+      "sample": 11,
+      "passed": true,
+      "timings_ms": {
+        "connect": 112.23,
+        "send": 0.087,
+        "headers": 306.761,
+        "body": 0.161,
+        "local_close": 0.091
+      },
+      "first_byte_ms": 283.504,
+      "framing": "chunked",
+      "body_bytes": 109,
+      "total_ms": 419.335,
+      "response_bytes_received": 239
+    },
+    {
+      "sample": 12,
+      "passed": true,
+      "timings_ms": {
+        "connect": 354.885,
+        "send": 0.116,
+        "headers": 271.972,
+        "body": 0.147,
+        "local_close": 0.092
+      },
+      "first_byte_ms": 483.865,
+      "framing": "chunked",
+      "body_bytes": 109,
+      "total_ms": 627.216,
+      "response_bytes_received": 239
+    },
+    {
+      "sample": 13,
+      "passed": false,
+      "timings_ms": {
+        "connect": 521.536,
+        "send": 0.119,
+        "headers": 1480.979,
+        "local_close": 0.18
+      },
+      "first_byte_ms": 1965.453,
+      "failed_phase": "headers",
+      "error_type": "TimeoutError",
+      "reason": "request deadline expired",
+      "total_ms": 2002.82,
+      "response_bytes_received": 92
+    },
+    {
+      "sample": 14,
+      "passed": true,
+      "timings_ms": {
+        "connect": 527.083,
+        "send": 0.1,
+        "headers": 418.092,
+        "body": 0.156,
+        "local_close": 0.091
+      },
+      "first_byte_ms": 845.065,
+      "framing": "chunked",
+      "body_bytes": 109,
+      "total_ms": 945.526,
+      "response_bytes_received": 239
+    },
+    {
+      "sample": 15,
+      "passed": true,
+      "timings_ms": {
+        "connect": 183.116,
+        "send": 0.1,
+        "headers": 814.949,
+        "body": 0.156,
+        "local_close": 0.088
+      },
+      "first_byte_ms": 539.184,
+      "framing": "chunked",
+      "body_bytes": 109,
+      "total_ms": 998.413,
+      "response_bytes_received": 239
+    },
+    {
+      "sample": 16,
+      "passed": true,
+      "timings_ms": {
+        "connect": 19.144,
+        "send": 0.113,
+        "headers": 17.656,
+        "body": 0.144,
+        "local_close": 0.088
+      },
+      "first_byte_ms": 36.826,
+      "framing": "chunked",
+      "body_bytes": 109,
+      "total_ms": 37.149,
+      "response_bytes_received": 239
+    },
+    {
+      "sample": 17,
+      "passed": true,
+      "timings_ms": {
+        "connect": 15.695,
+        "send": 0.106,
+        "headers": 43.865,
+        "body": 0.151,
+        "local_close": 0.118
+      },
+      "first_byte_ms": 32.593,
+      "framing": "chunked",
+      "body_bytes": 109,
+      "total_ms": 59.939,
+      "response_bytes_received": 239
+    },
+    {
+      "sample": 18,
+      "passed": true,
+      "timings_ms": {
+        "connect": 20.441,
+        "send": 0.086,
+        "headers": 23.609,
+        "body": 0.18,
+        "local_close": 0.094
+      },
+      "first_byte_ms": 40.18,
+      "framing": "chunked",
+      "body_bytes": 109,
+      "total_ms": 44.416,
+      "response_bytes_received": 239
+    },
+    {
+      "sample": 19,
+      "passed": true,
+      "timings_ms": {
+        "connect": 8.915,
+        "send": 0.099,
+        "headers": 15.711,
+        "body": 4.44,
+        "local_close": 0.093
+      },
+      "first_byte_ms": 24.63,
+      "framing": "chunked",
+      "body_bytes": 109,
+      "total_ms": 29.261,
+      "response_bytes_received": 239
+    },
+    {
+      "sample": 20,
+      "passed": true,
+      "timings_ms": {
+        "connect": 41.241,
+        "send": 0.112,
+        "headers": 74.192,
+        "body": 0.161,
+        "local_close": 0.089
+      },
+      "first_byte_ms": 107.445,
+      "framing": "chunked",
+      "body_bytes": 109,
+      "total_ms": 115.799,
+      "response_bytes_received": 239
+    },
+    {
+      "sample": 21,
+      "passed": true,
+      "timings_ms": {
+        "connect": 11.207,
+        "send": 0.082,
+        "headers": 55.415,
+        "body": 0.149,
+        "local_close": 0.076
+      },
+      "first_byte_ms": 23.73,
+      "framing": "chunked",
+      "body_bytes": 109,
+      "total_ms": 66.931,
+      "response_bytes_received": 239
+    },
+    {
+      "sample": 22,
+      "passed": true,
+      "timings_ms": {
+        "connect": 31.473,
+        "send": 0.115,
+        "headers": 29.381,
+        "body": 0.168,
+        "local_close": 0.103
+      },
+      "first_byte_ms": 46.054,
+      "framing": "chunked",
+      "body_bytes": 109,
+      "total_ms": 61.244,
+      "response_bytes_received": 239
+    },
+    {
+      "sample": 23,
+      "passed": true,
+      "timings_ms": {
+        "connect": 49.163,
+        "send": 0.116,
+        "headers": 19.877,
+        "body": 0.156,
+        "local_close": 0.09
+      },
+      "first_byte_ms": 66.811,
+      "framing": "chunked",
+      "body_bytes": 109,
+      "total_ms": 69.406,
+      "response_bytes_received": 239
+    },
+    {
+      "sample": 24,
+      "passed": true,
+      "timings_ms": {
+        "connect": 13.27,
+        "send": 0.117,
+        "headers": 24.688,
+        "body": 0.157,
+        "local_close": 0.091
+      },
+      "first_byte_ms": 37.977,
+      "framing": "chunked",
+      "body_bytes": 109,
+      "total_ms": 38.326,
+      "response_bytes_received": 239
+    },
+    {
+      "sample": 25,
+      "passed": true,
+      "timings_ms": {
+        "connect": 23.455,
+        "send": 0.11,
+        "headers": 47.724,
+        "body": 0.166,
+        "local_close": 0.089
+      },
+      "first_byte_ms": 61.01,
+      "framing": "chunked",
+      "body_bytes": 109,
+      "total_ms": 71.549,
+      "response_bytes_received": 239
+    },
+    {
+      "sample": 26,
+      "passed": true,
+      "timings_ms": {
+        "connect": 15.22,
+        "send": 0.117,
+        "headers": 19.317,
+        "body": 0.165,
+        "local_close": 0.091
+      },
+      "first_byte_ms": 33.254,
+      "framing": "chunked",
+      "body_bytes": 109,
+      "total_ms": 34.916,
+      "response_bytes_received": 239
+    },
+    {
+      "sample": 27,
+      "passed": true,
+      "timings_ms": {
+        "connect": 26.699,
+        "send": 0.121,
+        "headers": 67.278,
+        "body": 0.164,
+        "local_close": 0.097
+      },
+      "first_byte_ms": 90.204,
+      "framing": "chunked",
+      "body_bytes": 109,
+      "total_ms": 94.364,
+      "response_bytes_received": 239
+    },
+    {
+      "sample": 28,
+      "passed": true,
+      "timings_ms": {
+        "connect": 30.097,
+        "send": 0.103,
+        "headers": 461.923,
+        "body": 0.166,
+        "local_close": 0.093
+      },
+      "first_byte_ms": 430.999,
+      "framing": "chunked",
+      "body_bytes": 109,
+      "total_ms": 492.388,
+      "response_bytes_received": 239
+    },
+    {
+      "sample": 29,
+      "passed": true,
+      "timings_ms": {
+        "connect": 32.843,
+        "send": 0.116,
+        "headers": 34.112,
+        "body": 0.122,
+        "local_close": 0.059
+      },
+      "first_byte_ms": 48.868,
+      "framing": "chunked",
+      "body_bytes": 109,
+      "total_ms": 67.253,
+      "response_bytes_received": 239
+    },
+    {
+      "sample": 30,
+      "passed": true,
+      "timings_ms": {
+        "connect": 18.635,
+        "send": 0.123,
+        "headers": 34.956,
+        "body": 0.156,
+        "local_close": 0.089
+      },
+      "first_byte_ms": 37.143,
+      "framing": "chunked",
+      "body_bytes": 109,
+      "total_ms": 53.963,
+      "response_bytes_received": 239
+    }
+  ]
+}

@@ -1,0 +1,67 @@
+{
+  "passed": false,
+  "error": "<urlopen error timed out>",
+  "host": "192.168.200.224",
+  "ip": "192.168.200.224",
+  "elapsed_seconds": 2.015,
+  "runs": [],
+  "capture_baseline": null,
+  "capture_final": null,
+  "tcp_valid_reports": 0,
+  "tcp_lists_final": null,
+  "port8000_final": null,
+  "tcp_lists_peaks": [
+    0,
+    0,
+    0,
+    0
+  ],
+  "port8000_peaks": {
+    "CLOSED": 0,
+    "LISTEN": 0,
+    "SYN_SENT": 0,
+    "SYN_RCVD": 0,
+    "ESTABLISHED": 0,
+    "FIN_WAIT_1": 0,
+    "FIN_WAIT_2": 0,
+    "CLOSE_WAIT": 0,
+    "CLOSING": 0,
+    "LAST_ACK": 0,
+    "TIME_WAIT": 0
+  },
+  "port8000_occupancy_histograms": {
+    "CLOSED": {},
+    "LISTEN": {},
+    "SYN_SENT": {},
+    "SYN_RCVD": {},
+    "ESTABLISHED": {},
+    "FIN_WAIT_1": {},
+    "FIN_WAIT_2": {},
+    "CLOSE_WAIT": {},
+    "CLOSING": {},
+    "LAST_ACK": {},
+    "TIME_WAIT": {}
+  },
+  "heap_lows": {},
+  "close_count": 0,
+  "max_close_ms": 0,
+  "frame_timeouts": {
+    "2000": {
+      "count": 0,
+      "max_ms": 0
+    },
+    "8021": {
+      "count": 0,
+      "max_ms": 0
+    }
+  },
+  "ending_reasons": {},
+  "output_bytes_before_summary": 84,
+  "output_budget_bytes": 67108864,
+  "log_directory": "target/audit-retention-metrics/20261005T044738.067876Z",
+  "uart_log": "target/audit-retention-metrics/20261005T044738.067876Z/uart.log",
+  "note": "TCP control/state counts are not queued payload bytes or host descriptors. Occupancy histograms count latest one-second reports; peaks use valid callback samples. Heap minima sum per-region lows; largest blocks are snapshots. Counters cannot detect every omitted DMA interrupt.",
+  "firmware_source_commit": "31e28cf",
+  "harness_commit": "627d1ed",
+  "interpretation": "No retention acceptance result. First run began before web preflight was ready after flash; second failed a child listener admission. Capture baseline stays explicit; no evidence for the later load window after early termination."
+}

@@ -233,3 +233,25 @@ HTTP source audit found no direct raw-ring dependency in /api/state: store
 serialization unlocks before socket writes. The HTTP server is single-threaded
 with five-second socket timeouts. Timeout location remains unproven; phase-timed
 HTTP probes are being added rather than blaming the route or weakening tests.
+
+`kjfx` closed after an independent acceptance audit. Its real partial-send host
+regression and board WAV/FLAC deadline plus checked-close evidence satisfy the
+original ticket. WAV writes took 2,010/2,011 ms and closes 2,393/697 ms; FLAC writes
+took 8,029/8,027 ms and closes 2,153/2,013 ms. Failed overall runs remain failed.
+This does not close TCP control-state reclamation or routed reliability (`zqnh`).
+
+Current transport evidence: ten idle HTTP probes passed a two-second absolute
+deadline (maximum 485 ms). During a passing one-round stopped-reader churn, two
+of thirty probes failed the same deadline in the response-header phase, after
+zero and 92 bytes. The stream probe retains its original three-second admission
+deadline; firmware's FLAC write budget is 8.021 s. No timeout thresholds changed.
+Packet capture is unavailable: BPF access is denied and noninteractive sudo
+requires a password. No administrator access was requested while Doctor Biz slept.
+
+Updated capture-fault verification has not passed: two-client input lost one
+listener to ring backlog before the injected fault despite flat capture counters;
+one-client input did not reach two decoded seconds within its six-second check
+(termination flushed 2.304 s). Do not call the second failure zero audio.
+`47114f6` provides a reviewed, target-built real encoder-stall fixture; board test
+still pending. `cbbd69e` adds port80 state and public Wi-Fi signal/channel samples
+to the separate TCP observer. Production remains unchanged by these diagnostics.

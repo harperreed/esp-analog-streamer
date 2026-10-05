@@ -1,0 +1,16 @@
+{
+  "passed": false,
+  "error": "capture-baseline: no decoded audio progress",
+  "mode": "capture",
+  "host": "192.168.200.224",
+  "path": "/stream.flac",
+  "listeners": 1,
+  "admission_cap_checked": false,
+  "elapsed_seconds": 14.055,
+  "evidence": {},
+  "log_directory": "target/audit-capture-metrics-one/20261005T045452.363399Z",
+  "uart_log": "target/audit-capture-metrics-one/20261005T045452.363399Z/uart.log",
+  "note": "Baseline did not reach required two decoded seconds before six-second check; termination flushed progress to2.304s. This is not zero audio and does not establish a firmware failure.",
+  "firmware_source_commit": "31e28cf",
+  "harness_commit": "00ade6a"
+}

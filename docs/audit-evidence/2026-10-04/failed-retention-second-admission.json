@@ -1,0 +1,171 @@
+{
+  "passed": false,
+  "error": "flac-stopped: churn failed; see private child log",
+  "host": "192.168.200.224",
+  "ip": "192.168.200.224",
+  "elapsed_seconds": 29.443,
+  "runs": [],
+  "capture_baseline": {
+    "frames": 959280,
+    "callbacks": 4035,
+    "queue_overflows": 13,
+    "software_dropped_frames": 480,
+    "read_errors": 0,
+    "restarts": 2,
+    "discontinuities": 2,
+    "health_restart_requests": 0,
+    "raw_work_max_us": 1249,
+    "store_work_max_us": 126,
+    "raw_read_max_us": 205,
+    "staged_frames": 0,
+    "staged_max_frames": 240,
+    "staging_pending_attempts": 0,
+    "staging_pending_max_attempts": 1,
+    "staging_pending_us": 0,
+    "staging_pending_max_us": 5208,
+    "timing_deficit_estimate_frames": 2456,
+    "internal_free": 82367,
+    "internal_largest": 77824,
+    "psram_free": 919492,
+    "psram_largest": 917504,
+    "internal_min_sum": 82087,
+    "psram_min_sum": 912536,
+    "internal_window_start_free": 82479,
+    "psram_window_start_free": 919492
+  },
+  "capture_final": {
+    "frames": 959280,
+    "callbacks": 4035,
+    "queue_overflows": 13,
+    "software_dropped_frames": 480,
+    "read_errors": 0,
+    "restarts": 2,
+    "discontinuities": 2,
+    "health_restart_requests": 0,
+    "raw_work_max_us": 1249,
+    "store_work_max_us": 126,
+    "raw_read_max_us": 205,
+    "staged_frames": 0,
+    "staged_max_frames": 240,
+    "staging_pending_attempts": 0,
+    "staging_pending_max_attempts": 1,
+    "staging_pending_us": 0,
+    "staging_pending_max_us": 5208,
+    "timing_deficit_estimate_frames": 2456,
+    "internal_free": 82367,
+    "internal_largest": 77824,
+    "psram_free": 919492,
+    "psram_largest": 917504,
+    "internal_min_sum": 82087,
+    "psram_min_sum": 912536,
+    "internal_window_start_free": 82479,
+    "psram_window_start_free": 919492
+  },
+  "tcp_valid_reports": 10,
+  "tcp_lists_final": [
+    0,
+    4,
+    0,
+    2
+  ],
+  "port8000_final": {
+    "CLOSED": 0,
+    "LISTEN": 1,
+    "SYN_SENT": 0,
+    "SYN_RCVD": 0,
+    "ESTABLISHED": 0,
+    "FIN_WAIT_1": 0,
+    "FIN_WAIT_2": 0,
+    "CLOSE_WAIT": 2,
+    "CLOSING": 0,
+    "LAST_ACK": 0,
+    "TIME_WAIT": 0
+  },
+  "tcp_lists_peaks": [
+    0,
+    4,
+    0,
+    2
+  ],
+  "port8000_peaks": {
+    "CLOSED": 0,
+    "LISTEN": 1,
+    "SYN_SENT": 0,
+    "SYN_RCVD": 1,
+    "ESTABLISHED": 2,
+    "FIN_WAIT_1": 0,
+    "FIN_WAIT_2": 0,
+    "CLOSE_WAIT": 2,
+    "CLOSING": 0,
+    "LAST_ACK": 0,
+    "TIME_WAIT": 0
+  },
+  "port8000_occupancy_histograms": {
+    "CLOSED": {
+      "0": 10
+    },
+    "LISTEN": {
+      "1": 10
+    },
+    "SYN_SENT": {
+      "0": 10
+    },
+    "SYN_RCVD": {
+      "0": 9,
+      "1": 1
+    },
+    "ESTABLISHED": {
+      "0": 7,
+      "1": 1,
+      "2": 2
+    },
+    "FIN_WAIT_1": {
+      "0": 10
+    },
+    "FIN_WAIT_2": {
+      "0": 10
+    },
+    "CLOSE_WAIT": {
+      "0": 9,
+      "2": 1
+    },
+    "CLOSING": {
+      "0": 10
+    },
+    "LAST_ACK": {
+      "0": 10
+    },
+    "TIME_WAIT": {
+      "0": 10
+    }
+  },
+  "heap_lows": {
+    "internal_min_sum": 81639,
+    "psram_min_sum": 912536,
+    "internal_free": 82367,
+    "psram_free": 919492,
+    "internal_largest": 77824,
+    "psram_largest": 917504
+  },
+  "close_count": 0,
+  "max_close_ms": 0,
+  "frame_timeouts": {
+    "2000": {
+      "count": 0,
+      "max_ms": 0
+    },
+    "8021": {
+      "count": 0,
+      "max_ms": 0
+    }
+  },
+  "ending_reasons": {},
+  "output_bytes_before_summary": 22214,
+  "output_budget_bytes": 67108864,
+  "log_directory": "target/audit-retention-metrics/20261005T044801.929269Z",
+  "uart_log": "target/audit-retention-metrics/20261005T044801.929269Z/uart.log",
+  "note": "TCP control/state counts are not queued payload bytes or host descriptors. Occupancy histograms count latest one-second reports; peaks use valid callback samples. Heap minima sum per-region lows; largest blocks are snapshots. Counters cannot detect every omitted DMA interrupt.",
+  "firmware_source_commit": "31e28cf",
+  "harness_commit": "627d1ed",
+  "interpretation": "No retention acceptance result. First run began before web preflight was ready after flash; second failed a child listener admission. Capture baseline stays explicit; no evidence for the later load window after early termination."
+}

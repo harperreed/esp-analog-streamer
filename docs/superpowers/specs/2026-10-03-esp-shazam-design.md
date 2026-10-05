@@ -168,7 +168,7 @@ Its own cargo project on the Xtensa toolchain. It path-depends on `core`.
   - With Shazam off, it keeps 2 s of raw frames (768,000 bytes); with Shazam on, 0.5 s (192,000 bytes). Both feed WAV and one shared FLAC encoder.
   - The decimator and level meter always run from the same captured samples. Only Shazam-on allocates the 12 s mono ring (384,000 bytes) and bounded pending samples (32,162 bytes), saving 416,162 requested bytes when off. Snapshot contention uses `try_lock`, retains samples, drops oldest excess and flushes in order.
   - Capture uses 45 ms of fixed staging and nonblocking locks. Explicit I2S queue-overflow callbacks and software-loss counters mark gaps; timing estimates alone cannot prove lossless capture. A gap resets stream generations, filter and level history, and recognition buffering instead of stitching audio across it.
-  - It writes RMS loudness every 250 ms and runs on core 0. An independent supervisor on core 1 requests capture restart after 3 s without captured-frame progress, then reboots after another 3 s without recovery. Quiet samples count as progress. See [audio_in.rs](../../../firmware/src/audio_in.rs), [i2s_capture.rs](../../../firmware/src/i2s_capture.rs) and [capture_health.rs](../../../core/src/capture_health.rs).
+  - It writes RMS loudness every 250 ms and runs on core 0. An independent supervisor on core 1 requests capture restart after 3 s without captured-frame progress, then calls ESP-IDF restart after another 3 s without recovery. Health polling does not log or inspect heaps; a lower-priority metrics task reports requests asynchronously. ESP-IDF shutdown handlers prevent an unconditional reboot-time guarantee. Quiet samples count as progress. See [audio_in.rs](../../../firmware/src/audio_in.rs), [i2s_capture.rs](../../../firmware/src/i2s_capture.rs) and [capture_health.rs](../../../core/src/capture_health.rs).
 - **`net`**: Wi-Fi station mode with credentials from `cfg.toml`, SNTP, and the mDNS hostname `esp-shazam`. Wi-Fi modem sleep is off (SDD Ruling R27) to avoid beacon-delayed TCP ACKs.
 - **`recognizer`**: a thread on core 1 that runs the policy. It starts only when `shazam_enabled` is true. When the policy says ask, it:
   1. copies the last 12 s,
@@ -205,6 +205,7 @@ The Mac E2E test uses it, and it saves real responses as parser fixtures.
 | Raw + encoded rings, Shazam off / on | 3,079,930 / 782,280 requested heap bytes | excludes allocator overhead and other storage |
 | I2S DMA buffers (10 × 1,920 bytes) | 19,200 bytes | internal (DMA cannot reach PSRAM) |
 | Capture staging (45 ms) | 17,280 bytes | ordinary heap allocation, prefers PSRAM |
+| Capture supervisor and metrics stacks | 4 KiB each | internal; task metadata extra |
 | Per stream listener: thread stack | 4 KiB | internal |
 | Per WAV listener: read and send buffers | 3,360 bytes | internal |
 | Shared FLAC encoder: block and output | 32,768 + 24,591 bytes | large heap allocations, prefer PSRAM |

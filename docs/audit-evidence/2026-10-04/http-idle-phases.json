@@ -1,0 +1,174 @@
+{
+  "passed": true,
+  "failed": 0,
+  "count": 10,
+  "host": "192.168.200.224",
+  "ip": "192.168.200.224",
+  "dns_ms": 2.914,
+  "deadline_seconds": 2.0,
+  "log": "target/audit-http-idle/20261005T045614.035904Z/events.jsonl",
+  "firmware_source_commit": "31e28cf",
+  "harness_commit": "00ade6a",
+  "events": [
+    {
+      "sample": 1,
+      "passed": true,
+      "timings_ms": {
+        "connect": 35.574,
+        "send": 0.014,
+        "headers": 150.65,
+        "body": 0.089,
+        "local_close": 0.02
+      },
+      "first_byte_ms": 50.247,
+      "framing": "chunked",
+      "body_bytes": 109,
+      "total_ms": 186.348,
+      "response_bytes_received": 239
+    },
+    {
+      "sample": 2,
+      "passed": true,
+      "timings_ms": {
+        "connect": 47.525,
+        "send": 0.095,
+        "headers": 91.652,
+        "body": 0.136,
+        "local_close": 0.081
+      },
+      "first_byte_ms": 73.576,
+      "framing": "chunked",
+      "body_bytes": 109,
+      "total_ms": 139.494,
+      "response_bytes_received": 239
+    },
+    {
+      "sample": 3,
+      "passed": true,
+      "timings_ms": {
+        "connect": 14.022,
+        "send": 0.113,
+        "headers": 24.724,
+        "body": 0.184,
+        "local_close": 0.083
+      },
+      "first_byte_ms": 37.021,
+      "framing": "chunked",
+      "body_bytes": 109,
+      "total_ms": 39.131,
+      "response_bytes_received": 239
+    },
+    {
+      "sample": 4,
+      "passed": true,
+      "timings_ms": {
+        "connect": 15.647,
+        "send": 0.115,
+        "headers": 85.944,
+        "body": 0.145,
+        "local_close": 0.088
+      },
+      "first_byte_ms": 96.988,
+      "framing": "chunked",
+      "body_bytes": 109,
+      "total_ms": 101.943,
+      "response_bytes_received": 239
+    },
+    {
+      "sample": 5,
+      "passed": true,
+      "timings_ms": {
+        "connect": 53.165,
+        "send": 0.103,
+        "headers": 28.64,
+        "body": 0.138,
+        "local_close": 0.094
+      },
+      "first_byte_ms": 76.483,
+      "framing": "chunked",
+      "body_bytes": 109,
+      "total_ms": 82.143,
+      "response_bytes_received": 239
+    },
+    {
+      "sample": 6,
+      "passed": true,
+      "timings_ms": {
+        "connect": 18.841,
+        "send": 0.104,
+        "headers": 19.372,
+        "body": 0.152,
+        "local_close": 0.082
+      },
+      "first_byte_ms": 34.01,
+      "framing": "chunked",
+      "body_bytes": 109,
+      "total_ms": 38.556,
+      "response_bytes_received": 239
+    },
+    {
+      "sample": 7,
+      "passed": true,
+      "timings_ms": {
+        "connect": 13.268,
+        "send": 0.109,
+        "headers": 60.206,
+        "body": 0.152,
+        "local_close": 0.095
+      },
+      "first_byte_ms": 55.695,
+      "framing": "chunked",
+      "body_bytes": 109,
+      "total_ms": 73.834,
+      "response_bytes_received": 239
+    },
+    {
+      "sample": 8,
+      "passed": true,
+      "timings_ms": {
+        "connect": 56.208,
+        "send": 0.112,
+        "headers": 428.63,
+        "body": 0.155,
+        "local_close": 0.092
+      },
+      "first_byte_ms": 235.281,
+      "framing": "chunked",
+      "body_bytes": 109,
+      "total_ms": 485.202,
+      "response_bytes_received": 239
+    },
+    {
+      "sample": 9,
+      "passed": true,
+      "timings_ms": {
+        "connect": 92.043,
+        "send": 0.102,
+        "headers": 202.939,
+        "body": 0.15,
+        "local_close": 0.091
+      },
+      "first_byte_ms": 188.406,
+      "framing": "chunked",
+      "body_bytes": 109,
+      "total_ms": 295.328,
+      "response_bytes_received": 239
+    },
+    {
+      "sample": 10,
+      "passed": true,
+      "timings_ms": {
+        "connect": 64.341,
+        "send": 0.099,
+        "headers": 80.189,
+        "body": 0.143,
+        "local_close": 0.085
+      },
+      "first_byte_ms": 91.851,
+      "framing": "chunked",
+      "body_bytes": 109,
+      "total_ms": 144.862,
+      "response_bytes_received": 239
+    }
+  ]
+}
