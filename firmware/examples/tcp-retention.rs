@@ -21,6 +21,34 @@ mod threads;
 const LIST_LIMIT: usize = 256;
 const STATE_COUNT: usize = 11;
 const COUNT_LEN: usize = 4 + STATE_COUNT;
+const SEND_ROWS: usize = 4;
+const SEND_FIELDS: usize = 18;
+const SEGMENT_LIMIT: usize = 64;
+// Rows contain remote port, state, MSS, windows, queue space, sequence progress,
+// retransmission state and bounded segment totals. No payload or IP address is read.
+static SEND: [[AtomicU32; SEND_FIELDS]; SEND_ROWS] =
+    [const { [const { AtomicU32::new(0) }; SEND_FIELDS] }; SEND_ROWS];
+static SEND_COUNT: AtomicU32 = AtomicU32::new(0);
+static SEND_INVALID: AtomicBool = AtomicBool::new(false);
+
+/// Called only with the TCP/IP task owning the PCB/segment lists. Segment lengths
+/// count TCP data bytes, while snd_queuelen separately counts pbufs, not segments.
+unsafe fn queue_totals(mut segment: *mut lwip::tcp_seg) -> (u32, u32, bool) {
+    let mut count = 0;
+    let mut bytes = 0;
+    for _ in 0..SEGMENT_LIMIT {
+        if segment.is_null() {
+            break;
+        }
+        // SAFETY: callback owns the stable generated lwIP list; no pointer escapes.
+        unsafe {
+            count += 1;
+            bytes += u32::from((*segment).len);
+            segment = (*segment).next;
+        }
+    }
+    (count, bytes, !segment.is_null())
+}
 // 0 idle, 1 callback owns the storage, 2 complete. Static storage outlives late callbacks.
 static PHASE: AtomicU32 = AtomicU32::new(0);
 static INVALID: AtomicBool = AtomicBool::new(false);
@@ -31,6 +59,9 @@ unsafe extern "C" fn sample(_: *mut std::ffi::c_void) {
     let mut counts = [0u32; COUNT_LEN];
     let mut http_counts = [0u32; STATE_COUNT];
     let mut invalid = false;
+    let mut send = [[0u32; SEND_FIELDS]; SEND_ROWS];
+    let mut send_count = 0usize;
+    let mut send_invalid = false;
     // SAFETY: lwIP invokes this callback in its sole TCP/IP task. No list mutation or
     // pointer escape occurs; the generated types match this exact SDK configuration.
     unsafe {
@@ -59,6 +90,39 @@ unsafe extern "C" fn sample(_: *mut std::ffi::c_void) {
                     } else {
                         invalid = true;
                     }
+                }
+                // TIME_WAIT and listen records are excluded from sender diagnostics.
+                if port == 8000 && index < 2 {
+                    if send_count < SEND_ROWS {
+                        let (unsent_count, unsent_bytes, unsent_truncated) =
+                            queue_totals((*pcb).unsent);
+                        let (unacked_count, unacked_bytes, unacked_truncated) =
+                            queue_totals((*pcb).unacked);
+                        send_invalid |= unsent_truncated || unacked_truncated;
+                        send[send_count] = [
+                            u32::from((*pcb).remote_port),
+                            (*pcb).state as u32,
+                            u32::from((*pcb).mss),
+                            (*pcb).snd_wnd as u32,
+                            (*pcb).cwnd as u32,
+                            (*pcb).snd_buf as u32,
+                            u32::from((*pcb).snd_queuelen),
+                            (*pcb).lastack,
+                            (*pcb).snd_nxt,
+                            (*pcb).snd_lbb,
+                            u32::from((*pcb).nrtx),
+                            i32::from((*pcb).rtime) as u32,
+                            i32::from((*pcb).rto) as u32,
+                            u32::from((*pcb).persist_backoff),
+                            unsent_count,
+                            unsent_bytes,
+                            unacked_count,
+                            unacked_bytes,
+                        ];
+                    } else {
+                        send_invalid = true;
+                    }
+                    send_count += 1;
                 }
                 pcb = (*pcb).next;
             }
@@ -93,6 +157,13 @@ unsafe extern "C" fn sample(_: *mut std::ffi::c_void) {
     for (target, value) in HTTP_COUNTS.iter().zip(http_counts) {
         target.store(value, Ordering::Relaxed);
     }
+    for (targets, row) in SEND.iter().zip(send) {
+        for (target, value) in targets.iter().zip(row) {
+            target.store(value, Ordering::Relaxed);
+        }
+    }
+    SEND_COUNT.store(send_count as u32, Ordering::Relaxed);
+    SEND_INVALID.store(send_invalid || invalid, Ordering::Relaxed);
     INVALID.store(invalid, Ordering::Relaxed);
     PHASE.store(2, Ordering::Release);
 }
@@ -109,9 +180,17 @@ fn observe() {
     let mut latest = None;
     let mut http_peaks = [0u32; STATE_COUNT];
     let mut latest_http = None;
+    let mut latest_send = None;
     loop {
         match PHASE.load(Ordering::Acquire) {
             2 => {
+                let send_valid = !overdue
+                    && requested.elapsed() <= Duration::from_millis(500)
+                    && !SEND_INVALID.load(Ordering::Relaxed);
+                let rows: [[u32; SEND_FIELDS]; SEND_ROWS] = std::array::from_fn(|row| {
+                    std::array::from_fn(|field| SEND[row][field].load(Ordering::Relaxed))
+                });
+                latest_send = Some((send_valid, SEND_COUNT.load(Ordering::Relaxed), rows));
                 if !overdue
                     && requested.elapsed() <= Duration::from_millis(500)
                     && !INVALID.load(Ordering::Relaxed)
@@ -179,6 +258,16 @@ fn observe() {
         }
         if reporting.elapsed() >= Duration::from_secs(1) {
             log::info!("tcp-retention: valid_samples={valid} invalid_samples={failed} pending={} latest={latest:?} peaks={peaks:?} port80_states={latest_http:?} port80_max={http_peaks:?} (lists bound,active,time_wait,listen; both ports states CLOSED,LISTEN,SYN_SENT,SYN_RCVD,ESTABLISHED,FIN_WAIT_1,FIN_WAIT_2,CLOSE_WAIT,CLOSING,LAST_ACK,TIME_WAIT)", PHASE.load(Ordering::Acquire));
+            if let Some((send_valid, count, rows)) = latest_send {
+                log::info!("tcp-retention: send_valid={send_valid} send_rows={count} row_limit={SEND_ROWS} segment_limit={SEGMENT_LIMIT}");
+                if send_valid {
+                    for row in rows.iter().take(count as usize) {
+                        log::info!("tcp-retention: send remote_port={} state={} mss={} snd_wnd={} cwnd={} snd_buf={} snd_queuelen={} lastack={} snd_nxt={} snd_lbb={} nrtx={} rtime_ticks={} rto_ticks={} persist_backoff={} unsent_segments={} unsent_bytes={} unacked_segments={} unacked_bytes={}",
+                            row[0], row[1], row[2], row[3], row[4], row[5], row[6], row[7], row[8], row[9], row[10], row[11] as i32, row[12] as i32, row[13], row[14], row[15], row[16], row[17]);
+                    }
+                }
+            }
+            latest_send = None;
             reporting = Instant::now();
             valid = 0;
             failed = 0;
