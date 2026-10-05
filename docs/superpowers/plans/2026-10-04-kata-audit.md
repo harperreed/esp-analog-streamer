@@ -320,3 +320,13 @@ PSRAM free returned 919,500 to 919,520 B and largest block to 917,504 B; interna
 free fell 82,319 to 80,503 B. This short collection does not prove a safe internal
 reserve or long-term stability. Evidence: `trickle-reclamation.json`.
 Production restoration is now running; the six-hour soak has not started yet.
+
+Production restore completed at 05:31:10 UTC. Fresh canonical `scripts/check`
+passed all stages, 188 tests with two pre-existing ignored. Six-hour two-listener
+soak attempted at `20261005T053150.884877Z` but FAILED after 33.156 s. Listener 2
+reported invalid residual after decoding 1.024 s; listener 1 decoded 2.816 s,
+then premature EOF/demux I/O. UART reported an 8,035 ms frame timeout against
+8,021 ms; sampled capture deltas stayed zero. Raw received FLAC bytes were not
+retained by the null-output soak, so malformed encoding versus truncated delivery
+remains unresolved. Preserve `failed-production-soak-decode.json`; do not retry
+blindly or claim long endurance. Board runs production with Shazam disabled.
