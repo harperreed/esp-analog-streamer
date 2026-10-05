@@ -42,7 +42,7 @@ the checked generated configuration disables. Both need device validation.
 
 ## Session checkpoint
 
-Compaction count: 2. Clean image one-listener results: `target/audit-shared-one/summary.txt`.
+Compaction count: 3. Clean image one-listener results: `target/audit-shared-one/summary.txt`.
 The capture and freshness agents own their current edits; PSRAM buffer source is
 not yet wired or verified. User-owned `.gitignore` and `.kata.toml` remain untouched.
 
@@ -190,3 +190,22 @@ there. The export commands are throwaway; these files are the lasting evidence.
 pinned private layouts. Canonical checks and target build pass. Idle board smoke
 reported valid samples, no invalid observations, and port 8000 LISTEN only.
 Churn/reclamation measurements and the production soak remain next.
+
+## Capture-loss investigation checkpoint
+
+`627d1ed` retention run failed after 42 s: software drops rose 240 to 2,400
+and gaps 1 to 2; queue overflows stayed 11. The encoder reset and disconnected
+both listeners. Keep the failed result in `failed-retention-capture-loss.json`.
+The 2,160-frame staging capacity does not prove a single 45 ms lock hold.
+
+Confirmed core bug: full staging was discarded before trying an available ring
+mutex. A real-mutex regression failed first; the ordering fix preserves staged
+then incoming frames without growing capacity. Independent review is pending.
+Pinned logger source also shows that synchronous supervisor logs can block on
+Rust filter, FILE, and UART locks; UART writes busy-wait FIFO space. Measure raw
+read and staging delays before changing task scheduling. Health decisions must
+not depend on synchronous logging. `esp_restart` shutdown handlers require a
+separate bound audit. Do not increase buffers or weaken capture-loss assertions.
+
+Board remains `tcp-retention`; restore production after fixtures. No six-hour
+soak has started. Shazam remains off; physical input is currently quiet.

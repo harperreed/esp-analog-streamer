@@ -240,3 +240,13 @@ thread Arc/Box metadata before the IDF call, and task stacks share the internal
 reserve with DMA. PSRAM exhaustion tests prove strict frame placement, not safety
 under arbitrary internal-heap exhaustion. Do not invent a reserve threshold from
 one observed free-memory sample.
+
+A full capture staging buffer must try the destination mutex before discarding
+old samples. If the ring is available, flush staging and the incoming chunk in
+order; the staging limit bounds contention, not delivery. A dropped-buffer count
+does not establish one equally long lock hold: backlogged reads can collide often.
+
+ESP-IDF Rust logs are synchronous and can wait indefinitely on filter/FILE/UART
+locks. Default UART output also busy-waits FIFO space. High-priority health
+checks must publish recovery actions independently of logs; moving only ordinary
+telemetry leaves rare recovery logs capable of blocking the recovery itself.

@@ -1,0 +1,241 @@
+{
+  "passed": false,
+  "error": "capture fault counter changed: software_dropped_frames",
+  "host": "192.168.200.224",
+  "ip": "192.168.200.224",
+  "elapsed_seconds": 42.64,
+  "runs": [],
+  "capture_baseline": {
+    "frames": 962160,
+    "callbacks": 4037,
+    "queue_overflows": 11,
+    "software_dropped_frames": 240,
+    "read_errors": 0,
+    "restarts": 1,
+    "discontinuities": 1,
+    "raw_work_max_us": 1640,
+    "store_work_max_us": 121,
+    "timing_deficit_estimate_frames": 2400,
+    "internal_free": 87259,
+    "internal_largest": 77824,
+    "psram_free": 919484,
+    "psram_largest": 901120,
+    "internal_min_sum": 86235,
+    "psram_min_sum": 909060,
+    "internal_window_start_free": 87371,
+    "psram_window_start_free": 919484
+  },
+  "capture_final": {
+    "frames": 1446960,
+    "callbacks": 6057,
+    "queue_overflows": 11,
+    "software_dropped_frames": 240,
+    "read_errors": 0,
+    "restarts": 1,
+    "discontinuities": 1,
+    "raw_work_max_us": 3044,
+    "store_work_max_us": 155,
+    "timing_deficit_estimate_frames": 2455,
+    "internal_free": 76223,
+    "internal_largest": 73728,
+    "psram_free": 865340,
+    "psram_largest": 819200,
+    "internal_min_sum": 75595,
+    "psram_min_sum": 759340,
+    "internal_window_start_free": 87259,
+    "psram_window_start_free": 919484
+  },
+  "tcp_valid_reports": 22,
+  "tcp_lists_final": [
+    0,
+    5,
+    3,
+    2
+  ],
+  "port8000_final": {
+    "CLOSED": 0,
+    "LISTEN": 1,
+    "SYN_SENT": 0,
+    "SYN_RCVD": 0,
+    "ESTABLISHED": 2,
+    "FIN_WAIT_1": 0,
+    "FIN_WAIT_2": 2,
+    "CLOSE_WAIT": 0,
+    "CLOSING": 0,
+    "LAST_ACK": 0,
+    "TIME_WAIT": 3
+  },
+  "tcp_lists_peaks": [
+    0,
+    7,
+    3,
+    2
+  ],
+  "port8000_peaks": {
+    "CLOSED": 0,
+    "LISTEN": 1,
+    "SYN_SENT": 0,
+    "SYN_RCVD": 1,
+    "ESTABLISHED": 2,
+    "FIN_WAIT_1": 1,
+    "FIN_WAIT_2": 2,
+    "CLOSE_WAIT": 2,
+    "CLOSING": 0,
+    "LAST_ACK": 0,
+    "TIME_WAIT": 3
+  },
+  "port8000_occupancy_histograms": {
+    "CLOSED": {
+      "0": 22
+    },
+    "LISTEN": {
+      "1": 22
+    },
+    "SYN_SENT": {
+      "0": 22
+    },
+    "SYN_RCVD": {
+      "0": 22
+    },
+    "ESTABLISHED": {
+      "0": 10,
+      "2": 12
+    },
+    "FIN_WAIT_1": {
+      "0": 22
+    },
+    "FIN_WAIT_2": {
+      "0": 14,
+      "2": 8
+    },
+    "CLOSE_WAIT": {
+      "0": 22
+    },
+    "CLOSING": {
+      "0": 22
+    },
+    "LAST_ACK": {
+      "0": 22
+    },
+    "TIME_WAIT": {
+      "0": 5,
+      "1": 13,
+      "2": 2,
+      "3": 2
+    }
+  },
+  "heap_lows": {
+    "internal_min_sum": 75595,
+    "psram_min_sum": 759340,
+    "internal_free": 76223,
+    "psram_free": 865340,
+    "internal_largest": 73728,
+    "psram_largest": 819200
+  },
+  "close_count": 4,
+  "max_close_ms": 89,
+  "frame_timeouts": {
+    "2000": {
+      "count": 0,
+      "max_ms": 0
+    },
+    "8021": {
+      "count": 0,
+      "max_ms": 0
+    }
+  },
+  "ending_reasons": {
+    "ring_overrun": 2,
+    "socket_error": 2
+  },
+  "output_bytes_before_summary": 42574,
+  "output_budget_bytes": 67108864,
+  "log_directory": "target/audit-retention/20261005T042141.185439Z",
+  "uart_log": "target/audit-retention/20261005T042141.185439Z/uart.log",
+  "note": "TCP control/state counts are not queued payload bytes or host descriptors. Occupancy histograms count latest one-second reports; peaks use valid callback samples. Heap minima sum per-region lows; largest blocks are snapshots. Counters cannot detect every omitted DMA interrupt.",
+  "source_commit": "627d1ed",
+  "fixture_commit": "f3de476",
+  "observed_capture_samples": [
+    {
+      "frames": 481200,
+      "callbacks": 2033,
+      "queue_overflows": 11,
+      "software_dropped_frames": 240,
+      "read_errors": 0,
+      "restarts": 1,
+      "discontinuities": 1,
+      "raw_work_max_us": 1695,
+      "store_work_max_us": 181,
+      "timing_deficit_estimate_frames": 2400,
+      "internal_free": 87371,
+      "internal_largest": 77824,
+      "psram_free": 919484,
+      "psram_largest": 901120,
+      "internal_min_sum": 86527,
+      "psram_min_sum": 914264,
+      "internal_window_start_free": 201895,
+      "psram_window_start_free": 3421100
+    },
+    {
+      "frames": 962160,
+      "callbacks": 4037,
+      "queue_overflows": 11,
+      "software_dropped_frames": 240,
+      "read_errors": 0,
+      "restarts": 1,
+      "discontinuities": 1,
+      "raw_work_max_us": 1640,
+      "store_work_max_us": 121,
+      "timing_deficit_estimate_frames": 2400,
+      "internal_free": 87259,
+      "internal_largest": 77824,
+      "psram_free": 919484,
+      "psram_largest": 901120,
+      "internal_min_sum": 86235,
+      "psram_min_sum": 909060,
+      "internal_window_start_free": 87371,
+      "psram_window_start_free": 919484
+    },
+    {
+      "frames": 1446960,
+      "callbacks": 6057,
+      "queue_overflows": 11,
+      "software_dropped_frames": 240,
+      "read_errors": 0,
+      "restarts": 1,
+      "discontinuities": 1,
+      "raw_work_max_us": 3044,
+      "store_work_max_us": 155,
+      "timing_deficit_estimate_frames": 2455,
+      "internal_free": 76223,
+      "internal_largest": 73728,
+      "psram_free": 865340,
+      "psram_largest": 819200,
+      "internal_min_sum": 75595,
+      "psram_min_sum": 759340,
+      "internal_window_start_free": 87259,
+      "psram_window_start_free": 919484
+    },
+    {
+      "frames": 1930800,
+      "callbacks": 8073,
+      "queue_overflows": 11,
+      "software_dropped_frames": 2400,
+      "read_errors": 0,
+      "restarts": 1,
+      "discontinuities": 2,
+      "raw_work_max_us": 2836,
+      "store_work_max_us": 368,
+      "timing_deficit_estimate_frames": 2400,
+      "internal_free": 75511,
+      "internal_largest": 73728,
+      "psram_free": 842624,
+      "psram_largest": 835584,
+      "internal_min_sum": 74763,
+      "psram_min_sum": 765232,
+      "internal_window_start_free": 76223,
+      "psram_window_start_free": 865340
+    }
+  ],
+  "interpretation": "2160 additional software-dropped frames and one discontinuity with no additional queue overflow. This proves staging loss, not a single 45 ms mutex hold. Failure occurs before retention acceptance can complete."
+}
