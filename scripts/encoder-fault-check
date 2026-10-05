@@ -3,7 +3,8 @@
 # ABOUTME: Flash encoder-faults first; this resets UART, requires Shazam off, and never flashes.
 set -euo pipefail
 if [[ "${1:-}" = --help ]]; then
-    echo 'Usage: caffeinate -is scripts/encoder-fault-check [HOST] [--out DIR]'
+    echo 'Usage: caffeinate -is scripts/encoder-fault-check [HOST] [--stream-port PORT] [--state-port PORT] [--out DIR]'
+    echo 'Stream/state ports default to 8000/80; each must be 1..65535.'
     echo 'Two draining FLAC peers precede suspension; fresh playback checks admission after resume.'
     echo 'EOF allowance: 8.022 s backlog + 2 s freshness + 2.5 s close/network slack.'
     echo 'Requires ffmpeg, uv and the encoder-faults image. Restore production afterward.'
@@ -17,8 +18,15 @@ from datetime import datetime, timezone
 from pathlib import Path
 from collections import deque
 
+def port(value):
+    if not 1 <= len(value) <= 5 or not value.isascii() or not value.isdecimal() or not 1 <= int(value) <= 65535:
+        raise argparse.ArgumentTypeError('port must be an integer from 1 to 65535')
+    return int(value)
+
 p = argparse.ArgumentParser()
 p.add_argument('host', nargs='?', default='esp-shazam.local')
+p.add_argument('--stream-port', type=port, default=8000, help='stream TCP port (default: 8000)')
+p.add_argument('--state-port', type=port, default=80, help='state HTTP port (default: 80)')
 p.add_argument('--out', default='target/encoder-fault-check')
 a = p.parse_args()
 os.umask(0o077)
@@ -74,7 +82,7 @@ def match(pattern, after=0, seconds=20):
 
 def state():
     opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
-    with opener.open(f'http://{ip}/api/state', timeout=2) as response:
+    with opener.open(f'http://{ip}:{a.state_port}/api/state', timeout=2) as response:
         value = json.load(response)
     if value.get('shazam_enabled') is not False:
         raise RuntimeError('Shazam must remain disabled')
@@ -115,7 +123,7 @@ def drain(index, peer):
             errors[index] = str(error)
 
 try:
-    ip = socket.getaddrinfo(a.host, 8000, socket.AF_INET, socket.SOCK_STREAM)[0][4][0]
+    ip = socket.getaddrinfo(a.host, a.stream_port, socket.AF_INET, socket.SOCK_STREAM)[0][4][0]
     raw, serial_error = uart.open('wb'), (out/'serial.log').open('wb')
     handles += [raw, serial_error]
     serial = subprocess.Popen([str(repo/'scripts/serial-log'), '100'], stdout=raw, stderr=serial_error, start_new_session=True)
@@ -123,7 +131,7 @@ try:
     match(r'stream: listening on port 8000', seconds=25)
     state()
     for index in range(2):
-        peer = socket.create_connection((ip,8000), timeout=2)
+        peer = socket.create_connection((ip,a.stream_port), timeout=2)
         peers.append(peer)
         peer.settimeout(2)
         peer.sendall(b'GET /stream.flac HTTP/1.1\r\nHost: esp-shazam\r\n\r\n')
@@ -191,13 +199,13 @@ try:
     for index in range(2):
         progress=out/f'recovered-{index}.progress'
         error=(out/f'recovered-{index}.log').open('wb');handles.append(error)
-        job=subprocess.Popen(['ffmpeg','-nostdin','-v','error','-xerror','-stats_period','0.2','-progress',str(progress),'-rw_timeout','10000000','-i',f'http://{ip}:8000/stream.flac','-t','10','-f','null','-'],stdout=subprocess.DEVNULL,stderr=error,start_new_session=True)
+        job=subprocess.Popen(['ffmpeg','-nostdin','-v','error','-xerror','-stats_period','0.2','-progress',str(progress),'-rw_timeout','10000000','-i',f'http://{ip}:{a.stream_port}/stream.flac','-t','10','-f','null','-'],stdout=subprocess.DEVNULL,stderr=error,start_new_session=True)
         processes.append(job);jobs.append((job,progress,out/f'recovered-{index}.log'))
     def duration(progress):
         values=re.findall(r'^out_time_us=(\d+)$',progress.read_text() if progress.exists() else '',re.M)
         return int(values[-1])/1e6 if values else 0
     wait(lambda: True if all(job.poll() is None and duration(progress)>=1 for job,progress,error in jobs) else None,6,'both recovered decoders did not advance')
-    with socket.create_connection((ip,8000),timeout=2) as third:
+    with socket.create_connection((ip,a.stream_port),timeout=2) as third:
         third.settimeout(2);third.sendall(b'GET /stream.flac HTTP/1.1\r\nHost: esp-shazam\r\n\r\n')
         head=bytearray()
         deadline=time.monotonic()+3
@@ -250,7 +258,7 @@ finally:
     for handle in handles:handle.close()
     try:check_output_budget()
     except Exception as error:failure=failure or str(error)
-    summary=dict(passed=failure is None,error=failure,host=a.host,elapsed_seconds=time.monotonic()-started,evidence=evidence,uart_log=str(uart),output_budget_bytes=OUTPUT_BUDGET,note='Pre-fault peers validate byte progress; recovered peers decode real FLAC. UART is private.')
+    summary=dict(passed=failure is None,error=failure,host=a.host,stream_port=a.stream_port,state_port=a.state_port,elapsed_seconds=time.monotonic()-started,evidence=evidence,uart_log=str(uart),output_budget_bytes=OUTPUT_BUDGET,note='Pre-fault peers validate byte progress; recovered peers decode real FLAC. UART is private.')
     (out/'summary.json').write_text(json.dumps(summary,indent=2)+'\n')
     print(('PASS' if failure is None else 'FAIL')+' '+str(out/'summary.json'))
 raise SystemExit(0 if failure is None else 1)
