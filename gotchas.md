@@ -187,6 +187,19 @@ after 41.9 s. The dynamic/no-cache/copy profile also lost one of two after 71.1 
 and used more internal memory; it was rejected and static defaults restored.
 One short pass cannot establish a transport fix.
 
+An ESP-only diagnostic retried nonblocking sends after 20 ms poll slices while
+preserving the absolute frame deadline. It still lost a listener to ring lag
+after 85.4 s and was reverted. Do not reintroduce it as a proven low-water fix.
+Large en0-bound DF ICMP probes answered, so no MTU black hole was observed in
+that small sample; TCP delivery still needs packet evidence.
+
+The separate Wi-Fi-only fixture also hit scheduled write deadlines with two
+135,168 B/s peers, no audio/application workload and 181,675 B internal free
+before admission. Audio load is not necessary for the stall. Native Mac TCP
+counters showed out-of-order received bytes during a production reproduction;
+they do not locate the loss. A relay connect-timeout failure ends downstream
+HTTP without a response; distinguish that from a board handler closing it.
+
 ## Formatting a float to a precision takes 1 KB of stack
 Rust's `{:.1}` on a float goes through `float_to_decimal_common_exact`, which puts a 1,024-byte buffer on the stack. On the 4 KiB stream threads, log integers.
 

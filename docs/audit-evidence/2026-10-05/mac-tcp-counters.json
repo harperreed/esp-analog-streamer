@@ -1,0 +1,27 @@
+{
+  "scope": "Last observed native nettop counters on owned en0 relay sockets; cumulative, not packet capture",
+  "flows": {
+    "tcp4 192.168.99.151:57318<->192.168.200.224:8000": {
+      "bytes_in": "7069246",
+      "bytes_out": "146",
+      "rx_dupe": "0",
+      "rx_ooo": "202787",
+      "re_tx": "0",
+      "rtt_avg": "78.88 ms",
+      "rcvsize": "131072"
+    },
+    "tcp4 192.168.99.151:57319<->192.168.200.224:8000": {
+      "bytes_in": "7075244",
+      "bytes_out": "146",
+      "rx_dupe": "20160",
+      "rx_ooo": "243360",
+      "re_tx": "0",
+      "rtt_avg": "76.75 ms",
+      "rcvsize": "131072"
+    }
+  },
+  "run": "target/fix-nettop-two/20261005T130357.268693Z",
+  "failure": "Relay upstream API connect timeout at2s caused host failure at78.931s; stream cleanup followed. No natural ring-lag conclusion from this run.",
+  "unit_note": "Darwin provider duplicate/out-of-order/retransmit counters are bytes; re_tx is Mac transmit direction. Closed-source nettop mapping inferred from names.",
+  "source": "https://github.com/apple-oss-distributions/xnu/blob/main/bsd/net/ntstat.c#L1932"
+}

@@ -2,6 +2,39 @@
 
 ## Current state
 
+Compaction count: 6. Playback reliability remains unresolved. All speculative
+production changes from this resumed investigation were reverted. Normal
+production was restored at 2026-10-05 13:02:47 UTC with static TX16/cache32,
+mandatory PSRAM, original DeadlineWriter and Shazam off. Root's UART collectors,
+decoders, native TCP sampler and relay are stopped; no board owner is active.
+No merges or pushes are authorized. User `.gitignore`/`.kata.toml` stay untouched.
+
+The new isolated Wi-Fi fixture (`1c91bc4`) also fails without capture, encoding,
+web or MQTT, despite ample heap. It establishes that audio workload is not
+necessary for a paced transport stall. Dynamic TX and periodic send retries
+both failed and were rejected. Native Mac counters show received out-of-order
+data (202,787 / 243,360 bytes) and some duplicate data. Latest harness failure
+at 78.931 s was specifically the relay's two-second upstream API connect
+timeout; streams were then stopped by cleanup. Do not call that a natural EOF.
+
+Doctor Biz reported that the requested packet capture is running, but neither
+`target/fix-stream-packets/en0.pcap` nor a tcpdump process is visible here. Both
+repository path aliases have matching device/inode numbers. A follow-up asks
+whether Terminal is waiting for sudo, reporting an error, or on another Mac.
+Resolve that before treating a capture as available. No privileged action,
+global power setting or route change has been made. Read-only source audit also
+found public macOS per-socket TCP_SENDMOREACKS; it has not been tested or enabled.
+
+Canonical checks passed: 188 Rust tests, two pre-existing ignored, five relay
+tests, seven new real-socket collector tests, harness regressions, formatting,
+clippy, production target build and warning check. The separate Wi-Fi fixture
+also built cleanly and passed independent ownership/timing review. Evidence is
+under `docs/audit-evidence/2026-10-05/`; raw UART and network logs remain private.
+The brief -30 dBFS startup reading in the last run returned near -80 dBFS;
+it does not establish sustained music or broadband input.
+
+## Resumed investigation sequence (historical)
+
 Resumed after Doctor Biz asked to fix the playback blocker. Root owns the board
 and build; clean-context sol-6.1 agents audit the target socket contract and the
 historical successful run. Compaction count: 6. The current static profile is
@@ -68,6 +101,30 @@ peers, deterministic checked bytes, no capture/encoder/web/MQTT/Shazam workload.
 ownership. This tests whether audio workload is necessary for the stalls. It is
 a diagnostic, not a production fallback or playback acceptance. Packet capture
 request remains pending; no BPF access has been granted or assumed.
+
+Wi-Fi-only fixture reviewed and built without warnings. Seven real host
+regressions and the full canonical check pass. Two peers receive 15,814,656
+deterministic bytes each, offered as 11,264-byte chunks twelve times per second
+for 117 s (135,168 B/s each, approximately 1.3% above the prior quiet FLAC rate).
+Each chunk expires 8.021 s after its scheduled time, with 120 s total; host
+checks every byte and EOF with bounded reads. Heap snapshots label concurrent
+completion and owned buffers. Host completion alone is not a receive-pace claim;
+inspect per-second bins. ELF SHA256
+`fc59f269e17ff56ff9ae3329262aa365db4c34b632d2e1bd97163f0b84fff0c2`.
+Root is flashing this isolated fixture; it must be followed by production restore.
+
+Wi-Fi-only outcome: both failed, with correct received prefixes of 891,072 and
+1,380,512 bytes, approximately 54.6 and 74.0 kB/s including their stalls. UART
+records scheduled write-deadline failures after 14.618 and 18.198 s; host EOFs
+arrived after 16.332 and 18.660 s. Both peers had zero-byte delivery seconds.
+Before admission internal free/largest was 181,675/77,824 B and PSRAM
+4,126,772/4,063,232 B; concurrent completion snapshots retained at least
+169,467 B internal free. This demonstrates that audio/application workload is
+not necessary for a paced transport stall. It does not isolate driver, radio,
+router, or Mac. Same BSSID/channel as production; startup RSSI was -61 dBm
+versus prior -48/-49 dBm, so radio conditions are a remaining confound.
+`wifi-only-failure.json` preserves exact host data. All test peers finished;
+root stopped its UART and relay and is restoring production again.
 
 Compaction count: 5. The validation controller released board ownership after
 cleanup; no UART, flash, relay or client process remains active. Root owns ticket
