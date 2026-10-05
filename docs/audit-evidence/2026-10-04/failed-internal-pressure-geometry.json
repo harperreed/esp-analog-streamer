@@ -1,0 +1,24 @@
+{
+  "passed": false,
+  "error": "fixture reported failure; see private uart.log",
+  "mode": "internal-pressure",
+  "host": "192.168.200.224",
+  "path": "/stream.flac",
+  "listeners": 2,
+  "admission_cap_checked": false,
+  "scope": "stream and capture assertions",
+  "elapsed_seconds": 17.207,
+  "evidence": {},
+  "log_directory": "/Users/harper/Public/src/personal/esp-shazam/target/audit-internal-pressure/20261005T055912.280009Z",
+  "uart_log": "/Users/harper/Public/src/personal/esp-shazam/target/audit-internal-pressure/20261005T055912.280009Z/uart.log",
+  "note": "UART is private; decoded duration establishes playback, not independent DMA continuity.",
+  "raw_summary": "target/audit-internal-pressure/20261005T055912.280009Z/summary.json",
+  "fixture_failure": "INTERNAL_FAILED cannot form stack-sized fragmentation above experimental floor; retained owners released",
+  "start_geometry": {
+    "free": 80283,
+    "largest": 77824,
+    "experiment_floor": 32768,
+    "metadata_bytes": 2048
+  },
+  "interpretation": "The fixture could not form required fragmented geometry above its unchanged experimental 32768-byte floor. No READY or real admission failure occurred, so this provides no internal-pressure acceptance. Final failed geometry was not logged. State level -120 dBFS indicated effectively zero source. Failure was preserved without threshold relaxation or blind retry."
+}

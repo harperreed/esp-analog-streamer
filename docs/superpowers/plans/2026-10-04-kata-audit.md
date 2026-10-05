@@ -380,3 +380,12 @@ before running its harness, after root identified late failed-callback publicati
 as unsafe to assume. No pressure acceptance is claimed. Its replacement removes
 the hook and uses real strict allocation probes. Board is currently parked;
 callback-free fixture review/build precedes the next flash, then restore production.
+
+Hook-free internal-pressure `21a3355` target built/reviewed, but its hardware run
+`20261005T055912.280009Z` FAILED before READY: it could not form stack-sized
+fragmentation above the unchanged 32,768 B experimental floor. START geometry
+was free 80,283 B / largest 77,824 B; final failed geometry was not logged.
+No admission failure or decoded recovery was tested. Preserve
+`failed-internal-pressure-geometry.json`; no threshold relaxation or blind retry.
+State reported -120 dBFS, so source is now effectively zero. Output-observer
+fixture flash is underway; restore production and final canonical check follow.

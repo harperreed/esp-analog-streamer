@@ -152,16 +152,29 @@ On 2026-10-03 Harper asked to "feature flag out the shazam bits" and go for the 
 ## ESP-IDF's usleep busy-waits anything under one tick
 `CONFIG_FREERTOS_HZ=100`, so a tick is 10 ms. ESP-IDF's `usleep` (`newlib/src/time.c`) spins in `esp_rom_delay_us` for anything shorter, and Rust's `std::thread::sleep` calls `usleep` on ESP-IDF. A loop that waits should sleep at least 10 ms, as `stream.rs` does, or it burns its core.
 
-## The LINE IN stream's throughput depends on the network path, and it swings
-One listener needs 288,000 bytes/s (2.3 Mbit/s). lwIP's TCP send buffer (`CONFIG_LWIP_TCP_SND_BUF_DEFAULT`, 5,760 bytes) caps a connection at that much per round trip, so round trips must stay under 20 ms.
+## Historical Task 15 throughput settings and measurements
+The following measurements used the Task 15-era 5,760-byte send buffer and dynamic TX buffers; they are not the current profile. One raw WAV listener needs 288,000 bytes/s (2.3 Mbit/s). lwIP's TCP send buffer (`CONFIG_LWIP_TCP_SND_BUF_DEFAULT`, 5,760 bytes) caps a connection at that much per round trip, so round trips must stay under 20 ms.
 - From the Mac, round trips averaged 75-90 ms with Wi-Fi modem sleep on (ESP-IDF's default, `WIFI_PS_MIN_MODEM`: the AP holds the board's frames until its next beacon) and 14-34 ms with it off. The firmware turns it off since SDD Ruling R27 (`net::start_wifi`). The Mac is on Wi-Fi and reaches the board through Tailscale, so the board sees the subnet router (192.168.200.5) as the peer; `curl --interface en0` takes the routed path instead.
 - On 2026-10-04 listeners sometimes fell a ring behind within 6-22 s and sometimes held for minutes, on the same image. The spec's Risks has the numbers. Test with `scripts/stream-check` by IP, and expect run-to-run variance.
 - lwIP here has no per-socket send buffer. The Kconfig help mentions `TCP_SNDBUF`, but `sockets.c` leaves `SO_SNDBUF` unimplemented, so only the global default changes it.
 - A full connection costs internal RAM of 3-4x its send buffer, because the Wi-Fi driver's dynamic TX buffers fill too: about 20 KB at the default 5,760 bytes, 43 KB at 11,520 and 70 KB at 23,040, at the low.
 
-## A reset from lwIP doesn't reach a stalled peer
-After a zero-window probe, lwIP's `snd_nxt` is one byte past what the peer has, and an abort (`SO_LINGER` 0) resets with `snd_nxt`. A peer with a closed window drops that reset (RFC 5961). Behind Tailscale's subnet router it's worse: the router closes its NAT state on the reset, so the peer's later packets never reach the board, and a curl stopped for 15 s hung about 9 minutes after it resumed, until its own keepalive gave up. `stream.rs` closes a dropped listener with a FIN instead. That keeps the peer's unsent audio (at most 5.7 KB of internal RAM) until the FIN gets through or lwIP's 12 window probes run out, about 7.6 minutes.
-- **They pile up.** A dropped listener's PCB, about 6 KB of internal RAM with its queued audio, outlives its slot by up to 7.6 minutes. It goes when the peer reads again (and gets the FIN) or closes. A player that keeps its stalled connection open while it reconnects (pause, dropped, reconnect, pause again) leaves one more each time: three such cycles within 7.6 minutes hold about 18 KB. Not fixed (2026-10-04); it matters most with Shazam on.
+## Historical Task 15 stalled-peer reset and FIN retention
+The following measurements used the Task 15-era close policy; they do not describe the current checked positive-linger path. After a zero-window probe, lwIP's `snd_nxt` is one byte past what the peer has, and an abort (`SO_LINGER` 0) resets with `snd_nxt`. A peer with a closed window drops that reset (RFC 5961). Behind Tailscale's subnet router it's worse: the router closes its NAT state on the reset, so the peer's later packets never reach the board, and a curl stopped for 15 s hung about 9 minutes after it resumed, until its own keepalive gave up. The Task 15 image closed a dropped listener with a FIN instead. That keeps the peer's unsent audio (at most 5.7 KB of internal RAM) until the FIN gets through or lwIP's 12 window probes run out, about 7.6 minutes.
+- **They pile up.** A dropped listener's PCB, about 6 KB of internal RAM with its queued audio, outlives its slot by up to 7.6 minutes. It goes when the peer reads again (and gets the FIN) or closes. A player that keeps its stalled connection open while it reconnects (pause, dropped, reconnect, pause again) leaves one more each time: three such cycles within 7.6 minutes hold about 18 KB. This was the unfixed Task 15 state on 2026-10-04; it mattered most with Shazam on.
+
+## Current transport profile and measured limits
+Current source sets a 46,080-byte TCP send buffer, static TX16 and cache32,
+with the prior RX/reordering bounds preserved. Listener close uses two-second
+positive linger and retains the listener slot until checked close; an
+unrecoverable close reboots under Doctor Biz's approved policy. Queued payload
+and control PCBs remain separate resource measurements.
+
+The real FLAC/WAV trickle collection returned both ports to LISTEN-only by log
+time 214.921 s and restored the largest PSRAM block to 917,504 B. This short run
+proved sampled reclamation, not a universal lifetime bound. Direct draining still
+lost one connection to generation overrun with nonzero window and ACK/retransmit
+stalls; the six-hour soak failed. Normal routed playback remains unverified.
 
 ## Formatting a float to a precision takes 1 KB of stack
 Rust's `{:.1}` on a float goes through `float_to_decimal_common_exact`, which puts a 1,024-byte buffer on the stack. On the 4 KiB stream threads, log integers.
