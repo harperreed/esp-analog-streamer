@@ -32,6 +32,43 @@ TX type 1/count 32, no cache/static count, PSRAM preference, unchanged RX and
 TCP limits. ELF SHA256 `ba2aa653e447f430a264a27c5d0c479fcfb20625ec98b749f877bad77e48dc55`.
 Root is flashing that diagnostic; no causal result yet.
 
+Dynamic profile outcome: failed at 93.806 seconds, independent ring lag after
+71.1 seconds, checked close 66 ms. Capture fault deltas stayed flat. Internal
+minimum was lower than the static control. Boot verified mapped PSRAM and
+dynamic TX32. `dynamic-two-failure.json` preserves the result; this profile is
+rejected as a fix. Source defaults are restored and all canonical stages pass;
+root is restoring the static production image. A bounded en0 packet capture
+requires macOS administrator access; Doctor Biz has been asked to start it in
+Terminal, restricted to this board's ports 80/8000 and 30,000 truncated packets.
+No packet capture permission or changed system settings is assumed.
+
+Static production restoration finished at 12:31:02 UTC. Next independent
+diagnostic: target-only 20 ms poll slices followed by nonblocking send retries,
+retaining the absolute frame deadline and original flags. Pinned lwIP clears
+readiness after a partial write and reasserts it only above its send-buffer and
+pbuf low-water marks; retry slicing tests that delay without switching to a
+blocking send, whose timeout can wait a nominal extra TCP poll interval. This
+is temporary until real decoded comparison and deadline tests establish value.
+
+The retry diagnostic failed at 108.331 seconds: ring lag after 85.4 seconds,
+checked close 179 ms, capture fault deltas zero. The eight-line experiment is
+removed. Canonical verification passes for restored production, flashed again
+at 12:42:41 UTC. No candidate fix remains in production source.
+
+Bounded path probes: five en0-bound DF ICMP requests with 1440-byte payloads
+all answered (27–203 ms); five at 1100 bytes also answered (20–80 ms). This does
+not prove TCP delivery, but no large-packet black hole appeared in these probes.
+The Mac's local gateway answered ten probes (4–26 ms). Mac system sleep is
+prevented and low-power mode is off; no power or routing settings changed.
+
+Next independent isolation: a separate Wi-Fi-only throughput example, using
+the same pinned network configuration and DeadlineWriter, two bounded real
+peers, deterministic checked bytes, no capture/encoder/web/MQTT/Shazam workload.
+`working_comparison` owns new example/host harness; root retains all board/build
+ownership. This tests whether audio workload is necessary for the stalls. It is
+a diagnostic, not a production fallback or playback acceptance. Packet capture
+request remains pending; no BPF access has been granted or assumed.
+
 Compaction count: 5. The validation controller released board ownership after
 cleanup; no UART, flash, relay or client process remains active. Root owns ticket
 integration. FINAL PRODUCTION RESTORED: normal image 7ee8a2a with ac93d16 close
