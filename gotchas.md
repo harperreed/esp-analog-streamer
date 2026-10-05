@@ -195,3 +195,17 @@ On 2026-10-04 another session changed firmware and committed `ee68892` and `cf42
 
 ## Five audit tickets concern archived diagnostics
 `hb9p`, `sznz`, `b69f`, `3db1`, and `vya4` concern the temporary module saved under `target/task15b/` and `target/task16/`. It is absent from current firmware. Its absence does not fix those bugs: repair and verify the diagnostics before using them again, and do not cite their unsafe measurements as validation.
+
+## Kata audit, 2026-10-04
+
+The machine's global Git configuration rewrites public GitHub HTTPS URLs to SSH.
+When esp-idf-sys refreshes ESP-IDF, that rewrite can make its URL check reclone the
+SDK and fail SSH authentication. `GIT_CONFIG_GLOBAL=/dev/null scripts/check`
+(and the same scoped variable for `scripts/flash`) uses public HTTPS without
+changing global Git configuration.
+
+A per-send `SO_SNDTIMEO` does not enforce a whole-frame deadline on macOS: one
+send exceeded 700 ms against a 400 ms timeout while a peer drained in bursts.
+`DeadlineWriter` now uses nonblocking sends and `poll` against one absolute
+deadline, then restores the exact original flags. Callers must exclusively own
+the socket and its clones during each write.
