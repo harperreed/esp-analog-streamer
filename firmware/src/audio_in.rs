@@ -1,7 +1,7 @@
 // ABOUTME: Captures LINE IN over I2S at 48 kHz, 24-bit stereo, on its own high-priority thread on core 0.
-// ABOUTME: Feeds the 2 s stream ring, the 12 s 16 kHz mono ring the recognizer reads, and the store's level.
+// ABOUTME: Feeds the stream ring, the optional 12 s recognition ring, and the store's level.
 
-use std::sync::{Arc, Mutex, TryLockError};
+use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use anyhow::Result;
@@ -13,7 +13,7 @@ use esp_idf_svc::hal::i2s::config::{
     StdGpioConfig, StdSlotConfig,
 };
 use esp_idf_svc::hal::i2s::{I2s, I2sDriver, I2sRx};
-use esp_shazam_core::audio::{samples_from_i2s_slots, LevelMeter, SampleRing};
+use esp_shazam_core::audio::{samples_from_i2s_slots, LevelMeter, RecognitionBuffer, SampleRing};
 use esp_shazam_core::decimate::Decimator;
 use esp_shazam_core::stream_ring::StreamRing;
 
@@ -81,30 +81,36 @@ pub fn start_i2s<'d>(
     Ok(rx)
 }
 
-/// Spawns the capture thread. It returns the 12 s ring of the 16 kHz feed, which the recognizer
-/// fingerprints, and the stream ring of raw frames for stream listeners. Every 250 ms the thread writes
+/// Spawns the capture thread. When Shazam is enabled it returns the 12 s recognition ring;
+/// it always returns the stream ring of raw frames. Every 250 ms the thread writes
 /// the loudness of the feed's last second into `store`. The first 500 ms are dropped while the
 /// codec's reference voltage settles.
 pub fn spawn_capture(
     rx: I2sDriver<'static, I2sRx>,
     store: SharedStore,
-) -> Result<(SharedRing, SharedStreamRing)> {
-    let ring: SharedRing = Arc::new(Mutex::new(SampleRing::new(WINDOW_SAMPLES)));
+) -> Result<(Option<SharedRing>, SharedStreamRing)> {
+    let recognition = RecognitionBuffer::new(
+        CONFIG.shazam_enabled,
+        WINDOW_SAMPLES,
+        WAITING_LIMIT,
+        DMA_FRAMES / 3 + 1,
+    );
+    let ring = recognition.as_ref().map(RecognitionBuffer::shared_ring);
     let stream: SharedStreamRing = Arc::new(Mutex::new(StreamRing::new(STREAM_FRAMES)));
-    let (ring_writer, stream_writer) = (ring.clone(), stream.clone());
+    let stream_writer = stream.clone();
     ThreadSpec {
         name: c"audio",
         core: Core::Core0,
         priority: 10,
         stack_bytes: 8 * 1024,
     }
-    .spawn(move || capture(rx, ring_writer, stream_writer, store))?;
+    .spawn(move || capture(rx, recognition, stream_writer, store))?;
     Ok((ring, stream))
 }
 
 fn capture(
     mut rx: I2sDriver<'static, I2sRx>,
-    ring: SharedRing,
+    mut recognition: Option<RecognitionBuffer>,
     stream: SharedStreamRing,
     store: SharedStore,
 ) -> ! {
@@ -112,7 +118,6 @@ fn capture(
     let mut interleaved: Vec<i32> = Vec::with_capacity(2 * DMA_FRAMES);
     let mut decimator = Decimator::new();
     let mut feed: Vec<i16> = Vec::with_capacity(DMA_FRAMES / 3 + 1);
-    let mut waiting: Vec<i16> = Vec::with_capacity(WAITING_LIMIT + feed.capacity());
     let mut meter = LevelMeter::new(METER_WINDOW, METER_INTERVAL);
     let mut settle_frames = CAPTURE_RATE_HZ as usize / 2;
     loop {
@@ -131,19 +136,8 @@ fn capture(
         }
         stream.lock().expect("stream ring lock").push(&interleaved);
         decimator.process(&interleaved, &mut feed);
-        waiting.extend_from_slice(&feed);
-        match ring.try_lock() {
-            Ok(mut ring) => {
-                ring.push(&waiting);
-                waiting.clear();
-            }
-            // The recognizer is copying its 12 s window out (about 50 ms). Waiting for the lock
-            // would overrun the DMA queue, so the samples wait here for a later chunk instead.
-            Err(TryLockError::WouldBlock) => {
-                let excess = waiting.len().saturating_sub(WAITING_LIMIT);
-                waiting.drain(..excess);
-            }
-            Err(TryLockError::Poisoned(_)) => panic!("audio ring lock poisoned"),
+        if let Some(recognition) = recognition.as_mut() {
+            recognition.push(&feed);
         }
         if let Some(level) = meter.push(&feed) {
             store.lock().expect("store lock").set_level(level);

@@ -64,8 +64,8 @@ fn main() -> Result<()> {
     let _server = web::start(store.clone())?;
     stream::start(stream_ring, &mut mdns)?;
     let publisher = mqtt_out::start(CONFIG.mqtt_url, store.clone())?;
-    // Both branches always compile: the flag only decides whether the recognizer thread starts.
-    if CONFIG.shazam_enabled {
+    // Capture only supplies a recognition ring when Shazam is enabled.
+    if let Some(ring) = ring {
         recognizer::spawn(ring, store, config::policy_config(), move || {
             publisher.publish_now()
         })?;

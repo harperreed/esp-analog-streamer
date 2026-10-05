@@ -1,6 +1,8 @@
 // ABOUTME: Audio helpers for the capture path: I2S slot unpacking, a sample ring, a level meter, loudness, a tone check.
 // ABOUTME: Pure code, so the Mac tests cover what the firmware runs.
 
+use std::sync::{Arc, Mutex, TryLockError};
+
 pub const SILENCE_DBFS: f32 = -120.0;
 
 /// Fixed-capacity ring of mono samples that keeps the newest audio.
@@ -43,6 +45,54 @@ impl SampleRing {
         let cap = self.buf.len();
         let start = (self.write + cap - n) % cap;
         out.extend((0..n).map(|i| self.buf[(start + i) % cap]));
+    }
+}
+
+/// Fingerprint samples waiting for a snapshot to release the recognition ring.
+/// Capture never waits for this lock, so a snapshot cannot stall the I2S reader.
+pub struct RecognitionBuffer {
+    ring: Arc<Mutex<SampleRing>>,
+    waiting: Vec<i16>,
+    waiting_limit: usize,
+}
+
+impl RecognitionBuffer {
+    /// Disabled recognition has neither a sample ring nor a waiting buffer.
+    pub fn new(
+        enabled: bool,
+        window: usize,
+        waiting_limit: usize,
+        chunk_capacity: usize,
+    ) -> Option<Self> {
+        if !enabled {
+            return None;
+        }
+        Some(Self {
+            ring: Arc::new(Mutex::new(SampleRing::new(window))),
+            waiting: Vec::with_capacity(waiting_limit + chunk_capacity),
+            waiting_limit,
+        })
+    }
+
+    pub fn shared_ring(&self) -> Arc<Mutex<SampleRing>> {
+        self.ring.clone()
+    }
+
+    pub fn push(&mut self, samples: &[i16]) {
+        self.waiting.extend_from_slice(samples);
+        match self.ring.try_lock() {
+            Ok(mut ring) => {
+                ring.push(&self.waiting);
+                self.waiting.clear();
+            }
+            // The recognizer is copying its 12 s window out (about 50 ms). Waiting for the lock
+            // would overrun the DMA queue, so the samples wait here for a later chunk instead.
+            Err(TryLockError::WouldBlock) => {
+                let excess = self.waiting.len().saturating_sub(self.waiting_limit);
+                self.waiting.drain(..excess);
+            }
+            Err(TryLockError::Poisoned(_)) => panic!("audio ring lock poisoned"),
+        }
     }
 }
 
@@ -189,6 +239,46 @@ pub fn zero_crossing_hz(samples: &[i16], sample_rate_hz: u32) -> f32 {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn disabled_recognition_has_no_buffers() {
+        assert!(RecognitionBuffer::new(false, 12, 4, 2).is_none());
+    }
+
+    #[test]
+    fn enabled_recognition_flushes_samples_after_snapshot_unlocks() {
+        let mut buffer = RecognitionBuffer::new(true, 12, 4, 2).unwrap();
+        let ring = buffer.shared_ring();
+        assert_eq!(ring.lock().unwrap().capacity(), 12);
+        assert_eq!(buffer.waiting.capacity(), 6);
+        buffer.push(&[1, 2]);
+        let snapshot = ring.lock().unwrap();
+        buffer.push(&[3, 4]);
+        buffer.push(&[5]);
+        assert_eq!(buffer.waiting, [3, 4, 5]);
+        drop(snapshot);
+        buffer.push(&[6]);
+        assert!(buffer.waiting.is_empty());
+        let mut out = Vec::new();
+        ring.lock().unwrap().copy_latest(12, &mut out);
+        assert_eq!(out, [1, 2, 3, 4, 5, 6]);
+    }
+
+    #[test]
+    fn recognition_keeps_newest_waiting_samples_when_snapshot_stalls() {
+        let mut buffer = RecognitionBuffer::new(true, 12, 4, 2).unwrap();
+        let ring = buffer.shared_ring();
+        let snapshot = ring.lock().unwrap();
+        buffer.push(&[1, 2]);
+        buffer.push(&[3, 4]);
+        buffer.push(&[5, 6]);
+        assert_eq!(buffer.waiting, [3, 4, 5, 6]);
+        drop(snapshot);
+        buffer.push(&[7, 8]);
+        let mut out = Vec::new();
+        ring.lock().unwrap().copy_latest(12, &mut out);
+        assert_eq!(out, [3, 4, 5, 6, 7, 8]);
+    }
 
     fn sine(freq_hz: f32, amplitude: f32, seconds: f32, dc: i16) -> Vec<i16> {
         let n = (16_000.0 * seconds) as usize;
