@@ -6,8 +6,8 @@ Compaction count: 5. Exclusive validation controller `/root/overnight_verify`
 owns live board, UART and flash state; message it before hardware access. Root
 owns ticket integration. Last confirmed completed image/test: `66f2717` TCP
 output observer with restored cache 32, en0-bound observation begun 2026-10-05
-06:49:07 UTC default-route repeat, following the en0-bound control. Both en0
-sockets held 60 s; both default-route peers ended early from ring lag. Corrected strict pressure run reached actual refusal
+06:56:38 UTC cache64 en0 control. That control lost both peers to ring lag
+near 22 s despite zero driver errors; source cache 32 is restored, board awaits next flash. Corrected strict pressure run reached actual refusal
 but failed decoded recovery. Restore production after remaining reviewed fixtures.
 No merges or pushes are authorized. Shazam stays off under R26.
 
@@ -482,3 +482,25 @@ Next: reviewed local en0 relay for strict pressure recovery, then mandatory
 production restoration, refreshed canonical check after host harness changes,
 and at least five minutes of actual two-decoder production validation before
 considering a long soak. Cache32/MSS1440 remain unchanged.
+
+
+## Cache-capacity en0 control — 2026-10-05 06:56 UTC
+
+The approved temporary cache 64 only observer built without compiler warnings;
+generated header and boot verified 64, staticTX16/MSS1440/send46080 unchanged.
+Two actual en0-bound sockets naturally ended after 22.0538/21.9275s receiving.
+Each file contained 126 matching complete sequential CRC-valid frames, decoded
+10.752 s PCM cleanly, with no terminal partial. First 20 s delivered10.4107 s PCM;
+only0.3413 s followed before EOF. UART attributed both departures to ring lag
+at 21.9/21.0 s, with checked closes 118/893 ms. Capture fault counters stayed flat.
+Output hook 1 recorded 2083 single-pbuf calls and zero driver errors. This did not
+improve the earlier cache 32 control; keep 32 and do not infer success from zero
+errors. Pre-listener PSRAM free 865084 B versus 919492 B (-54408 B), internal 81999 B
+versus 81975 B (+24 B), support sampled placement only. Full temporal output
+increments and receive windows remain in `en0-cache64-observation.json`;
+private raw path `target/audit-flac-tee/20261005T065638.371359Z`.
+
+Sourcecache32 restored; no permanent firmware configuration change. Reviewed
+host relay changes and canonical check follow, then strict pressure via explicit
+en0 relay and mandatory final production flash. No 6 h soak before bounded decoded
+production acceptance.

@@ -336,3 +336,9 @@ only 14.7627 s PCM in its final 20 s, with 128 driver ERR_MEM results. Preserve
 late delivery rate and raw tails alongside socket lifetime. Its unchanged
 default-route repeat lost both peers to ring lag; en0 success does not satisfy
 routed acceptance or establish the transport cause.
+
+
+The en0 cache64 control removed observed driver errors but both peers still
+fell a ring behind near 22 s and delivered only10.752 s PCM. Earlier cache 32 held
+60 s with 128 errors. Cache-error counts and playback acceptance measure different
+things; neither zero errors nor a larger cache establishes a fix. Keep cache 32.
