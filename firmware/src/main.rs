@@ -4,8 +4,10 @@
 mod audio_in;
 mod codec;
 mod config;
+mod i2s_capture;
 mod mqtt_out;
 mod net;
+mod psram;
 mod recognizer;
 mod shazam_http;
 mod stream;

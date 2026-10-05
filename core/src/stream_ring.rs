@@ -17,11 +17,12 @@ pub struct StreamRing {
     head: usize,
     /// Frames pushed since the ring was made. A `u64` outlives any uptime: 48,000 a second wraps a `u32` in 25 hours.
     written: u64,
+    generation: u64,
 }
 
 /// A reader's place in the stream: the number of the next frame it wants.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct Cursor(u64);
+pub struct Cursor(u64, u64);
 
 /// The writer lapped the reader: frames it had not yet read were overwritten.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -38,12 +39,20 @@ impl StreamRing {
             buf: vec![0; 2 * capacity_frames],
             head: 0,
             written: 0,
+            generation: 0,
         }
     }
 
     /// Capacity in frames.
     pub fn capacity(&self) -> usize {
         self.buf.len() / 2
+    }
+
+    /// Marks a capture gap without reallocating; every existing reader must rejoin.
+    pub fn reset(&mut self) {
+        self.head = 0;
+        self.written = 0;
+        self.generation = self.generation.wrapping_add(1);
     }
 
     /// Appends whole frames, overwriting the oldest. Never waits. A trailing half frame is dropped,
@@ -65,7 +74,7 @@ impl StreamRing {
 
     /// A cursor at the write position: the first frame it reads is the next one pushed.
     pub fn cursor_now(&self) -> Cursor {
-        Cursor(self.written)
+        Cursor(self.written, self.generation)
     }
 
     /// Copies the frames from `cursor` on into `out`, whole frames, as many as fit, and moves the
@@ -73,6 +82,9 @@ impl StreamRing {
     /// Returns `Overrun`, leaving the cursor alone, once more than `capacity` frames have been
     /// pushed since the cursor's frame. The reader then takes a new cursor or gives up.
     pub fn read(&self, cursor: &mut Cursor, out: &mut [i32]) -> Result<usize, Overrun> {
+        if cursor.1 != self.generation {
+            return Err(Overrun);
+        }
         let capacity = self.capacity();
         // Saturating, so that a cursor from another ring can't panic a stream thread and poison the lock.
         let behind = self.written.saturating_sub(cursor.0);
@@ -94,6 +106,23 @@ impl StreamRing {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn reset_invalidates_old_cursors_without_reallocating() {
+        let mut ring = StreamRing::new(8);
+        let buffer = ring.buf.as_ptr();
+        let mut old = ring.cursor_now();
+        ring.push(&[1, 2]);
+        ring.reset();
+        assert_eq!(ring.buf.as_ptr(), buffer);
+        assert_eq!(ring.read(&mut old, &mut [0; 2]), Err(Overrun));
+        let mut fresh = ring.cursor_now();
+        assert_eq!(ring.read(&mut fresh, &mut [0; 2]), Ok(0));
+        ring.push(&[3, 4]);
+        let mut out = [0; 2];
+        assert_eq!(ring.read(&mut fresh, &mut out), Ok(1));
+        assert_eq!(out, [3, 4]);
+    }
 
     /// Frame `i` of the test signal. Left and right differ, so a swapped or shifted channel shows.
     fn frame(i: i32) -> [i32; 2] {

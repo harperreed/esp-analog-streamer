@@ -4,7 +4,7 @@
 use std::fmt;
 use std::io::{self, BufReader, Write};
 use std::net::{TcpListener, TcpStream};
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::atomic::AtomicUsize;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
@@ -14,13 +14,31 @@ use esp_idf_svc::mdns::EspMdns;
 use esp_shazam_core::flac_ring::FlacRing;
 use esp_shazam_core::stream_http::{self, DeadlineReader, DeadlineWriter, Format, Route, Status};
 use esp_shazam_core::stream_ring::{Cursor, Overrun};
+use esp_shazam_core::stream_wait::{read_fresh, Slot, WaitError};
 use esp_shazam_core::{flac, wav};
 
 use crate::audio_in::{SharedStreamRing, CAPTURE_RATE_HZ};
 use crate::config::CONFIG;
+use crate::psram::PsramBytes;
 use crate::threads::ThreadSpec;
 
 type SharedFlacRing = Arc<Mutex<FlacRing>>;
+
+/// A FLAC listener requires byte-addressable PSRAM for its complete encoded frame.
+/// Small headers and the WAV's small buffers retain the normal allocator's preferred placement.
+enum ListenerBuffer {
+    Wav,
+    Flac(PsramBytes),
+}
+
+impl ListenerBuffer {
+    fn try_new(format: Format) -> io::Result<Self> {
+        match format {
+            Format::Wav => Ok(Self::Wav),
+            Format::Flac => PsramBytes::try_new(flac::MAX_FRAME_BYTES).map(Self::Flac),
+        }
+    }
+}
 
 /// Off: 94 slots hold 8.02 s; on: 24 slots hold 2.048 s. The enabled profile
 /// trades 576 KB of raw WAV slack for 590,280 bytes of encoded storage (including lengths).
@@ -44,6 +62,10 @@ const CHUNK_FRAMES: usize = 240;
 const _: () = assert!(flac::SAMPLE_RATE_HZ == CAPTURE_RATE_HZ);
 /// A listener that has caught up sleeps one FreeRTOS tick: ESP-IDF's usleep busy-waits anything shorter.
 const CAUGHT_UP_SLEEP: Duration = Duration::from_millis(10);
+/// A caught-up listener waits at most 2 s for real audio, plus one tick and scheduling delay.
+/// Quiet audio still produces samples/FLAC frames. Capture stalls release both listener slots
+/// independently of the capture supervisor; the shared encoder waits again after this timeout.
+const FRESH_AUDIO_TIMEOUT: Duration = Duration::from_secs(2);
 /// A client gets this long to send its whole request head, which may be at most `MAX_HEAD_BYTES`,
 /// and to take a refusal. The accept thread answers one connection at a time, so this is how long
 /// one client can hold up the next.
@@ -133,8 +155,19 @@ fn answer(
         }
     };
     match stream_http::route(&request_line) {
-        Route::Stream(format) => match Slot::take(listeners) {
+        Route::Stream(format) => match Slot::take(listeners, MAX_LISTENERS) {
             Some(slot) => {
+                // Required frame storage is admitted before spawning or sending HTTP 200.
+                // A failed allocation cannot fall back to memory needed by DMA or stacks.
+                let buffer = match ListenerBuffer::try_new(format) {
+                    Ok(buffer) => buffer,
+                    Err(error) => {
+                        log::warn!("stream: {peer}: listener buffer unavailable ({error})");
+                        refuse(sock, &peer, &request_line, Status::ServiceUnavailable);
+                        drop(slot);
+                        return;
+                    }
+                };
                 log::info!(
                     "stream: {peer} joined {} ({} of {MAX_LISTENERS})",
                     format.path(),
@@ -145,7 +178,7 @@ fn answer(
                 // On failure the closure is dropped with the socket and the slot: the client sees
                 // the connection close.
                 if let Err(e) =
-                    LISTENER_THREAD.spawn(move || listen(sock, ring, encoded, slot, peer, format))
+                    LISTENER_THREAD.spawn(move || listen(sock, ring, encoded, slot, peer, buffer))
                 {
                     log::warn!("stream: no thread for a listener: {e}");
                 }
@@ -170,32 +203,6 @@ fn refuse(mut sock: TcpStream, peer: &str, request_line: &str, status: Status) {
     }
 }
 
-/// One of the `MAX_LISTENERS` listener places. Dropping it frees the place.
-struct Slot(Arc<AtomicUsize>);
-
-impl Slot {
-    /// Takes a place, if one is free.
-    fn take(taken: &Arc<AtomicUsize>) -> Option<Self> {
-        taken
-            .fetch_update(Ordering::AcqRel, Ordering::Acquire, |n| {
-                (n < MAX_LISTENERS).then_some(n + 1)
-            })
-            .ok()?;
-        Some(Self(Arc::clone(taken)))
-    }
-
-    /// How many places are taken now, this one included.
-    fn taken(&self) -> usize {
-        self.0.load(Ordering::Acquire)
-    }
-}
-
-impl Drop for Slot {
-    fn drop(&mut self) {
-        self.0.fetch_sub(1, Ordering::AcqRel);
-    }
-}
-
 /// A listener's thread: streams `format` until the listener goes or falls behind, then frees its slot.
 fn listen(
     sock: TcpStream,
@@ -203,12 +210,12 @@ fn listen(
     encoded: SharedFlacRing,
     slot: Slot,
     peer: String,
-    format: Format,
+    buffer: ListenerBuffer,
 ) {
     let started = Instant::now();
-    let end = match format {
-        Format::Wav => stream_wav(&sock, &ring),
-        Format::Flac => stream_flac(&sock, &encoded),
+    let end = match buffer {
+        ListenerBuffer::Wav => stream_wav(&sock, &ring),
+        ListenerBuffer::Flac(mut bytes) => stream_flac(&sock, &encoded, bytes.as_mut_slice()),
     };
     // Integer tenths: formatting a float to a precision puts a 1 KB buffer on this small stack.
     let tenths = started.elapsed().as_millis() / 100;
@@ -236,6 +243,8 @@ enum End {
     /// Writing a frame took as long as the ring holds: the listener stopped reading, or reads too
     /// little to matter.
     StoppedReading,
+    /// Capture or the shared encoder stopped supplying fresh audio.
+    CaptureStalled,
     /// The socket failed, usually because the listener closed it.
     Failed(io::Error),
 }
@@ -255,6 +264,9 @@ impl fmt::Display for End {
         match self {
             End::FellBehind => f.write_str("fell a ring behind"),
             End::StoppedReading => f.write_str("stopped reading"),
+            End::CaptureStalled => {
+                write!(f, "no fresh audio for {} s", FRESH_AUDIO_TIMEOUT.as_secs())
+            }
             End::Failed(e) => write!(f, "{e}"),
         }
     }
@@ -269,20 +281,17 @@ fn frame_write_limit(ring: &SharedStreamRing) -> Duration {
 }
 
 /// Copies the frames after `cursor` into `out`, as many as are there and fit, and waits for some
-/// when there are none. `out` holds at most `CHUNK_FRAMES` frames, so the lock is held briefly.
+/// for at most `FRESH_AUDIO_TIMEOUT` when there are none. `out` holds at most `CHUNK_FRAMES`
+/// frames, so the lock is held briefly.
 fn read_some(
     ring: &SharedStreamRing,
     cursor: &mut Cursor,
     out: &mut [i32],
-) -> Result<usize, Overrun> {
-    loop {
+) -> Result<usize, WaitError<Overrun>> {
+    read_fresh(FRESH_AUDIO_TIMEOUT, CAUGHT_UP_SLEEP, || {
         // The lock is held for this statement only, never during encoding or socket work.
-        let read = ring.lock().expect("stream ring lock").read(cursor, out);
-        match read {
-            Ok(0) => std::thread::sleep(CAUGHT_UP_SLEEP),
-            other => return other,
-        }
-    }
+        ring.lock().expect("stream ring lock").read(cursor, out)
+    })
 }
 
 /// Sends the response head and the WAV header, then frames from the ring as they arrive, until the
@@ -299,8 +308,10 @@ fn stream_wav(sock: &TcpStream, ring: &SharedStreamRing) -> End {
         if let Err(e) = writer.write_all_before(&bytes, Instant::now() + write_limit) {
             return End::from_write_error(e);
         }
-        let Ok(frames_read) = read_some(ring, &mut cursor, &mut frames) else {
-            return End::FellBehind;
+        let frames_read = match read_some(ring, &mut cursor, &mut frames) {
+            Ok(n) => n,
+            Err(WaitError::Stalled) => return End::CaptureStalled,
+            Err(WaitError::Read(Overrun)) => return End::FellBehind,
         };
         wav::pack_s24le(&frames[..2 * frames_read], &mut bytes);
     }
@@ -319,7 +330,10 @@ fn encode(raw: SharedStreamRing, encoded: SharedFlacRing) {
         let frames = CHUNK_FRAMES.min(encoder.frames_wanted());
         match read_some(&raw, &mut cursor, &mut chunk[..flac::CHANNELS * frames]) {
             Ok(n) => encoder.push(&chunk[..flac::CHANNELS * n]),
-            Err(Overrun) => {
+            // Keep this one shared encoder alive during a pause. The next read starts a full
+            // wait; a capture reset still yields Overrun and discards the partial block below.
+            Err(WaitError::Stalled) => continue,
+            Err(WaitError::Read(Overrun)) => {
                 log::warn!("stream: encoder fell behind capture; disconnecting FLAC listeners");
                 encoded.lock().expect("FLAC ring lock").reset();
                 encoder.reset();
@@ -343,12 +357,11 @@ fn encode(raw: SharedStreamRing, encoded: SharedFlacRing) {
 /// A fresh header precedes the next whole shared frame, even when its block number is nonzero.
 /// The bounded output buffer holds one complete frame, so every socket write shares that frame's
 /// single deadline. The ring's mutex is released before any socket call.
-fn stream_flac(sock: &TcpStream, ring: &SharedFlacRing) -> End {
+fn stream_flac(sock: &TcpStream, ring: &SharedFlacRing, bytes: &mut [u8]) -> End {
     let write_limit = Duration::from_millis(
         1_000 * (FLAC_RING_FRAMES * flac::BLOCK_FRAMES) as u64 / u64::from(CAPTURE_RATE_HZ),
     );
     let mut writer = DeadlineWriter::new(sock);
-    let mut bytes = vec![0; flac::MAX_FRAME_BYTES];
     let mut header = Format::Flac.response_head().as_bytes().to_vec();
     header.extend_from_slice(&flac::stream_header());
     let mut cursor = ring.lock().expect("FLAC ring lock").cursor_now();
@@ -356,17 +369,14 @@ fn stream_flac(sock: &TcpStream, ring: &SharedFlacRing) -> End {
         return End::from_write_error(e);
     }
     loop {
-        let read = ring
-            .lock()
-            .expect("FLAC ring lock")
-            .read(&mut cursor, &mut bytes);
-        let n = match read {
-            Ok(0) => {
-                std::thread::sleep(CAUGHT_UP_SLEEP);
-                continue;
-            }
+        let n = match read_fresh(FRESH_AUDIO_TIMEOUT, CAUGHT_UP_SLEEP, || {
+            ring.lock()
+                .expect("FLAC ring lock")
+                .read(&mut cursor, bytes)
+        }) {
             Ok(n) => n,
-            Err(_) => return End::FellBehind,
+            Err(WaitError::Stalled) => return End::CaptureStalled,
+            Err(WaitError::Read(_)) => return End::FellBehind,
         };
         if let Err(e) = writer.write_all_before(&bytes[..n], Instant::now() + write_limit) {
             return End::from_write_error(e);

@@ -30,6 +30,10 @@ impl SampleRing {
     pub fn is_empty(&self) -> bool {
         self.filled == 0
     }
+    pub fn clear(&mut self) {
+        self.write = 0;
+        self.filled = 0;
+    }
     pub fn push(&mut self, samples: &[i16]) {
         let cap = self.buf.len();
         for &s in samples {
@@ -54,9 +58,16 @@ pub struct RecognitionBuffer {
     ring: Arc<Mutex<SampleRing>>,
     waiting: Vec<i16>,
     waiting_limit: usize,
+    reset_pending: bool,
 }
 
 impl RecognitionBuffer {
+    /// Discards pre-gap samples; clearing the shared ring waits without blocking capture.
+    pub fn reset(&mut self) {
+        self.waiting.clear();
+        self.reset_pending = true;
+        self.push(&[]);
+    }
     /// Disabled recognition has neither a sample ring nor a waiting buffer.
     pub fn new(
         enabled: bool,
@@ -71,6 +82,7 @@ impl RecognitionBuffer {
             ring: Arc::new(Mutex::new(SampleRing::new(window))),
             waiting: Vec::with_capacity(waiting_limit + chunk_capacity),
             waiting_limit,
+            reset_pending: false,
         })
     }
 
@@ -82,6 +94,10 @@ impl RecognitionBuffer {
         self.waiting.extend_from_slice(samples);
         match self.ring.try_lock() {
             Ok(mut ring) => {
+                if self.reset_pending {
+                    ring.clear();
+                    self.reset_pending = false;
+                }
                 ring.push(&self.waiting);
                 self.waiting.clear();
             }
@@ -89,6 +105,9 @@ impl RecognitionBuffer {
             // would overrun the DMA queue, so the samples wait here for a later chunk instead.
             Err(TryLockError::WouldBlock) => {
                 let excess = self.waiting.len().saturating_sub(self.waiting_limit);
+                if excess > 0 {
+                    self.reset_pending = true;
+                }
                 self.waiting.drain(..excess);
             }
             Err(TryLockError::Poisoned(_)) => panic!("audio ring lock poisoned"),
@@ -174,6 +193,12 @@ pub struct LevelMeter {
 }
 
 impl LevelMeter {
+    /// Drops completed and partial intervals after a capture gap, retaining storage.
+    pub fn reset(&mut self) {
+        self.intervals.fill(Sums::default());
+        self.next = 0;
+        self.filling = Sums::default();
+    }
     /// `window` must be a whole number of intervals.
     pub fn new(window: usize, interval: usize) -> Self {
         assert!(
@@ -239,6 +264,71 @@ pub fn zero_crossing_hz(samples: &[i16], sample_rate_hz: u32) -> f32 {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn recognition_reset_clears_available_ring_immediately() {
+        let mut recognition = RecognitionBuffer::new(true, 16, 8, 4).unwrap();
+        recognition.push(&[1, 2]);
+        let ring = recognition.shared_ring();
+        recognition.reset();
+        assert!(ring.lock().unwrap().is_empty());
+    }
+
+    #[test]
+    fn recognition_reset_retry_clears_released_ring_without_new_feed() {
+        let mut recognition = RecognitionBuffer::new(true, 16, 8, 4).unwrap();
+        recognition.push(&[1, 2]);
+        let ring = recognition.shared_ring();
+        let held = ring.lock().unwrap();
+        recognition.reset();
+        drop(held);
+        recognition.push(&[]);
+        assert!(ring.lock().unwrap().is_empty());
+    }
+
+    #[test]
+    fn meter_reset_matches_fresh_meter_without_replacing_storage() {
+        let mut meter = LevelMeter::new(8, 2);
+        meter.push(&[100, -100, 200, -200, 300]);
+        let pointer = meter.intervals.as_ptr();
+        meter.reset();
+        assert_eq!(meter.intervals.as_ptr(), pointer);
+        let mut fresh = LevelMeter::new(8, 2);
+        for samples in [&[10][..], &[-10, 20, -20][..], &[30, -30, 40, -40][..]] {
+            assert_eq!(meter.push(samples), fresh.push(samples));
+        }
+        assert_eq!(meter.intervals.as_ptr(), pointer);
+    }
+
+    #[test]
+    fn recognition_gap_clears_old_samples_after_snapshot_releases_lock() {
+        let mut recognition = RecognitionBuffer::new(true, 16, 8, 4).unwrap();
+        let ring = recognition.shared_ring();
+        recognition.push(&[1, 2]);
+        let held = ring.lock().unwrap();
+        recognition.push(&[3, 4]);
+        recognition.reset();
+        recognition.push(&[5, 6]);
+        drop(held);
+        recognition.push(&[7, 8]);
+        let mut out = Vec::new();
+        ring.lock().unwrap().copy_latest(16, &mut out);
+        assert_eq!(out, [5, 6, 7, 8]);
+    }
+
+    #[test]
+    fn recognition_waiting_overflow_clears_pre_gap_history() {
+        let mut recognition = RecognitionBuffer::new(true, 16, 2, 4).unwrap();
+        let ring = recognition.shared_ring();
+        recognition.push(&[1, 2]);
+        let held = ring.lock().unwrap();
+        recognition.push(&[3, 4, 5, 6]);
+        drop(held);
+        recognition.push(&[7, 8]);
+        let mut out = Vec::new();
+        ring.lock().unwrap().copy_latest(16, &mut out);
+        assert_eq!(out, [5, 6, 7, 8]);
+    }
 
     #[test]
     fn disabled_recognition_has_no_buffers() {
