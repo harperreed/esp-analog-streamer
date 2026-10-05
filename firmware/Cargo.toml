@@ -45,3 +45,8 @@ remote_component = { name = "espressif/mdns", version = "1.8.2" }
 
 # Its own workspace: the host workspace at the repo root excludes firmware/.
 [workspace]
+
+# Hardware fixture uses generated layouts, never a copied private lwIP ABI.
+[[package.metadata.esp-idf-sys.extra_components]]
+bindings_header = "bindings/tcp-retention.h"
+bindings_module = "tcp_retention"
