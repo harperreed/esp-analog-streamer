@@ -250,3 +250,13 @@ ESP-IDF Rust logs are synchronous and can wait indefinitely on filter/FILE/UART
 locks. Default UART output also busy-waits FIFO space. High-priority health
 checks must publish recovery actions independently of logs; moving only ordinary
 telemetry leaves rare recovery logs capable of blocking the recovery itself.
+
+Hardware fault fixtures must not log while a suspended task might own a logger
+lock: a RAII resume guard cannot run while the observer itself is blocked. Save
+event times, resume first, then report. Base task priority alone cannot make a
+state-check/suspend pair atomic because the target can inherit higher priority.
+The encoder fixture uses a short, pinned-IDF-verified local scheduler suspension.
+
+Default ESP-IDF log prefixes and esp_timer_get_time marker times have different
+origins. Sample esp_log_timestamp and esp_timer together before logging, then
+convert clocks for comparisons; a UART marker's receipt is not exact clock sync.
