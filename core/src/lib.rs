@@ -2,6 +2,7 @@
 // ABOUTME: No ESP-IDF dependencies, so `cargo test` on the Mac covers all of it.
 
 pub mod audio;
+pub mod capture_health;
 pub mod decimate;
 pub mod flac;
 pub mod flac_ring;
