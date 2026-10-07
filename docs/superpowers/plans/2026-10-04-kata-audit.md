@@ -2,35 +2,61 @@
 
 ## Current state
 
-ACTIVE HARDWARE DIAGNOSTIC, 2026-10-07: board currently runs the existing
-`tcp-retention` observer image, NOT production. Production source is unchanged.
-Session network/USB access is restored; workstation Wi-Fi is disconnected and
-Ethernet enp5s0 has 192.168.23.153. Both Wi-Fi-only b/g and normal b/g/n fixtures
-failed within about nine seconds with the workstation Wi-Fi absent. This does
-not support an 11n-specific cause; do not keep the temporary b/g restriction.
-Evidence: `docs/audit-evidence/2026-10-07/wired-radio-comparison.json`.
+2026-10-07 paired wired capture and load comparison (compaction count 9):
+Workstation Wi-Fi is disconnected; Ethernet enp5s0 has 192.168.23.153.
+The correlated capture ran successfully and retained tcpdump's zero kernel-drop
+count: `target/packet-capture/run-PpWOxAlo/stream.pcap`. Sender UART and soak live
+under `target/wired-investigation/correlated-BBOKvRbo/soak/20261007T182539.473285Z/`.
+Both streams naturally fell a ring behind (24.4/25.6 s); sampled capture fault
+counters stayed flat. Receiver windows stayed open. Sequence holes lasted over
+two seconds. Paired sender snapshots support forward-delivery delay and some
+ACK-return/processing delay, subject to approximate clock alignment; they do
+not locate a fault within driver, RF or AP. See the curated paired evidence.
 
-The next test needs simultaneous wired TCP/ARP capture and the existing sender
-observer. Doctor Biz has been asked to run
-`scripts/capture-stream-packets 192.168.23.217 enp5s0 360`; no capture process is
-running yet. Once it is listening, play the music fixture and run the canonical
-two-listener soak. Match sender lastack/snd_nxt to absolute packet sequence and
-ACK numbers. Preserve tcpdump drop counters and check ARP/MAC mappings. The
-capture helper now records the board's ARP as well as TCP ports80/8000. Only sudo
-packet capture needs operator authentication. Do not ask for another arbitrary
-buffer change or stop after the next failed measurement if useful work remains.
-Restore production with ESPFLASH_PORT=/dev/ttyUSB0 ESPFLASH_BAUD=921600
-scripts/flash after diagnostics. Flash baud921600 was verified on this board.
+CORRECTION: the supposed earlier b/g/n wired-only control actually associated as
+bg. Protocol selection persisted after source restoration and reflashing. An
+explicit temporary setter restored bitmap7, verified by readback and phy:bgn.
+The setter is removed from source. Subsequent independent normal-fixture boots
+also verify bgn. Matching ELF hashes is insufficient to restore radio state.
+The corrected `transport-bgn-verified` control failed peer0 after 17.728 s;
+peer1 completed 15,814,656 bytes in 117.306 s. Audio/web/MQTT are absent from
+that fixture, so they are not required for this failure.
 
-Private logs, variant ELFs, and the throwaway bounded transport runner are in
-`target/wired-investigation/`. The earlier dual-interface b/g run is excluded:
-host timed out with zero bytes while board saw immediate resets. ARP flux was
-suspected but not proved. Normal fixture control hash is
-7058fef7dd0c790c9b69d01d6826804e3adf88d29aaf0ed222f3f5c75f38d3b6.
-Observer snapshots showed cwnd collapse from ~56KB to2880B, unsent data, and one
-Wi-Fi driver ERR_MEM result; those do not locate the loss. Linux harness has
-11 passing real-socket tests. Canonical checks all passed after harness/capture
-changes. Production restoration and live acceptance remain outstanding.
+Completed load comparison: full-rate control failed one peer at 17.728 s;
+half rate completed both 7,907,328-byte transfers in 117.32 s; full-rate repeat
+failed the other peer at 11.132 s while its partner completed. One half-rate
+peer still reached approximately 7 s schedule deficit in host-second bins.
+This supports load sensitivity, not a proven bandwidth cap or fix. Temporary
+source constants are restored; firmware source has no diff. Curated reports,
+source hashes and the radio-state correction are in
+`docs/audit-evidence/2026-10-07/wired-radio-comparison.json`.
+
+Doctor Biz expects no bandwidth limit. He supplied the faster household SSID,
+but it is a separate 5 GHz network and he cannot enable 2.4 GHz there. Board
+association timed out twice. Cached host scan shows only 5 GHz; fresh scan was
+denied by NetworkManager. Do not count this as a throughput comparison.
+The original production ELF from `target/channel-diagnostic/control.elf` was
+flashed back (SHA256 82bb107be87811c66d02fc400315564476ddcf9ce5e151c2ff30df863bcf73fa).
+Final boot verifies bgn, PGA0x00 and IP192.168.23.217; the status API responds.
+Evidence: `target/wired-investigation/final-production-boot.log` and
+`final-production-state.json`. Local build credentials still need restoration
+(pending Doctor Biz's answer whether both networks use the same password). Never print credentials or commit cfg.toml. The faster-network
+compiled output is stale for the intended production network until rebuilt.
+
+The next useful external evidence is AP-side retries/link-rate/queue data or a
+controlled alternate 2.4 GHz AP. The paired capture cannot distinguish sender
+TCP/driver, RF and AP. No speculative buffer or timeout changes are justified.
+High-severity streaming reliability remains unresolved; fix it before shipping.
+Physical channel reversal remains unresolved upstream of the ADC.
+
+Operator runner `target/wired-investigation/capture-and-test` now uses standard
+grep and checks prerequisites before diagnosing routes. The agent's PATH had rg;
+Doctor Biz's terminal did not. Missing tools are not evidence of a wrong route.
+Linux harness has 11 passing real-socket tests; canonical checks passed before
+these documentation-only corrections. Fresh production and fixture builds passed.
+Paired and load-comparison evidence received independent review; source hashes
+and reports match. Retire this diagnostic phase after final restoration and
+commit; do not resume the same buffer experiments after another compaction.
 
 Ethernet follow-up, 2026-10-07: cable moved to DHCP-configured `enp5s0` (the other
 port is link-local only). Route to board verified through 192.168.23.153 before

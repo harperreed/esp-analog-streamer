@@ -5,6 +5,11 @@ Doctor Biz's correction: a failed diagnostic is a step in the investigation,
 not a stopping point. Continue useful, authorized experiments and root-cause
 work rather than ending each turn with a measurement and another proposal.
 
+Operator scripts must not assume the agent's PATH. The first correlated-capture
+runner used `rg`, which existed for the agent but not Doctor Biz's terminal.
+Use standard `grep` for these simple checks and validate dependencies before
+route checks or privileged work. Missing tools are not evidence of a bad route.
+
 The workstation's `eno1` profile is link-local only; plugging into it does not
 give a LAN route. `enp5s0` uses DHCP and acquired 192.168.23.153. Verified board
 traffic used Ethernet before and after the two-listener comparison. It still
@@ -16,11 +21,28 @@ isolated. A later interface-bound test raised an ARP-flux hypothesis. Do not
 claim an Ethernet-only comparison until repeating with workstation Wi-Fi off.
 Evidence: `docs/audit-evidence/2026-10-07/ethernet-comparison.json`.
 
-The subsequent network-only fixture comparisons did verify Wi-Fi disconnected:
-both b/g and normal b/g/n failed their write deadlines in about nine seconds.
-This establishes failure without the audio workload or workstation Wi-Fi; it
-does not support an 11n-specific cause. The temporary b/g source change was
-reverted. See `docs/audit-evidence/2026-10-07/wired-radio-comparison.json`.
+The network-only comparison was initially misclassified: both runs actually used
+b/g, including the intended normal-mode control. `esp_wifi_set_protocol` survived
+source restoration and reflashing on this board. Verify protocol readback AND
+the association's `phy:` log; matching an ELF hash does not restore persistent
+device state. Explicitly restore bitmap7 for b/g/n before repeating the control.
+See the corrected `docs/audit-evidence/2026-10-07/wired-radio-comparison.json`.
+
+With workstation Wi-Fi off and b/g/n independently verified, the plain TCP
+fixture still loses a peer at full rate. The paired production capture records
+zero kernel drops, open receive windows and multi-second sequence holes; both
+listeners naturally leave for ring lag. Shared pauses support checking the
+ESP/AP boundary but do not locate the fault. Half-rate peers both finish, yet
+one falls about seven seconds behind by host-second bins. A lower offered rate
+is diagnostic evidence, not a verified streaming fix. Curated evidence:
+`docs/audit-evidence/2026-10-07/wired-correlated-capture.json` and
+`docs/audit-evidence/2026-10-07/wired-radio-comparison.json`.
+
+The faster household SSID is separate from the 2.4 GHz network by design;
+Doctor Biz cannot enable 2.4 GHz on it. The classic ESP32 cannot join its 5 GHz
+service. A failed association is not a failed throughput comparison. Save a
+private credential backup before temporary network changes; a saved firmware
+ELF can restore the board but does not restore the editable build config.
 
 Doctor Biz connected this workstation's analog output to the board's LINE IN and
 supplied test music under `media-ignore/`. This supersedes the older Mac/turntable
