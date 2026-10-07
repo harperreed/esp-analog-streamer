@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# ABOUTME: Captures bounded TCP packet traces for one board's web and stream ports on Linux.
+# ABOUTME: Captures bounded TCP and ARP traces for one board's web and stream diagnosis on Linux.
 # ABOUTME: Uses sudo only for tcpdump; private traces stay under target/packet-capture/.
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -7,8 +7,8 @@ usage() {
     cat <<'HELP'
 Usage: scripts/capture-stream-packets [--dry-run] BOARD_IPV4 INTERFACE [SECONDS]
 
-Run in a terminal so sudo can authenticate. Captures ports 80 and 8000 for one
-board, with 128-byte snapshots and no promiscuous mode. Default duration: 180 s;
+Run in a terminal so sudo can authenticate. Captures TCP ports 80 and 8000 and
+ARP for one board, with 128-byte snapshots and no promiscuous mode. Default duration: 180 s;
 maximum: 3600 s. Logs and trace stay private under target/packet-capture/.
 The trace can contain partial audio or HTTP data; do not publish it unreviewed.
 Run the streaming test separately after the command reports it is listening.
@@ -33,7 +33,7 @@ for octet in "${octets[@]}"; do
 done
 [[ "$seconds" =~ ^[1-9][0-9]{0,3}$ ]] && (( seconds <= 3600 )) || fail 'SECONDS must be 1 through 3600'
 [[ "$interface" =~ ^[a-zA-Z0-9_.:-]+$ && -d "/sys/class/net/$interface" ]] || fail 'network interface not found'
-filter="host $host and tcp and (port 80 or port 8000)"
+filter="host $host and (arp or (tcp and (port 80 or port 8000)))"
 if "$preview"; then
     printf 'Capture %s seconds on %s: %s\n' "$seconds" "$interface" "$filter"
     exit 0

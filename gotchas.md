@@ -1,13 +1,26 @@
 # Gotchas
 
 ## Linux workstation validation — 2026-10-07
+Doctor Biz's correction: a failed diagnostic is a step in the investigation,
+not a stopping point. Continue useful, authorized experiments and root-cause
+work rather than ending each turn with a measurement and another proposal.
+
 The workstation's `eno1` profile is link-local only; plugging into it does not
 give a LAN route. `enp5s0` uses DHCP and acquired 192.168.23.153. Verified board
 traffic used Ethernet before and after the two-listener comparison. It still
 failed: a status request timed out at 49.424 s, with only 17.493/16.725 s decoded.
 The harness then stopped the streams; the UART peer reset is cleanup, not a
-natural ring-lag disconnect. Workstation Wi-Fi is not necessary for the failure.
+natural ring-lag disconnect. This verified the Ethernet outgoing route only;
+Wi-Fi remained connected on the same subnet, so the incoming path was not
+isolated. A later interface-bound test raised an ARP-flux hypothesis. Do not
+claim an Ethernet-only comparison until repeating with workstation Wi-Fi off.
 Evidence: `docs/audit-evidence/2026-10-07/ethernet-comparison.json`.
+
+The subsequent network-only fixture comparisons did verify Wi-Fi disconnected:
+both b/g and normal b/g/n failed their write deadlines in about nine seconds.
+This establishes failure without the audio workload or workstation Wi-Fi; it
+does not support an 11n-specific cause. The temporary b/g source change was
+reverted. See `docs/audit-evidence/2026-10-07/wired-radio-comparison.json`.
 
 Doctor Biz connected this workstation's analog output to the board's LINE IN and
 supplied test music under `media-ignore/`. This supersedes the older Mac/turntable

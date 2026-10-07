@@ -2,6 +2,36 @@
 
 ## Current state
 
+ACTIVE HARDWARE DIAGNOSTIC, 2026-10-07: board currently runs the existing
+`tcp-retention` observer image, NOT production. Production source is unchanged.
+Session network/USB access is restored; workstation Wi-Fi is disconnected and
+Ethernet enp5s0 has 192.168.23.153. Both Wi-Fi-only b/g and normal b/g/n fixtures
+failed within about nine seconds with the workstation Wi-Fi absent. This does
+not support an 11n-specific cause; do not keep the temporary b/g restriction.
+Evidence: `docs/audit-evidence/2026-10-07/wired-radio-comparison.json`.
+
+The next test needs simultaneous wired TCP/ARP capture and the existing sender
+observer. Doctor Biz has been asked to run
+`scripts/capture-stream-packets 192.168.23.217 enp5s0 360`; no capture process is
+running yet. Once it is listening, play the music fixture and run the canonical
+two-listener soak. Match sender lastack/snd_nxt to absolute packet sequence and
+ACK numbers. Preserve tcpdump drop counters and check ARP/MAC mappings. The
+capture helper now records the board's ARP as well as TCP ports80/8000. Only sudo
+packet capture needs operator authentication. Do not ask for another arbitrary
+buffer change or stop after the next failed measurement if useful work remains.
+Restore production with ESPFLASH_PORT=/dev/ttyUSB0 ESPFLASH_BAUD=921600
+scripts/flash after diagnostics. Flash baud921600 was verified on this board.
+
+Private logs, variant ELFs, and the throwaway bounded transport runner are in
+`target/wired-investigation/`. The earlier dual-interface b/g run is excluded:
+host timed out with zero bytes while board saw immediate resets. ARP flux was
+suspected but not proved. Normal fixture control hash is
+7058fef7dd0c790c9b69d01d6826804e3adf88d29aaf0ed222f3f5c75f38d3b6.
+Observer snapshots showed cwnd collapse from ~56KB to2880B, unsent data, and one
+Wi-Fi driver ERR_MEM result; those do not locate the loss. Linux harness has
+11 passing real-socket tests. Canonical checks all passed after harness/capture
+changes. Production restoration and live acceptance remain outstanding.
+
 Ethernet follow-up, 2026-10-07: cable moved to DHCP-configured `enp5s0` (the other
 port is link-local only). Route to board verified through 192.168.23.153 before
 and after test. Same two-listener/music test still failed at 49.424 s on a

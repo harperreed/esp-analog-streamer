@@ -19,10 +19,17 @@ checks pass. USB access needs renewal after unplugging the board. Logs live in
 For a Linux packet trace during a streaming failure, run
 `scripts/capture-stream-packets BOARD_IPV4 INTERFACE 360` in a terminal
 (`tcpdump` must be installed). After it reports `listening on`, run the streaming
-test separately. The command uses sudo, captures only the board's TCP ports 80
-and 8000, and stops after the requested duration. Private traces stay under
+test separately. The command uses sudo, captures the board's TCP ports 80
+and 8000 plus ARP address resolution, and stops after the requested duration. Private traces stay under
 `target/packet-capture/`; review them before sharing because snapshots can include
 partial audio or HTTP data. `--dry-run` previews the scope without sudo.
+
+The separate `wifi-throughput` firmware example tests transport without audio.
+After flashing it, `scripts/wifi-throughput-check BOARD_IPV4 --interface enp5s0
+--out target/throughput.json` verifies two finite transfers on Linux; use the
+actual Ethernet interface name and a new report filename. Disconnect workstation
+Wi-Fi for a wired comparison when both interfaces share a subnet. Restore
+production firmware with `scripts/flash` after testing.
 
 ## Listening to LINE IN
 

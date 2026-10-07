@@ -1,0 +1,85 @@
+{
+  "date": "2026-10-07",
+  "workload": "Wi-Fi-only deterministic two-peer fixture,135168 bytes/second/peer; no audio, web, MQTT.",
+  "host_interface": "enp5s0",
+  "host_address": "192.168.23.153",
+  "host_wifi": "disconnected verified by NetworkManager before both compared runs",
+  "runs": {
+    "transport-bg-wired-only": {
+      "protocol": "bg",
+      "peers": [
+        {
+          "passed": false,
+          "interface": "enp5s0",
+          "interface_index": 2,
+          "local_address": [
+            "192.168.23.153",
+            38180
+          ],
+          "bytes": 128160,
+          "expected": 15814656,
+          "elapsed_seconds": 9.205459097982384,
+          "average_bytes_per_second": 13922.173640214163,
+          "error": "truncated payload at 128160/15814656",
+          "total_elapsed_seconds": 9.246948053943925
+        },
+        {
+          "passed": false,
+          "interface": "enp5s0",
+          "interface_index": 2,
+          "local_address": [
+            "192.168.23.153",
+            38182
+          ],
+          "bytes": 97920,
+          "expected": 15814656,
+          "elapsed_seconds": 9.11903587600682,
+          "average_bytes_per_second": 10737.977274290392,
+          "error": "truncated payload at 97920/15814656",
+          "total_elapsed_seconds": 9.160486762993969
+        }
+      ],
+      "private_uart": "target/wired-investigation/transport-bg-wired-only-uart.log"
+    },
+    "transport-control-wired-only": {
+      "protocol": "bgn",
+      "peers": [
+        {
+          "passed": false,
+          "interface": "enp5s0",
+          "interface_index": 2,
+          "local_address": [
+            "192.168.23.153",
+            44366
+          ],
+          "bytes": 122400,
+          "expected": 15814656,
+          "elapsed_seconds": 9.046806096914224,
+          "average_bytes_per_second": 13529.636723589048,
+          "error": "truncated payload at 122400/15814656",
+          "total_elapsed_seconds": 9.19353141495958
+        },
+        {
+          "passed": false,
+          "interface": "enp5s0",
+          "interface_index": 2,
+          "local_address": [
+            "192.168.23.153",
+            44382
+          ],
+          "bytes": 97920,
+          "expected": 15814656,
+          "elapsed_seconds": 8.846776152029634,
+          "average_bytes_per_second": 11068.438752972757,
+          "error": "truncated payload at 97920/15814656",
+          "total_elapsed_seconds": 9.030163730029017
+        }
+      ],
+      "private_uart": "target/wired-investigation/transport-control-wired-only-uart.log"
+    }
+  },
+  "conclusion": "Both modes fail write deadlines in about9seconds. This comparison does not support an11n-specific cause. Failure reproduces without workstation Wi-Fi or the audio workload.",
+  "excluded_run": "transport-bg: both host interfaces active; zero-byte timeouts conflict with immediate board-side resets. ARP flux is a hypothesis, not verified.",
+  "control_elf_sha256": "7058fef7dd0c790c9b69d01d6826804e3adf88d29aaf0ed222f3f5c75f38d3b6",
+  "next": "Simultaneous wired TCP/ARP capture plus existing sender observer; capture requires operator sudo."
+}
