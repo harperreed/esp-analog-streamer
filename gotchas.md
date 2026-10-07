@@ -535,3 +535,12 @@ autoplay; verified current non-board playback continued unchanged. Individual
 speaker volumes were not saved, so exact original speaker balance is unknown.
 Do not reapply the old 5/10/15% test caps. Read live Sonos state before claiming
 its volume or source; the later live group was at 49% on a non-board session.
+
+Doctor Biz corrected the quiet-audio investigation: audit attenuation in our
+chain before blaming the source or asking for its model. A 0 dB codec setting
+is not proof of jack-to-PCM gain. The 2026-10-07 review matched 113,760 live
+FLAC samples exactly to raw WAV after bit-depth conversion and found positive
+channel correlation, but ADC mute/ALC/noise-gate readback and physical input gain
+remain unverified. See docs/audit-evidence/2026-10-07/quiet-input-review.md.
+Old Sonos test scripts still contain 5/15% volume writes; do not rerun those
+scripts unchanged after Doctor Biz requested undoing test volume changes.

@@ -29,9 +29,9 @@ Interval maxima do not timestamp each fault or identify the original stall sourc
 ## Hypotheses and next evidence
 
 The Core-0 application worker does not pin IDF's separate WebSocket task; current
-configuration leaves it unpinned. Priority 4 alone cannot starve capture priority 11
-or encoder priority 7. ESP32 AES/SHA and heap paths contain critical sections;
-MPI uses a mutex. No whole-handshake interrupt blackout or cache-disable event is proven.
+configuration leaves it unpinned. `audio_in::spawn_capture` puts capture on Core 0 at
+priority 10; Core 1 runs supervisor priority 11 and encoder priority 7. TLS priority 4
+alone cannot starve them. AES/SHA/heap have critical sections; MPI uses a mutex; no blackout is proven.
 Raw copies/staging do not allocate per chunk; direct PSRAM allocation there is unlikely.
 Next diagnostic: timestamp anomalous ring-copy/lock-hold intervals and overflow deltas
 on the device clock, record TLS task core and handshake phase, and compare copy wall
