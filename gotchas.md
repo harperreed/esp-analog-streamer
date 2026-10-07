@@ -523,3 +523,8 @@ header against our owned session before decoding/applying ownership loss. A
 foreign session created without loading media returns ERROR_COMMAND_FAILED on
 suspend even with the board uninvolved. Close that unused test connection and
 observe playback independently; do not mistake its cleanup failure for retake.
+
+Doctor Biz corrected the test-source gain preference: use workstation line out
+at unity gain, with both ALSA Master and PCM at 0 dB. This supersedes the earlier
+Master72/87 listening setting. Control listening loudness at Sonos rather than
+attenuating the analog test source. Unity gain does not certify an analog voltage.
