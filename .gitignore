@@ -19,3 +19,4 @@ backups/
 .agent/.nav-config.local.json
 .agent/onboarding/
 .agent/.features-shown-*
+.kata.local.toml
