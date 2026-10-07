@@ -2,6 +2,39 @@
 
 ## Current state
 
+2026-10-07 Linux continuation, compaction count 8: workstation setup and physical
+analog validation are committed on `wip/linux-audio-validation`. Board IP is
+192.168.23.217, UART `/dev/ttyUSB0`. Private credentials and test media stay local.
+One listener decoded 120 seconds successfully; two listeners failed twice.
+The latest repeat dropped listener 2 after 27.9 seconds for ring lag, with sampled
+post-baseline capture fault counters unchanged. Packet capture is now available
+at `target/packet-capture/run-gPRKBEPN/stream.pcap`; analyze delivery and ACK timing
+before any more transport tuning. Capture, playback and soak processes stopped.
+
+Packet analysis now confirms ACK-supported sequence holes plus fully ACKed
+no-arrival intervals of 1.132/0.955 seconds. Valid receive windows remained open;
+local ACK generation was fast, but ACK delivery to ESP is unknown. This does not
+locate ESP/driver, RF, AP or client-side delay. Initial capture did not preserve
+kernel-drop counters; the capture script now does. Curated results are in
+`docs/audit-evidence/2026-10-07/linux-stream-packet-timing.json`. Next discriminator
+is simultaneous AP boundary capture; a wired workstation comparison is a simpler
+first isolation step if physical Ethernet is available. No more speculative
+buffer or retry tweaks.
+
+Selective +12 dB left ADC gain changed FLAC left by +12.74 dB and left right
+unchanged, localizing reversed source tones before the ADC. Do not alter I2S
+channel ordering. Workstation analog output, cable and board wiring need physical
+localization; a manufacturer schematic has opposite input/output jack labels,
+but its match to this physical revision is unverified. Evidence lives under
+`docs/audit-evidence/2026-10-07/`. Normal firmware is restored and its ELF SHA256
+matches saved control `82bb107be87811c66d02fc400315564476ddcf9ce5e151c2ff30df863bcf73fa`.
+All canonical checks pass. Browser player, WAV removal, port consolidation,
+MP3 and Sonos remain future work. Retire this diagnostic phase after recording
+packet findings; no production fix has been established. Use plain chat for
+operator questions because Doctor Biz cannot select TUI answers.
+
+## Prior Mac continuation state (2026-10-05)
+
 Compaction count: 7. Playback reliability remains unresolved. All speculative
 production changes from this resumed investigation were reverted. Normal
 production was restored at 2026-10-05 13:02:47 UTC with static TX16/cache32,

@@ -1,0 +1,260 @@
+{
+  "schema_version": 1,
+  "source_pcap": "/home/harper/workspace/personal/esp-analog-streamer/target/packet-capture/run-gPRKBEPN/stream.pcap",
+  "pcap_sha256": "cd2b1f42c2bcafa3786551e8c345a57bccb09906ba6ff8c8195725337ca74b14",
+  "capture": {
+    "packets": 5368,
+    "snaplen": 128,
+    "start": 1791388033.905972,
+    "end": 1791388107.77684,
+    "duration": 73.87086796760559,
+    "T": 1791388076.840885,
+    "utc_T": "2026-10-07T15:47:56.840885+00:00"
+  },
+  "method": {
+    "time_origin": "First stream SYN; all relative times seconds, sequence numbers relative to SYN ISN (first byte 1).",
+    "length": "IPv4 total length minus IPv4 and TCP header lengths; never captured payload length.",
+    "records": "Ethernet host capture contains coalesced records; record counts are not on-air segment counts.",
+    "percentiles": "Nearest rank",
+    "ack_delay": "Host inbound capture to outbound cumulative ACK capture; not network RTT and not ESP ACK reception.",
+    "final_kernel_drop_statistics": null
+  },
+  "context": {
+    "workstation_wifi": {
+      "source": "Local iw dev wlp6s0 link and ip -brief address measurements",
+      "rssi_dbm": -53,
+      "frequency_mhz": 5560,
+      "reported_link_rates_mbps": [
+        433,
+        650
+      ],
+      "ethernet_interfaces": "both down"
+    },
+    "esp_wifi": {
+      "source": "uart.log",
+      "channel": 6,
+      "rssi_at_association_dbm": -43,
+      "power_save_type": 0
+    },
+    "prior_controls": "Earlier recorded WiFi-only fixture reproduced stalls without capture/encoding/web/MQTT; cache32/cache64 and periodic send retries did not establish a fix. See audit plan."
+  },
+  "flows": {
+    "38762": {
+      "start": 1.0013580322265625e-05,
+      "end": 30.935955047607422,
+      "first_data": 0.16141319274902344,
+      "last_data": 30.9359130859375,
+      "unique_bytes": 3967466,
+      "server_data_packets": 1600,
+      "holes": [
+        {
+          "start": 13.914589166641235,
+          "seq": 2097953,
+          "first_gap": 2880,
+          "packet": 3123,
+          "end": 14.636120080947876,
+          "duration": 0.7215309143066406,
+          "close_packet": 3211
+        },
+        {
+          "start": 28.50892210006714,
+          "seq": 3919947,
+          "first_gap": 2880,
+          "packet": 5329,
+          "end": 30.891947031021118,
+          "duration": 2.3830249309539795,
+          "close_packet": 5361
+        }
+      ],
+      "client_windows": {
+        "n": 1225,
+        "min": 64109,
+        "p50": 65535,
+        "p95": 65535,
+        "p99": 65535,
+        "max": 65535
+      },
+      "zero_windows": 0,
+      "observed_duplicate_payload_records": 0,
+      "acknowledges_unobserved_payload_records": 0,
+      "handshake_seconds": 0.08486104011535645,
+      "coalesced_payload_records_over_1440": 669,
+      "max_payload_record_bytes": 11520,
+      "mean_unique_payload_bytes_per_second_first_to_last_data": 128920.56780029577,
+      "sack_negotiated": false,
+      "window_scale_negotiated": false,
+      "late_hole_fill_bytes": 5760,
+      "ack_delay_seconds_all_data": {
+        "n": 1598,
+        "min": 5.0067901611328125e-06,
+        "p50": 0.00012683868408203125,
+        "p95": 0.012845039367675781,
+        "p99": 0.7215919494628906,
+        "max": 2.3830859661102295
+      },
+      "ack_delay_seconds_excluding_records_initially_blocked_by_holes": {
+        "p50": 0.000125885009765625,
+        "p95": 0.005278825759887695,
+        "p99": 0.0405580997467041,
+        "max": 0.04220700263977051
+      },
+      "idle_intervals_at_least_100ms_count": 55,
+      "idle_intervals_at_least_100ms_sum_seconds": 15.850781679153442,
+      "largest_fully_acked_idle_intervals": [
+        {
+          "start": 20.85636305809021,
+          "end": 21.98896598815918,
+          "duration": 1.1326029300689697,
+          "all_observed_bytes_acked_before_next_data": true,
+          "fully_acked_at": 20.856536149978638,
+          "silence_after_full_ack_seconds": 1.132429838180542,
+          "next_sequence": 3025823,
+          "other_flow_payload_records_during_pause": 18
+        },
+        {
+          "start": 27.228760957717896,
+          "end": 28.228610038757324,
+          "duration": 0.9998490810394287,
+          "all_observed_bytes_acked_before_next_data": true,
+          "fully_acked_at": 27.228919982910156,
+          "silence_after_full_ack_seconds": 0.999690055847168,
+          "next_sequence": 3872427,
+          "other_flow_payload_records_during_pause": 15
+        }
+      ]
+    },
+    "38764": {
+      "start": 0.0,
+      "end": 28.39146113395691,
+      "first_data": 0.3250429630279541,
+      "last_data": 28.285617113113403,
+      "unique_bytes": 3350631,
+      "server_data_packets": 1368,
+      "holes": [
+        {
+          "start": 14.424951076507568,
+          "seq": 2205714,
+          "first_gap": 1440,
+          "packet": 3197,
+          "end": 16.93119215965271,
+          "duration": 2.5062410831451416,
+          "close_packet": 3465
+        }
+      ],
+      "client_windows": {
+        "n": 1011,
+        "min": 33120,
+        "p50": 65535,
+        "p95": 65535,
+        "p99": 65535,
+        "max": 65535
+      },
+      "zero_windows": 0,
+      "observed_duplicate_payload_records": 0,
+      "acknowledges_unobserved_payload_records": 0,
+      "handshake_seconds": 0.08486819267272949,
+      "coalesced_payload_records_over_1440": 560,
+      "max_payload_record_bytes": 11520,
+      "mean_unique_payload_bytes_per_second_first_to_last_data": 119834.12722552266,
+      "sack_negotiated": false,
+      "window_scale_negotiated": false,
+      "late_hole_fill_bytes": 2880,
+      "ack_delay_seconds_all_data": {
+        "n": 1368,
+        "min": 1.0013580322265625e-05,
+        "p50": 0.00011897087097167969,
+        "p95": 0.009885072708129883,
+        "p99": 0.0411069393157959,
+        "max": 2.506279945373535
+      },
+      "ack_delay_seconds_excluding_records_initially_blocked_by_holes": {
+        "p50": 0.00011897087097167969,
+        "p95": 0.00839996337890625,
+        "p99": 0.04045701026916504,
+        "max": 0.059655189514160156
+      },
+      "idle_intervals_at_least_100ms_count": 58,
+      "idle_intervals_at_least_100ms_sum_seconds": 15.184935569763184,
+      "largest_fully_acked_idle_intervals": [
+        {
+          "start": 20.995393991470337,
+          "end": 21.95063304901123,
+          "duration": 0.9552390575408936,
+          "all_observed_bytes_acked_before_next_data": true,
+          "fully_acked_at": 20.995553016662598,
+          "silence_after_full_ack_seconds": 0.9550800323486328,
+          "next_sequence": 2530936,
+          "other_flow_payload_records_during_pause": 0
+        },
+        {
+          "start": 27.311009168624878,
+          "end": 28.173439025878906,
+          "duration": 0.8624298572540283,
+          "all_observed_bytes_acked_before_next_data": true,
+          "fully_acked_at": 27.311079025268555,
+          "silence_after_full_ack_seconds": 0.8623600006103516,
+          "next_sequence": 3327325,
+          "other_flow_payload_records_during_pause": 0
+        }
+      ]
+    }
+  },
+  "uncertainty": [
+    "No sender-side or AP-side capture; no final tcpdump kernel-drop counters.",
+    "ACK-confirmed holes demonstrate receiver TCP lacked bytes at those instants, not where bytes were lost or whether later arrivals were retransmissions versus severe reordering.",
+    "Zero overlapping received payload does not mean zero sender retransmissions: original attempts can be absent from this capture.",
+    "Host-generated ACKs can be delayed or lost after the capture point; no proof they reached the ESP.",
+    "No-arrival intervals do not prove sender silence: unsent data, sender TCP gating, forward/return path delay or loss, AP bridging/queues and client driver/receive scheduling remain possible.",
+    "Cross-band clients use separate radio links; strong link rates/RSSI snapshots do not locate stalls or rule out either link or AP queues.",
+    "UART has device timestamps only; no exact clock synchronization to pcap.",
+    "Snaplen and receive coalescing prevent full FLAC validation and exact on-air segment/retransmission accounting."
+  ],
+  "next_experiment": {
+    "name": "Simultaneous AP-boundary and workstation capture of the existing WiFi-only fixture",
+    "design": "Keep both existing radio links and fixture settings. Capture data and ACKs on the AP 2.4GHz-facing and 5GHz-facing interfaces plus workstation, with full TCP headers, documented capture hook positions, clocks aligned and final drop counters retained. Correlate by four-tuple and sequence/ACK ranges; no buffer/retry changes.",
+    "discrimination": "Data present at AP from ESP but absent at workstation narrows failure downstream of AP ingress; ACK visible at workstation but absent at AP narrows the return client leg; ACK at AP but not confirmed delivered to ESP leaves AP-to-ESP/ESP receive path open. Missing data at AP still cannot distinguish ESP not sending from ESP-to-AP loss without sender/monitor evidence.",
+    "prerequisite": "Requires AP access/capture support; Ethernet-down workstation alone cannot supply this boundary observation."
+  },
+  "soak_correlation": {
+    "summary": {
+      "passed": false,
+      "error": "listener-2: ffmpeg reported errors; see its private log",
+      "elapsed_seconds": 53.355,
+      "decoded_seconds": [
+        21.077333,
+        19.456
+      ],
+      "counter_deltas": {
+        "queue_overflows": 0,
+        "software_dropped_frames": 0,
+        "read_errors": 0,
+        "restarts": 0,
+        "discontinuities": 0
+      },
+      "minimums": {
+        "internal_min_sum": 75275,
+        "psram_min_sum": 759276
+      }
+    },
+    "uart_join_device_ms": {
+      "38762": 22049,
+      "38764": 22229
+    },
+    "uart_natural_ring_lag_close": {
+      "port": 38764,
+      "device_ms": 50149,
+      "logged_lifetime_seconds": 27.9,
+      "socket_close_ms": 74
+    },
+    "other_listener": "38762 has no UART natural ring-lag close; client FIN at t=30.895880 followed by two client resets matches harness cleanup.",
+    "listener_label_mapping": "38764 -> listener-2 supported by unique payload 3350631 minus 89-byte HTTP header = 3350542, identical to listener-2 premature-end byte count; process start order alone is insufficient.",
+    "decoder_seconds": [
+      21.077333,
+      19.456
+    ],
+    "capture_fault_counters": "No increases across all five UART audio samples, including last device timestamp 51689ms omitted from summary last_capture.",
+    "encoder": "Encoded-frame counter increases by 118 per approximately 10.06-10.09s window, resets=0; runtime/elapsed approximately 17.2-18.5%.",
+    "clock_alignment": "First stream SYN UTC 15:47:56.840885. Relative to directory timestamp 15:47:34.464264, +22.376621s; directory creation and monotonic start are adjacent, not formally synchronized. Failure event elapsed=51.150 (~28.773s after first SYN); final summary elapsed=53.355 (~30.978s).",
+    "capture_counters_caveat": "Last UART capture sample precedes final stream close; unchanged counters cover only the sampled interval."
+  }
+}

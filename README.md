@@ -16,6 +16,14 @@ and runs the project checks. Use `--port DEVICE` for another serial device,
 checks pass. USB access needs renewal after unplugging the board. Logs live in
 `target/setup-linux/`; credentials and test media must stay local.
 
+For a Linux packet trace during a streaming failure, run
+`scripts/capture-stream-packets BOARD_IPV4 INTERFACE 360` in a terminal
+(`tcpdump` must be installed). After it reports `listening on`, run the streaming
+test separately. The command uses sudo, captures only the board's TCP ports 80
+and 8000, and stops after the requested duration. Private traces stay under
+`target/packet-capture/`; review them before sharing because snapshots can include
+partial audio or HTTP data. `--dry-run` previews the scope without sudo.
+
 ## Listening to LINE IN
 
 The board also streams what plays into LINE IN, 48 kHz 24-bit stereo, on port 8000. Two listeners at most, WAV and FLAC together; a third gets `503`.

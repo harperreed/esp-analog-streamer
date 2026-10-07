@@ -27,6 +27,28 @@ PipeWire links preserve channel order and the codec/I2S settings match documente
 defaults. The location of the reversal remains unresolved; do not blindly flip
 `msb_right` to compensate. Evidence: `docs/audit-evidence/2026-10-07/linux-line-in-validation.json`.
 
+A selective codec gain test localizes the reversal before the ADC: register
+0x09 = 0x40 raised the stream's left channel by 12.74 dB, leaving right unchanged.
+The left stream still contained the source's 880 Hz right tone. Codec-to-stream
+channel mapping is correct; workstation analog output, cable and board input
+wiring remain candidates. Normal firmware was restored and its ELF hash matches
+the saved control. Do not change I2S ordering to conceal an analog routing issue.
+
+Doctor Biz cannot select answers in the current TUI. Use plain chat for operator
+questions rather than selectable question widgets. Verify captures from actual
+processes and files; an answer alone is not evidence that a command ran.
+
+The Linux two-listener packet trace confirms receiver sequence holes and pauses
+even after ACKing all observed data. Valid receive windows never reached zero;
+the two zero fields were cleanup resets. Local ACK generation is fast, but this
+does not prove ACK arrival at ESP32. Only listener 2 naturally closed for ring
+lag (27.9 s); listener 1 ended during harness cleanup. Initial capture lacked
+tcpdump drop statistics, now retained by the script. Host receive coalescing
+also means packet records are not on-air segments. Do not infer RF loss location
+or sender silence from this one capture. Next discriminator: simultaneous AP
+boundary captures; a wired workstation comparison could first remove one radio
+leg. See `docs/audit-evidence/2026-10-07/linux-stream-packet-timing.json`.
+
 ## Confirm the exact board before pinout research
 "ESP32-S3 AI Smart Speaker" matched a Waveshare S3 board, but the hardware is an Ai-Thinker ESP32-A1S Audio Kit (classic ESP32). Ask for the listing or module label first. Once USB works, confirm with esptool's chip-id / flash-id and an I2C probe (ES8388 answers at 0x10, AC101 at 0x1A).
 
