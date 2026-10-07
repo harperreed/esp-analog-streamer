@@ -11,6 +11,12 @@ then exposes Dummy Output; pw-play can silently route there even with an absent
 named target. Check physical sink existence and actual playback links before
 calling a run a cable/music test. A live player process alone proves nothing.
 
+After restoring the analog control/playback ACLs, PipeWire still exposed only
+Dummy Output in the remote session. Direct ALSA plughw:CARD=PCH,DEV=0 playback
+ran on the real device and the two-listener120s FLAC retry passed. Verify the
+PCM RUNNING state and board level. This repairs the test audio path; a single
+pass with unchanged firmware does not explain the earlier network failures.
+
 Operator scripts must not assume the agent's PATH. The first correlated-capture
 runner used `rg`, which existed for the agent but not Doctor Biz's terminal.
 Use standard `grep` for these simple checks and validate dependencies before

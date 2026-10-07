@@ -2,16 +2,16 @@
 
 ## Current state
 
-Latest requested retry: `target/wired-investigation/production-retry/` failed
-with a natural ring-lag departure after 44.1 s; sampled capture counters stayed
-flat. It is NOT a music validation: PipeWire routed pw-play to Dummy Output.
-The physical ALSA card exists, but harper lacks device ACL access after a desktop
-session change. Doctor Biz was asked to run
-`sudo setfacl -m u:harper:rw /dev/snd/controlC0 /dev/snd/pcmC0D0p`.
-Local sudo authentication is required. Access is not restored yet. Afterward,
-verify physical sink existence and actual pw-play links before rerunning music.
-No test/playback process remains; normal production stays on the board.
-Curated evidence: `docs/audit-evidence/2026-10-07/production-retry.json`.
+Latest real-music retry PASSED: both listeners decoded120.0 s with no decoder
+errors or post-baseline capture fault increments. Device ACLs are restored.
+PipeWire still exposes Dummy Output in the remote session; direct ALSA playback
+via plughw:CARD=PCH,DEV=0 drove the physical jack, verified RUNNING, with board
+input around -43dBFS. Normal firmware is unchanged, bgn verified, workstation
+Ethernet only. Playback/test processes stopped. Curated evidence:
+`docs/audit-evidence/2026-10-07/production-music-retry.json`.
+This pass does not establish a streaming fix or explain prior intermittent
+failures. Earlier quiet-input failed retry is retained separately in
+`production-retry.json`; do not mislabel that run as a cable/music test.
 
 2026-10-07 paired wired capture and load comparison (compaction count 9):
 Workstation Wi-Fi is disconnected; Ethernet enp5s0 has 192.168.23.153.
