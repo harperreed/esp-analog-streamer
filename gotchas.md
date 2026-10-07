@@ -1,6 +1,14 @@
 # Gotchas
 
 ## Linux workstation validation — 2026-10-07
+The workstation's `eno1` profile is link-local only; plugging into it does not
+give a LAN route. `enp5s0` uses DHCP and acquired 192.168.23.153. Verified board
+traffic used Ethernet before and after the two-listener comparison. It still
+failed: a status request timed out at 49.424 s, with only 17.493/16.725 s decoded.
+The harness then stopped the streams; the UART peer reset is cleanup, not a
+natural ring-lag disconnect. Workstation Wi-Fi is not necessary for the failure.
+Evidence: `docs/audit-evidence/2026-10-07/ethernet-comparison.json`.
+
 Doctor Biz connected this workstation's analog output to the board's LINE IN and
 supplied test music under `media-ignore/`. This supersedes the older Mac/turntable
 input assumptions for this setup. USB identifies a CP2102 at `/dev/ttyUSB0`;

@@ -2,6 +2,16 @@
 
 ## Current state
 
+Ethernet follow-up, 2026-10-07: cable moved to DHCP-configured `enp5s0` (the other
+port is link-local only). Route to board verified through 192.168.23.153 before
+and after test. Same two-listener/music test still failed at 49.424 s on a
+three-second status request timeout; decoded 17.493/16.725 s. Cleanup stopped
+the streams; do not label the UART peer reset a natural streaming failure.
+Sampled post-baseline capture counters remained flat. Firmware unchanged,
+playback stopped, status API responsive afterward. Workstation Wi-Fi is not
+required for the failure; AP/ESP boundary observation remains the next useful
+discriminator. See `docs/audit-evidence/2026-10-07/ethernet-comparison.json`.
+
 2026-10-07 Linux continuation, compaction count 8: workstation setup and physical
 analog validation are committed on `wip/linux-audio-validation`. Board IP is
 192.168.23.217, UART `/dev/ttyUSB0`. Private credentials and test media stay local.
