@@ -70,10 +70,14 @@ to this physical board and full module input circuitry is not verified.
 
 ## Next board-side evidence
 
-Read back ADC registers 0x09 through 0x16, including mute, ALC and noise gate.
+The subsequent [independent squad review](quiet-input-squad.md) changes the test
+order: preserve current evidence and prioritize calibrated jack-to-PCM gain.
+Readback remains useful for ADC registers 0x09 through 0x16, including mute, ALC
+and noise gate, but must be associated with the reproduced symptom.
 The current firmware exposes no live register-read endpoint, so this requires
-a diagnostic firmware change and an interruption of capture. If those registers
-match the intended settings, measure jack-to-PCM gain with a known input level.
+a diagnostic firmware change and an interruption of capture. Startup resets the
+codec, so post-flash values cannot establish its previous state. Measure jack-to-PCM gain with a known input level before treating register
+readback as the leading diagnostic.
 Do not compensate with arbitrary gain or change Sonos settings to conceal an
 unlocated loss.
 

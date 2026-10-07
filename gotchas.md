@@ -544,3 +544,10 @@ channel correlation, but ADC mute/ALC/noise-gate readback and physical input gai
 remain unverified. See docs/audit-evidence/2026-10-07/quiet-input-review.md.
 Old Sonos test scripts still contain 5/15% volume writes; do not rerun those
 scripts unchanged after Doctor Biz requested undoing test volume changes.
+
+The quiet-input review squad found that diagnostic flashing would reset the
+codec state under investigation. Preserve evidence first; post-reset readback
+cannot clear a pre-reset fault. A known signal with measured jack voltage is
+the missing absolute gain reference. The old generated host FLAC fixture uses
+-24 dB attenuation and must not serve as a unity-gain comparison. See
+docs/audit-evidence/2026-10-07/quiet-input-squad.md for ranked findings and tests.
