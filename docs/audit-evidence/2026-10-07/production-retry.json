@@ -1,0 +1,26 @@
+{
+  "date": "2026-10-07",
+  "purpose": "User-requested production retry after credential restoration",
+  "music_validation_valid": false,
+  "reason": "Analog PipeWire sink absent; pw-play connected to auto_null. ALSA card exists, but harper lacks device access; current ACL grants the greeter.",
+  "quiet_input_observation": {
+    "passed": false,
+    "elapsed_seconds": 67.246,
+    "decoded_seconds": [
+      35.157333,
+      35.925333
+    ],
+    "counter_deltas": {
+      "queue_overflows": 0,
+      "software_dropped_frames": 0,
+      "read_errors": 0,
+      "restarts": 0,
+      "discontinuities": 0
+    },
+    "error": "listener-1: ffmpeg reported errors; see its private log"
+  },
+  "natural_ring_lag_seconds": 44.1,
+  "source": "target/wired-investigation/production-retry/soak/20261007T191556.935316Z/summary.json",
+  "source_sha256": "fa0c6a1df2c962cb9ea2f83498a744326b9309e5b778f93ce5315026b4996b0a",
+  "next": "Restore narrowly scoped analog device access via local sudo, verify actual playback links, then rerun music soak. Never report dummy-output runs as music validation."
+}

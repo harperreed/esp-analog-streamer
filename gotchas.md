@@ -5,6 +5,12 @@ Doctor Biz's correction: a failed diagnostic is a step in the investigation,
 not a stopping point. Continue useful, authorized experiments and root-cause
 work rather than ending each turn with a measurement and another proposal.
 
+Remote-session changes can remove physical audio access: the analog card still
+exists in /proc/asound, but its ACL may grant only the local greeter. PipeWire
+then exposes Dummy Output; pw-play can silently route there even with an absent
+named target. Check physical sink existence and actual playback links before
+calling a run a cable/music test. A live player process alone proves nothing.
+
 Operator scripts must not assume the agent's PATH. The first correlated-capture
 runner used `rg`, which existed for the agent but not Doctor Biz's terminal.
 Use standard `grep` for these simple checks and validate dependencies before

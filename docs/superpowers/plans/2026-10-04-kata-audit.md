@@ -2,6 +2,17 @@
 
 ## Current state
 
+Latest requested retry: `target/wired-investigation/production-retry/` failed
+with a natural ring-lag departure after 44.1 s; sampled capture counters stayed
+flat. It is NOT a music validation: PipeWire routed pw-play to Dummy Output.
+The physical ALSA card exists, but harper lacks device ACL access after a desktop
+session change. Doctor Biz was asked to run
+`sudo setfacl -m u:harper:rw /dev/snd/controlC0 /dev/snd/pcmC0D0p`.
+Local sudo authentication is required. Access is not restored yet. Afterward,
+verify physical sink existence and actual pw-play links before rerunning music.
+No test/playback process remains; normal production stays on the board.
+Curated evidence: `docs/audit-evidence/2026-10-07/production-retry.json`.
+
 2026-10-07 paired wired capture and load comparison (compaction count 9):
 Workstation Wi-Fi is disconnected; Ethernet enp5s0 has 192.168.23.153.
 The correlated capture ran successfully and retained tcpdump's zero kernel-drop
