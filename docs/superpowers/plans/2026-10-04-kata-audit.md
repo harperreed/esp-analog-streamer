@@ -39,9 +39,12 @@ The original production ELF from `target/channel-diagnostic/control.elf` was
 flashed back (SHA256 82bb107be87811c66d02fc400315564476ddcf9ce5e151c2ff30df863bcf73fa).
 Final boot verifies bgn, PGA0x00 and IP192.168.23.217; the status API responds.
 Evidence: `target/wired-investigation/final-production-boot.log` and
-`final-production-state.json`. Local build credentials still need restoration
-(pending Doctor Biz's answer whether both networks use the same password). Never print credentials or commit cfg.toml. The faster-network
-compiled output is stale for the intended production network until rebuilt.
+`final-production-state.json`. Doctor Biz supplied the original network password;
+local gitignored credentials are restored. A fresh production build exactly
+matches the saved control ELF hash. It was flashed and verified again: bgn,
+PGA0x00, IP192.168.23.217 and responsive status API. Private evidence is in
+`target/wired-investigation/restored-config-{flash,boot}.log` and
+`restored-config-state.json`. No credential values enter tracked files.
 
 The next useful external evidence is AP-side retries/link-rate/queue data or a
 controlled alternate 2.4 GHz AP. The paired capture cannot distinguish sender
