@@ -12,6 +12,21 @@ asset installs successfully on Linux but cannot execute. Leaving asset selection
 to mise installed a working Linux espflash 4.6.0. Use `mise run esp-toolchain` for
 the pinned Xtensa toolchain; the host Rust toolchain alone cannot build firmware.
 
+The updated image joined at `192.168.23.217`. All canonical checks passed after
+workstation setup (188 Rust tests passed, two existing tests ignored). Physical
+music playback produced valid 48 kHz/24-bit FLAC; a single listener decoded a full
+120 s with unchanged post-startup capture fault counters. Two listeners failed:
+one fell a ring behind after 47.7 s, reproducing transport trouble on direct local
+Wi-Fi without the prior Mac/subnet-router path. This does not locate the loss.
+The short pass is not an endurance or worst-case bandwidth guarantee.
+
+The supplied DJ-set excerpt has identical left/right channels. Separate 440 Hz
+left and 880 Hz right test tones returned reversed, with over 60 dB separation.
+Doctor Biz confirmed a single 3.5 mm stereo cable, without RCA adapters.
+PipeWire links preserve channel order and the codec/I2S settings match documented
+defaults. The location of the reversal remains unresolved; do not blindly flip
+`msb_right` to compensate. Evidence: `docs/audit-evidence/2026-10-07/linux-line-in-validation.json`.
+
 ## Confirm the exact board before pinout research
 "ESP32-S3 AI Smart Speaker" matched a Waveshare S3 board, but the hardware is an Ai-Thinker ESP32-A1S Audio Kit (classic ESP32). Ask for the listing or module label first. Once USB works, confirm with esptool's chip-id / flash-id and an I2C probe (ES8388 answers at 0x10, AC101 at 0x1A).
 

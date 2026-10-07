@@ -1,0 +1,144 @@
+{
+  "date": "2026-10-07",
+  "firmware_commit": "58f4864",
+  "source": "Workstation analog line out -> ESP32-A1S LINE IN; local MP3 music excerpt and separate 440/880 Hz stereo tones",
+  "transport": "Direct local Wi-Fi, workstation wlp6s0; no subnet-router path",
+  "format": "Native FLAC, 48000 Hz, 24-bit, stereo",
+  "single_listener": {
+    "passed": true,
+    "error": null,
+    "requested_seconds": 120.0,
+    "listeners": 1,
+    "elapsed_seconds": 153.636,
+    "decoded_seconds": [
+      120.0
+    ],
+    "state_polls": 31,
+    "counter_deltas": {
+      "queue_overflows": 0,
+      "software_dropped_frames": 0,
+      "read_errors": 0,
+      "restarts": 0,
+      "discontinuities": 0
+    },
+    "minimums": {
+      "internal_min_sum": 80507,
+      "psram_min_sum": 825428
+    }
+  },
+  "two_listeners": {
+    "passed": false,
+    "error": "listener-2: ffmpeg reported errors; see its private log",
+    "requested_seconds": 120.0,
+    "listeners": 2,
+    "elapsed_seconds": 70.535,
+    "decoded_seconds": [
+      45.568,
+      39.594667
+    ],
+    "state_polls": 15,
+    "counter_deltas": {
+      "queue_overflows": 0,
+      "software_dropped_frames": 0,
+      "read_errors": 0,
+      "restarts": 0,
+      "discontinuities": 0
+    },
+    "minimums": {
+      "internal_min_sum": 75327,
+      "psram_min_sum": 747600
+    }
+  },
+  "two_listener_uart_end": {
+    "listener_lifetime_seconds": 47.7,
+    "reason": "fell a ring behind",
+    "close_milliseconds": 213
+  },
+  "stereo": {
+    "passed": false,
+    "source": {
+      "peak_hz": [
+        440.0,
+        880.0
+      ],
+      "other_tone_rejection_db": [
+        165.49876797560643,
+        254.56316996517398
+      ]
+    },
+    "capture": {
+      "peak_hz": [
+        880.0,
+        440.0
+      ],
+      "other_tone_rejection_db": [
+        61.31482979919112,
+        71.81875376495809
+      ]
+    },
+    "finding": "End-to-end left/right reversal; location not established. No firmware compensation applied."
+  },
+  "music_comparison": {
+    "source_lr_correlation": 1.0,
+    "capture_lr_correlation": 0.9999896491017946,
+    "source_difference_dbfs": -240.0,
+    "capture_difference_dbfs": -90.10588071344215,
+    "windows": [
+      {
+        "capture_second": 1,
+        "source_second": 27.519625,
+        "offset_seconds": 26.519625,
+        "channel_correlations": [
+          [
+            0.9726235870816852,
+            0.9725693163570158
+          ],
+          [
+            0.9726235870816852,
+            0.9725693163570158
+          ]
+        ]
+      },
+      {
+        "capture_second": 12,
+        "source_second": 38.519625,
+        "offset_seconds": 26.519624999999998,
+        "channel_correlations": [
+          [
+            0.9930240032467457,
+            0.9929691763297787
+          ],
+          [
+            0.9930240032467457,
+            0.9929691763297787
+          ]
+        ]
+      },
+      {
+        "capture_second": 24,
+        "source_second": 50.51975,
+        "offset_seconds": 26.519750000000002,
+        "channel_correlations": [
+          [
+            0.9902766782961556,
+            0.9901939521728731
+          ],
+          [
+            0.9902766782961556,
+            0.9901939521728731
+          ]
+        ]
+      }
+    ]
+  },
+  "limits": [
+    "Short tests do not establish long-term reliability or worst-case incompressible-input throughput.",
+    "Capture counter deltas are relative to stable post-startup baselines; boot did record overruns/restarts.",
+    "Counters cannot detect every omitted DMA interrupt; final telemetry for the failed run precedes its terminal error.",
+    "The source music excerpt has identical channels; generated stereo tones independently reveal reversed channel order.",
+    "PipeWire output links preserve left/right and firmware matches documented codec/I2S defaults; physical versus firmware cause remains unresolved.",
+    "Source/capture alignment offsets describe where capture began in the file, not playback latency.",
+    "No firmware changes were made to compensate for the swap or transport failure."
+  ],
+  "cable": "Doctor Biz confirmed a single 3.5 mm stereo cable, without RCA adapters."
+}
