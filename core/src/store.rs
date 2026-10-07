@@ -24,6 +24,7 @@ pub struct SongStore {
     history_cap: usize,
     state: State,
     level_dbfs: f32,
+    level_measured_at: Option<std::time::Instant>,
     rate_limited_until: Option<String>,
     shazam_enabled: bool,
 }
@@ -48,6 +49,7 @@ impl SongStore {
             history_cap,
             state: State::Quiet,
             level_dbfs: SILENCE_DBFS,
+            level_measured_at: None,
             rate_limited_until: None,
             shazam_enabled,
         }
@@ -86,11 +88,16 @@ impl SongStore {
     }
     /// Records the measured loudness, rounded to 0.1 dB. `level_dbfs()` and `state_json` both
     /// report the rounded value, so there is one number for the policy and the page.
-    pub fn set_level(&mut self, level_dbfs: f32) {
+    pub fn set_level(&mut self, level_dbfs: f32, measured_at: std::time::Instant) {
         self.level_dbfs = (level_dbfs * 10.0).round() / 10.0;
+        self.level_measured_at = Some(measured_at);
     }
     pub fn level_dbfs(&self) -> f32 {
         self.level_dbfs
+    }
+    /// Includes capture freshness so automatic playback cannot act on a stalled meter.
+    pub fn level_sample(&self) -> Option<(f32, std::time::Instant)> {
+        self.level_measured_at.map(|at| (self.level_dbfs, at))
     }
     pub fn state_json(&self) -> String {
         let view = StateView {
@@ -225,7 +232,7 @@ mod tests {
     #[test]
     fn status_reports_state_rounded_level_and_rate_limit() {
         let mut store = SongStore::new(20, true);
-        store.set_level(-18.437);
+        store.set_level(-18.437, std::time::Instant::now());
         store.set_status(State::RateLimited, Some("2026-10-03T21:27:01Z".into()));
         let state = parse(&store.state_json());
         assert_eq!(state["state"], "rate_limited");
@@ -241,15 +248,37 @@ mod tests {
     #[test]
     fn level_is_stored_rounded_to_a_tenth_and_reported_as_stored() {
         let mut store = SongStore::new(20, true);
-        store.set_level(-18.437);
+        store.set_level(-18.437, std::time::Instant::now());
         assert_eq!(store.level_dbfs(), -18.4);
         assert_eq!(parse(&store.state_json())["level_dbfs"], json!(-18.4));
     }
 
     #[test]
+    fn level_sample_requires_capture_and_refreshes_even_for_equal_levels() {
+        let mut store = SongStore::new(20, false);
+        assert_eq!(store.level_sample(), None);
+        let before = std::time::Instant::now();
+        store.set_level(-42.04, std::time::Instant::now());
+        let (level, measured) = store.level_sample().unwrap();
+        assert_eq!(level, -42.0);
+        assert!(measured >= before && measured <= std::time::Instant::now());
+        let before = std::time::Instant::now();
+        store.set_level(-42.04, std::time::Instant::now());
+        assert!(store.level_sample().unwrap().1 >= before);
+    }
+
+    #[test]
+    fn delayed_level_publication_preserves_measurement_age() {
+        let mut store = SongStore::new(20, false);
+        let measured = std::time::Instant::now() - std::time::Duration::from_secs(10);
+        store.set_level(-20.0, measured);
+        assert_eq!(store.level_sample(), Some((-20.0, measured)));
+    }
+
+    #[test]
     fn set_status_leaves_the_level_alone() {
         let mut store = SongStore::new(20, true);
-        store.set_level(-30.0);
+        store.set_level(-30.0, std::time::Instant::now());
         store.set_status(State::Searching, None);
         store.set_status(State::RateLimited, Some("2026-10-03T21:27:01Z".into()));
         assert_eq!(store.level_dbfs(), -30.0);
@@ -260,7 +289,7 @@ mod tests {
     fn set_level_leaves_the_status_alone() {
         let mut store = SongStore::new(20, true);
         store.set_status(State::RateLimited, Some("2026-10-03T21:27:01Z".into()));
-        store.set_level(-42.0);
+        store.set_level(-42.0, std::time::Instant::now());
         let state = parse(&store.state_json());
         assert_eq!(state["state"], "rate_limited");
         assert_eq!(state["rate_limited_until"], "2026-10-03T21:27:01Z");
@@ -271,7 +300,7 @@ mod tests {
     fn a_board_that_only_meters_reports_a_live_level_and_stays_quiet() {
         // With Shazam off nothing calls set_status; the audio thread's set_level is the only writer.
         let mut store = SongStore::new(20, false);
-        store.set_level(-23.46);
+        store.set_level(-23.46, std::time::Instant::now());
         assert_eq!(
             parse(&store.state_json()),
             json!({"state": "quiet", "shazam_enabled": false, "level_dbfs": -23.5, "rate_limited_until": null, "now": null, "history": []})

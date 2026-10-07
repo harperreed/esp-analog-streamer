@@ -19,6 +19,9 @@ import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
 
+sys.path.insert(0, str(Path(os.environ['STREAM_SOAK_REPO']) / 'scripts'))
+from stream_format import validate_flac_decoder_log
+
 
 class Failure(Exception):
     pass
@@ -179,10 +182,13 @@ def main():
                     if duration > job['decoded_seconds']:
                         job['advanced_at'] = time.monotonic()
                     job['decoded_seconds'] = duration
-        if job['errors'].stat().st_size:
-            raise Failure(f"{job['label']}: ffmpeg reported errors; see its private log")
+        for line in job['log_tail'].lines():
+            if re.search(r'\[(error|fatal|panic)\]', line):
+                raise Failure(f"{job['label']}: ffmpeg reported errors; see its private log")
         code = job['process'].poll()
         if code is not None:
+            with job['errors'].open('r') as log:
+                validate_flac_decoder_log(log.read(16384))
             # The process may flush its last progress update immediately before exit.
             for line in job['tail'].lines():
                 if line.startswith('out_time_us=') and line.split('=', 1)[1].isdigit():
@@ -253,14 +259,17 @@ def main():
             handles.append(error_handle)
             progress = out / f'{label}.progress'
             process = subprocess.Popen(
-                ['ffmpeg', '-nostdin', '-v', 'error', '-xerror', '-stats_period', '1',
+                ['ffmpeg', '-nostdin', '-nostats', '-v', 'level+info', '-xerror', '-stats_period', '1',
                  '-progress', str(progress), '-rw_timeout', '10000000', '-i',
                  f'http://{ip}:{args.stream_port}/stream.flac', '-t', str(args.seconds), '-f', 'null', '-'],
                 stdout=subprocess.DEVNULL, stderr=error_handle, start_new_session=True)
             processes.append(process)
             tail = Tail(progress)
             tails.append(tail)
+            log_tail = Tail(errors_path)
+            tails.append(log_tail)
             jobs.append(dict(label=label, process=process, tail=tail, errors=errors_path,
+                             log_tail=log_tail,
                              decoded_seconds=0, advanced_at=time.monotonic()))
         decode_started = time.monotonic()
         deadline = decode_started + args.seconds + 60

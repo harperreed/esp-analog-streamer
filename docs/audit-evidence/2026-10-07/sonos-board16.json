@@ -1,0 +1,57 @@
+{
+  "protocol_checks_passed": true,
+  "continuous_playing_seconds": 121.17596446000971,
+  "playhead_advance_ms": 121173,
+  "rejections": [
+    {
+      "expected": 413,
+      "actual": 413,
+      "body": "{\"error\":\"Body exceeds 512 bytes\"}"
+    },
+    {
+      "expected": 400,
+      "actual": 400,
+      "body": "{\"error\":\"Invalid Sonos action or body framing\"}"
+    },
+    {
+      "expected": 415,
+      "actual": 415,
+      "body": "{\"error\":\"Content-Type must be application/json\"}"
+    }
+  ],
+  "console_errors": [],
+  "cleanup_errors": [],
+  "stop_cleanup": "UI confirmed stopped",
+  "elf_sha256": "e8ebf5a2caaca1613836c1e33b09d8c52d36e19478473485e026760a1e54d91f",
+  "source": "Physical workstation ALSA line out to ESP32 line in; Sonos fetched board FLAC",
+  "format": "48 kHz stereo 16-bit FLAC",
+  "audible_confirmation": "Doctor Biz confirmed a later direct-board run sounds great after workstation Master was raised to72/87 (-11.25dB); Sonos remained15%. Initial source setting was too quiet.",
+  "group_volume": 15,
+  "autoplay": false,
+  "capture_fault_values": {
+    "queue_overflows": [
+      14
+    ],
+    "software_dropped_frames": [
+      480
+    ],
+    "read_errors": [
+      0
+    ],
+    "restarts": [
+      2
+    ],
+    "discontinuities": [
+      2
+    ]
+  },
+  "during_internal_free_min": 34983,
+  "during_internal_largest_min": 27648,
+  "worker_stack_free_min": 9376,
+  "limitations": [
+    "One two-minute manual playback run; not endurance proof",
+    "Autoplay fixes are in a later tested build, not this image",
+    "WebSocket task stack margin not measured"
+  ],
+  "audible_run": "target/sonos/listen-1791407833/uart.log"
+}

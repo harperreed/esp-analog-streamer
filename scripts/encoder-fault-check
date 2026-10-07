@@ -13,7 +13,7 @@ if [[ "${1:-}" = --help ]]; then
 fi
 repo="$(cd "$(dirname "$0")/.." && pwd)"
 ENCODER_CHECK_REPO="$repo" exec uv run --quiet --no-project python3 - "$@" <<'PY'
-import argparse, json, os, re, signal, socket, subprocess, threading, time, urllib.request
+import argparse, json, os, re, signal, socket, subprocess, sys, threading, time, urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
 from collections import deque
@@ -29,6 +29,9 @@ p.add_argument('--stream-port', type=port, default=8000, help='stream TCP port (
 p.add_argument('--state-port', type=port, default=80, help='state HTTP port (default: 80)')
 p.add_argument('--out', default='target/encoder-fault-check')
 a = p.parse_args()
+sys.path.insert(0, str(Path(os.environ['ENCODER_CHECK_REPO']) / 'scripts'))
+from stream_format import validate_flac_header
+
 os.umask(0o077)
 out = Path(a.out).resolve() / datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%S.%fZ')
 out.mkdir(parents=True)
@@ -150,8 +153,7 @@ try:
             if not chunk or time.monotonic()>deadline:
                 raise RuntimeError('incomplete FLAC stream metadata')
             metadata.extend(chunk)
-        if not metadata.startswith(b'fLaC'):
-            raise RuntimeError('missing FLAC stream marker')
+        validate_flac_header(metadata)
         peer.settimeout(0.2)
         worker=threading.Thread(target=drain,args=(index,peer))
         workers.append(worker)

@@ -504,3 +504,22 @@ probe received all 240 chunked-response bytes but an EOF-sensitive throwaway
 collector called it a timeout. The canonical framing-aware probe then passed
 in 828.055 ms with Shazam false. Preserve the collector failure separately; it
 is not proof of an API blackout.
+
+Doctor Biz confirmed audible host FLAC on Altec + 3, then requested board-only
+playback tests. Keep the workstation as the physical analog source; Sonos must
+fetch the ESP32 stream. Latest authorized listening volume is 15%.
+
+For board listening, the workstation Master mixer at56/87 attenuates line out by
+23.25dB. A Sonos PLAYING state and advancing position did not mean Doctor Biz
+could hear the board: decoded audio measured about-43dBFS RMS. Raising Master
+to72/87 (-11.25dB) raised decoded RMS to-30.77dBFS, peak-18.85dBFS, with zero
+clipped samples in that check. Keep speaker volume and analog-source gain
+separate in test reports. Doctor Biz confirmed the board music sounds great
+with Master72/87 and Sonos15%; retain those settings for listening.
+
+Sonos eviction events carry session identity in the header; the observed body
+contains only the object type, ERROR_SESSION_EVICTED, and reason. Validate the
+header against our owned session before decoding/applying ownership loss. A
+foreign session created without loading media returns ERROR_COMMAND_FAILED on
+suspend even with the board uninvolved. Close that unused test connection and
+observe playback independently; do not mistake its cleanup failure for retake.

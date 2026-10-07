@@ -5,7 +5,7 @@ set -euo pipefail
 # No cd: a relative --out resolves against the caller's directory. The default lands in the repo's
 # target/ (gitignored). --no-project keeps uv from adopting a pyproject.toml in the caller's directory.
 repo="$(cd "$(dirname "$0")/.." && pwd)"
-STREAM_CHECK_DEFAULT_OUT="$repo/target/stream-check" exec uv run --quiet --no-project --with numpy python3 - "$@" <<'PY'
+STREAM_CHECK_REPO="$repo" STREAM_CHECK_DEFAULT_OUT="$repo/target/stream-check" exec uv run --quiet --no-project --with numpy python3 - "$@" <<'PY'
 import argparse
 import json
 import os
@@ -19,9 +19,12 @@ from pathlib import Path
 
 import numpy as np
 
+sys.path.insert(0, str(Path(os.environ['STREAM_CHECK_REPO']) / 'scripts'))
+from stream_format import probe_format
+
 RATE = 48_000
 WAV_KBIT_PER_S = RATE * 2 * 24 / 1000  # what /stream.wav sends: 2,304 kbit/s
-FULL_SCALE = 2 ** 23  # 24-bit samples
+FULL_SCALE = 2 ** 23  # Common analysis scale for FLAC16 and WAV24 after s32le decoding.
 TOLERANCE_FRAMES = 4_800  # 0.1 s
 LEVEL_TOLERANCE_DB = 3.0
 SIGNAL_FLOOR_DBFS = -70.0  # each channel of the ADC's own noise reads about -82 dBFS
@@ -84,6 +87,12 @@ def main():
     if ffmpeg_lines:
         lines.append(f"note  ffmpeg said {said}")
 
+    try:
+        metadata = probe_format(capture_path, args.path)
+    except (ValueError, subprocess.SubprocessError) as error:
+        lines.append(f"FAIL  format: {error}")
+        return finish(out, lines, failed=True)
+    lines.append(f"ok    format: {metadata}")
     frames = decode(capture_path)
     results = [check_length(frames, args.seconds), check_level(frames, polls),
                check_channels(frames), check_zero_runs(frames)]
@@ -114,7 +123,7 @@ def write_polls(path, polls):
 
 
 def decode(path):
-    """The capture's frames as sign-extended 24-bit integers, shape (frames, 2)."""
+    """FLAC16 or WAV24 scaled to signed 24-bit integers, shape (frames, 2)."""
     raw = subprocess.run(
         ["ffmpeg", "-nostdin", "-v", "error", "-i", str(path), "-f", "s32le", "-acodec", "pcm_s32le", "-"],
         capture_output=True, check=True,
@@ -123,10 +132,10 @@ def decode(path):
 
 
 def dbfs(samples):
-    """RMS level of `samples` in dBFS after removing their DC offset."""
+    """Mean channel energy in dBFS, removing each channel's DC as the board does."""
     samples = samples.astype(np.float64)
-    rms = np.sqrt(np.mean((samples - samples.mean()) ** 2))
-    return 20 * np.log10(max(rms, 1e-9) / FULL_SCALE)
+    energy = np.mean((samples - samples.mean(axis=0)) ** 2)
+    return max(-120.0, 10 * np.log10(max(energy, 1.0) / FULL_SCALE ** 2))
 
 
 def check_length(frames, seconds):
@@ -138,10 +147,9 @@ def check_length(frames, seconds):
 
 
 def check_level(frames, polls):
-    """The capture's level, as the mean of 1 s readings of the mono mix, against the polled level_dbfs."""
-    mono = frames.astype(np.float64).mean(axis=1)
-    seconds = len(mono) // RATE
-    capture = [dbfs(mono[i * RATE:(i + 1) * RATE]) for i in range(seconds)]
+    """Compare mean 1 s stereo energy readings with the polled board level_dbfs."""
+    seconds = len(frames) // RATE
+    capture = [dbfs(frames[i * RATE:(i + 1) * RATE]) for i in range(seconds)]
     board = [level for _, _, level, _, _ in polls if level is not None]
     if not capture or not board:
         return False, f"FAIL  level: {len(capture)} capture seconds, {len(board)} answered polls"

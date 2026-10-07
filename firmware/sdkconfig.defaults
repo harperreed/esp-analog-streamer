@@ -18,6 +18,13 @@ CONFIG_ESP32_REV_MIN_3=y
 CONFIG_SPIRAM=y
 CONFIG_SPIRAM_USE_MALLOC=y
 CONFIG_SPIRAM_MALLOC_ALWAYSINTERNAL=8191
+
+# Release TLS record buffers between operations while keeping TLS allocation in internal RAM.
+# Retain certificate/config data so connection setup and reconnect keep the same trust policy.
+CONFIG_MBEDTLS_INTERNAL_MEM_ALLOC=y
+CONFIG_MBEDTLS_DYNAMIC_BUFFER=y
+# CONFIG_MBEDTLS_DYNAMIC_FREE_CONFIG_DATA is not set
+# CONFIG_MBEDTLS_DYNAMIC_FREE_CA_CERT is not set
 # The fixed Audio Kit requires mapped PSRAM for the capture and encoded-frame rings.
 # Fail at boot if it is absent rather than falling back to insufficient internal memory.
 # CONFIG_SPIRAM_IGNORE_NOTFOUND is not set

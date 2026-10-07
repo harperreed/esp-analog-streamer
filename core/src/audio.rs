@@ -237,6 +237,84 @@ impl LevelMeter {
     }
 }
 
+/// One second of stereo energy, read every 250 ms, with DC removed independently per channel.
+/// Four interval buckets keep capture allocation-free; samples never leave the caller's buffer.
+pub struct StereoLevelMeter {
+    intervals: [[Sums; 2]; 4],
+    filling: [Sums; 2],
+    next: usize,
+    channel: usize,
+    interval: usize,
+}
+
+impl StereoLevelMeter {
+    /// `sample_rate` is stereo frames per second and must be divisible by four.
+    /// At most 131,071 frames fit signed 64-bit square sums for signed 24-bit input.
+    pub fn new(sample_rate: usize) -> Self {
+        assert!(
+            sample_rate > 0 && sample_rate <= 131_071 && sample_rate.is_multiple_of(4),
+            "stereo meter rate must be divisible by four and fit 24-bit square sums"
+        );
+        Self {
+            intervals: [[Sums::default(); 2]; 4],
+            filling: [Sums::default(); 2],
+            next: 0,
+            channel: 0,
+            interval: sample_rate / 4,
+        }
+    }
+
+    /// Drops the window, partial interval and any half frame after a capture gap.
+    pub fn reset(&mut self) {
+        self.intervals.fill([Sums::default(); 2]);
+        self.filling = [Sums::default(); 2];
+        self.next = 0;
+        self.channel = 0;
+    }
+
+    /// Takes sign-extended 24-bit samples in L, R order, retaining half frames across calls.
+    /// Returns the last completed interval's reading; startup uses only frames received so far.
+    /// Energy is averaged across channels, so a lone active channel reads 3 dB below two alike.
+    pub fn push(&mut self, interleaved: &[i32]) -> Option<f32> {
+        let mut reading = None;
+        for &sample in interleaved {
+            debug_assert!((-8_388_608..=8_388_607).contains(&sample));
+            let x = i64::from(sample);
+            let sums = &mut self.filling[self.channel];
+            sums.count += 1;
+            sums.sum += x;
+            sums.sum_sq += x * x;
+            self.channel ^= 1;
+            if self.channel == 0 && self.filling[1].count as usize == self.interval {
+                self.intervals[self.next] = std::mem::take(&mut self.filling);
+                self.next = (self.next + 1) % self.intervals.len();
+                let mut window = [Sums::default(); 2];
+                for bucket in &self.intervals {
+                    for channel in 0..2 {
+                        window[channel] = window[channel].plus(bucket[channel]);
+                    }
+                }
+                let energy = window
+                    .iter()
+                    .map(|sums| {
+                        let n = sums.count as f64;
+                        let mean = sums.sum as f64 / n;
+                        (sums.sum_sq as f64 / n - mean * mean).max(0.0)
+                    })
+                    .sum::<f64>()
+                    / 2.0;
+                reading = Some(if energy < 1.0 {
+                    SILENCE_DBFS
+                } else {
+                    ((10.0 * (energy / (8_388_608.0 * 8_388_608.0)).log10()) as f32)
+                        .max(SILENCE_DBFS)
+                });
+            }
+        }
+        reading
+    }
+}
+
 /// Averages interleaved stereo frames (L, R, L, R, ...) into mono. A trailing odd sample is dropped.
 pub fn stereo_to_mono(interleaved: &[i16], out: &mut Vec<i16>) {
     out.clear();
@@ -463,6 +541,131 @@ mod tests {
         let mut out = vec![];
         samples_from_i2s_slots(&bytes, &mut out);
         assert_eq!(out, vec![2]);
+    }
+
+    #[test]
+    fn stereo_meter_opposite_phase_retains_energy() {
+        let samples: Vec<i32> = (0..48_000)
+            .flat_map(|i| {
+                let x = if i % 48 < 24 { 4_194_304 } else { -4_194_304 };
+                [x, -x]
+            })
+            .collect();
+        let level = StereoLevelMeter::new(48_000).push(&samples).unwrap();
+        assert!((level - -6.0206).abs() < 0.001, "got {level}");
+    }
+
+    fn stereo_square(frames: usize, left: i32, right: i32, dc: [i32; 2]) -> Vec<i32> {
+        (0..frames)
+            .flat_map(|i| {
+                let sign = if i % 2 == 0 { 1 } else { -1 };
+                [dc[0] + sign * left, dc[1] + sign * right]
+            })
+            .collect()
+    }
+
+    #[test]
+    fn stereo_meter_in_phase_and_either_single_channel_have_calibrated_levels() {
+        for (left, right, expected) in [
+            (4_194_304, 4_194_304, -6.0206),
+            (4_194_304, 0, -9.0309),
+            (0, 4_194_304, -9.0309),
+        ] {
+            let samples = stereo_square(48_000, left, right, [0, 0]);
+            let level = StereoLevelMeter::new(48_000).push(&samples).unwrap();
+            assert!((level - expected).abs() < 0.001, "got {level}");
+        }
+    }
+
+    #[test]
+    fn stereo_meter_removes_each_channels_dc_without_losing_signal() {
+        let samples = stereo_square(48_000, 2_097_152, -2_097_152, [5_000_000, -6_000_000]);
+        let level = StereoLevelMeter::new(48_000).push(&samples).unwrap();
+        assert!((level - -12.0412).abs() < 0.001, "got {level}");
+    }
+
+    #[test]
+    fn stereo_meter_silence_and_unequal_dc_are_silent() {
+        for dc in [[0, 0], [8_388_607, -8_388_608], [-8_388_608; 2]] {
+            let mut meter = StereoLevelMeter::new(48_000);
+            assert_eq!(meter.push(&[]), None);
+            let samples = stereo_square(48_000, 0, 0, dc);
+            assert_eq!(meter.push(&samples), Some(SILENCE_DBFS));
+        }
+    }
+
+    #[test]
+    fn stereo_meter_full_scale_does_not_overflow() {
+        let samples: Vec<_> = [8_388_607, -8_388_608, -8_388_608, 8_388_607]
+            .into_iter()
+            .cycle()
+            .take(2 * 48_000)
+            .collect();
+        let mut meter = StereoLevelMeter::new(48_000);
+        for _ in 0..3 {
+            let level = meter.push(&samples).unwrap();
+            assert!(level.abs() < 0.001, "got {level}");
+        }
+    }
+
+    #[test]
+    fn stereo_meter_reads_every_quarter_second_including_startup() {
+        let mut meter = StereoLevelMeter::new(48_000);
+        let samples = stereo_square(96_000, 4_194_304, -4_194_304, [0, 0]);
+        let mut readings = vec![];
+        for (i, chunk) in samples.chunks(480).enumerate() {
+            if let Some(level) = meter.push(chunk) {
+                readings.push((i + 1) * 240);
+                assert!((level - -6.0206).abs() < 0.001, "got {level}");
+            }
+        }
+        assert_eq!(readings, (1..=8).map(|i| i * 12_000).collect::<Vec<_>>());
+    }
+
+    #[test]
+    fn stereo_meter_keeps_only_one_second_and_returns_last_complete_interval() {
+        let mut meter = StereoLevelMeter::new(48_000);
+        let tone = stereo_square(48_000, 4_194_304, -4_194_304, [0, 0]);
+        // Partial trailing silence must not change the last completed reading.
+        let input = [&tone[..], &[0; 600]].concat();
+        let level = meter.push(&input).unwrap();
+        assert!((level - -6.0206).abs() < 0.001, "got {level}");
+        let level = meter.push(&vec![0; 24_000 - 600]).unwrap();
+        assert!((level - -7.27).abs() < 0.01, "got {level}");
+        assert_eq!(meter.push(&vec![0; 72_000]), Some(SILENCE_DBFS));
+    }
+
+    #[test]
+    fn stereo_meter_preserves_frames_across_odd_and_interval_chunk_boundaries() {
+        let samples = stereo_square(24, 4_194_304, -4_194_304, [0, 0]);
+        for chunk_size in [1, 3, 7, 10, 25, 48] {
+            let mut meter = StereoLevelMeter::new(8);
+            let mut total = 0;
+            for chunk in samples.chunks(chunk_size) {
+                let before = total;
+                total += chunk.len();
+                let reading = meter.push(chunk);
+                assert_eq!(reading.is_some(), total / 4 > before / 4);
+                if let Some(level) = reading {
+                    assert!((level - -6.0206).abs() < 0.001, "got {level}");
+                }
+                assert_eq!(meter.push(&[]), None);
+            }
+        }
+    }
+
+    #[test]
+    fn stereo_meter_reset_discards_window_partial_interval_and_half_frame() {
+        let mut meter = StereoLevelMeter::new(8);
+        meter.push(&stereo_square(9, 4_194_304, -4_194_304, [0, 0]));
+        meter.push(&[8_388_607]);
+        meter.reset();
+        assert_eq!(meter.push(&[123, -456, 123]), None);
+        assert_eq!(meter.push(&[-456]), Some(SILENCE_DBFS));
+        let level = meter
+            .push(&stereo_square(8, 4_194_304, -4_194_304, [0, 0]))
+            .unwrap();
+        assert!((level - -6.0206).abs() < 0.001, "got {level}");
     }
 
     #[test]

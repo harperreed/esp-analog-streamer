@@ -22,6 +22,9 @@ pub mod fingerprinting {
 pub mod policy;
 pub mod shazam;
 pub mod signal;
+pub mod sonos;
+pub mod sonos_queue;
+pub mod sonos_web;
 pub mod store;
 pub mod stream_http;
 pub mod stream_ring;

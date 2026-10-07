@@ -9,7 +9,9 @@ use anyhow::Result;
 use esp_idf_svc::hal::cpu::Core;
 use esp_idf_svc::hal::gpio::{InputPin, OutputPin};
 use esp_idf_svc::hal::i2s::I2s;
-use esp_shazam_core::audio::{samples_from_i2s_slots, LevelMeter, RecognitionBuffer, SampleRing};
+use esp_shazam_core::audio::{
+    samples_from_i2s_slots, RecognitionBuffer, SampleRing, StereoLevelMeter,
+};
 use esp_shazam_core::capture_buffer::CaptureBuffer;
 use esp_shazam_core::capture_health::{Action, CaptureHealth};
 use esp_shazam_core::decimate::Decimator;
@@ -22,7 +24,7 @@ use crate::threads::ThreadSpec;
 
 /// LINE IN's sample rate, and the stream's.
 pub const CAPTURE_RATE_HZ: u32 = 48_000;
-/// The rate of the mono feed the Decimator makes for the fingerprint and the level meter.
+/// The rate of the mono feed the Decimator makes for the fingerprint.
 pub const FEED_RATE_HZ: u32 = 16_000;
 /// The fingerprint's window: the newest 12 s of the feed.
 pub const WINDOW_SAMPLES: usize = 12 * FEED_RATE_HZ as usize;
@@ -45,9 +47,6 @@ const DMA_BYTES: usize = DMA_FRAMES * 2 * 4;
 /// at most 2.2 ms late. DMA can't reach PSRAM: the buffers take 19,200 bytes of internal RAM.
 const READ_TIMEOUT_MS: u32 = 1_000;
 
-/// The level is the loudness of the feed's last second, measured every 250 ms.
-const METER_WINDOW: usize = FEED_RATE_HZ as usize;
-const METER_INTERVAL: usize = FEED_RATE_HZ as usize / 4;
 /// At most this many feed samples wait for the 12 s ring while the recognizer holds it. A hold lasts
 /// about 50 ms, so a second is never reached; past it, the oldest samples go.
 const WAITING_LIMIT: usize = FEED_RATE_HZ as usize;
@@ -65,6 +64,7 @@ static RESTARTS: AtomicU32 = AtomicU32::new(0);
 static HEALTH_RESTART_REQUESTS: AtomicU32 = AtomicU32::new(0);
 static GAPS: AtomicU32 = AtomicU32::new(0);
 static RAW_WORK_US: AtomicU32 = AtomicU32::new(0);
+static METER_WORK_US: AtomicU32 = AtomicU32::new(0);
 static STORE_WORK_US: AtomicU32 = AtomicU32::new(0);
 static STAGED_FRAMES: AtomicU32 = AtomicU32::new(0);
 static STAGED_MAX_FRAMES: AtomicU32 = AtomicU32::new(0);
@@ -94,7 +94,7 @@ pub fn start_i2s<'d>(
 
 /// Spawns the capture thread. When Shazam is enabled it returns the 12 s recognition ring;
 /// it always returns the stream ring of raw frames. Every 250 ms the thread writes
-/// the loudness of the feed's last second into `store`. The first 500 ms are dropped while the
+/// the stereo energy of the input's last second into `store`. The first 500 ms are dropped while the
 /// codec's reference voltage settles.
 pub fn spawn_capture(
     rx: CaptureRx<'static>,
@@ -144,7 +144,7 @@ fn capture(
     let mut interleaved: Vec<i32> = Vec::with_capacity(2 * DMA_FRAMES);
     let mut decimator = Decimator::new();
     let mut feed: Vec<i16> = Vec::with_capacity(DMA_FRAMES / 3 + 1);
-    let mut meter = LevelMeter::new(METER_WINDOW, METER_INTERVAL);
+    let mut meter = StereoLevelMeter::new(CAPTURE_RATE_HZ as usize);
     let mut settle_frames = CAPTURE_RATE_HZ as usize / 2;
     let mut staging = CaptureBuffer::new(STAGING_FRAMES);
     let mut pending_since = None;
@@ -224,14 +224,16 @@ fn capture(
         if let Some(recognition) = recognition.as_mut() {
             recognition.push(&feed);
         }
-        if let Some(level) = meter.push(&feed) {
-            pending_level = Some(level);
+        let meter_started = micros();
+        if let Some(level) = meter.push(&interleaved) {
+            pending_level = Some((level, std::time::Instant::now()));
         }
-        if let Some(level) = pending_level {
+        METER_WORK_US.fetch_max((micros() - meter_started) as u32, Ordering::Relaxed);
+        if let Some((level, measured_at)) = pending_level {
             let started = micros();
             match store.try_lock() {
                 Ok(mut store) => {
-                    store.set_level(level);
+                    store.set_level(level, measured_at);
                     pending_level = None;
                 }
                 Err(TryLockError::WouldBlock) => {}
@@ -371,12 +373,12 @@ fn log_capture(elapsed_us: u64, observed: u64, window_start_free: &mut [usize; 2
     // Logging overhead belongs to the next window. No stop/start allocation cycle.
     *window_start_free = start_heap_window();
     let deficit = (elapsed_us * u64::from(CAPTURE_RATE_HZ) / 1_000_000) as i64 - observed as i64;
-    log::info!("audio: frames={} callbacks={} queue_overflows={} software_dropped_frames={} read_errors={} restarts={} discontinuities={} health_restart_requests={} raw_work_max_us={} store_work_max_us={} raw_read_max_us={} staged_frames={} staged_max_frames={} staging_pending_attempts={} staging_pending_max_attempts={} staging_pending_us={} staging_pending_max_us={} timing_deficit_estimate_frames={} (clock drift/scheduling; not proof of loss) internal_free={} internal_largest={} psram_free={} psram_largest={} internal_min_sum={} psram_min_sum={} internal_window_start_free={} psram_window_start_free={} (minima sum per-region lows; largest is a snapshot; staging current values sampled at publish/reset)",
+    log::info!("audio: frames={} callbacks={} queue_overflows={} software_dropped_frames={} read_errors={} restarts={} discontinuities={} health_restart_requests={} raw_work_max_us={} meter_work_max_us={} store_work_max_us={} raw_read_max_us={} staged_frames={} staged_max_frames={} staging_pending_attempts={} staging_pending_max_attempts={} staging_pending_us={} staging_pending_max_us={} timing_deficit_estimate_frames={} (clock drift/scheduling; not proof of loss) internal_free={} internal_largest={} psram_free={} psram_largest={} internal_min_sum={} psram_min_sum={} internal_window_start_free={} psram_window_start_free={} (minima sum per-region lows; largest is a snapshot; staging current values sampled at publish/reset)",
         FRAMES.load(Ordering::Relaxed), counters.callbacks, counters.queue_overflows,
         DROPPED.load(Ordering::Relaxed), READ_ERRORS.load(Ordering::Relaxed),
         RESTARTS.load(Ordering::Relaxed), GAPS.load(Ordering::Relaxed),
         HEALTH_RESTART_REQUESTS.load(Ordering::Relaxed),
-        RAW_WORK_US.swap(0, Ordering::Relaxed), STORE_WORK_US.swap(0, Ordering::Relaxed),
+        RAW_WORK_US.swap(0, Ordering::Relaxed), METER_WORK_US.swap(0, Ordering::Relaxed), STORE_WORK_US.swap(0, Ordering::Relaxed),
         crate::stream::take_raw_read_max_us(), STAGED_FRAMES.load(Ordering::Relaxed),
         STAGED_MAX_FRAMES.swap(0, Ordering::Relaxed),
         STAGING_PENDING_ATTEMPTS.load(Ordering::Relaxed), STAGING_PENDING_MAX_ATTEMPTS.swap(0, Ordering::Relaxed),

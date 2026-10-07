@@ -11,6 +11,7 @@ mod psram;
 mod recognizer;
 mod shazam_http;
 mod socket_close;
+mod sonos;
 mod stream;
 mod threads;
 mod web;
@@ -57,15 +58,16 @@ pub fn run() -> Result<()> {
     let wifi = net::start_wifi(
         peripherals.modem,
         sysloop,
-        nvs,
+        nvs.clone(),
         CONFIG.wifi_ssid,
         CONFIG.wifi_pass,
     )?;
     let _sntp = net::start_sntp()?;
     let mut mdns = net::start_mdns(CONFIG.hostname)?;
 
-    let _server = web::start(store.clone())?;
     stream::start(stream_ring, &mut mdns)?;
+    let sonos = sonos::start(store.clone(), nvs)?;
+    let _server = web::start(store.clone(), sonos)?;
     let publisher = mqtt_out::start(CONFIG.mqtt_url, store.clone())?;
     // Capture only supplies a recognition ring when Shazam is enabled.
     if let Some(ring) = ring {

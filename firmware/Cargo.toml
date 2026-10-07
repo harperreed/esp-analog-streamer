@@ -26,6 +26,10 @@ opt-level = 3
 debug = true
 opt-level = "z"
 
+[features]
+# Explicitly built receive-only TLS adversarial diagnostic; absent from normal firmware.
+sonos-fixture = []
+
 [dependencies]
 anyhow = "1"
 esp-idf-hal = "=0.47.0"
@@ -33,6 +37,8 @@ esp-idf-svc = "=0.53.0"
 esp-idf-sys = "=0.38.1"
 esp-shazam-core = { path = "../core" }
 log = "0.4"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
 toml-cfg = "0.2"
 
 [build-dependencies]
@@ -42,6 +48,10 @@ embuild = "=0.33.5"
 # esp-idf-sys doesn't watch this file: after changing this entry, touch sdkconfig.defaults (gotchas.md).
 [[package.metadata.esp-idf-sys.extra_components]]
 remote_component = { name = "espressif/mdns", version = "1.8.2" }
+
+# Preserve the pinned IDF and svc versions; 1.8.0 supports IDF >=5.0.
+[[package.metadata.esp-idf-sys.extra_components]]
+remote_component = { name = "espressif/esp_websocket_client", version = "1.8.0" }
 
 # Its own workspace: the host workspace at the repo root excludes firmware/.
 [workspace]

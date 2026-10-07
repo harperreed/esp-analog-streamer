@@ -1,4 +1,4 @@
-// ABOUTME: The LINE IN stream on port 8000: GET /stream.flac and GET /stream.wav send the stream ring as endless 48 kHz, 24-bit stereo.
+// ABOUTME: The LINE IN stream on port 8000: GET /stream.flac and GET /stream.wav send endless 48 kHz stereo: 16-bit FLAC and 24-bit WAV.
 // ABOUTME: One core 1 encoder shares FLAC frames; listeners copy out before socket work and drop if they fall behind.
 
 use std::fmt;
@@ -316,6 +316,8 @@ enum End {
     StoppedReading,
     /// Capture or the shared encoder stopped supplying fresh audio.
     CaptureStalled,
+    /// A copied shared frame could not be numbered for this listener.
+    InvalidFlac(flac::RenumberError),
     /// The socket failed, usually because the listener closed it.
     Failed(io::Error),
 }
@@ -339,6 +341,7 @@ impl fmt::Display for End {
                 write!(f, "no fresh audio for {} s", FRESH_AUDIO_TIMEOUT.as_secs())
             }
             End::Failed(e) => write!(f, "{e}"),
+            End::InvalidFlac(e) => write!(f, "FLAC numbering failed: {e:?}"),
         }
     }
 }
@@ -420,7 +423,7 @@ fn write_frame(writer: &mut DeadlineWriter<'_>, bytes: &[u8], limit: Duration) -
     result
 }
 
-/// One encoder follows raw capture and publishes whole FLAC frames for every listener.
+/// One encoder converts raw 24-bit capture to 16-bit FLAC once for every listener.
 /// A raw overrun discards the partial block and invalidates old encoded cursors: existing
 /// listeners disconnect rather than hearing discontinuous audio presented as a continuous stream.
 fn encode(raw: SharedStreamRing, encoded: SharedFlacRing, listeners: Arc<AtomicUsize>) {
@@ -537,7 +540,7 @@ impl EncoderMetrics {
     }
 }
 
-/// A fresh header precedes the next whole shared frame, even when its block number is nonzero.
+/// A fresh header precedes shared frames whose copied headers count from zero for this listener.
 /// The bounded output buffer holds one complete frame, so every socket write shares that frame's
 /// single deadline. The ring's mutex is released before any socket call.
 fn stream_flac(sock: &TcpStream, ring: &SharedFlacRing, bytes: &mut [u8]) -> End {
@@ -557,6 +560,7 @@ fn stream_flac(sock: &TcpStream, ring: &SharedFlacRing, bytes: &mut [u8]) -> End
     if let Err(e) = write_frame(&mut writer, &header, write_limit) {
         return End::from_write_error(e);
     }
+    let mut block_number = 0;
     loop {
         let n = match read_locked_fresh(ring, FRESH_AUDIO_TIMEOUT, CAUGHT_UP_SLEEP, |ring| {
             ring.read(&mut cursor, bytes)
@@ -565,8 +569,15 @@ fn stream_flac(sock: &TcpStream, ring: &SharedFlacRing, bytes: &mut [u8]) -> End
             Err(WaitError::Stalled) => return End::CaptureStalled,
             Err(WaitError::Read(_)) => return End::FellBehind,
         };
+        let n = match flac::renumber_frame(bytes, n, block_number) {
+            Ok(n) => n,
+            Err(error) => return End::InvalidFlac(error),
+        };
         if let Err(e) = write_frame(&mut writer, &bytes[..n], write_limit) {
             return End::from_write_error(e);
         }
+        // Advance only after the whole frame was written. At 2^31 the helper rejects the
+        // next frame, ending through normal bounded connection cleanup rather than wrapping.
+        block_number += 1;
     }
 }

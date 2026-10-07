@@ -1,5 +1,5 @@
 // ABOUTME: Checks a listener joining encoded FLAC at a nonzero frame number with claxon and ffmpeg.
-// ABOUTME: Frames copied in small slices must decode to the exact source samples after a fresh stream header.
+// ABOUTME: Frames copied in small slices must decode to the exact quantized samples after a fresh stream header.
 
 use std::path::Path;
 use std::process::Command;
@@ -36,6 +36,10 @@ fn joined_frames_decode_bit_exact_with_both_decoders() {
             stream.extend_from_slice(&out[..n]);
             assert!(stream.len() <= flac::STREAM_HEADER_LEN + 2 * MAX_FRAME_BYTES);
         }
+        let expected: Vec<_> = expected
+            .into_iter()
+            .map(|s| s.clamp(-0x80_0000, 0x7f_ffff) >> 8)
+            .collect();
         let mut reader = claxon::FlacReader::new(stream.as_slice()).unwrap();
         let decoded = reader.samples().collect::<Result<Vec<_>, _>>().unwrap();
         assert_samples(&decoded, &expected, "claxon", first);
@@ -58,7 +62,7 @@ fn joined_frames_decode_bit_exact_with_both_decoders() {
         let decoded: Vec<_> = ffmpeg
             .stdout
             .chunks_exact(4)
-            .map(|b| i32::from_le_bytes(b.try_into().unwrap()) >> 8)
+            .map(|b| i32::from_le_bytes(b.try_into().unwrap()) >> 16)
             .collect();
         assert_samples(&decoded, &expected, "ffmpeg", first);
         std::fs::remove_file(&path).unwrap();

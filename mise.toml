@@ -2,6 +2,7 @@
 # Then `mise run esp-toolchain` installs the Xtensa Rust toolchain ("esp") the firmware builds with.
 [tools]
 rust = "1.93.0"  # host toolchain for core, tools and tests
+node = "26.10.0" # built-in test runner for the self-contained web page
 cmake = "3.30.2" # the versions ESP-IDF v5.5.5's tools.json pins
 ninja = "1.12.1"
 # Prebuilt host binaries from GitHub releases: nothing to compile.
