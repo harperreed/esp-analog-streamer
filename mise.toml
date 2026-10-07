@@ -4,9 +4,9 @@
 rust = "1.93.0"  # host toolchain for core, tools and tests
 cmake = "3.30.2" # the versions ESP-IDF v5.5.5's tools.json pins
 ninja = "1.12.1"
-# Prebuilt macOS arm64 binaries from GitHub releases: nothing to compile.
+# Prebuilt host binaries from GitHub releases: nothing to compile.
 "github:esp-rs/espup" = "0.18.0"
-"github:esp-rs/espflash" = { version = "4.6.0", asset_pattern = "espflash-aarch64-apple-darwin.zip" }
+"github:esp-rs/espflash" = "4.6.0"
 # Ships ldproxy. Its zip stores no executable bit, and mise keeps the archive's file modes.
 "github:esp-rs/embuild" = { version = "0.3.2", version_prefix = "ldproxy-v", postinstall = "chmod +x \"$MISE_TOOL_INSTALL_PATH/ldproxy\"" }
 

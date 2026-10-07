@@ -5,6 +5,17 @@ An always-listening Shazam box. Rust firmware for the Ai-Thinker ESP32-A1S Audio
 - Design: `docs/superpowers/specs/2026-10-03-esp-shazam-design.md`
 - Check everything: `scripts/check`
 
+## Linux workstation setup
+
+With mise and uv installed, copy `firmware/cfg.toml.example` to the gitignored
+`firmware/cfg.toml` and fill in the local settings. Run `scripts/setup-linux`
+as your normal user in a terminal. It uses sudo to install Ubuntu/Debian build
+and audio dependencies, grants access to `/dev/ttyUSB0`, installs the pinned tools,
+and runs the project checks. Use `--port DEVICE` for another serial device,
+`--dry-run` to preview the steps, or `--flash` to flash production firmware after
+checks pass. USB access needs renewal after unplugging the board. Logs live in
+`target/setup-linux/`; credentials and test media must stay local.
+
 ## Listening to LINE IN
 
 The board also streams what plays into LINE IN, 48 kHz 24-bit stereo, on port 8000. Two listeners at most, WAV and FLAC together; a third gets `503`.

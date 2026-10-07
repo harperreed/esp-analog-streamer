@@ -1,5 +1,17 @@
 # Gotchas
 
+## Linux workstation validation — 2026-10-07
+Doctor Biz connected this workstation's analog output to the board's LINE IN and
+supplied test music under `media-ignore/`. This supersedes the older Mac/turntable
+input assumptions for this setup. USB identifies a CP2102 at `/dev/ttyUSB0`;
+device access requires a local permission grant. The old board IP is not confirmed
+on this network. Keep Wi-Fi credentials in the gitignored `firmware/cfg.toml`.
+
+The pinned espflash release must select the host platform. A hardcoded macOS ARM64
+asset installs successfully on Linux but cannot execute. Leaving asset selection
+to mise installed a working Linux espflash 4.6.0. Use `mise run esp-toolchain` for
+the pinned Xtensa toolchain; the host Rust toolchain alone cannot build firmware.
+
 ## Confirm the exact board before pinout research
 "ESP32-S3 AI Smart Speaker" matched a Waveshare S3 board, but the hardware is an Ai-Thinker ESP32-A1S Audio Kit (classic ESP32). Ask for the listing or module label first. Once USB works, confirm with esptool's chip-id / flash-id and an I2C probe (ES8388 answers at 0x10, AC101 at 0x1A).
 
