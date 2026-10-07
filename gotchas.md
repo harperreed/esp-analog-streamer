@@ -528,3 +528,10 @@ Doctor Biz corrected the test-source gain preference: use workstation line out
 at unity gain, with both ALSA Master and PCM at 0 dB. This supersedes the earlier
 Master72/87 listening setting. Control listening loudness at Sonos rather than
 attenuating the analog test source. Unity gain does not certify an analog voltage.
+
+Doctor Biz requested undoing Sonos test changes after confusing low-volume
+behavior. Restored the saved pre-test group volume of 34% and disabled board
+autoplay; verified current non-board playback continued unchanged. Individual
+speaker volumes were not saved, so exact original speaker balance is unknown.
+Do not reapply the old 5/10/15% test caps. Read live Sonos state before claiming
+its volume or source; the later live group was at 49% on a non-board session.
