@@ -31,6 +31,46 @@ pub fn read_fresh<E>(
     }
 }
 
+/// Reads raw history while allowing callers to time each single copy.
+pub fn read_atomic_fresh_with(
+    limit: Duration,
+    interval: Duration,
+    mut read: impl FnMut() -> Result<usize, crate::stream_ring::ReadError>,
+) -> Result<usize, WaitError<crate::stream_ring::ReadError>> {
+    read_fresh(limit, interval, || match read() {
+        Err(crate::stream_ring::ReadError::Retry) => Ok(0),
+        result => result,
+    })
+}
+
+/// Copies fresh raw audio within one wait budget, sleeping between retries.
+pub fn read_atomic_fresh(
+    ring: &crate::stream_ring::StreamRing,
+    cursor: &mut crate::stream_ring::Cursor,
+    out: &mut [i32],
+    limit: Duration,
+    interval: Duration,
+) -> Result<usize, WaitError<crate::stream_ring::ReadError>> {
+    read_atomic_fresh_with(limit, interval, || ring.read(cursor, out))
+}
+
+/// Takes bounded header snapshots until an absolute deadline.
+pub fn cursor_before(
+    ring: &crate::stream_ring::StreamRing,
+    deadline: Instant,
+    interval: Duration,
+) -> Option<crate::stream_ring::Cursor> {
+    assert!(!interval.is_zero());
+    while Instant::now() < deadline {
+        match ring.cursor_now() {
+            Ok(cursor) => return Some(cursor),
+            Err(crate::stream_ring::ReadError::Retry) => std::thread::sleep(interval),
+            Err(crate::stream_ring::ReadError::Overrun) => return None,
+        }
+    }
+    None
+}
+
 /// Reads a shared ring within one fresh-data budget, including contention on its mutex.
 pub fn read_locked_fresh<T, E>(
     ring: &Mutex<T>,
@@ -91,9 +131,9 @@ impl Drop for Slot {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::capture_buffer::CaptureBuffer;
     use crate::flac_ring::FlacRing;
     use crate::stream_http::{DeadlineWriter, Format};
-    use crate::stream_ring::StreamRing;
     use std::io::Read;
     use std::net::{TcpListener, TcpStream};
     use std::sync::{mpsc, Barrier, Mutex};
@@ -113,7 +153,7 @@ mod tests {
     #[test]
     fn stalled_raw_and_encoded_producers_release_both_listener_slots() {
         let slots = Arc::new(AtomicUsize::new(0));
-        let raw = Arc::new(Mutex::new(StreamRing::new(8)));
+        let (_, raw) = CaptureBuffer::new(8, 1);
         let encoded = Arc::new(Mutex::new(FlacRing::try_new(2, 16).unwrap()));
         let (finished, results) = mpsc::channel();
         let (started, ready) = mpsc::channel();
@@ -139,11 +179,10 @@ mod tests {
                 begin_wait.wait();
                 let stalled = match format {
                     Format::Wav => {
-                        let mut cursor = raw.lock().unwrap().cursor_now();
+                        let mut cursor = raw.cursor_now().unwrap();
                         let mut out = [0; 2];
                         matches!(
-                            read_locked_fresh(&raw, LIMIT, INTERVAL, |ring| ring
-                                .read(&mut cursor, &mut out)),
+                            read_atomic_fresh(&raw, &mut cursor, &mut out, LIMIT, INTERVAL),
                             Err(WaitError::Stalled)
                         )
                     }
@@ -185,20 +224,24 @@ mod tests {
 
     #[test]
     fn quiet_audio_after_a_short_capture_delay_is_fresh_data() {
-        let ring = Arc::new(Mutex::new(StreamRing::new(8)));
-        let mut cursor = ring.lock().unwrap().cursor_now();
-        let producer = ring.clone();
+        let (mut publisher, ring) = CaptureBuffer::new(8, 1);
+        let mut cursor = ring.cursor_now().unwrap();
         let thread = thread::spawn(move || {
             thread::sleep(Duration::from_millis(10));
-            producer.lock().unwrap().push(&[0, 0, 0, 0]);
+            publisher.publish(&[0, 0, 0, 0]).unwrap();
         });
         let mut out = [1; 4];
         assert_eq!(
-            read_locked_fresh(&ring, Duration::from_secs(1), INTERVAL, |ring| ring
-                .read(&mut cursor, &mut out)),
-            Ok(2)
+            read_atomic_fresh(
+                &ring,
+                &mut cursor,
+                &mut out,
+                Duration::from_secs(1),
+                INTERVAL
+            ),
+            Ok(1)
         );
-        assert_eq!(out, [0; 4]);
+        assert_eq!(&out[..2], &[0; 2]);
         thread.join().unwrap();
     }
 
@@ -230,12 +273,12 @@ mod tests {
 
     #[test]
     fn raw_and_encoded_resets_remain_read_errors() {
-        let mut raw = StreamRing::new(8);
-        let mut cursor = raw.cursor_now();
-        raw.reset();
+        let (mut publisher, raw) = CaptureBuffer::new(8, 1);
+        let mut cursor = raw.cursor_now().unwrap();
+        publisher.invalidate().unwrap();
         assert_eq!(
-            read_fresh(LIMIT, INTERVAL, || raw.read(&mut cursor, &mut [0; 2])),
-            Err(WaitError::Read(crate::stream_ring::Overrun))
+            read_atomic_fresh(&raw, &mut cursor, &mut [0; 2], LIMIT, INTERVAL),
+            Err(WaitError::Read(crate::stream_ring::ReadError::Overrun))
         );
         let mut encoded = FlacRing::try_new(2, 16).unwrap();
         let mut cursor = encoded.cursor_now();
@@ -248,13 +291,13 @@ mod tests {
 
     #[test]
     fn a_shared_encoder_retry_gets_a_full_fresh_wait() {
-        let raw = StreamRing::new(8);
-        let mut cursor = raw.cursor_now();
+        let (_, raw) = CaptureBuffer::new(8, 1);
+        let mut cursor = raw.cursor_now().unwrap();
         let mut out = [0; 2];
         for _ in 0..2 {
             let started = Instant::now();
             assert_eq!(
-                read_fresh(LIMIT, INTERVAL, || raw.read(&mut cursor, &mut out)),
+                read_atomic_fresh(&raw, &mut cursor, &mut out, LIMIT, INTERVAL),
                 Err(WaitError::Stalled)
             );
             assert!(started.elapsed() >= LIMIT);
@@ -286,18 +329,6 @@ mod tests {
     }
 
     #[test]
-    fn a_held_raw_ring_cannot_block_the_fresh_deadline() {
-        let mut raw = StreamRing::new(8);
-        let mut cursor = raw.cursor_now();
-        raw.push(&[1, 2]);
-        held_ring_timeout(raw, move |ring| {
-            read_locked_fresh(&ring, LIMIT, INTERVAL, |raw| {
-                raw.read(&mut cursor, &mut [0; 2])
-            }) == Err(WaitError::Stalled)
-        });
-    }
-
-    #[test]
     fn a_held_encoded_ring_cannot_block_the_fresh_deadline() {
         let mut encoded = FlacRing::try_new(2, 16).unwrap();
         let mut cursor = encoded.cursor_now();
@@ -311,8 +342,17 @@ mod tests {
 
     #[test]
     fn initial_cursor_lock_cannot_outlive_its_absolute_deadline() {
-        held_ring_timeout(StreamRing::new(8), |ring| {
+        held_ring_timeout(FlacRing::try_new(2, 16).unwrap(), |ring| {
             lock_before(&ring, Instant::now() + LIMIT, INTERVAL).is_none()
         });
+    }
+    #[test]
+    fn raw_retry_waits_for_budget_instead_of_returning_a_read_error() {
+        let started = Instant::now();
+        let result = read_atomic_fresh_with(LIMIT, INTERVAL, || {
+            Err::<usize, _>(crate::stream_ring::ReadError::Retry)
+        });
+        assert_eq!(result, Err(WaitError::Stalled));
+        assert!(started.elapsed() >= LIMIT);
     }
 }

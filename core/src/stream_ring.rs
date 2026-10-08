@@ -1,124 +1,232 @@
-// ABOUTME: A fixed-capacity ring of interleaved stereo frames: one writer, many readers, each with its own cursor.
-// ABOUTME: The writer never waits for a reader; a reader a full ring behind gets Overrun, never stale audio.
-
-/// A fixed-capacity ring of interleaved stereo frames (left, right, left, right, ...), as `i32`.
-///
-/// One writer calls `push`. Any number of readers each hold a `Cursor` and call `read`. The ring
-/// keeps no list of readers, so the writer never waits for one and a reader that stops costs
-/// nothing. A reader more than `capacity` frames behind has lost audio and gets `Overrun`.
-///
-/// It doesn't interpret samples: the firmware stores the sign-extended 24-bit values it also feeds
-/// the `Decimator`. Share it as `Arc<Mutex<StreamRing>>`. `push` and `read` copy at most one
-/// buffer's worth of frames, so a thread holds the lock for the call and does its socket work after.
+// ABOUTME: Shares fixed atomic stereo blocks without letting readers hold up capture.
+// ABOUTME: Validates copied fragments against publication, retention and reset identities.
+#[cfg(all(feature = "capture-loom", target_os = "espidf"))]
+compile_error!("capture-loom is host-only");
+#[cfg(feature = "capture-loom")]
+use loom::sync::atomic::{AtomicI32, AtomicU32, Ordering::SeqCst};
+#[cfg(not(feature = "capture-loom"))]
+use std::sync::atomic::{AtomicI32, AtomicU32, Ordering::SeqCst};
 #[derive(Debug)]
+/// Fixed shared history. Only its unique CaptureBuffer can publish or reset it.
+/// Readers own their cursors and scratch buffers; no reader holds producer state.
 pub struct StreamRing {
-    buf: Vec<i32>,
-    /// Index of the frame the next push writes, always below the capacity.
-    head: usize,
-    /// Frames pushed since the ring was made. A `u64` outlives any uptime: 48,000 a second wraps a `u32` in 25 hours.
-    written: u64,
-    generation: u64,
+    samples: Box<[AtomicI32]>,
+    stamps: Box<[AtomicU32]>,
+    block_frames: usize,
+    sequence: AtomicU32,
+    era: AtomicU32,
+    head_low: AtomicU32,
+    head_high: AtomicU32,
+    generation_low: AtomicU32,
+    generation_high: AtomicU32,
+    retained: AtomicU32,
 }
-
-/// A reader's place in the stream: the number of the next frame it wants.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Cursor(u64, u64);
-
-/// The writer lapped the reader: frames it had not yet read were overwritten.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct Overrun;
-
+pub enum ReadError {
+    Retry,
+    Overrun,
+}
+#[derive(Clone, Copy)]
+struct Header {
+    era: u32,
+    head: u64,
+    generation: u64,
+    retained: u32,
+}
 impl StreamRing {
-    /// A ring that holds the newest `capacity_frames` frames.
-    pub fn new(capacity_frames: usize) -> Self {
+    pub(crate) fn allocate(capacity: usize, block_frames: usize) -> Self {
         assert!(
-            capacity_frames > 0,
-            "a stream ring needs a capacity of at least one frame"
+            capacity > 0 && block_frames > 0,
+            "capacity and block must be positive"
         );
+        assert_eq!(
+            capacity % block_frames,
+            0,
+            "capacity must hold whole blocks"
+        );
+        assert!(u32::try_from(capacity / block_frames).is_ok());
         Self {
-            buf: vec![0; 2 * capacity_frames],
-            head: 0,
-            written: 0,
-            generation: 0,
+            samples: (0..capacity.checked_mul(2).unwrap())
+                .map(|_| AtomicI32::new(0))
+                .collect(),
+            stamps: (0..capacity / block_frames)
+                .map(|_| AtomicU32::new(0))
+                .collect(),
+            block_frames,
+            sequence: AtomicU32::new(0),
+            era: AtomicU32::new(0),
+            head_low: AtomicU32::new(0),
+            head_high: AtomicU32::new(0),
+            generation_low: AtomicU32::new(0),
+            generation_high: AtomicU32::new(0),
+            retained: AtomicU32::new(0),
         }
     }
-
-    /// Capacity in frames.
     pub fn capacity(&self) -> usize {
-        self.buf.len() / 2
+        self.samples.len() / 2
     }
-
-    /// Marks a capture gap without reallocating; every existing reader must rejoin.
-    pub fn reset(&mut self) {
-        self.head = 0;
-        self.written = 0;
-        self.generation = self.generation.wrapping_add(1);
+    pub fn block_frames(&self) -> usize {
+        self.block_frames
     }
-
-    /// Appends whole frames, overwriting the oldest. Never waits. A trailing half frame is dropped,
-    /// as in `stereo_to_mono`.
-    pub fn push(&mut self, interleaved: &[i32]) {
-        let capacity = self.capacity();
-        let total = interleaved.len() / 2;
-        // Only the newest `capacity` frames can survive; the rest still count as written.
-        let skipped = total.saturating_sub(capacity);
-        let kept = total - skipped;
-        self.head = (self.head + skipped) % capacity;
-        let src = &interleaved[2 * skipped..2 * total];
-        let to_end = kept.min(capacity - self.head);
-        self.buf[2 * self.head..2 * (self.head + to_end)].copy_from_slice(&src[..2 * to_end]);
-        self.buf[..2 * (kept - to_end)].copy_from_slice(&src[2 * to_end..]);
-        self.head = (self.head + kept) % capacity;
-        self.written += total as u64;
+    pub fn payload_range(&self) -> (*const AtomicI32, usize) {
+        (
+            self.samples.as_ptr(),
+            std::mem::size_of_val(self.samples.as_ref()),
+        )
     }
-
-    /// A cursor at the write position: the first frame it reads is the next one pushed.
-    pub fn cursor_now(&self) -> Cursor {
-        Cursor(self.written, self.generation)
+    pub fn stamps_range(&self) -> (*const AtomicU32, usize) {
+        (
+            self.stamps.as_ptr(),
+            std::mem::size_of_val(self.stamps.as_ref()),
+        )
     }
-
-    /// Copies the frames from `cursor` on into `out`, whole frames, as many as fit, and moves the
-    /// cursor past them. Returns how many frames it copied: 0 when the reader has caught up.
-    /// Returns `Overrun`, leaving the cursor alone, once more than `capacity` frames have been
-    /// pushed since the cursor's frame. The reader then takes a new cursor or gives up.
-    pub fn read(&self, cursor: &mut Cursor, out: &mut [i32]) -> Result<usize, Overrun> {
-        if cursor.1 != self.generation {
-            return Err(Overrun);
+    fn snapshot(&self) -> Result<Header, ReadError> {
+        let era = self.era.load(SeqCst);
+        let sequence = self.sequence.load(SeqCst);
+        if sequence & 1 != 0 {
+            return Err(ReadError::Retry);
         }
-        let capacity = self.capacity();
-        // Saturating, so that a cursor from another ring can't panic a stream thread and poison the lock.
-        let behind = self.written.saturating_sub(cursor.0);
-        if behind > capacity as u64 {
-            return Err(Overrun);
+        let head =
+            u64::from(self.head_low.load(SeqCst)) | (u64::from(self.head_high.load(SeqCst)) << 32);
+        let generation = u64::from(self.generation_low.load(SeqCst))
+            | (u64::from(self.generation_high.load(SeqCst)) << 32);
+        let retained = self.retained.load(SeqCst);
+        if self.sequence.load(SeqCst) != sequence || self.era.load(SeqCst) != era {
+            return Err(ReadError::Retry);
         }
-        let behind = behind as usize;
-        let frames = behind.min(out.len() / 2);
-        // The oldest unread frame sits `behind` frames before the write position.
-        let start = (self.head + capacity - behind) % capacity;
-        let to_end = frames.min(capacity - start);
-        out[..2 * to_end].copy_from_slice(&self.buf[2 * start..2 * (start + to_end)]);
-        out[2 * to_end..2 * frames].copy_from_slice(&self.buf[..2 * (frames - to_end)]);
+        Ok(Header {
+            era,
+            head,
+            generation,
+            retained,
+        })
+    }
+    /// Joins at the committed head; a busy or changing header returns Retry.
+    pub fn cursor_now(&self) -> Result<Cursor, ReadError> {
+        let header = self.snapshot()?;
+        Ok(Cursor(header.head, header.generation))
+    }
+    fn lag(&self, header: Header, cursor: Cursor) -> Result<u64, ReadError> {
+        if cursor.1 != header.generation || cursor.0 > header.head {
+            return Err(ReadError::Overrun);
+        }
+        let lag = header.head - cursor.0;
+        if lag > u64::from(header.retained) * self.block_frames as u64 {
+            return Err(ReadError::Overrun);
+        }
+        Ok(lag)
+    }
+    /// Copies at most one block fragment. Zero means caught up.
+    /// Errors leave the cursor unchanged; output is scratch until this returns Ok.
+    pub fn read(&self, cursor: &mut Cursor, out: &mut [i32]) -> Result<usize, ReadError> {
+        self.read_fragment(cursor, out, |_| {})
+    }
+    /// Diagnostic-only pause after half the fragment's whole stereo frames.
+    #[cfg(any(test, feature = "capture-fixture"))]
+    pub fn read_with_copy_hook(
+        &self,
+        cursor: &mut Cursor,
+        out: &mut [i32],
+        hook: impl FnOnce(),
+    ) -> Result<usize, ReadError> {
+        let mut hook = Some(hook);
+        let frames =
+            (out.len() / 2).min(self.block_frames - (cursor.0 % self.block_frames as u64) as usize);
+        let midpoint = 2 * (frames / 2).max(1);
+        self.read_fragment(cursor, out, |index| {
+            if index + 1 == midpoint {
+                if let Some(hook) = hook.take() {
+                    hook();
+                }
+            }
+        })
+    }
+    fn read_fragment(
+        &self,
+        cursor: &mut Cursor,
+        out: &mut [i32],
+        mut copied: impl FnMut(usize),
+    ) -> Result<usize, ReadError> {
+        let before = self.snapshot()?;
+        let lag = self.lag(before, *cursor)?;
+        let offset = (cursor.0 % self.block_frames as u64) as usize;
+        let frames = lag.min((out.len() / 2).min(self.block_frames - offset) as u64) as usize;
+        if frames == 0 {
+            return Ok(0);
+        }
+        let slot = ((cursor.0 / self.block_frames as u64) % self.stamps.len() as u64) as usize;
+        let stamp = self.stamps[slot].load(SeqCst);
+        if stamp & 1 != 0 {
+            return Err(ReadError::Retry);
+        }
+        let base = 2 * (slot * self.block_frames + offset);
+        for (index, sample) in out[..2 * frames].iter_mut().enumerate() {
+            *sample = self.samples[base + index].load(SeqCst);
+            copied(index);
+        }
+        let unchanged = self.stamps[slot].load(SeqCst) == stamp;
+        let after = self.snapshot()?;
+        self.lag(after, *cursor)?;
+        if !unchanged || before.era != after.era {
+            return Err(ReadError::Retry);
+        }
         cursor.0 += frames as u64;
         Ok(frames)
     }
+    // In the SeqCst order, busy precedes payload changes, committed slot stamp
+    // follows them, and header commit follows the stamp. Equal stamps therefore
+    // bracket unchanged samples within one era. A post-copy snapshot rejects a
+    // slot overwritten before its new head commits: busy yields Retry; committed
+    // head makes the old cursor Overrun. Reset similarly rejects old generations.
+    // Stamp reuse advances era under busy; checked exhaustion forbids era reuse.
+    pub(crate) fn commit(
+        &self,
+        sequence: u32,
+        era: u32,
+        head: u64,
+        generation: u64,
+        retained: u32,
+        block: Option<&[i32]>,
+    ) {
+        self.sequence.store(sequence.wrapping_sub(1), SeqCst);
+        self.era.store(era, SeqCst);
+        if let Some(block) = block {
+            let slot = ((head / self.block_frames as u64 - 1) % self.stamps.len() as u64) as usize;
+            self.stamps[slot].store(sequence - 1, SeqCst);
+            let base = 2 * slot * self.block_frames;
+            for (destination, sample) in self.samples[base..base + block.len()].iter().zip(block) {
+                destination.store(*sample, SeqCst);
+            }
+            self.stamps[slot].store(sequence, SeqCst);
+        }
+        self.head_low.store(head as u32, SeqCst);
+        self.head_high.store((head >> 32) as u32, SeqCst);
+        self.generation_low.store(generation as u32, SeqCst);
+        self.generation_high
+            .store((generation >> 32) as u32, SeqCst);
+        self.retained.store(retained, SeqCst);
+        self.sequence.store(sequence, SeqCst);
+    }
 }
-
-#[cfg(test)]
+#[cfg(all(test, not(feature = "capture-loom")))]
 mod tests {
     use super::*;
+    use crate::capture_buffer::CaptureBuffer;
 
     #[test]
     fn reset_invalidates_old_cursors_without_reallocating() {
-        let mut ring = StreamRing::new(8);
-        let buffer = ring.buf.as_ptr();
-        let mut old = ring.cursor_now();
-        ring.push(&[1, 2]);
-        ring.reset();
-        assert_eq!(ring.buf.as_ptr(), buffer);
-        assert_eq!(ring.read(&mut old, &mut [0; 2]), Err(Overrun));
-        let mut fresh = ring.cursor_now();
+        let (mut publisher, ring) = CaptureBuffer::new(8, 1);
+        let buffer = ring.samples.as_ptr();
+        let mut old = ring.cursor_now().unwrap();
+        publisher.publish(&[1, 2]).unwrap();
+        publisher.invalidate().unwrap();
+        assert_eq!(ring.samples.as_ptr(), buffer);
+        assert_eq!(ring.read(&mut old, &mut [0; 2]), Err(ReadError::Overrun));
+        let mut fresh = ring.cursor_now().unwrap();
         assert_eq!(ring.read(&mut fresh, &mut [0; 2]), Ok(0));
-        ring.push(&[3, 4]);
+        publisher.publish(&[3, 4]).unwrap();
         let mut out = [0; 2];
         assert_eq!(ring.read(&mut fresh, &mut out), Ok(1));
         assert_eq!(out, [3, 4]);
@@ -155,39 +263,39 @@ mod tests {
 
     #[test]
     fn a_new_reader_starts_at_now() {
-        let mut ring = StreamRing::new(8);
-        ring.push(&frames(0, 5));
-        let mut cursor = ring.cursor_now();
+        let (mut publisher, ring) = CaptureBuffer::new(8, 1);
+        publisher.publish(&frames(0, 5)).unwrap();
+        let mut cursor = ring.cursor_now().unwrap();
         assert_eq!(
             drain(&ring, &mut cursor),
             Vec::<i32>::new(),
             "older frames are not replayed"
         );
-        ring.push(&frames(5, 7));
+        publisher.publish(&frames(5, 7)).unwrap();
         assert_eq!(drain(&ring, &mut cursor), frames(5, 7));
     }
 
     #[test]
     fn read_copies_what_fits_and_advances_the_cursor() {
-        let mut ring = StreamRing::new(8);
-        let mut cursor = ring.cursor_now();
-        ring.push(&frames(0, 5));
+        let (mut publisher, ring) = CaptureBuffer::new(8, 1);
+        let mut cursor = ring.cursor_now().unwrap();
+        publisher.publish(&frames(0, 5)).unwrap();
         let mut buf = [0i32; 6]; // room for three frames
-        assert_eq!(ring.read(&mut cursor, &mut buf), Ok(3));
-        assert_eq!(buf.to_vec(), frames(0, 3));
-        assert_eq!(ring.read(&mut cursor, &mut buf), Ok(2));
-        assert_eq!(buf[..4].to_vec(), frames(3, 5));
+        for i in 0..5 {
+            assert_eq!(ring.read(&mut cursor, &mut buf), Ok(1));
+            assert_eq!(&buf[..2], &frame(i));
+        }
         assert_eq!(ring.read(&mut cursor, &mut buf), Ok(0));
     }
 
     #[test]
     fn frames_survive_the_wrap_at_the_end_of_the_buffer() {
-        let mut ring = StreamRing::new(4);
-        let mut cursor = ring.cursor_now();
+        let (mut publisher, ring) = CaptureBuffer::new(4, 1);
+        let mut cursor = ring.cursor_now().unwrap();
         let mut got = vec![];
         // Three frames per push into a four-frame ring: most pushes and reads straddle the wrap.
         for start in (0..30).step_by(3) {
-            ring.push(&frames(start, start + 3));
+            publisher.publish(&frames(start, start + 3)).unwrap();
             got.extend(drain(&ring, &mut cursor));
         }
         assert_eq!(got, frames(0, 30));
@@ -195,12 +303,12 @@ mod tests {
 
     #[test]
     fn two_readers_at_different_speeds_each_see_every_frame_in_order() {
-        let mut ring = StreamRing::new(16);
-        let mut fast = ring.cursor_now();
-        let mut slow = ring.cursor_now();
+        let (mut publisher, ring) = CaptureBuffer::new(16, 1);
+        let mut fast = ring.cursor_now().unwrap();
+        let mut slow = ring.cursor_now().unwrap();
         let (mut fast_got, mut slow_got) = (vec![], vec![]);
         for push in 0..30 {
-            ring.push(&frames(2 * push, 2 * push + 2));
+            publisher.publish(&frames(2 * push, 2 * push + 2)).unwrap();
             fast_got.extend(drain(&ring, &mut fast));
             // The slow reader lags by up to ten frames, which fits in the sixteen.
             if push % 5 == 4 {
@@ -213,41 +321,41 @@ mod tests {
 
     #[test]
     fn a_reader_more_than_the_capacity_behind_gets_overrun() {
-        let mut ring = StreamRing::new(4);
-        let mut exactly_full = ring.cursor_now();
-        let mut lapped = ring.cursor_now();
-        ring.push(&frames(0, 4));
+        let (mut publisher, ring) = CaptureBuffer::new(4, 1);
+        let mut exactly_full = ring.cursor_now().unwrap();
+        let mut lapped = ring.cursor_now().unwrap();
+        publisher.publish(&frames(0, 4)).unwrap();
         // A lag of exactly the capacity has lost nothing.
         assert_eq!(drain(&ring, &mut exactly_full), frames(0, 4));
         // One more frame overwrites frame 0, which `lapped` has not read.
-        ring.push(&frames(4, 5));
-        assert_eq!(ring.read(&mut lapped, &mut [0; 8]), Err(Overrun));
+        publisher.publish(&frames(4, 5)).unwrap();
+        assert_eq!(ring.read(&mut lapped, &mut [0; 8]), Err(ReadError::Overrun));
     }
 
     #[test]
     fn overrun_lasts_until_the_reader_takes_a_new_cursor() {
-        let mut ring = StreamRing::new(4);
-        let mut lapped = ring.cursor_now();
+        let (mut publisher, ring) = CaptureBuffer::new(4, 1);
+        let mut lapped = ring.cursor_now().unwrap();
         for start in [0, 3, 6] {
-            ring.push(&frames(start, start + 3));
+            publisher.publish(&frames(start, start + 3)).unwrap();
         }
-        assert_eq!(ring.read(&mut lapped, &mut [0; 8]), Err(Overrun));
-        assert_eq!(ring.read(&mut lapped, &mut [0; 8]), Err(Overrun));
-        let mut rejoined = ring.cursor_now();
-        ring.push(&frames(9, 10));
+        assert_eq!(ring.read(&mut lapped, &mut [0; 8]), Err(ReadError::Overrun));
+        assert_eq!(ring.read(&mut lapped, &mut [0; 8]), Err(ReadError::Overrun));
+        let mut rejoined = ring.cursor_now().unwrap();
+        publisher.publish(&frames(9, 10)).unwrap();
         assert_eq!(drain(&ring, &mut rejoined), frames(9, 10));
     }
 
     #[test]
     fn a_push_bigger_than_the_ring_overruns_earlier_readers_and_leaves_the_ring_working() {
-        let mut ring = StreamRing::new(4);
-        let mut early = ring.cursor_now();
-        ring.push(&frames(0, 11));
-        assert_eq!(ring.read(&mut early, &mut [0; 8]), Err(Overrun));
-        let mut late = ring.cursor_now();
+        let (mut publisher, ring) = CaptureBuffer::new(4, 1);
+        let mut early = ring.cursor_now().unwrap();
+        publisher.publish(&frames(0, 11)).unwrap();
+        assert_eq!(ring.read(&mut early, &mut [0; 8]), Err(ReadError::Overrun));
+        let mut late = ring.cursor_now().unwrap();
         let mut got = vec![];
         for start in (11..32).step_by(3) {
-            ring.push(&frames(start, start + 3));
+            publisher.publish(&frames(start, start + 3)).unwrap();
             got.extend(drain(&ring, &mut late));
         }
         assert_eq!(got, frames(11, 32));
@@ -255,69 +363,175 @@ mod tests {
 
     #[test]
     fn a_half_frame_at_the_end_of_a_push_is_dropped() {
-        let mut ring = StreamRing::new(4);
-        let mut cursor = ring.cursor_now();
-        ring.push(&[1, -1, 2]); // the 2 has no right channel
-        ring.push(&[3, -3]);
+        let (mut publisher, ring) = CaptureBuffer::new(4, 1);
+        let mut cursor = ring.cursor_now().unwrap();
+        publisher.publish(&[1, -1, 2]).unwrap(); // the 2 has no right channel
+        publisher.publish(&[3, -3]).unwrap();
         assert_eq!(drain(&ring, &mut cursor), vec![1, -1, 3, -3]);
     }
 
     #[test]
-    fn a_cursor_ahead_of_the_writer_reads_nothing_instead_of_panicking() {
+    fn a_cursor_ahead_of_the_writer_is_rejected_without_panicking() {
         // A panic in a stream thread would poison the lock the audio thread needs.
-        let mut elsewhere = StreamRing::new(4);
-        elsewhere.push(&frames(0, 3));
-        let mut cursor = elsewhere.cursor_now();
-        let empty = StreamRing::new(4);
-        assert_eq!(empty.read(&mut cursor, &mut [0; 8]), Ok(0));
+        let (mut publisher, elsewhere) = CaptureBuffer::new(4, 1);
+        publisher.publish(&frames(0, 3)).unwrap();
+        let mut cursor = elsewhere.cursor_now().unwrap();
+        let (_, empty) = CaptureBuffer::new(4, 1);
+        assert_eq!(
+            empty.read(&mut cursor, &mut [0; 8]),
+            Err(ReadError::Overrun)
+        );
     }
 
     #[test]
     #[should_panic(expected = "capacity")]
     fn a_ring_needs_room_for_a_frame() {
-        StreamRing::new(0);
+        CaptureBuffer::new(0, 1);
     }
 
     #[test]
-    fn works_behind_an_arc_mutex_with_a_writer_and_two_readers() {
-        use std::sync::{Arc, Mutex};
+    fn paused_copy_cannot_stop_publication_or_an_independent_reader() {
+        use std::sync::{mpsc, Arc, Barrier};
         use std::thread;
-        use std::time::{Duration, Instant};
-
-        const TOTAL: i32 = 20_000;
-        // Roomy enough that nobody can be overrun: this test is about sharing the lock.
-        let ring = Arc::new(Mutex::new(StreamRing::new(TOTAL as usize)));
-        let readers: Vec<_> = (0..2)
-            .map(|_| {
-                let ring = Arc::clone(&ring);
-                let mut cursor = ring.lock().unwrap().cursor_now(); // joined before the writer starts
-                thread::spawn(move || {
-                    let mut got = vec![];
-                    let mut buf = [0i32; 64];
-                    let deadline = Instant::now() + Duration::from_secs(20);
-                    while got.len() < 2 * TOTAL as usize {
-                        assert!(Instant::now() < deadline, "reader starved");
-                        let n = ring.lock().unwrap().read(&mut cursor, &mut buf).unwrap();
-                        if n == 0 {
-                            thread::yield_now();
-                        }
-                        got.extend_from_slice(&buf[..2 * n]);
-                    }
-                    got
-                })
-            })
-            .collect();
-        let writer = {
-            let ring = Arc::clone(&ring);
-            thread::spawn(move || {
-                for start in (0..TOTAL).step_by(40) {
-                    ring.lock().unwrap().push(&frames(start, start + 40));
+        use std::time::Duration;
+        let (mut publisher, ring) = CaptureBuffer::new(96000, 240);
+        let mut slow = ring.cursor_now().unwrap();
+        let mut fast = slow;
+        publisher.publish(&vec![7; 480]).unwrap();
+        let pause = Arc::new(Barrier::new(2));
+        let resume = Arc::new(Barrier::new(2));
+        let reader_ring = ring.clone();
+        let reader_pause = pause.clone();
+        let reader_resume = resume.clone();
+        let reader = thread::spawn(move || {
+            let before = slow;
+            let result = reader_ring.read_fragment(&mut slow, &mut [0; 480], |index| {
+                if index == 0 {
+                    reader_pause.wait();
+                    reader_resume.wait();
                 }
-            })
-        };
+            });
+            assert_eq!(slow, before);
+            result
+        });
+        pause.wait();
+        let (finished, completed) = mpsc::channel();
+        let writer = thread::spawn(move || {
+            let mut out = [0; 480];
+            assert_eq!(ring.read(&mut fast, &mut out), Ok(240));
+            for frame in 1..450 {
+                publisher.publish(&[frame, -frame].repeat(240)).unwrap();
+                assert_eq!(ring.read(&mut fast, &mut out), Ok(240));
+                assert!(out.chunks_exact(2).all(|pair| pair == [frame, -frame]));
+            }
+            finished.send(()).unwrap();
+        });
+        let result = completed.recv_timeout(Duration::from_secs(3));
+        resume.wait();
         writer.join().unwrap();
-        for reader in readers {
-            assert_eq!(reader.join().unwrap(), frames(0, TOTAL));
-        }
+        assert_eq!(result, Ok(()), "writer must finish before reader release");
+        assert_eq!(reader.join().unwrap(), Err(ReadError::Overrun));
+    }
+
+    #[test]
+    fn reset_during_copy_rejects_scratch_without_advancing_cursor() {
+        let (mut publisher, ring) = CaptureBuffer::new(4, 2);
+        let mut cursor = ring.cursor_now().unwrap();
+        publisher.publish(&[1, -1, 2, -2]).unwrap();
+        let before = cursor;
+        let result = ring.read_fragment(&mut cursor, &mut [0; 4], |index| {
+            if index == 0 {
+                publisher.invalidate().unwrap();
+            }
+        });
+        assert_eq!(result, Err(ReadError::Overrun));
+        assert_eq!(cursor, before);
+    }
+
+    #[test]
+    fn busy_header_and_slot_are_bounded_retries() {
+        let (mut publisher, ring) = CaptureBuffer::new(4, 2);
+        let mut cursor = ring.cursor_now().unwrap();
+        publisher.publish(&[1, -1, 2, -2]).unwrap();
+        let before = cursor;
+        ring.sequence.store(3, SeqCst);
+        assert_eq!(ring.cursor_now(), Err(ReadError::Retry));
+        assert_eq!(ring.read(&mut cursor, &mut [0; 4]), Err(ReadError::Retry));
+        ring.sequence.store(2, SeqCst);
+        ring.stamps[0].store(3, SeqCst);
+        assert_eq!(ring.read(&mut cursor, &mut [0; 4]), Err(ReadError::Retry));
+        assert_eq!(cursor, before);
+    }
+
+    #[test]
+    fn retained_midcopy_hook_accepts_coherent_stereo() {
+        let (mut publisher, ring) = CaptureBuffer::new(8, 2);
+        let mut cursor = ring.cursor_now().unwrap();
+        publisher.publish(&[1, -1, 2, -2]).unwrap();
+        let mut called = false;
+        let mut out = [0; 4];
+        let result = ring.read_with_copy_hook(&mut cursor, &mut out, || {
+            called = true;
+            publisher.publish(&[3, -3, 4, -4]).unwrap();
+        });
+        assert!(called, "actual copy must invoke the midcopy hook");
+        assert_eq!(result, Ok(2));
+        assert_eq!(out, [1, -1, 2, -2]);
+    }
+
+    #[test]
+    fn overwritten_midcopy_hook_rejects_and_keeps_cursor() {
+        let (mut publisher, ring) = CaptureBuffer::new(2, 2);
+        let mut cursor = ring.cursor_now().unwrap();
+        publisher.publish(&[1, -1, 2, -2]).unwrap();
+        let before = cursor;
+        let mut called = false;
+        let result = ring.read_with_copy_hook(&mut cursor, &mut [0; 4], || {
+            called = true;
+            publisher.publish(&[3, -3, 4, -4]).unwrap();
+        });
+        assert!(called, "actual copy must invoke the midcopy hook");
+        assert_eq!(result, Err(ReadError::Overrun));
+        assert_eq!(cursor, before);
+    }
+
+    #[test]
+    fn actual_busy_header_waits_until_deadline_or_committed_audio() {
+        use crate::stream_wait::{cursor_before, read_atomic_fresh, WaitError};
+        use std::time::{Duration, Instant};
+        let (mut publisher, ring) = CaptureBuffer::new(4, 2);
+        let mut cursor = ring.cursor_now().unwrap();
+        publisher.publish(&[1, -1, 2, -2]).unwrap();
+        ring.sequence.store(3, SeqCst);
+        let limit = Duration::from_millis(20);
+        let interval = Duration::from_millis(1);
+        let started = Instant::now();
+        assert_eq!(cursor_before(&ring, started + limit, interval), None);
+        assert!(started.elapsed() >= limit);
+        let before = cursor;
+        assert_eq!(
+            read_atomic_fresh(&ring, &mut cursor, &mut [0; 4], limit, interval),
+            Err(WaitError::Stalled)
+        );
+        assert_eq!(cursor, before);
+        let release = ring.clone();
+        let writer = std::thread::spawn(move || {
+            std::thread::sleep(Duration::from_millis(5));
+            release.sequence.store(2, SeqCst);
+        });
+        let mut out = [0; 4];
+        assert_eq!(
+            read_atomic_fresh(
+                &ring,
+                &mut cursor,
+                &mut out,
+                Duration::from_secs(1),
+                interval
+            ),
+            Ok(2)
+        );
+        assert_eq!(out, [1, -1, 2, -2]);
+        writer.join().unwrap();
+        assert!(cursor_before(&ring, Instant::now() + limit, interval).is_some());
     }
 }

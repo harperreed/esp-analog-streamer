@@ -14,8 +14,10 @@ use esp_idf_svc::mdns::EspMdns;
 use esp_idf_svc::sys;
 use esp_shazam_core::flac_ring::FlacRing;
 use esp_shazam_core::stream_http::{self, DeadlineReader, DeadlineWriter, Format, Route, Status};
-use esp_shazam_core::stream_ring::{Cursor, Overrun};
-use esp_shazam_core::stream_wait::{lock_before, read_locked_fresh, Slot, WaitError};
+use esp_shazam_core::stream_ring::{Cursor, ReadError};
+use esp_shazam_core::stream_wait::{
+    cursor_before, lock_before, read_atomic_fresh_with, read_locked_fresh, Slot, WaitError,
+};
 use esp_shazam_core::{flac, wav};
 
 use crate::audio_in::{SharedStreamRing, CAPTURE_RATE_HZ};
@@ -354,17 +356,15 @@ fn frame_write_limit(capacity: usize) -> Duration {
     Duration::from_millis(1_000 * capacity / u64::from(CAPTURE_RATE_HZ))
 }
 
-/// Copies the frames after `cursor` into `out`, as many as are there and fit, and waits for some
-/// for at most `FRESH_AUDIO_TIMEOUT` when there are none. `out` holds at most `CHUNK_FRAMES`
-/// frames, so the lock is held briefly.
+/// Copies one committed block fragment within the freshness budget.
+/// Retry sleeps one tick; rejected scratch never reaches a socket or encoder.
 fn read_some(
     ring: &SharedStreamRing,
     cursor: &mut Cursor,
     out: &mut [i32],
-) -> Result<usize, WaitError<Overrun>> {
-    read_locked_fresh(ring, FRESH_AUDIO_TIMEOUT, CAUGHT_UP_SLEEP, |ring| {
-        // Wall time includes preemption while copying; excludes encoding/socket work and
-        // the tiny measurement/return/unlock tail after the elapsed sample below.
+) -> Result<usize, WaitError<ReadError>> {
+    read_atomic_fresh_with(FRESH_AUDIO_TIMEOUT, CAUGHT_UP_SLEEP, || {
+        // Single-read wall time includes preemption, excludes retry sleeps and socket/encoder work.
         let started = Instant::now();
         let result = ring.read(cursor, out);
         RAW_READ_MAX_US.fetch_max(
@@ -378,12 +378,11 @@ fn read_some(
 /// Sends the response head and the WAV header, then frames from the ring as they arrive, until the
 /// listener goes, stops reading, or falls a ring behind.
 fn stream_wav(sock: &TcpStream, ring: &SharedStreamRing) -> End {
-    let (write_limit, mut cursor) = {
-        let Some(ring) = lock_before(ring, Instant::now() + FRESH_AUDIO_TIMEOUT, CAUGHT_UP_SLEEP)
-        else {
-            return End::CaptureStalled;
-        };
-        (frame_write_limit(ring.capacity()), ring.cursor_now())
+    let write_limit = frame_write_limit(ring.capacity());
+    let Some(mut cursor) =
+        cursor_before(ring, Instant::now() + FRESH_AUDIO_TIMEOUT, CAUGHT_UP_SLEEP)
+    else {
+        return End::CaptureStalled;
     };
     let mut writer = DeadlineWriter::new(sock);
     let mut frames = vec![0i32; 2 * CHUNK_FRAMES];
@@ -396,8 +395,10 @@ fn stream_wav(sock: &TcpStream, ring: &SharedStreamRing) -> End {
         }
         let frames_read = match read_some(ring, &mut cursor, &mut frames) {
             Ok(n) => n,
-            Err(WaitError::Stalled) => return End::CaptureStalled,
-            Err(WaitError::Read(Overrun)) => return End::FellBehind,
+            Err(WaitError::Stalled | WaitError::Read(ReadError::Retry)) => {
+                return End::CaptureStalled
+            }
+            Err(WaitError::Read(ReadError::Overrun)) => return End::FellBehind,
         };
         wav::pack_s24le(&frames[..2 * frames_read], &mut bytes);
     }
@@ -439,11 +440,11 @@ fn encode(raw: SharedStreamRing, encoded: SharedFlacRing, listeners: Arc<AtomicU
             Ok(n) => encoder.push(&chunk[..flac::CHANNELS * n]),
             // Keep this one shared encoder alive during a pause. The next read starts a full
             // wait; a capture reset still yields Overrun and discards the partial block below.
-            Err(WaitError::Stalled) => {
+            Err(WaitError::Stalled | WaitError::Read(ReadError::Retry)) => {
                 metrics.log_if_due(&listeners);
                 continue;
             }
-            Err(WaitError::Read(Overrun)) => {
+            Err(WaitError::Read(ReadError::Overrun)) => {
                 log::warn!("stream: encoder fell behind capture; disconnecting FLAC listeners");
                 encoded.lock().expect("FLAC ring lock").reset();
                 encoder.reset();
@@ -468,17 +469,18 @@ fn encode(raw: SharedStreamRing, encoded: SharedFlacRing, listeners: Arc<AtomicU
     }
 }
 
-/// The shared encoder stays alive if capture is suspended while owning the raw ring.
-/// Each failed acquisition waits a full budget; initial and reset cursors use the same path.
+/// The shared encoder stays alive while capture exposes a busy header.
+/// Initial and reset cursor snapshots share the same bounded wait policy.
 fn encoder_cursor(
     raw: &SharedStreamRing,
     listeners: &AtomicUsize,
     metrics: &mut EncoderMetrics,
 ) -> Cursor {
     loop {
-        if let Some(ring) = lock_before(raw, Instant::now() + FRESH_AUDIO_TIMEOUT, CAUGHT_UP_SLEEP)
+        if let Some(cursor) =
+            cursor_before(raw, Instant::now() + FRESH_AUDIO_TIMEOUT, CAUGHT_UP_SLEEP)
         {
-            return ring.cursor_now();
+            return cursor;
         }
         metrics.log_if_due(listeners);
     }

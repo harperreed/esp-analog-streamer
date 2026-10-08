@@ -56,8 +56,6 @@ const READ_TIMEOUT_MS: u32 = 1_000;
 /// about 50 ms, so a second is never reached; past it, the oldest samples go.
 const WAITING_LIMIT: usize = FEED_RATE_HZ as usize;
 
-// Staging spans the existing 45 ms DMA budget (17,280 bytes), without allocating on contention.
-const STAGING_FRAMES: usize = 45 * CAPTURE_RATE_HZ as usize / 1_000;
 const STALL_MS: u64 = 3_000;
 const RECOVERY_MS: u64 = 3_000;
 static STARTED: AtomicBool = AtomicBool::new(false);
@@ -85,7 +83,7 @@ static STAGING_PENDING_US: AtomicU32 = AtomicU32::new(0);
 static STAGING_PENDING_MAX_US: AtomicU32 = AtomicU32::new(0);
 
 pub type SharedRing = Arc<Mutex<SampleRing>>;
-pub type SharedStreamRing = Arc<Mutex<StreamRing>>;
+pub type SharedStreamRing = Arc<StreamRing>;
 
 /// I2S RX with clocks running. Start it before the codec setup.
 /// - MCLK on GPIO0 is 256 x 48 kHz = 12.288 MHz, from the APLL. ESP-IDF sets the APLL to twice that
@@ -118,8 +116,8 @@ pub fn spawn_capture(
         DMA_FRAMES,
     );
     let ring = recognition.shared_ring();
-    let stream: SharedStreamRing = Arc::new(Mutex::new(StreamRing::new(STREAM_FRAMES)));
-    let stream_writer = stream.clone();
+    let (publisher, stream) = CaptureBuffer::new(STREAM_FRAMES, DMA_FRAMES);
+    verify_stream_placement(&stream)?;
     ThreadSpec {
         name: c"audio-supervise",
         core: Core::Core1,
@@ -141,21 +139,60 @@ pub fn spawn_capture(
         priority: 10,
         stack_bytes: 8 * 1024,
     }
-    .spawn(move || capture(rx, recognition, stream_writer, store))?;
+    .spawn(move || capture(rx, recognition, publisher, store))?;
     Ok((ring, stream))
+}
+
+// Checked identity exhaustion cannot safely continue publication. Logging can wait on a
+// task-owned lock, so fatal recovery goes straight to the existing restart path.
+fn publication_exhausted() -> ! {
+    // SAFETY: ESP-IDF restart is the existing nonreturning fatal recovery operation.
+    unsafe { esp_idf_svc::sys::esp_restart() }
+}
+
+fn internal_byte_ram(pointer: *const c_void) -> bool {
+    // Pinned ESP32 IDF esp_memory_utils.c:50-76 admits internal byte RAM and PSRAM;
+    // the external-RAM predicate removes PSRAM. Both functions have generated bindings.
+    // SAFETY: IDF predicates inspect only the pointer address and never dereference it.
+    unsafe {
+        esp_idf_svc::sys::esp_ptr_byte_accessible(pointer)
+            && !esp_idf_svc::sys::esp_ptr_external_ram(pointer)
+    }
+}
+
+fn verify_stream_placement(stream: &SharedStreamRing) -> Result<()> {
+    let (payload, payload_bytes) = stream.payload_range();
+    let (stamps, stamps_bytes) = stream.stamps_range();
+    let metadata = Arc::as_ptr(stream).cast::<u8>();
+    // SAFETY: these nonempty ranges belong to live fixed allocations. IDF heap allocations
+    // stay within one memory region, so the internal Arc object also keeps its counts internal.
+    let valid = unsafe {
+        esp_idf_svc::sys::esp_ptr_external_ram(payload.cast())
+            && esp_idf_svc::sys::esp_ptr_external_ram(
+                payload.cast::<u8>().add(payload_bytes - 1).cast(),
+            )
+            && internal_byte_ram(stamps.cast())
+            && internal_byte_ram(stamps.cast::<u8>().add(stamps_bytes - 1).cast())
+            && internal_byte_ram(metadata.cast())
+            && internal_byte_ram(metadata.add(std::mem::size_of::<StreamRing>() - 1).cast())
+    };
+    anyhow::ensure!(
+        valid,
+        "capture history requires PSRAM payload and internal metadata"
+    );
+    Ok(())
 }
 
 fn capture(
     mut rx: CaptureRx<'static>,
     mut recognition: RecognitionFeed,
-    stream: SharedStreamRing,
+    mut publisher: CaptureBuffer,
     store: SharedStore,
 ) -> ! {
     let mut bytes = vec![0u8; DMA_BYTES];
     let mut interleaved: Vec<i32> = Vec::with_capacity(2 * DMA_FRAMES);
     let mut meter = StereoLevelMeter::new(CAPTURE_RATE_HZ as usize);
     let mut settle_frames = CAPTURE_RATE_HZ as usize / 2;
-    let mut staging = CaptureBuffer::new(STAGING_FRAMES);
     let mut pending_since = None;
     let mut pending_attempts = 0u32;
     let mut read_timing = ReadServiceTiming::new(CAPTURE_RATE_HZ);
@@ -183,8 +220,10 @@ fn capture(
             OVERFLOW_RESTARTS.fetch_add(u32::from(overflow_restart), Ordering::Relaxed);
             read_timing.reset();
             overflow_seen = overflow;
-            DROPPED.fetch_add(staging.invalidate() as u32, Ordering::Relaxed);
-            staging.publish(&[], &stream);
+            let discarded = publisher
+                .invalidate()
+                .unwrap_or_else(|_| publication_exhausted());
+            DROPPED.fetch_add(discarded as u32, Ordering::Relaxed);
             record_staging(0, micros(), &mut pending_since, &mut pending_attempts);
             GAPS.fetch_add(1, Ordering::Relaxed);
             recognition.reset();
@@ -220,21 +259,16 @@ fn capture(
             continue;
         }
         let started = micros();
-        let dropped = staging.publish(&interleaved, &stream);
+        publisher
+            .publish(&interleaved)
+            .unwrap_or_else(|_| publication_exhausted());
         RAW_WORK_US.fetch_max((micros() - started) as u32, Ordering::Relaxed);
         record_staging(
-            staging.staged_frames(),
+            publisher.staged_frames(),
             micros(),
             &mut pending_since,
             &mut pending_attempts,
         );
-        if dropped > 0 {
-            DROPPED.fetch_add(dropped as u32, Ordering::Relaxed);
-            GAPS.fetch_add(1, Ordering::Relaxed);
-            recognition.reset();
-            meter.reset();
-            pending_level = None;
-        }
         recognition.process(&interleaved);
         let meter_started = micros();
         if let Some(level) = meter.push(&interleaved) {
@@ -261,8 +295,8 @@ fn micros() -> u64 {
     unsafe { esp_idf_svc::sys::esp_timer_get_time() as u64 }
 }
 
-// Sample after each publish/reset. A streak spans repeated pending publishes, including
-// read waits and preemption; it does not imply one reader held the mutex for that duration.
+// Staging fields track only unpublished partial-block assembly after each publish/reset.
+// Pending time includes I2S waits and preemption; readers cannot hold publication back.
 fn record_staging(frames: usize, now: u64, since: &mut Option<u64>, attempts: &mut u32) {
     if frames > 0 {
         let started = *since.get_or_insert(now);
@@ -423,7 +457,7 @@ fn log_capture(
     // Logging overhead belongs to the next window. No stop/start allocation cycle.
     *window_start_free = start_heap_window();
     let deficit = (elapsed_us * u64::from(CAPTURE_RATE_HZ) / 1_000_000) as i64 - observed as i64;
-    log::info!("audio: frames={} callbacks={} queue_overflows={} software_dropped_frames={} read_errors={} restarts={} supervisor_restarts={} overflow_restarts={} settling_discarded_frames={} discontinuities={} health_restart_requests={} capture_runtime_window_us={} capture_task_runtime_us={} capture_runtime_valid={} read_service_delay_estimate_max_us={} raw_work_max_us={} meter_work_max_us={} store_work_max_us={} raw_read_max_us={} staged_frames={} staged_max_frames={} staging_pending_attempts={} staging_pending_max_attempts={} staging_pending_us={} staging_pending_max_us={} timing_deficit_estimate_frames={} (clock drift/scheduling; not proof of loss) internal_free={} internal_largest={} psram_free={} psram_largest={} internal_min_sum={} psram_min_sum={} internal_window_start_free={} psram_window_start_free={} (runtime includes charged interrupts and excludes unfinished slice; service delay includes work/preemption; minima sum per-region lows; largest is a snapshot; staging current values sampled at publish/reset)",
+    log::info!("audio: frames={} callbacks={} queue_overflows={} software_dropped_frames={} read_errors={} restarts={} supervisor_restarts={} overflow_restarts={} settling_discarded_frames={} discontinuities={} health_restart_requests={} capture_runtime_window_us={} capture_task_runtime_us={} capture_runtime_valid={} read_service_delay_estimate_max_us={} raw_work_max_us={} meter_work_max_us={} store_work_max_us={} raw_read_max_us={} staged_frames={} staged_max_frames={} staging_pending_attempts={} staging_pending_max_attempts={} staging_pending_us={} staging_pending_max_us={} timing_deficit_estimate_frames={} (clock drift/scheduling; not proof of loss) internal_free={} internal_largest={} psram_free={} psram_largest={} internal_min_sum={} psram_min_sum={} internal_window_start_free={} psram_window_start_free={} (runtime includes charged interrupts and excludes unfinished slice; service delay includes work/preemption; minima sum per-region lows; largest is a snapshot; staging fields measure partial block assembly, sampled at publish/reset)",
         FRAMES.load(Ordering::Relaxed), counters.callbacks, counters.queue_overflows,
         DROPPED.load(Ordering::Relaxed), READ_ERRORS.load(Ordering::Relaxed),
         RESTARTS.load(Ordering::Relaxed),
