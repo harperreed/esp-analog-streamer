@@ -46,3 +46,14 @@ Run production capture/FLAC concurrently with repeated real TLS/WebSocket connec
 - Corrected settling report passed two complete real-board runs: 2,000 ordered blocks/ten valid trials each, no watchdogs. Soft codec reset has initial zeros and a retained transient through about 420 ms; I2S-only has immediate quiet samples. Doctor Biz confirmed the workstation is not yet connected to LINE IN; hold signal-dependent policy work until connected.
 - Task sampling reproduced a DMA-overflow failure and a distinct staging failure. The mapped repeat kept DMA overflow/restart counters flat but lost 4,320 frames while the raw-ring read held its mutex for 110,567 us; publication pending for 112,352 us with a full 2,160-frame staging buffer. Actual capture priority 10 verified. Full evidence in capture-setup.md/.json; never infer ISR activity or a specific lock owner from sampled task identity alone.
 - Canonical 19 stages pass after the final sampler changes; independent source and hardware reviews complete. Parent restored saved production image `3dc70b4a`; the final 45-second two-listener run passed exactly 2,160,000 frames per listener with no added tracked capture faults. Configuration matches the initial snapshot; Sonos remains stopped/autoplay off. Sol is preparing the minimal dp08 publication design, preserving WAV/FLAC; architecture discussion precedes implementation.
+
+## Checkpoint and next decision
+
+Evidence is committed in `5e9a5fa`; diagnostic follow-up is `35cf03c`. Katas
+a0mf and dege are closed for their verified scopes, including separate setup
+and reconnect correlation. dp08, ed4k and parent wmsy remain open. The next
+architectural decision is the shared capture publication proposal in
+`2026-10-08-capture-publication.md`; it has no production implementation yet.
+Known-signal settling awaits the physical LINE IN connection. Resume from these
+artifacts rather than rerunning completed diagnostics; keep DMA loss distinct
+from the demonstrated reader-held-lock publication failure.
