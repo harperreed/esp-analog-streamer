@@ -1,5 +1,27 @@
 # Gotchas
 
+## Capture protection measurements — 2026-10-08
+
+Identically instrumented IRAM-off controls measured capture-task runtime at
+16.63% with unconditional FIR versus 8.40% with recognition disabled correctly,
+using two 45-second FLAC listeners on quiet analog input. Runtime includes charged
+interrupts; the read-service delay estimate also includes work and preemption.
+Both retained startup capture faults. Do not turn the CPU saving into a claim
+that TLS/setup capture stalls are fixed.
+
+Pinned IDF I2S IRAM safety needs both IRAM interrupt registration and internal
+driver objects; callback placement alone is insufficient. One- and two-listener
+90-second tests each survived 120 verified NVS writes without additional capture
+faults. Exact decoder samples do not prove every DMA interrupt arrived. See
+docs/audit-evidence/2026-10-08/capture-protection.md for scope and hashes.
+
+Settling counters count discarded whole chunks, including interrupted budgets.
+Restart counters count attempts, and supervisor/overflow causes can coincide.
+The fault fixture measured 24,000 extra settling frames after recovery, but its
+stream never exposes those discarded samples. It cannot justify shortening the
+500 ms policy; cold codec setup and isolated I2S restart need separate physical
+measurements before changing that policy.
+
 ## Linux workstation validation — 2026-10-07
 Doctor Biz's correction: a failed diagnostic is a step in the investigation,
 not a stopping point. Continue useful, authorized experiments and root-cause
