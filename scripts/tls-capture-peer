@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+# ABOUTME: Starts the bounded receive-only TLS/WebSocket capture diagnostic peer.
+# ABOUTME: Requires an explicit listening IP and test certificate; logs only counts and timing.
+set -euo pipefail
+cd "$(dirname "$0")/.."
+exec uv run --quiet --no-project python3 scripts/tls_capture_peer.py "$@"

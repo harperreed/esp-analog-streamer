@@ -22,6 +22,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(os.environ['STREAM_SOAK_REPO']) / 'scripts'))
 from stream_format import validate_flac_decoder_log
 from decoder_integrity import FrameHash, validate_decoder_line
+from failure_observation import observation_seconds, observe_failure
 
 
 class Failure(Exception):
@@ -89,6 +90,8 @@ def main():
     parser.add_argument('--stream-port', type=port, default=8000, help='stream TCP port (default: 8000)')
     parser.add_argument('--state-port', type=port, default=80, help='state HTTP port (default: 80)')
     parser.add_argument('--out', help='parent output directory (default: target/stream-soak)')
+    parser.add_argument('--failure-observe-seconds', type=observation_seconds, default=0.0,
+                        help='retain existing raw UART and decoders after failure for 0..120 seconds (default: 0); counters remain pre-failure snapshots')
     args = parser.parse_args()
     def interrupted(_number, _frame):
         raise KeyboardInterrupt
@@ -104,6 +107,9 @@ def main():
     events = (out / 'events.jsonl').open('w')
     processes, handles, tails, jobs = [], [], [], []
     failure = None
+    failure_at = None
+    failure_observation = None
+    serial = None
     baseline = None
     latest = None
     latest_at = started
@@ -227,7 +233,7 @@ def main():
         raw = (out / 'uart.log').open('wb')
         serial_errors = (out / 'serial.log').open('wb')
         handles += [raw, serial_errors]
-        serial = subprocess.Popen([str(repo / 'scripts/serial-log'), str(args.seconds + 180)],
+        serial = subprocess.Popen([str(repo / 'scripts/serial-log'), str(args.seconds + 180 + args.failure_observe_seconds)],
                                   stdout=raw, stderr=serial_errors, start_new_session=True)
         processes.append(serial)
         uart_tail = Tail(out / 'uart.log')
@@ -324,11 +330,20 @@ def main():
         record('assertions_passed', listeners=[job['accounting'].summary() for job in jobs])
         check_output_budget()
     except KeyboardInterrupt:
+        failure_at = time.monotonic()
         failure = 'interrupted'
         record('failure', error=failure)
     except Exception as error:
+        failure_at = time.monotonic()
         failure = str(error)
         record('failure', error=failure)
+        # Preserve raw evidence without re-running assertions against the failed workload.
+        # Decoder exit is expected here; only UART loss, budget or interrupt ends grace early.
+        if args.failure_observe_seconds:
+            observation_started = time.monotonic()
+            failure_observation = observe_failure(args.failure_observe_seconds, serial, check_output_budget, record)
+            failure_observation.update(started_elapsed_seconds=observation_started - started,
+                                       ended_elapsed_seconds=time.monotonic() - started)
     finally:
         for process in reversed(processes):
             try:
@@ -350,11 +365,17 @@ def main():
                        decoded_seconds=[job['decoded_seconds'] for job in jobs], state_polls=state_polls,
                        decoder_accounting=[dict(timeline_seconds=job['timeline_seconds'], **job['accounting'].summary()) for job in jobs],
                        baseline=baseline, last_capture=latest, captured_frames_observed=captured,
+                       last_capture_phase='pre_failure' if failure_at is not None else 'completion',
+                       last_capture_age_seconds_at_failure=max(0, failure_at - latest_at) if failure_at is not None and latest is not None else None,
+                       last_capture_age_seconds_at_summary=max(0, time.monotonic() - latest_at) if latest is not None else None,
+                       failure_observation=failure_observation,
                        capture_samples=samples, minimums=minimums, runtime_invalid_windows=runtime_invalid_windows,
                        output_bytes_before_summary=output_bytes(), output_budget_bytes=OUTPUT_BUDGET_BYTES,
                        counter_deltas={key: ((latest[key] - baseline[key]) & 0xffffffff) for key in loss_keys} if baseline and latest else None,
                        log_directory=str(out), uart_log=str(out / 'uart.log'),
-                       note='Minimum sums are conservative per-region lows; largest blocks are snapshots. '
+                       note='Failure observation retains raw logs only; last_capture, counter_deltas and decoder accounting remain pre-failure snapshots. '
+                       'Zero pre-failure deltas do not prove continuity through failure or observation. '
+                       'Minimum sums are conservative per-region lows; largest blocks are snapshots. '
                        'Runtime-stat wrap is excluded from capture faults. Counters cannot detect every omitted DMA interrupt.')
         (out / 'summary.json').write_text(json.dumps(summary, indent=2) + '\n')
         events.close()

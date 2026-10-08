@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+# ABOUTME: Tests bounded failure observation with actual log-writing child processes.
+# ABOUTME: Uses temporary files only; never starts a board collector or a network connection.
+set -euo pipefail
+cd "$(dirname "$0")/.."
+exec uv run --quiet --no-project python3 scripts/test_failure_observation.py "$@"

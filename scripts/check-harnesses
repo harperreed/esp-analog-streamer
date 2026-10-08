@@ -20,6 +20,8 @@ from types import SimpleNamespace
 import tempfile
 from pathlib import Path
 
+sys.path.insert(0, str(Path('scripts').resolve()))
+from failure_observation import observation_seconds
 
 def extracted(source, name, namespace):
     python = source.split("<<'PY'\n", 1)[1].rsplit('\nPY', 1)[0]
@@ -75,7 +77,7 @@ def endpoint_checks(source, name):
     end = next(index for index, node in enumerate(body)
                if isinstance(node, ast.Assign) and any(isinstance(target, ast.Name) and target.id == parsed_name for target in node.targets))
     parser_code = compile(ast.Module(body=body[:end + 1], type_ignores=[]), name, 'exec')
-    namespace = dict(argparse=argparse, math=math)
+    namespace = dict(argparse=argparse, math=math, observation_seconds=observation_seconds)
     if name != 'encoder-fault-check':
         extracted(source, 'port', namespace)
     if name == 'stream-soak':

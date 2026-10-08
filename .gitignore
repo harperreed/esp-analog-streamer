@@ -1,6 +1,7 @@
 # Rust build output (host workspace and firmware)
 target/
 .embuild/
+__pycache__/
 
 # Wi-Fi and MQTT credentials
 firmware/cfg.toml
