@@ -20,7 +20,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 sys.path.insert(0, str(Path(os.environ['STREAM_SOAK_REPO']) / 'scripts'))
-from stream_format import validate_flac_decoder_log
+from stream_format import input_format_args, validate_flac_decoder_log
 from decoder_integrity import FrameHash, validate_decoder_line
 from failure_observation import observation_seconds, observe_failure
 
@@ -274,7 +274,8 @@ def main():
             hashes = out / f'{label}.framehash'
             process = subprocess.Popen(
                 ['ffmpeg', '-nostdin', '-nostats', '-v', 'level+info', '-xerror', '-stats_period', '1',
-                 '-progress', str(progress), '-rw_timeout', '10000000', '-err_detect', 'crccheck', '-i',
+                 '-progress', str(progress), '-rw_timeout', '10000000', '-err_detect', 'crccheck',
+                 *input_format_args('/stream.flac'), '-i',
                  f'http://{ip}:{args.stream_port}/stream.flac', '-t', str(round(args.seconds * 48000) / 48000),
                  '-c:a', 'pcm_s32le', '-f', 'framehash', '-flush_packets', '1', str(hashes)],
                 stdout=subprocess.DEVNULL, stderr=error_handle, start_new_session=True)

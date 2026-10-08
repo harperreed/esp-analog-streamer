@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ABOUTME: Tests stream metadata and amplitude scaling with real local ffmpeg fixtures.
-# ABOUTME: Uses temporary files only; never contacts hardware or the network.
+# ABOUTME: Uses temporary files and paced localhost HTTP; never contacts hardware or remote hosts.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 exec uv run --quiet --no-project --with numpy python3 - "$@" <<'PY'
@@ -15,8 +15,9 @@ from types import SimpleNamespace
 import numpy as np
 
 sys.path.insert(0, str(Path('scripts').resolve()))
-from stream_format import probe_format, validate_flac_header, validate_flac_decoder_log
+from stream_format import input_format_args, probe_format, validate_flac_header, validate_flac_decoder_log
 from decoder_integrity import validate_decoder_log
+from test_stream_input import StreamInputTests
 
 
 class FormatTests(unittest.TestCase):
@@ -37,6 +38,7 @@ class FormatTests(unittest.TestCase):
                 progress = Path(directory) / f'progress-{duration}'
                 hashes = Path(directory) / f'hashes-{duration}'
                 environment = dict(progress=progress, hashes=hashes, ip='unused',
+                                   input_format_args=input_format_args,
                                    args=SimpleNamespace(seconds=duration, stream_port=8000))
                 argv = eval(compile(ast.Expression(command), 'stream-soak command', 'eval'), environment)
                 # Only replace the network input; run the harness's actual output options.

@@ -14,7 +14,7 @@ from types import SimpleNamespace
 import numpy as np
 
 sys.path.insert(0, str(Path('scripts').resolve()))
-from stream_format import validate_flac_decoder_log
+from stream_format import input_format_args, validate_flac_decoder_log
 from decoder_integrity import FrameHash
 
 OUT = Path('target/task1-validation').resolve()
@@ -314,7 +314,8 @@ class IntegrityTests(unittest.TestCase):
         ns = dict(subprocess=subprocess, Path=Path, time=time, re=__import__('re'),
                   progress=progress, hashes=hashes, ip='unused',
                   args=SimpleNamespace(seconds=0.25, stream_port=8000),
-                  FrameHash=FrameHash, validate_flac_decoder_log=validate_flac_decoder_log)
+                  FrameHash=FrameHash, validate_flac_decoder_log=validate_flac_decoder_log,
+                  input_format_args=input_format_args)
         for node in tree('stream-soak').body:
             if isinstance(node, ast.ImportFrom) and node.module == 'decoder_integrity':
                 exec(compile(ast.Module(body=[node], type_ignores=[]), 'stream-soak', 'exec'), ns)

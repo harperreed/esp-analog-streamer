@@ -5,6 +5,15 @@ import re
 import subprocess
 
 
+def input_format_args(stream_path):
+    """Select the known endpoint's demuxer without probing a quiet live stream."""
+    try:
+        demuxer = {'/stream.flac': 'flac', '/stream.wav': 'wav'}[stream_path]
+    except KeyError:
+        raise ValueError(f'unsupported stream endpoint: {stream_path}') from None
+    return ['-f', demuxer]
+
+
 def validate_flac_decoder_log(text):
     """Check ffmpeg's first input audio description, before its decoded output description."""
     match = re.search(r'Stream #0:0[^\n]*?Audio: ([^\n]+)', text)
