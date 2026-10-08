@@ -190,6 +190,10 @@ fn experiment() -> anyhow::Result<()> {
     // Stop callbacks before the UART dump; log timestamps below describe recorded events.
     drop(rx);
     log::set_max_level(log_level);
+    // UART output can poll continuously. Lower its priority and yield during the dump
+    // so the idle task can service its watchdog; recorded acquisition is already complete.
+    // SAFETY: a null handle selects this live task; priority 2 is a valid task priority.
+    unsafe { sys::vTaskPrioritySet(std::ptr::null_mut(), 2) };
     println!(
         "capture-settling: marker=RESULTS trials={TRIALS} blocks_per_trial={BLOCKS} rate_hz=48000 sample_bits=24 pga_gain={} storage_bytes={} storage_psram={storage_psram} deadline_us={CAPTURE_DEADLINE_US} read_timeout_ms={READ_TIMEOUT_MS} physically_cold=false",
         config::CONFIG.pga_gain,
@@ -221,6 +225,10 @@ fn experiment() -> anyhow::Result<()> {
                 block.left.sum_squares, block.right.min, block.right.max, block.right.sum,
                 block.right.sum_squares,
             );
+            if block_index % 16 == 15 {
+                // SAFETY: this is task context; one scheduler tick admits the idle task.
+                unsafe { sys::vTaskDelay(1) };
+            }
         }
         let valid = !trial.codec_failed
             && trial.restart_error == 0
