@@ -2,7 +2,7 @@
 
 ## Now
 
-Doctor Biz approved three parallel Sol implementation lanes, then the Sonos worker-start retry. Base: `20cca99`. Branch: `wip/kata-reliability-first-batch`. No merge or push requested. Compaction count: 1.
+Implementation and review are complete for the approved first batch. Base: `20cca99`. Branch: `wip/kata-reliability-first-batch`. Commits: `ed5e26a` and `350e497`. No merge or push requested. Compaction count: 1. The broader Wi-Fi hardware acceptance remains open in hv4x.
 
 Success: real omitted/duplicated/corrupt audio fails validation; the intended radio configuration is applied and read back; the three small defects and retryable worker launch are fixed; independent review and canonical checks pass. Hardware-only acceptance remains explicitly open unless actually observed.
 
@@ -47,8 +47,10 @@ Each implementer writes a report in this plan's SDD workspace with changed files
 
 ## Progress
 
-- Tasks 1–3 implemented. The first canonical run passed all 15 stages, including 273 Rust tests (two existing tests ignored), ten decoder-integrity tests and six fixture transaction tests. The FLAC cost example builds.
-- Independent Sol reviews cleared tasks 2 and 3. Task 1 review found a decoder-exit race requiring final output draining and final validation before success; correction is in progress.
-- Task 1 reproduced missing-frame, CRC, duplicate and valid-prefix truncation false passes. Its scope also covers `scripts/encoder-fault-check`.
-- Task 4 follows the decoder-exit correction. A successful thread launch followed by configuration-reset failure must not cause a duplicate launch.
-- Board HTTP is reachable, Sonos stopped and autoplay off. No firmware flash, playback command, or network change performed yet. Hardware acceptance remains open.
+- All four tasks implemented and independently reviewed. The final canonical check passed all 15 stages: 279 Rust tests, two existing ignored tests, 12 decoder-integrity tests and six fixture transaction tests. The final FLAC cost example builds without project warnings.
+- Review found and fixed decoder-exit races and fractional-duration rounding. Exact sample counts remain mandatory. Negative controls cover omitted, duplicated, damaged, CRC-invalid and truncated-tail audio, with WAV24 precision preserved.
+- Actual ESP32 benchmark completed zero/DC/mixed/noise assertions. Production was restored. A 30-second two-listener run decoded exactly 1,440,000 stereo frames per listener with no new capture faults after baseline.
+- Startup already recorded 15 queue overflows, 480 dropped frames, two restarts and two discontinuities. Keep startup continuity separate from the measured steady interval; capture protection remains the next priority.
+- The final Sonos image accepted and completed two real discovery requests; saved configuration stayed unchanged, playback stopped and autoplay off. Failed launch/retry uses real host thread tests; IDF memory-pressure failure was not injected.
+- Closed with evidence: 4dss, r0ve, n97a, 6sw1, ntja, j4ae. hv4x remains open for diagnostic-mode persistence, forced reconnect and correlated sender/AP measurements. Parent wmsy remains open for later batches.
+- Durable results: [reliability-first-batch.md](../../audit-evidence/2026-10-07/reliability-first-batch.md) and its machine-readable JSON. Private raw logs and binary hashes are under target/kata-hardware. Nothing pushed or merged.

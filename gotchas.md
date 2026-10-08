@@ -557,3 +557,8 @@ can span omitted blocks. A valid stream prefix can also lose its final block
 without a CRC error or frame-number gap, so a symmetric duration tolerance can
 hide loss. Keep exact sample counts for output-duration decoders; packet-copy
 captures may include a final whole packet, but must never accept underflow.
+
+A thread may start successfully before resetting the caller's pthread settings
+fails. Keep creation and cleanup outcomes distinct: returning a retryable launch
+error after success can create duplicate workers. Log cleanup failures separately
+and retain startup resources only when creation actually failed.
