@@ -2,7 +2,7 @@
 
 ## Now
 
-Doctor Biz approved the next Kata set after the reliability batch. Base `8ba0450`, branch `wip/kata-capture-protection`. Scope: a0mf optional recognition work, dege I2S IRAM protection, and evidence-led ed4k restart investigation. Compaction count: 1. No push or merge requested.
+Doctor Biz approved the next Kata set after the reliability batch. Base `8ba0450`, branch `wip/kata-capture-protection`. Scope: a0mf optional recognition work, dege I2S IRAM protection, and evidence-led ed4k restart investigation. Compaction count: 3. No push or merge requested.
 
 ## Constraints and success
 
@@ -31,4 +31,18 @@ Use paired baseline/current-build capture measurements with unchanged workload. 
 - One/two-listener NVS tests each passed 120 verified writes and cleanup/recovery, with exactly 4,320,000 frames/listener and no additional capture faults. Both configuration profiles compile; recognition-on never flashed, configuration restored exactly.
 - Existing capture-fault fixture passed short-pause continuity, recovery, terminal-suspension reboot and exact decoded recovery. One recovery discarded another 24,000 frames. The 500 ms policy stays unchanged because this fixture cannot expose its discarded samples.
 - Final production restored; two-listener 45-second exact-count check passed. Sonos remained stopped/autoplay off; settings match the initial snapshot. Evidence: `docs/audit-evidence/2026-10-08/capture-protection.md/.json`.
-- Next: separate TLS/setup/reconnect acceptance for a0mf/dege under dp08; controlled physical pre-discard measurement for ed4k. Keep all three Katas open with measured progress rather than claiming those remaining gates passed. Batch implementation phase is complete; retire this session after evidence commit. No push/merge.
+- Continuing under Doctor Biz's correction: separate TLS/setup/reconnect acceptance for a0mf/dege under dp08, then controlled pre-discard measurement for ed4k. Commits mark checkpoints; they do not stop authorized execution. Keep gates open until measured. No push/merge.
+
+## Active continuation
+
+Run production capture/FLAC concurrently with repeated real TLS/WebSocket connections to a local receive-only fixture using the existing Sonos transport implementation and an explicitly trusted test certificate. This tests allocation, handshake and teardown/reconnect capture effects without sending speaker commands or changing production trust. One Sol lane owns the diagnostic example; another owns the real host fixture and its tests. Parent owns integration, builds, board and evidence. Baseline before TLS, exact decoded samples through three connection cycles, capture faults/generations, heap, success markers and cleanup are required. If capture fails, retain the failing run and diagnose before changing production code.
+
+- Continuation checkpoint `558d774`: real TLS peer/production fixture, bounded post-failure UART recording and pre-discard settling diagnostic. Canonical 19 stages pass; independent reviews complete.
+- TLS one/two-listener passes coexist with retained failure: three handshakes added 37 overflows, three restarts and 72,000 settling frames. Physical ALSA playback ran but ADC stayed near noise; do not claim music delivery. TLS capture failure is under investigation.
+- Forced Wi-Fi disconnect/reconnect passed unchanged capture counters and exact 480,000 frames on each of two recovered listeners.
+- First standalone settling acquisition completed ten valid trials, but its UART dump starved IDLE0 and watchdog text corrupted records. Retain that run; post-acquisition yields fixed the reporting failure in two complete repeat runs. The workstation is not yet connected to LINE IN.
+- Sol completed the bounded task-state sampler and independent source/hardware review. Parent owns all builds/hardware; production has been restored.
+
+- Corrected settling report passed two complete real-board runs: 2,000 ordered blocks/ten valid trials each, no watchdogs. Soft codec reset has initial zeros and a retained transient through about 420 ms; I2S-only has immediate quiet samples. Doctor Biz confirmed the workstation is not yet connected to LINE IN; hold signal-dependent policy work until connected.
+- Task sampling reproduced a DMA-overflow failure and a distinct staging failure. The mapped repeat kept DMA overflow/restart counters flat but lost 4,320 frames while the raw-ring read held its mutex for 110,567 us; publication pending for 112,352 us with a full 2,160-frame staging buffer. Actual capture priority 10 verified. Full evidence in capture-setup.md/.json; never infer ISR activity or a specific lock owner from sampled task identity alone.
+- Canonical 19 stages pass after the final sampler changes; independent source and hardware reviews complete. Parent restored saved production image `3dc70b4a`; the final 45-second two-listener run passed exactly 2,160,000 frames per listener with no added tracked capture faults. Configuration matches the initial snapshot; Sonos remains stopped/autoplay off. Sol is preparing the minimal dp08 publication design, preserving WAV/FLAC; architecture discussion precedes implementation.

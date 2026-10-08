@@ -1,6 +1,39 @@
 # Gotchas
 
+## Keep executing authorized work — 2026-10-08
+
+Doctor Biz corrected another premature stop at a batch boundary. A committed
+phase is a checkpoint, not permission to end while authorized acceptance work
+remains. Update the plan and Kata, continue the next useful experiment, and stop
+only for a real blocker or completion of the requested scope.
+
 ## Capture protection measurements — 2026-10-08
+
+Retain the original UART collector after a failed soak: reopening this board's
+serial port can reset it even with DTR/RTS configured before open. The optional
+stream-soak failure observation keeps recording but leaves summary counters as
+explicitly aged pre-failure snapshots. Zero stale deltas cannot clear capture.
+
+The TLS fixture reproduced three capture overflows/restarts while all TLS cycles
+completed. `raw_read_max_us` measures the encoder's raw-ring copy, not I2S driver
+read time. Keep that distinction when tracing long capture service intervals.
+Physical ALSA RUNNING also does not prove the signal reaches LINE IN: the attempted
+music run still measured only noise at the ADC. Verify the board signal too.
+
+Long diagnostic UART dumps can starve the idle task even after acquisition ends.
+Explicitly yield between bounded batches; lowering priority alone is insufficient.
+Retain watchdog-contaminated runs and reject incomplete/interleaved records.
+
+TLS diagnostics reproduced two distinct capture losses. One run added DMA queue
+overflows/restarts; another kept those counters fixed but lost 4,320 staged frames
+while an encoder raw-ring read held its mutex for 110,567 us, including preemption.
+The latter is direct evidence for removing reader-held locking from publication;
+it does not explain or fix the former. See capture-setup.md/.json in audit evidence.
+
+Cross-core task probes have costs and limits: the global tick advances on core 0,
+task lookup/state queries take the kernel lock, and current-task identity does
+not identify ISR execution. Actual capture priority was 10. Long observer gaps
+also occurred in clean cycles, so do not equate them with capture starvation.
 
 Identically instrumented IRAM-off controls measured capture-task runtime at
 16.63% with unconditional FIR versus 8.40% with recognition disabled correctly,
@@ -584,3 +617,8 @@ A thread may start successfully before resetting the caller's pthread settings
 fails. Keep creation and cleanup outcomes distinct: returning a retryable launch
 error after success can create duplicate workers. Log cleanup failures separately
 and retain startup resources only when creation actually failed.
+
+Doctor Biz confirmed LINE IN was disconnected during the October 8 settling
+and TLS experiments. Physical ALSA playback does not prove signal at the ADC.
+Keep signal-dependent settling conclusions pending a verified connection; quiet
+soft-reinit trials included a transient through about 420 ms.
