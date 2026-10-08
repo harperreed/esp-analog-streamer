@@ -39,6 +39,8 @@ fi
 if [ -d firmware ]; then
   stage firmware-fmt rustfmt --edition 2021 --check firmware/build.rs firmware/src/*.rs
   stage firmware-build bash -c 'cd firmware && { [ -f "$HOME/export-esp.sh" ] && . "$HOME/export-esp.sh"; true; } && cargo +esp build --release'
+  stage i2s-iram-tests scripts/test-i2s-iram
+  stage i2s-iram scripts/check-i2s-iram
   # cargo's summary line names our crates when they produce warnings
   stage firmware-warnings bash -c '! grep -E "^warning: .esp-shazam" target/check-logs/firmware-build.log'
 fi

@@ -11,7 +11,16 @@ use esp_idf_svc::hal::gpio::{InputPin, OutputPin};
 use esp_idf_svc::hal::i2s::I2s;
 use esp_idf_svc::sys::{self, esp, EspError};
 
+// Validate generated configuration too: sdkconfig.defaults alone is not a build guarantee.
+#[allow(unexpected_cfgs)]
+const _: () = assert!(
+    cfg!(esp_idf_i2s_isr_iram_safe),
+    "capture requires CONFIG_I2S_ISR_IRAM_SAFE=y"
+);
+
 // Static internal DRAM outlives every callback, including constructor failure and restart.
+// AtomicU32 compiles to internal-memory s32c1i here; IDF's fallback helpers are in IRAM.
+// scripts/check-i2s-iram checks the linked callbacks, helpers and static placement.
 #[link_section = ".dram1.capture_callbacks"]
 static CALLBACKS: AtomicU32 = AtomicU32::new(0);
 #[link_section = ".dram1.capture_overflows"]
@@ -123,6 +132,8 @@ impl<'d> CaptureRx<'d> {
                 on_recv_q_ovf: Some(overflow),
                 ..Default::default()
             };
+            // IDF copies callbacks into its internal channel object before enabling the ISR.
+            // Null context avoids a heap allocation which could otherwise land in PSRAM.
             esp!(sys::i2s_channel_register_event_callback(
                 owner.handle,
                 &callbacks,
