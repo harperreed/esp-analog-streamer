@@ -7,7 +7,7 @@
 // under priority inheritance. No logs, allocation or waits occur in that section.
 // This depends on the production task name, affinity, priority and perpetual lifetime.
 // Host counters still reject any capture loss; markers alone do not establish success.
-// Thirteen seconds exceeds the 8.02s encoded backlog plus2s freshness/close slack.
+// Seventeen seconds exceeds 12.032s history, 2s freshness and 2.5s close slack.
 // Always restore production after this separate hardware fixture.
 
 use esp_idf_svc::{hal::cpu::Core, sys};
@@ -57,12 +57,12 @@ fn observe() -> anyhow::Result<()> {
     }
     let suspended = Suspended(encoder);
     let at = millis();
-    std::thread::sleep(Duration::from_secs(13));
+    std::thread::sleep(Duration::from_secs(17));
     drop(suspended);
     let resumed = millis();
     // Logging can block on a FILE/UART lock owned by the target. Never log while it
     // is suspended: these saved event times intentionally arrive after resumption.
-    log::info!("encoder-faults: marker=SUSPEND ms={at} hold_ms=13000 deferred=true");
+    log::info!("encoder-faults: marker=SUSPEND ms={at} hold_ms=17000 deferred=true");
     log::info!("encoder-faults: marker=RESUME ms={resumed} deferred=true");
     Ok(())
 }

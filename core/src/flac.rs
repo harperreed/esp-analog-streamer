@@ -10,9 +10,11 @@ pub const SAMPLE_RATE_HZ: u32 = 48_000;
 pub const CHANNELS: usize = 2;
 /// Bytes in `stream_header`: "fLaC", a metadata block header and the 34-byte streaminfo.
 pub const STREAM_HEADER_LEN: usize = 42;
-/// Conservative ring/socket allocation bound, retaining room for 24-bit capture-sized payloads.
-/// Encoded 16-bit frames are smaller; this keeps shared ring allocations unchanged.
-pub const MAX_FRAME_BYTES: usize = MAX_HEADER_BYTES + CHANNELS * (1 + 3 * BLOCK_FRAMES) + 2;
+/// Exact allocation bound: the longest header, two verbatim 16-bit subframes, and CRC-16.
+/// Constant subframes are smaller; fixed predictors are chosen only below the verbatim bit cost,
+/// so byte alignment cannot exceed this bound, including after listener renumbering.
+pub const MAX_FRAME_BYTES: usize =
+    MAX_HEADER_BYTES + CHANNELS * (1 + BYTES_PER_SAMPLE * BLOCK_FRAMES) + 2;
 
 /// Output samples are 16-bit; input remains sign-extended 24-bit capture.
 const BYTES_PER_SAMPLE: usize = 2;
@@ -892,7 +894,7 @@ mod tests {
     }
 
     #[test]
-    fn the_largest_frame_fits_the_conservative_slot() {
+    fn the_largest_frame_fills_the_slot() {
         // Verbatim subframes with the longest block number, 6 bytes coded.
         let mut frame = vec![];
         push_and_encode(
@@ -903,8 +905,7 @@ mod tests {
             &mut frame,
         );
         assert_eq!(frame.len(), 11 + 2 * (1 + 2 * BLOCK_FRAMES) + 2);
-        assert_eq!(MAX_FRAME_BYTES, 24_591);
-        assert!(frame.len() < MAX_FRAME_BYTES);
+        assert_eq!(frame.len(), MAX_FRAME_BYTES);
     }
 
     #[test]

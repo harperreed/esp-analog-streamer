@@ -130,21 +130,42 @@ fn bounds_and_number_limit_are_explicit() {
     assert_crcs(&exact);
     assert_eq!(flac::renumber_frame(&mut exact, len + 1, 0), Ok(len));
     assert_crcs(&exact[..len]);
+}
 
+#[test]
+fn maximum_frame_fills_the_allocation_and_survives_largest_header_growth() {
     // Verbatim stereo occupies the worst-case payload and must still fit with six number bytes.
+    let noise = full_scale_noise_stereo(BLOCK_FRAMES);
     let mut encoder = flac::Encoder::new();
-    encoder.push(&full_scale_noise_stereo(BLOCK_FRAMES));
+    encoder.push(&noise);
     let mut encoded = Vec::new();
-    encoder.encode_block(0, &mut encoded);
+    encoder.encode_block(0x7fff_ffff, &mut encoded);
     let maximum = 11 + 2 * (1 + 2 * BLOCK_FRAMES) + 2;
+    assert_eq!(encoded.len(), maximum);
+    assert_eq!(
+        encoded.len(),
+        MAX_FRAME_BYTES,
+        "no unused allocation at the largest frame"
+    );
+    assert_crcs(&encoded);
+    assert_eq!(number_and_header_len(&encoded), (0x7fff_ffff, 11));
+
+    encoder.push(&noise);
+    encoder.encode_block(0, &mut encoded);
     assert_eq!(encoded.len() + 5, maximum);
-    let mut buffer = [0; MAX_FRAME_BYTES];
+    let mut buffer = vec![0; maximum];
     buffer[..encoded.len()].copy_from_slice(&encoded);
     assert_eq!(
         flac::renumber_frame(&mut buffer, encoded.len(), 0x7fff_ffff),
         Ok(maximum)
     );
     assert_crcs(&buffer[..maximum]);
+    let mut stream = flac::stream_header().to_vec();
+    stream.extend_from_slice(&buffer);
+    let mut reader = claxon::FlacReader::new(stream.as_slice()).unwrap();
+    let decoded = reader.samples().collect::<Result<Vec<_>, _>>().unwrap();
+    let expected: Vec<_> = noise.iter().map(|sample| sample >> 8).collect();
+    assert_eq!(decoded, expected);
 }
 
 #[test]

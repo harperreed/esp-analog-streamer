@@ -6,7 +6,7 @@ if [[ "${1:-}" = --help ]]; then
     echo 'Usage: caffeinate -is scripts/encoder-fault-check [HOST] [--stream-port PORT] [--state-port PORT] [--out DIR]'
     echo 'Stream/state ports default to 8000/80; each must be 1..65535.'
     echo 'Two draining FLAC peers precede suspension; fresh playback checks admission after resume.'
-    echo 'EOF allowance: 8.022 s backlog + 2 s freshness + 2.5 s close/network slack.'
+    echo 'EOF allowance: 12.032 s backlog + 2 s freshness + 2.5 s close/network slack.'
     echo 'Requires ffmpeg, uv and the encoder-faults image. Restore production afterward.'
     echo 'Private logs have a checked 128 MiB budget; polling may overshoot it.'
     exit 0
@@ -48,6 +48,9 @@ failure = None
 uart = out / 'uart.log'
 arm_clock_offset = 0
 OUTPUT_BUDGET = 128 * 1024 * 1024
+
+def eof_within_allowance(value, suspended):
+    return value is not None and suspended - 0.1 <= value <= suspended + 16.532
 
 def interrupted(signum, frame):
     raise KeyboardInterrupt
@@ -173,7 +176,8 @@ try:
     baseline=samples(before=armed)
     if not baseline:
         raise RuntimeError('missing pre-fault capture sample')
-    suspended, found=match(r'encoder-faults: marker=SUSPEND ms=(\d+)', after=armed+1, seconds=25)
+    # Deferred delivery follows up to 10 s finding the task and a 17 s hold; allow 3 s UART slack.
+    suspended, found=match(r'encoder-faults: marker=SUSPEND ms=(\d+)', after=armed+1, seconds=30)
     suspend_ms=int(found.group(1))
     resumed,resume_found=match(r'encoder-faults: marker=RESUME ms=(\d+)',after=suspended+1,seconds=5)
     resume_ms=int(resume_found.group(1))
@@ -183,7 +187,7 @@ try:
     for index in range(2):
         if not any(estimated_suspend-1.1<=stamp<=estimated_suspend for stamp in list(progress_times[index])):
             raise RuntimeError('peer lacks recent pre-suspension body progress')
-    if any(errors) or any(value is None or value<estimated_suspend-0.1 or value-estimated_suspend>12.522 for value in eof):
+    if any(errors) or any(not eof_within_allowance(value, estimated_suspend) for value in eof):
         raise RuntimeError('peer failed, ended early or exceeded backlog/freshness/close allowance')
     evidence['eof_seconds_after_estimated_suspend']=[value-estimated_suspend for value in eof]
     evidence['timing_note']='ARM receipt plus saved esp_timer delta; UART delivery uncertainty remains, 100ms early tolerance. RTOS log prefixes converted via paired ARM clock samples with tick quantization.'

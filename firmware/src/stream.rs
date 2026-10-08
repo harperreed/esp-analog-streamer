@@ -26,6 +26,9 @@ use crate::psram::PsramBytes;
 use crate::socket_close;
 use crate::threads::ThreadSpec;
 
+#[path = "stream_limits.rs"]
+mod stream_limits;
+
 type SharedFlacRing = Arc<Mutex<FlacRing>>;
 static RAW_READ_MAX_US: AtomicU32 = AtomicU32::new(0);
 
@@ -85,14 +88,11 @@ impl Drop for ListenerConnection {
     }
 }
 
-/// Off: 94 slots hold 8.02 s; on: 24 slots hold 2.048 s. The enabled profile
-/// trades 576 KB of raw WAV slack for 590,280 bytes of encoded storage (including lengths).
+/// Off: 141 slots hold 12.032 s; on: 24 slots hold 2.048 s.
+/// The off profile uses 2,312,259 payload bytes, 705 more than the former 24-bit
+/// allocation, plus 564 bytes of lengths on ESP32 (188 more than before).
 /// Capture remains raw 48 kHz stereo; only FLAC listeners use this longer backlog.
-const FLAC_RING_FRAMES: usize = if CONFIG.shazam_enabled {
-    24
-} else {
-    (8 * CAPTURE_RATE_HZ as usize).div_ceil(flac::BLOCK_FRAMES)
-};
+const FLAC_RING_FRAMES: usize = stream_limits::flac_history_frames(CONFIG.shazam_enabled);
 
 /// The stream's port. The page and `/api/state` stay on port 80.
 pub const PORT: u16 = 8000;
@@ -313,7 +313,7 @@ fn listen(
 enum End {
     /// The ring overwrote frames the listener hadn't been sent: it read too slowly.
     FellBehind,
-    /// Writing a frame took as long as the ring holds: the listener stopped reading, or reads too
+    /// Writing a frame exhausted its write budget: the listener stopped reading, or reads too
     /// little to matter.
     StoppedReading,
     /// Capture or the shared encoder stopped supplying fresh audio.
@@ -546,9 +546,9 @@ impl EncoderMetrics {
 /// The bounded output buffer holds one complete frame, so every socket write shares that frame's
 /// single deadline. The ring's mutex is released before any socket call.
 fn stream_flac(sock: &TcpStream, ring: &SharedFlacRing, bytes: &mut [u8]) -> End {
-    let write_limit = Duration::from_millis(
-        1_000 * (FLAC_RING_FRAMES * flac::BLOCK_FRAMES) as u64 / u64::from(CAPTURE_RATE_HZ),
-    );
+    // Keep slow socket writes bounded independently of the longer encoded history.
+    let write_limit =
+        Duration::from_millis(stream_limits::flac_write_limit_ms(CONFIG.shazam_enabled));
     let mut writer = DeadlineWriter::new(sock);
     let mut header = Format::Flac.response_head().as_bytes().to_vec();
     header.extend_from_slice(&flac::stream_header());

@@ -198,6 +198,47 @@ class IntegrityTests(unittest.TestCase):
         self.assertEqual(len(tail), 142848)
         self.assertFalse(ns['check_length'](tail, 3)[0])
 
+    def test_encoder_fault_marker_wait_covers_lookup_hold_and_delivery(self):
+        # Run the shipped matcher and its actual SUSPEND call against a UART file.
+        # Advance only the clock; no hardware or real 30-second wait is needed.
+        call = next(node.value for node in ast.walk(tree('encoder-fault-check'))
+                    if isinstance(node, ast.Assign) and isinstance(node.value, ast.Call)
+                    and isinstance(node.value.func, ast.Name) and node.value.func.id == 'match'
+                    and isinstance(node.value.args[0], ast.Constant)
+                    and 'marker=SUSPEND' in node.value.args[0].value)
+        for delivered_at, succeeds in [(29.5, True), (30.5, False)]:
+            with tempfile.TemporaryDirectory() as directory:
+                uart = Path(directory) / 'uart.log'
+                elapsed = [0.0]
+                def sleep(seconds):
+                    elapsed[0] += seconds
+                    if elapsed[0] >= delivered_at:
+                        uart.write_text('encoder-faults: marker=SUSPEND ms=27000\n')
+                ns = dict(time=SimpleNamespace(monotonic=lambda: elapsed[0], sleep=sleep),
+                          uart=uart, out=Path(directory), OUTPUT_BUDGET=1024,
+                          re=__import__('re'), armed=-1)
+                load('encoder-fault-check', ['match', 'wait', 'lines', 'check_output_budget'], ns)
+                expression = compile(ast.Expression(call), 'encoder-fault-check', 'eval')
+                if succeeds:
+                    try:
+                        index, found = eval(expression, ns)
+                    except RuntimeError as error:
+                        self.fail(f'valid deferred marker exceeded its wait: {error}')
+                    self.assertEqual(index, 0)
+                    self.assertEqual(found.group(1), '27000')
+                else:
+                    with self.assertRaisesRegex(RuntimeError, 'missing UART evidence'):
+                        eval(expression, ns)
+
+    def test_encoder_fault_eof_allowance_covers_history_but_remains_bounded(self):
+        ns = load('encoder-fault-check', ['eof_within_allowance'], {})
+        within = ns['eof_within_allowance']
+        self.assertTrue(within(115.0, 100.0))
+        self.assertTrue(within(116.532, 100.0))
+        self.assertFalse(within(116.533, 100.0))
+        self.assertFalse(within(99.899, 100.0))
+        self.assertFalse(within(None, 100.0))
+
     def test_encoder_fault_actual_decoder_rejects_missing_audio(self):
         progress = OUT / 'encoder-fault-omitted.progress'
         hashes = OUT / 'encoder-fault-omitted.framehash'
