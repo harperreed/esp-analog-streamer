@@ -29,6 +29,8 @@ opt-level = "z"
 [features]
 # Explicitly built receive-only TLS adversarial diagnostic; absent from normal firmware.
 sonos-fixture = []
+# Explicit delayed-reader diagnostic; its copy hook is absent from normal firmware.
+capture-fixture = ["esp-shazam-core/capture-fixture"]
 
 [dependencies]
 anyhow = "1"

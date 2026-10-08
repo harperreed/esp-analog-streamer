@@ -2,6 +2,8 @@
 // ABOUTME: MQTT and the LINE IN stream on port 8000. The main thread ends up supervising Wi-Fi; everything else runs on its own thread.
 
 mod audio_in;
+#[cfg(feature = "capture-fixture")]
+mod capture_fixture;
 mod codec;
 mod config;
 mod i2s_capture;
@@ -54,6 +56,8 @@ pub fn run() -> Result<()> {
         Arc::new(Mutex::new(SongStore::new(20, CONFIG.shazam_enabled)));
     // Raw frames feed WAV and the shared FLAC encoder; encoded frames hold FLAC's longer backlog.
     let (ring, stream_ring) = audio_in::spawn_capture(rx, store.clone())?;
+    #[cfg(feature = "capture-fixture")]
+    capture_fixture::spawn(stream_ring.clone())?;
 
     let wifi = net::start_wifi(
         peripherals.modem,
