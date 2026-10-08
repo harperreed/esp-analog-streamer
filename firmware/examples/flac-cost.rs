@@ -12,6 +12,8 @@ use esp_idf_svc::hal::cpu::Core;
 use esp_idf_svc::sys;
 use esp_shazam_core::flac::{Encoder, BLOCK_FRAMES, CHANNELS, MAX_FRAME_BYTES};
 
+#[path = "flac-cost/contract.rs"]
+mod contract;
 #[path = "../src/threads.rs"]
 mod threads;
 
@@ -96,12 +98,7 @@ fn benchmark() {
                 }
                 encoder.encode_block(0, &mut frame);
                 encoding_us += now_us() - started;
-                assert!(frame.len() <= MAX_FRAME_BYTES);
-                if kind == "zero" || kind == "dc" {
-                    assert_eq!(frame.len(), 16, "constant block at frame number zero");
-                }
-                assert_eq!(frame.as_ptr(), initial_ptr, "output storage must be reused");
-                assert_eq!(frame.capacity(), initial_capacity);
+                contract::assert_frame(kind, &frame, initial_ptr, initial_capacity);
                 bytes += frame.len();
                 largest = largest.max(frame.len());
                 // Yield between blocks so the scheduler commits this task's runtime counter.

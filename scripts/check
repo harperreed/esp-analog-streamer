@@ -27,6 +27,8 @@ stage test cargo test --workspace
 stage sonos-web node --test test/sonos-web.test.cjs
 stage harnesses scripts/check-harnesses
 stage stream-format scripts/test-stream-format
+stage decoder-integrity scripts/test-decoder-integrity
+stage e2e-fixtures scripts/test-e2e-fixtures
 stage interface-relay scripts/test-interface-relay
 stage wifi-throughput scripts/test-wifi-throughput-check
 if [ "$(uname -s)" = Linux ]; then

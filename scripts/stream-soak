@@ -21,6 +21,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(os.environ['STREAM_SOAK_REPO']) / 'scripts'))
 from stream_format import validate_flac_decoder_log
+from decoder_integrity import FrameHash, validate_decoder_line
 
 
 class Failure(Exception):
@@ -174,27 +175,33 @@ def main():
             record('capture', counters=sample)
 
     def decoder_updates(job):
+        job['accounting'].update(final=job['process'].poll() is not None)
+        before = job['decoded_audio_frames']
+        job.update(job['accounting'].summary())
+        if job['decoded_audio_frames'] > before:
+            job['advanced_at'] = time.monotonic()
         for line in job['tail'].lines():
             if line.startswith('out_time_us='):
                 value = line.split('=', 1)[1]
                 if value.isdigit():
                     duration = int(value) / 1_000_000
-                    if duration > job['decoded_seconds']:
-                        job['advanced_at'] = time.monotonic()
-                    job['decoded_seconds'] = duration
+                    job['timeline_seconds'] = duration
         for line in job['log_tail'].lines():
-            if re.search(r'\[(error|fatal|panic)\]', line):
-                raise Failure(f"{job['label']}: ffmpeg reported errors; see its private log")
+            validate_decoder_line(line)
         code = job['process'].poll()
         if code is not None:
+            # Exit can race the earlier read: drain FFmpeg's final committed PCM records.
+            job['accounting'].update(final=True)
+            job.update(job['accounting'].summary())
             with job['errors'].open('r') as log:
                 validate_flac_decoder_log(log.read(16384))
             # The process may flush its last progress update immediately before exit.
             for line in job['tail'].lines():
                 if line.startswith('out_time_us=') and line.split('=', 1)[1].isdigit():
-                    job['decoded_seconds'] = int(line.split('=', 1)[1]) / 1_000_000
-            if code != 0 or abs(job['decoded_seconds'] - args.seconds) > 0.1:
-                raise Failure(f"{job['label']}: exit={code}, decoded={job['decoded_seconds']:.3f}s, requested={args.seconds:g}s")
+                    job['timeline_seconds'] = int(line.split('=', 1)[1]) / 1_000_000
+            if code != 0 or job['decoded_audio_frames'] != round(args.seconds * 48000):
+                raise Failure(f"{job['label']}: exit={code}, decoded={job['decoded_audio_frames']} actual frames, "
+                              f"timeline={job['timeline_seconds']:.3f}s, requested={args.seconds:g}s; see {job['errors']}")
         elif time.monotonic() - job['advanced_at'] > 20:
             raise Failure(f"{job['label']}: no decoder progress for 20 seconds")
 
@@ -258,10 +265,12 @@ def main():
             error_handle = errors_path.open('wb')
             handles.append(error_handle)
             progress = out / f'{label}.progress'
+            hashes = out / f'{label}.framehash'
             process = subprocess.Popen(
                 ['ffmpeg', '-nostdin', '-nostats', '-v', 'level+info', '-xerror', '-stats_period', '1',
-                 '-progress', str(progress), '-rw_timeout', '10000000', '-i',
-                 f'http://{ip}:{args.stream_port}/stream.flac', '-t', str(args.seconds), '-f', 'null', '-'],
+                 '-progress', str(progress), '-rw_timeout', '10000000', '-err_detect', 'crccheck', '-i',
+                 f'http://{ip}:{args.stream_port}/stream.flac', '-t', str(round(args.seconds * 48000) / 48000),
+                 '-c:a', 'pcm_s32le', '-f', 'framehash', '-flush_packets', '1', str(hashes)],
                 stdout=subprocess.DEVNULL, stderr=error_handle, start_new_session=True)
             processes.append(process)
             tail = Tail(progress)
@@ -270,7 +279,8 @@ def main():
             tails.append(log_tail)
             jobs.append(dict(label=label, process=process, tail=tail, errors=errors_path,
                              log_tail=log_tail,
-                             decoded_seconds=0, advanced_at=time.monotonic()))
+                             accounting=FrameHash(hashes), decoded_audio_frames=0,
+                             decoded_seconds=0, timeline_seconds=0, advanced_at=time.monotonic()))
         decode_started = time.monotonic()
         deadline = decode_started + args.seconds + 60
         next_state = 0
@@ -287,11 +297,15 @@ def main():
                 state()
                 next_state = time.monotonic() + 5
             if time.monotonic() >= next_progress:
-                record('progress', listeners=[dict(label=job['label'], decoded_seconds=job['decoded_seconds']) for job in jobs],
+                record('progress', listeners=[dict(label=job['label'], timeline_seconds=job['timeline_seconds'],
+                                                  **job['accounting'].summary()) for job in jobs],
                        capture_samples=samples, minimums=minimums,
                        runtime_invalid_windows=runtime_invalid_windows)
                 next_progress = time.monotonic() + 60
             if all(job['process'].poll() is not None for job in jobs):
+                # A decoder can exit after its preceding update. Validate every final drain.
+                for job in jobs:
+                    decoder_updates(job)
                 break
             if time.monotonic() >= deadline:
                 raise Failure('decoders exceeded requested duration plus 60 seconds of wall time')
@@ -307,7 +321,7 @@ def main():
                 state()
                 next_state = time.monotonic() + 5
             time.sleep(0.2)
-        record('assertions_passed', decoded_seconds=[job['decoded_seconds'] for job in jobs])
+        record('assertions_passed', listeners=[job['accounting'].summary() for job in jobs])
         check_output_budget()
     except KeyboardInterrupt:
         failure = 'interrupted'
@@ -323,6 +337,8 @@ def main():
                 failure = failure or f'subprocess cleanup failed: {error}'
         for tail in tails:
             tail.close()
+        for job in jobs:
+            job['accounting'].close()
         for handle in handles:
             handle.close()
         try:
@@ -332,6 +348,7 @@ def main():
         summary = dict(passed=failure is None, error=failure, host=args.host, stream_port=args.stream_port, state_port=args.state_port, ip=ip,
                        requested_seconds=args.seconds, listeners=args.listeners, elapsed_seconds=round(time.monotonic() - started, 3),
                        decoded_seconds=[job['decoded_seconds'] for job in jobs], state_polls=state_polls,
+                       decoder_accounting=[dict(timeline_seconds=job['timeline_seconds'], **job['accounting'].summary()) for job in jobs],
                        baseline=baseline, last_capture=latest, captured_frames_observed=captured,
                        capture_samples=samples, minimums=minimums, runtime_invalid_windows=runtime_invalid_windows,
                        output_bytes_before_summary=output_bytes(), output_budget_bytes=OUTPUT_BUDGET_BYTES,

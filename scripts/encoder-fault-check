@@ -31,12 +31,14 @@ p.add_argument('--out', default='target/encoder-fault-check')
 a = p.parse_args()
 sys.path.insert(0, str(Path(os.environ['ENCODER_CHECK_REPO']) / 'scripts'))
 from stream_format import validate_flac_header
+from decoder_integrity import FrameHash, validate_decoder_log
 
 os.umask(0o077)
 out = Path(a.out).resolve() / datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%S.%fZ')
 out.mkdir(parents=True)
 repo = Path(os.environ['ENCODER_CHECK_REPO'])
 processes, handles, peers, workers = [], [], [], []
+accounting = {}
 stop = threading.Event()
 eof, errors, counts = [None, None], [None, None], [0, 0]
 progress_times = [deque(maxlen=512), deque(maxlen=512)]
@@ -200,12 +202,14 @@ try:
     jobs=[]
     for index in range(2):
         progress=out/f'recovered-{index}.progress'
+        hashes=out/f'recovered-{index}.framehash'
         error=(out/f'recovered-{index}.log').open('wb');handles.append(error)
-        job=subprocess.Popen(['ffmpeg','-nostdin','-v','error','-xerror','-stats_period','0.2','-progress',str(progress),'-rw_timeout','10000000','-i',f'http://{ip}:{a.stream_port}/stream.flac','-t','10','-f','null','-'],stdout=subprocess.DEVNULL,stderr=error,start_new_session=True)
+        job=subprocess.Popen(['ffmpeg','-nostdin','-nostats','-v','level+warning','-xerror','-stats_period','0.2','-progress',str(progress),'-rw_timeout','10000000','-err_detect','crccheck','-i',f'http://{ip}:{a.stream_port}/stream.flac','-t','10','-c:a','pcm_s32le','-f','framehash','-flush_packets','1',str(hashes)],stdout=subprocess.DEVNULL,stderr=error,start_new_session=True)
+        accounting[progress]=FrameHash(hashes)
         processes.append(job);jobs.append((job,progress,out/f'recovered-{index}.log'))
     def duration(progress):
-        values=re.findall(r'^out_time_us=(\d+)$',progress.read_text() if progress.exists() else '',re.M)
-        return int(values[-1])/1e6 if values else 0
+        accounting[progress].update()
+        return accounting[progress].frames/48000
     wait(lambda: True if all(job.poll() is None and duration(progress)>=1 for job,progress,error in jobs) else None,6,'both recovered decoders did not advance')
     with socket.create_connection((ip,a.stream_port),timeout=2) as third:
         third.settimeout(2);third.sendall(b'GET /stream.flac HTTP/1.1\r\nHost: esp-shazam\r\n\r\n')
@@ -221,8 +225,11 @@ try:
         if not head.startswith(b'HTTP/1.1 503 '):raise RuntimeError('third client was not refused')
     for job,progress,error in jobs:
         wait(lambda: True if job.poll() is not None else None,18,'recovered decoder exceeded bounded completion')
-        if job.returncode or error.read_text().strip() or abs(duration(progress)-10)>0.1:
+        accounting[progress].update(final=True)
+        validate_decoder_log(error)
+        if job.returncode or accounting[progress].frames!=480000:
             raise RuntimeError('recovered FLAC decode failed; see decoder log')
+    evidence['decoder_accounting']=[counter.summary() for counter in accounting.values()]
     final,_=match(r'audio: frames=',after=len(lines()),seconds=12)
     capture=samples(after=armed,before=final+1)
     if len(capture)<2:raise RuntimeError('missing capture observations through fault and recovery')
@@ -258,9 +265,10 @@ finally:
                     os.killpg(process.pid,signal.SIGKILL);process.wait(timeout=2)
         except Exception as error:failure=failure or f'cleanup failed: {error}'
     for handle in handles:handle.close()
+    for counter in accounting.values():counter.close()
     try:check_output_budget()
     except Exception as error:failure=failure or str(error)
-    summary=dict(passed=failure is None,error=failure,host=a.host,stream_port=a.stream_port,state_port=a.state_port,elapsed_seconds=time.monotonic()-started,evidence=evidence,uart_log=str(uart),output_budget_bytes=OUTPUT_BUDGET,note='Pre-fault peers validate byte progress; recovered peers decode real FLAC. UART is private.')
+    summary=dict(passed=failure is None,error=failure,host=a.host,stream_port=a.stream_port,state_port=a.state_port,elapsed_seconds=time.monotonic()-started,evidence=evidence,decoder_accounting=[counter.summary() for counter in accounting.values()],uart_log=str(uart),output_budget_bytes=OUTPUT_BUDGET,note='Pre-fault peers validate byte progress; recovered peers count actual decoded FLAC samples. UART is private.')
     (out/'summary.json').write_text(json.dumps(summary,indent=2)+'\n')
     print(('PASS' if failure is None else 'FAIL')+' '+str(out/'summary.json'))
 raise SystemExit(0 if failure is None else 1)

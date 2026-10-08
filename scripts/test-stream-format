@@ -16,6 +16,7 @@ import numpy as np
 
 sys.path.insert(0, str(Path('scripts').resolve()))
 from stream_format import probe_format, validate_flac_header, validate_flac_decoder_log
+from decoder_integrity import validate_decoder_log
 
 
 class FormatTests(unittest.TestCase):
@@ -34,7 +35,8 @@ class FormatTests(unittest.TestCase):
                            check=True, capture_output=True)
             for duration in (1, 2):
                 progress = Path(directory) / f'progress-{duration}'
-                environment = dict(progress=progress, ip='unused',
+                hashes = Path(directory) / f'hashes-{duration}'
+                environment = dict(progress=progress, hashes=hashes, ip='unused',
                                    args=SimpleNamespace(seconds=duration, stream_port=8000))
                 argv = eval(compile(ast.Expression(command), 'stream-soak command', 'eval'), environment)
                 # Only replace the network input; run the harness's actual output options.
@@ -46,9 +48,6 @@ class FormatTests(unittest.TestCase):
                 validate_flac_decoder_log(result.stderr)
                 self.assertLess(len(result.stderr), 16384)
                 # Independently count decoded samples, rather than trusting progress alone.
-                hashes = Path(directory) / f'hashes-{duration}'
-                argv[-2:] = ['framehash', str(hashes)]
-                subprocess.run(argv, check=True, capture_output=True, timeout=10)
                 samples = sum(int(line.split(',')[3]) for line in hashes.read_text().splitlines()
                               if line and not line.startswith('#'))
                 self.assertEqual(samples, duration * 48000)
@@ -89,7 +88,8 @@ class FormatTests(unittest.TestCase):
         tree = ast.parse(source)
         functions = [node for node in tree.body if isinstance(node, ast.FunctionDef)
                      and node.name in ('decode', 'dbfs')]
-        namespace = dict(subprocess=subprocess, np=np, FULL_SCALE=2**23)
+        namespace = dict(subprocess=subprocess, np=np, FULL_SCALE=2**23,
+                         validate_decoder_log=validate_decoder_log)
         exec(compile(ast.Module(body=functions, type_ignores=[]), 'stream-check', 'exec'), namespace)
         with tempfile.TemporaryDirectory() as directory:
             levels = []

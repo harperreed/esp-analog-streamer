@@ -21,11 +21,12 @@ import numpy as np
 
 sys.path.insert(0, str(Path(os.environ['STREAM_CHECK_REPO']) / 'scripts'))
 from stream_format import probe_format
+from decoder_integrity import validate_decoder_log
 
 RATE = 48_000
 WAV_KBIT_PER_S = RATE * 2 * 24 / 1000  # what /stream.wav sends: 2,304 kbit/s
 FULL_SCALE = 2 ** 23  # Common analysis scale for FLAC16 and WAV24 after s32le decoding.
-TOLERANCE_FRAMES = 4_800  # 0.1 s
+TOLERANCE_FRAMES = 4_800  # Allow a copied final packet to extend beyond the requested duration.
 LEVEL_TOLERANCE_DB = 3.0
 SIGNAL_FLOOR_DBFS = -70.0  # each channel of the ADC's own noise reads about -82 dBFS
 MAX_ZERO_RUN_FRAMES = RATE // 100  # 10 ms
@@ -68,7 +69,7 @@ def main():
     # sleeping, the board rebooting) would hang the check, so 10 s without data ends the capture.
     # The board never pauses a live stream that long: it sends, or drops the listener within 2 s.
     ffmpeg = subprocess.run(
-        ["ffmpeg", "-nostdin", "-v", "error", "-y", "-rw_timeout", str(STALL_TIMEOUT_US),
+        ["ffmpeg", "-nostdin", "-v", "level+warning", "-xerror", "-err_detect", "crccheck", "-y", "-rw_timeout", str(STALL_TIMEOUT_US),
          "-t", str(args.seconds), "-i", url, "-c:a", "copy", str(capture_path)],
         capture_output=True, text=True,
     )
@@ -84,8 +85,11 @@ def main():
     if ffmpeg.returncode != 0 or not capture_path.exists():
         lines.append(f"FAIL  ffmpeg exited {ffmpeg.returncode} and said {said}")
         return finish(out, lines, failed=True)
-    if ffmpeg_lines:
-        lines.append(f"note  ffmpeg said {said}")
+    try:
+        validate_decoder_log(out / 'ffmpeg.log')
+    except ValueError as error:
+        lines.append(f"FAIL  capture: {error}; see ffmpeg.log")
+        return finish(out, lines, failed=True)
 
     try:
         metadata = probe_format(capture_path, args.path)
@@ -93,7 +97,11 @@ def main():
         lines.append(f"FAIL  format: {error}")
         return finish(out, lines, failed=True)
     lines.append(f"ok    format: {metadata}")
-    frames = decode(capture_path)
+    try:
+        frames = decode(capture_path)
+    except (ValueError, subprocess.SubprocessError) as error:
+        lines.append(f"FAIL  decode: {error}; see {capture_path}.decode.log")
+        return finish(out, lines, failed=True)
     results = [check_length(frames, args.seconds), check_level(frames, polls),
                check_channels(frames), check_zero_runs(frames)]
     lines += [line for _, line in results]
@@ -124,10 +132,17 @@ def write_polls(path, polls):
 
 def decode(path):
     """FLAC16 or WAV24 scaled to signed 24-bit integers, shape (frames, 2)."""
-    raw = subprocess.run(
-        ["ffmpeg", "-nostdin", "-v", "error", "-i", str(path), "-f", "s32le", "-acodec", "pcm_s32le", "-"],
-        capture_output=True, check=True,
-    ).stdout
+    log_path = str(path) + '.decode.log'
+    with open(log_path, 'wb') as log:
+        result = subprocess.run(
+            ["ffmpeg", "-nostdin", "-v", "level+warning", "-xerror", "-err_detect", "crccheck", "-i", str(path),
+             "-f", "s32le", "-acodec", "pcm_s32le", "-"],
+            stdout=subprocess.PIPE, stderr=log, timeout=180,
+        )
+    validate_decoder_log(log_path)
+    if result.returncode:
+        raise ValueError(f'ffmpeg decode exited {result.returncode}; see {log_path}')
+    raw = result.stdout
     return (np.frombuffer(raw, dtype="<i4") >> 8).reshape(-1, 2)
 
 
@@ -141,9 +156,9 @@ def dbfs(samples):
 def check_length(frames, seconds):
     expected = round(seconds * RATE)
     got = len(frames)
-    ok = abs(got - expected) <= TOLERANCE_FRAMES
+    ok = expected <= got <= expected + TOLERANCE_FRAMES
     return ok, (f"{'ok  ' if ok else 'FAIL'}  length: {got} frames = {got / RATE:.3f} s "
-                f"(want {expected} +/- {TOLERANCE_FRAMES})")
+                f"(want {expected} to {expected + TOLERANCE_FRAMES}; final packet may extend capture)")
 
 
 def check_level(frames, polls):

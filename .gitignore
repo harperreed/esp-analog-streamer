@@ -8,6 +8,7 @@ firmware/cfg.toml
 # Copyrighted audio and the stock flash backup stay local
 test/fixtures/songs/
 backups/
+/media-ignore/
 
 .DS_Store
 

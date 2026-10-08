@@ -69,6 +69,9 @@ import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
 
+sys.path.insert(0, str(Path(os.environ['FAULT_CHECK_REPO']) / 'scripts'))
+from decoder_integrity import FrameHash, validate_decoder_log
+
 
 class Failure(Exception):
     pass
@@ -121,7 +124,7 @@ def main():
     uart = out / 'uart.log'
     event_file = (out / 'events.jsonl').open('w')
     started = time.monotonic()
-    processes, handles, readers = [], [], []
+    processes, handles, readers, decoders = [], [], [], []
     evidence = {}
     failure = None
     admission_cap_checked = False
@@ -215,23 +218,32 @@ def main():
 
     def decoder(label, seconds=None):
         progress = out / f'{label}.progress'
+        hashes = out / f'{label}.framehash'
         errors = (out / f'{label}.ffmpeg.log').open('wb')
         handles.append(errors)
         # Allow the production FLAC write budget (~8.02 s) before the host gives up;
         # stream-check uses the same 10 s timeout. Decode completion remains bounded.
-        command = ['ffmpeg', '-nostdin', '-v', 'error', '-xerror', '-stats_period', '0.2',
-                   '-progress', str(progress), '-rw_timeout', '10000000', '-i', f'http://{ip}:{args.stream_port}{args.path}']
+        command = ['ffmpeg', '-nostdin', '-nostats', '-v', 'level+warning', '-xerror', '-stats_period', '0.2',
+                   '-progress', str(progress), '-rw_timeout', '10000000', '-err_detect', 'crccheck',
+                   '-i', f'http://{ip}:{args.stream_port}{args.path}']
         if seconds is not None:
-            command += ['-t', str(seconds)]
-        command += ['-f', 'null', '-']
+            command += ['-t', str(round(seconds * 48000) / 48000)]
+        command += ['-c:a', 'pcm_s32le', '-f', 'framehash', '-flush_packets', '1', str(hashes)]
         process = subprocess.Popen(command, stdout=subprocess.DEVNULL, stderr=errors, start_new_session=True)
         processes.append(process)
-        return dict(label=label, process=process, progress=progress, errors=out / f'{label}.ffmpeg.log', seconds=seconds)
+        job = dict(label=label, process=process, progress=progress, errors=out / f'{label}.ffmpeg.log',
+                   seconds=seconds, accounting=FrameHash(hashes))
+        decoders.append(job)
+        return job
 
     def duration(job):
-        text = job['progress'].read_text() if job['progress'].exists() else ''
-        values = re.findall(r'^out_time_us=(\d+)$', text, re.M)
-        return int(values[-1]) / 1_000_000 if values else 0
+        if sum(path.stat().st_size for path in [job['progress'], job['errors'], job['accounting'].path]
+               if path.exists()) > 128 * 1024 * 1024:
+            raise Failure(f"{job['label']}: decoder output exceeded 128 MiB; logs retained")
+        job['accounting'].update(final=job['process'].poll() is not None)
+        validate_decoder_log(job['errors'])
+        job.update(job['accounting'].summary())
+        return job['decoded_seconds']
 
     def advancing(job, minimum=1, seconds=5):
         def check():
@@ -244,11 +256,16 @@ def main():
         wait(lambda: True if job['process'].poll() is not None else None,
              job['seconds'] + 8, f"{job['label']}: decoder exceeded bounded completion time")
         got = duration(job)
-        if job['process'].returncode != 0 or job['errors'].read_text().strip():
-            raise Failure(f"{job['label']}: decode failed; see its ffmpeg log")
-        if abs(got - job['seconds']) > 0.1:
+        if job['process'].returncode != 0:
+            raise Failure(f"{job['label']}: decode failed; see {job['errors']}")
+        if job['decoded_audio_frames'] != round(job['seconds'] * 48000):
             raise Failure(f"{job['label']}: decoded {got:.3f}s, required {job['seconds']}s")
-        record('decoded', label=job['label'], decoded_seconds=got, decoded_audio_frames=round(got * 48000))
+        timeline = 0
+        with job['progress'].open() as progress:
+            for line in progress:
+                if line.startswith('out_time_us=') and line.split('=', 1)[1].strip().isdigit():
+                    timeline = int(line.split('=', 1)[1]) / 1000000
+        record('decoded', label=job['label'], timeline_seconds=timeline, **job['accounting'].summary())
 
     def pair(seconds, label):
         nonlocal admission_cap_checked
@@ -688,10 +705,13 @@ def main():
                 failure = failure or 'subprocess cleanup failed'
         for handle in handles:
             handle.close()
+        for job in decoders:
+            job['accounting'].close()
         summary = dict(passed=failure is None, error=failure, mode=args.mode, host=args.host, stream_port=args.stream_port, state_port=args.state_port, path=None if args.mode == 'health' else args.path,
                        listeners=0 if args.mode == 'health' else args.listeners, admission_cap_checked=admission_cap_checked,
                        scope='capture supervisor only; no freshness or decoded playback' if args.mode == 'health' else 'stream and capture assertions',
                        elapsed_seconds=round(time.monotonic() - started, 3), evidence=evidence,
+                       decoder_accounting=[dict(label=job['label'], **job['accounting'].summary()) for job in decoders],
                        log_directory=str(out), uart_log=str(uart),
                        note='UART is private; health mode provides no stream freshness or decoded-playback evidence.' if args.mode == 'health' else
                        'UART is private; decoded duration establishes playback, not independent DMA continuity.')
