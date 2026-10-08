@@ -1,5 +1,37 @@
 # Gotchas
 
+Known live FLAC/WAV endpoints must select their input demuxer before FFmpeg
+startup checks. Constant production FLAC can take over 12 seconds to fill the
+auto-detection probe despite timely audio delivery. Keep sample, CRC and
+discontinuity checks unchanged; this fix does not explain ring-overrun failures.
+
+Doctor Biz later confirmed LINE IN is connected to LINE OUT during the October 8
+capture-publication acceptance session. Treat this as the workstation connection
+discussed earlier. A later decoded prefix verified driven tones, and standalone
+settling acquired ten complete trials. The short network capture itself failed;
+tone presence does not clear continuity or calibrate gain. Earlier quiet-input
+results remain valid only for their recorded signal conditions; the cable's actual connection time is unknown.
+
+## Atomic capture history evidence — 2026-10-08
+
+Raw capture publication now has one unique publisher and atomic sample payloads.
+Readers validate stamps, generation, retained range and era after copying; Retry
+scratch is unusable. Keep the actual protocol in concurrency tests: sequence
+checks around non-atomic payload would still be a Rust data race. Bounded Loom
+models support the ordering argument but do not prove arbitrary target schedules.
+
+On the pinned Xtensa build, SeqCst sample operations use direct loads/stores and
+MEMW without atomic helper locks. Linked read/publish still call ROM unsigned
+64-bit division/remainder; those are arithmetic, not 64-bit atomics. Objdump can
+render valid Rust text as data because of Xtensa property metadata. Inspect a
+separate scratch copy and verify unchanged text bytes; never flash that copy.
+
+Delayed-reader fixture events are retrospective: acquisition records numbers,
+releases buffers/ring ownership, waits for recovery, then logs with bounded yields.
+Match the event timestamp, not UART arrival, to capture counters. A failed soak's
+surviving decoder can keep running after its summary snapshot; final retained
+framehashes establish its eventual samples. Preserve the original failed verdict.
+
 ## Keep executing authorized work — 2026-10-08
 
 Doctor Biz corrected another premature stop at a batch boundary. A committed

@@ -29,7 +29,7 @@ use crate::threads::ThreadSpec;
 type SharedFlacRing = Arc<Mutex<FlacRing>>;
 static RAW_READ_MAX_US: AtomicU32 = AtomicU32::new(0);
 
-/// Interval maximum of the raw read closure, excluding lock acquisition and its unlock tail.
+/// Interval maximum of one atomic raw read attempt, including any preemption during the copy.
 pub fn take_raw_read_max_us() -> u32 {
     RAW_READ_MAX_US.swap(0, Ordering::Relaxed)
 }

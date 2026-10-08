@@ -47,40 +47,75 @@ Files: throwaway probe and assembly under target/capture-publication; report und
 
 Files: core/src/stream_ring.rs, core/src/capture_buffer.rs, affected stream_wait tests, core/tests/capture_publication.rs, narrow Loom/property test support.
 
-- [ ] First reproduce the old failure with a real reader-held mutex and >45 ms publication; retain red output for the claim that all produced samples remain available without waiting for that reader.
-- [ ] Add failing real tests for complete-block visibility, partial input/discard, two readers, stereo identity, partial output, capacity edge, reset, wrap/carry/era exhaustion and unchanged cursors on rejected reads.
-- [ ] Implement unique publisher, atomic payload, seven-word header, slot stamps and bounded validation per approved design. No hot allocation or non-atomic aliasing. A copy becomes usable only after slot and header checks.
-- [ ] Add a concise ordering argument adjacent to the protocol. Prove overwrite-before-head, reset rejection and era handling; do not treat SeqCst alone as proof.
-- [ ] Verify available proptest/Loom versions from primary sources, pin host test dependencies and exercise actual protocol code with tiny rings. Bound model exploration explicitly and report limits.
-- [ ] Add real threaded delayed-copy tests plus deterministic WAV packing/FLAC decode tests at the 4,096-frame boundary. Test real loopback socket pressure without application mock modes.
-- [ ] Run host fmt, clippy and workspace tests; independent review before integration. Report exact APIs and red/green evidence. Parent commits named files after review.
+- [x] First reproduce the old failure with a real reader-held mutex and >45 ms publication; retain red output for the claim that all produced samples remain available without waiting for that reader.
+- [x] Add failing real tests for complete-block visibility, partial input/discard, two readers, stereo identity, partial output, capacity edge, reset, wrap/carry/era exhaustion and unchanged cursors on rejected reads.
+- [x] Implement unique publisher, atomic payload, seven-word header, slot stamps and bounded validation per approved design. No hot allocation or non-atomic aliasing. A copy becomes usable only after slot and header checks.
+- [x] Add a concise ordering argument adjacent to the protocol. Prove overwrite-before-head, reset rejection and era handling; do not treat SeqCst alone as proof.
+- [x] Verify available proptest/Loom versions from primary sources, pin host test dependencies and exercise actual protocol code with tiny rings. Bound model exploration explicitly and report limits.
+- [x] Add real threaded delayed-copy tests plus deterministic WAV packing/FLAC decode tests at the 4,096-frame boundary. Test real loopback socket pressure without application mock modes.
+- [x] Run host fmt, clippy and workspace tests; independent review before integration. Report exact APIs and red/green evidence. Parent commits named files after review.
 
 ### Task 3: Integrate firmware consumers and publisher
 
 Files: firmware/src/audio_in.rs and firmware/src/stream.rs, narrowly needed real host tests for shared wait policy.
 
-- [ ] Write failing shared-policy tests for Retry, caught-up timeout, overrun and cursor initialization; retain encoded-ring lock behavior where still needed.
-- [ ] Use the unique publisher on capture; remove contention staging and count only partial-block loss on real invalidation. Preserve recognition and health behavior.
-- [ ] Switch WAV and FLAC raw readers to bounded atomic reads and cursor initialization. Never feed scratch from rejected reads into encoder/socket. Preserve freshness/socket deadlines and listener cleanup.
-- [ ] Keep existing telemetry contracts accurate: staged frames are partial assembly; obsolete contention counters must not pretend to measure work. Update consumers/tests/docs together if a field changes.
-- [ ] Verify actual payload PSRAM, metadata/refcount internal allocation and fixed sizes. Fail startup explicitly if required placement is unavailable; do not add an unreviewed allocator bridge.
-- [ ] Parent builds both recognition profiles, with recognition-on never flashed. Inspect actual linked publisher/reader instructions and allocation placement. Independent integration review.
+- [x] Write failing shared-policy tests for Retry, caught-up timeout, overrun and cursor initialization; retain encoded-ring lock behavior where still needed.
+- [x] Use the unique publisher on capture; remove contention staging and count only partial-block loss on real invalidation. Preserve recognition and health behavior.
+- [x] Switch WAV and FLAC raw readers to bounded atomic reads and cursor initialization. Never feed scratch from rejected reads into encoder/socket. Preserve freshness/socket deadlines and listener cleanup.
+- [x] Keep existing telemetry contracts accurate: staged frames are partial assembly; obsolete contention counters must not pretend to measure work. Update consumers/tests/docs together if a field changes.
+- [x] Verify actual payload PSRAM, metadata/refcount internal allocation and fixed sizes. Fail startup explicitly if required placement is unavailable; do not add an unreviewed allocator bridge.
+- [x] Parent builds both recognition profiles, with recognition-on never flashed. Inspect actual linked publisher/reader instructions and allocation placement. Independent integration review.
 
 ### Task 4: Hardware acceptance and final review
 
 Files: diagnostic-only delayed-reader fixture if needed; docs/audit-evidence/2026-10-08/capture-publication.md/.json; plan/Kata updates.
 
-- [ ] Add a bounded real delayed-reader diagnostic that cannot pause the producer or depend on log output for cleanup. Parent runs it with one/two listeners at roughly 110–200 ms and beyond history capacity.
-- [ ] Require no new capture publication drops, DMA faults or restart/gap increments during isolated reader delay; allow explicit stale-reader overrun. Record actual samples and memory/task cost.
-- [ ] Repeat three-cycle real TLS, NVS writes and Wi-Fi reconnect using existing fixtures; retain failures and distinguish DMA faults from publication loss.
-- [ ] Run canonical scripts/check, independent whole-change review and parent fresh-eyes. Fix new failures; retain known limitations honestly.
+- [x] Add a bounded real delayed-reader diagnostic that cannot pause the producer or depend on log output for cleanup. Parent runs it with one/two listeners at roughly 110–200 ms and beyond history capacity.
+- [x] Require no new capture publication drops, DMA faults or restart/gap increments during isolated reader delay; allow explicit stale-reader overrun. Record actual samples and memory/task cost.
+- [x] Repeat three-cycle real TLS, NVS writes and Wi-Fi reconnect using existing fixtures; retain failures and distinguish DMA faults from publication loss.
+- [x] Run canonical scripts/check, independent whole-change review and parent fresh-eyes. Host checks passed; hardware failures remain explicit below.
 - [ ] Restore production candidate only after checks, verify saved configuration/stopped autoplay-off state, and run exact two-listener decode acceptance.
 - [ ] Commit evidence and update dp08 with satisfied and remaining gates. Close only if acceptance passes; keep unrelated DMA/settling work open.
 
 ## Progress
 
 - Design approved; no new architecture approval needed for these tasks. Task 1 running as a throwaway feasibility probe. Task 2 can prepare failing host tests in parallel; firmware adoption waits for feasibility and reviewed core API.
-- Compaction count for this implementation: 0. Resume from worker reports and commits; do not repeat completed diagnostics.
+- Compaction count for this implementation: 2. Resume from worker reports and commits; do not repeat completed diagnostics.
 
 - Task 1 passed the compiler probe at optimization 3 and s: direct 32-bit SeqCst load/store with MEMW, no calls or unresolved symbols. Actual linked firmware/placement/cost gates remain open.
 - Task 2 retains an old-path behavioral red showing 8,640 lost frames under contention. Workers corrected early drafts that preceded individual contract tests; those drafts were removed and behavioral TDD restarted. No hardware changes yet.
+
+- Production source checkpoint `1934c94`: core/integration independent review clean, host workspace/property/codec tests and bounded Loom models pass. Actual default and recognition-on ESP builds pass; enabled profile never flashed, configuration restored exactly. Canonical 20 stages pass.
+- Diagnostic checkpoint `940a8ce`: real-copy pause fixture with fixed numeric event storage; reporting follows buffer/ring release and recovery wait. Three actual event-store tests wired into canonical host suite. Final canonical 20 stages pass again.
+- Candidate production `34bf5394` passed 45 seconds/two listeners, exactly 2,160,000 frames each and no added tracked capture faults. Startup faults persist. Four steady windows measured 9.306% core versus earlier control 8.167%; internal minimum sum 69,115 vs72,831 bytes and PSRAM768,820 vs754,292.
+- Hardware underway: flashing delayed-reader image `3a354eaa`; run one/two listener pause tests next, then rebuilt TLS/NVS/network/capture-health fixtures. Saved baseline and candidate ELF files are under target/capture-publication. Keep original UART on failure and restore candidate production/settings at end.
+
+- Delayed-reader diagnostic passed 120 seconds with one listener and two listeners on repeat: each completed 5,760,000 frames. Both short-copy coherence and beyond-history rejection/fresh-read cases passed without added capture faults. First two-listener failure remains failed: a listener left before injection, with the other completing. TLS/NVS/network/current-health acceptance continues.
+
+- Three-cycle TLS with two120s listeners passed exact5,760,000 frames each and unchanged capture faults. NVS120×1,024B verified writes with two90s listeners passed exact4,320,000 each. Forced Wi-Fi disconnect/reconnect passed with both slots released, two fresh480,000-frame streams and unchanged capture counters. Current capture health/WAV and final production restore remain.
+
+
+## Current checkpoint: hardware acceptance failed
+
+Source commits 1934c94 and 940a8ce passed host/model tests and linked target review.
+Harness fix 4aa931f passed all twenty canonical stages and independent review;
+real paced FLAC exposes and fixes container-probing delay without weaker gates.
+The corrected board health rerun still failed. Capture-only supervisor checks
+passed, but full FLAC/WAV recovery decoder acceptance did not.
+
+Connected-input standalone settling completed ten valid trials (480,000 frames).
+I2S-only restarts were stable from block zero; codec-soft-reinit transients extended
+to 490 ms under the documented descriptive limits. Retain the 500 ms policy and
+keep ed4k open for physical cold-start and production recovery work.
+
+Production is restored to image 36c559ca; saved firmware and Sonos configurations
+match exactly, controller stopped, autoplay/recognition off, host playback ended.
+Final 45-second two-listener acceptance failed at 1,990,656 / 532,480 frames against
+2,160,000 each. Original UART retained for 120 seconds after failure; capture
+counters remained unchanged. Do not mark the combined restore/acceptance checkbox
+complete or close dp08. Detailed receipts live in the October 8 audit evidence.
+
+Next: collect a bounded packet trace alongside the current-format stream test
+for pd6c. sudo authentication blocks capture from this session; the prepared local
+terminal command is scripts/capture-stream-packets 192.168.23.217 enp5s0 600.
+Do not blindly repeat until green or change Wi-Fi/buffering without evidence.
