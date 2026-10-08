@@ -1,9 +1,9 @@
 # Capture publication proposal — dp08
 
-**Status:** design proposal for Doctor Biz and independent concurrency review.
-No production implementation is authorized. This document is a design brief at
-the requested plan path, not an executable implementation plan. Parent owns the
-architecture discussion, builds, board, Git and acceptance evidence.
+**Status:** Doctor Biz approved this reviewed design with “continue.”
+Implementation is tracked in [the execution plan](2026-10-08-capture-publication-implementation.md).
+Target feasibility, concurrency proof and hardware acceptance remain gates.
+Parent owns builds, board, Git and acceptance evidence.
 
 ## Problem and scope
 
@@ -271,9 +271,9 @@ validate transport structure on quiet input; it does not invent a physical signa
 ## Decision to discuss
 
 Recommend the single atomic-payload history, subject to the ordering/ABA review
-and ESP32 load/store feasibility/cost gates above. Doctor Biz must approve this
-architecture before an implementation plan or production changes. Parent will
-present the independent review and the unresolved gates with that decision.
+and ESP32 load/store feasibility/cost gates above. Doctor Biz approved this
+architecture after the independent review. Implementation must satisfy the
+unresolved gates before claiming reader isolation or closing dp08.
 
 ## Independent design review
 
