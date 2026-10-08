@@ -1,5 +1,30 @@
 # Gotchas
 
+Doctor Biz confirmed on October 8 that the ESP32 LINE IN cable uses the
+workstation's front jack, labeled Headphone by ALSA. For board-only input use
+`plughw:CARD=PCH,DEV=0`, Headphone on and rear Line Out muted; Master and PCM
+at 0 dB per the source-gain preference. Rear Line Out jack detection was off,
+front Headphone detection on. Muting Headphone silences the board's source.
+The verified 997 Hz left / 1703 Hz right fixture arrived as 1703 Hz left /
+997 Hz right; channel reversal is an open calibration finding, not a buffer fix.
+
+When investigating unexpected sound, inspect original playback commands before
+attributing it. On October 8 this session launched a 180-second Solomun DJ excerpt
+through `aplay -D plughw:CARD=PCH,DEV=0` at 09:23, 09:28 and 09:45 Chicago time,
+as well as later test tones. The claim that only tones were launched was wrong.
+The later packet harness writes framehash files, not speaker output; the source
+of music reported during that later run remains unproven. A sandbox-local `ps`
+cannot exclude host audio players. Verify process visibility and physical output
+routing before claiming no player exists or starting another audible test.
+
+Check `docs-ignore/victrola-hacks.tgz` before proposing Victrola-like buffering.
+Doctor Biz supplied firmware and live-test notes there. On the tested Onyx build
+0.43.179.0x2aa3460, wirelessAudioDelay passes to adchls:start as adchlsLatency;
+only high was live-tested, and delay durations/buffer sizes remain unproven.
+The documented native Sonos route uses 320 kbps MP3 at the highest quality setting;
+its separate direct FLAC endpoint is Ogg-wrapped 24-bit FLAC. Do not assume its
+Sonos reliability demonstrates the same bandwidth or buffering as our FLAC path.
+
 On this Linux workstation, invoke serial-backed harnesses with
 `ESPFLASH_PORT=/dev/ttyUSB0`; `scripts/serial-log` otherwise defaults to a macOS
 device path. A collector failure before stream admission is an invocation failure,
