@@ -1,0 +1,775 @@
+{
+  "date": "2026-10-08",
+  "source_commit": "349bcc0",
+  "acceptance": "failed; dp08 and pd6c remain open",
+  "invocation_failure": {
+    "source_directory": "target/capture-publication/packet-correlated/20261008T175708.961896Z",
+    "run_start_utc": "2026-10-08T17:57:08.961896Z",
+    "uart_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "passed": false,
+    "failure_class": "invocation collector port missing",
+    "failure_host_seconds": 1.930840525077656,
+    "decoded_listeners": 0,
+    "capture_samples": 0,
+    "failure_observation": {
+      "requested_seconds": 120.0,
+      "observed_seconds": 0.00029754103161394596,
+      "stop_reason": "collector_exit",
+      "secondary_error": "UART collector exited during failure observation: exit=1",
+      "started_elapsed_seconds": 1.930840525077656,
+      "ended_elapsed_seconds": 1.931247131084092
+    },
+    "device_transport_acceptance_observed": false
+  },
+  "stream_run": {
+    "source_directory": "target/capture-publication/packet-correlated/20261008T175805.281627Z",
+    "run_start_utc_from_artifact_name": "2026-10-08T17:58:05.281627Z",
+    "uart_sha256": "fe0a23d14f621f0504767e1ed7f34a24930660ab727b856a884ac1c9d2dc3674",
+    "image_sha256": "36c559caea3a2a4fe282ed71a47a748257c9ad3e9f91ac14dc83cf868c85cfe4",
+    "known_input_demuxer": true,
+    "passed": false,
+    "failure_host_seconds": 74.02183312305715,
+    "failure_observation": {
+      "requested_seconds": 120.0,
+      "observed_seconds": 120.0002247709781,
+      "stop_reason": "deadline",
+      "secondary_error": null,
+      "started_elapsed_seconds": 74.02183312305715,
+      "ended_elapsed_seconds": 194.02212895394769
+    },
+    "summary_failure_decoder_frames": [
+      2160000,
+      2072576
+    ],
+    "final_listeners": [
+      {
+        "source_path": "target/capture-publication/packet-correlated/20261008T175805.281627Z/listener-1.framehash",
+        "sha256": "43588455dabc023835758e6b8502ba2e1cb3365fb1714a9ddbd73213d47a8939",
+        "frames": 2160000,
+        "packets": 528,
+        "timeline_gaps": 0
+      },
+      {
+        "source_path": "target/capture-publication/packet-correlated/20261008T175805.281627Z/listener-2.framehash",
+        "sha256": "8edf4d7365f02d1a71676b9af79050e00081d90f16d39869657cd1c5834c7cc7",
+        "frames": 2072576,
+        "packets": 506,
+        "timeline_gaps": 0
+      }
+    ],
+    "capture_observations": [
+      {
+        "device_log_ms": 11376,
+        "frames": 475440,
+        "queue_overflows": 16,
+        "software_dropped_frames": 480,
+        "read_errors": 0,
+        "restarts": 2,
+        "discontinuities": 2
+      },
+      {
+        "device_log_ms": 21426,
+        "frames": 957600,
+        "queue_overflows": 16,
+        "software_dropped_frames": 480,
+        "read_errors": 0,
+        "restarts": 2,
+        "discontinuities": 2
+      },
+      {
+        "device_log_ms": 31496,
+        "frames": 1441200,
+        "queue_overflows": 16,
+        "software_dropped_frames": 480,
+        "read_errors": 0,
+        "restarts": 2,
+        "discontinuities": 2
+      },
+      {
+        "device_log_ms": 41556,
+        "frames": 1923840,
+        "queue_overflows": 16,
+        "software_dropped_frames": 480,
+        "read_errors": 0,
+        "restarts": 2,
+        "discontinuities": 2
+      },
+      {
+        "device_log_ms": 51576,
+        "frames": 2405040,
+        "queue_overflows": 16,
+        "software_dropped_frames": 480,
+        "read_errors": 0,
+        "restarts": 2,
+        "discontinuities": 2
+      },
+      {
+        "device_log_ms": 61656,
+        "frames": 2888880,
+        "queue_overflows": 16,
+        "software_dropped_frames": 480,
+        "read_errors": 0,
+        "restarts": 2,
+        "discontinuities": 2
+      },
+      {
+        "device_log_ms": 71736,
+        "frames": 3372960,
+        "queue_overflows": 16,
+        "software_dropped_frames": 480,
+        "read_errors": 0,
+        "restarts": 2,
+        "discontinuities": 2
+      },
+      {
+        "device_log_ms": 81746,
+        "frames": 3852960,
+        "queue_overflows": 16,
+        "software_dropped_frames": 480,
+        "read_errors": 0,
+        "restarts": 2,
+        "discontinuities": 2
+      },
+      {
+        "device_log_ms": 91766,
+        "frames": 4334160,
+        "queue_overflows": 16,
+        "software_dropped_frames": 480,
+        "read_errors": 0,
+        "restarts": 2,
+        "discontinuities": 2
+      },
+      {
+        "device_log_ms": 101806,
+        "frames": 4815840,
+        "queue_overflows": 16,
+        "software_dropped_frames": 480,
+        "read_errors": 0,
+        "restarts": 2,
+        "discontinuities": 2
+      },
+      {
+        "device_log_ms": 111846,
+        "frames": 5298240,
+        "queue_overflows": 16,
+        "software_dropped_frames": 480,
+        "read_errors": 0,
+        "restarts": 2,
+        "discontinuities": 2
+      },
+      {
+        "device_log_ms": 121916,
+        "frames": 5781600,
+        "queue_overflows": 16,
+        "software_dropped_frames": 480,
+        "read_errors": 0,
+        "restarts": 2,
+        "discontinuities": 2
+      },
+      {
+        "device_log_ms": 131926,
+        "frames": 6261600,
+        "queue_overflows": 16,
+        "software_dropped_frames": 480,
+        "read_errors": 0,
+        "restarts": 2,
+        "discontinuities": 2
+      },
+      {
+        "device_log_ms": 141966,
+        "frames": 6744000,
+        "queue_overflows": 16,
+        "software_dropped_frames": 480,
+        "read_errors": 0,
+        "restarts": 2,
+        "discontinuities": 2
+      },
+      {
+        "device_log_ms": 151986,
+        "frames": 7224720,
+        "queue_overflows": 16,
+        "software_dropped_frames": 480,
+        "read_errors": 0,
+        "restarts": 2,
+        "discontinuities": 2
+      },
+      {
+        "device_log_ms": 162076,
+        "frames": 7708800,
+        "queue_overflows": 16,
+        "software_dropped_frames": 480,
+        "read_errors": 0,
+        "restarts": 2,
+        "discontinuities": 2
+      },
+      {
+        "device_log_ms": 172106,
+        "frames": 8190240,
+        "queue_overflows": 16,
+        "software_dropped_frames": 480,
+        "read_errors": 0,
+        "restarts": 2,
+        "discontinuities": 2
+      },
+      {
+        "device_log_ms": 182106,
+        "frames": 8670480,
+        "queue_overflows": 16,
+        "software_dropped_frames": 480,
+        "read_errors": 0,
+        "restarts": 2,
+        "discontinuities": 2
+      },
+      {
+        "device_log_ms": 192206,
+        "frames": 9155040,
+        "queue_overflows": 16,
+        "software_dropped_frames": 480,
+        "read_errors": 0,
+        "restarts": 2,
+        "discontinuities": 2
+      }
+    ],
+    "stream_ring_behind": [
+      {
+        "device_log_ms": 73366,
+        "stream_lifetime_seconds": 51.2
+      }
+    ],
+    "actively_driven_host_tone": false,
+    "watchdog_found": false,
+    "source_clarification": "Doctor Biz clarified audible music came from workstation speakers; actual LINE IN source during run unestablished; no test playback player launched",
+    "post_state_verification_source": "target/capture-publication/packet-correlated/20261008T175805.281627Z/post-state-verification.json",
+    "packet_capture_counts_parent_reported": {
+      "bytes": 884297,
+      "packets_captured": 7945,
+      "packets_received": 7945,
+      "kernel_drops": 0
+    },
+    "post_state": {
+      "sonos_configuration_matches_preceding_restore": true,
+      "board_sonos_state": "stopped",
+      "autoplay": false,
+      "shazam_enabled": false,
+      "speaker_playback_or_volume_commands_sent": false
+    }
+  },
+  "post_state": {
+    "sonos_configuration_matches_preceding_restore": true,
+    "board_sonos_state": "stopped",
+    "autoplay": false,
+    "shazam_enabled": false,
+    "speaker_playback_or_volume_commands_sent": false,
+    "source_note": "Doctor Biz reports music audible from workstation speakers; route into LINE IN is not established by this statement. No controlled tone launched in this run."
+  },
+  "packet_capture": {
+    "sha256": "ede826b618875b0fa35363a1e0290077bfb3d52817deb3072621219b5824fff7",
+    "snapshot_bytes": 884297,
+    "snaplen": 128,
+    "linktype": 1,
+    "first_epoch_seconds": 1791482228.968328,
+    "last_epoch_seconds": 1791482541.851512,
+    "duration_seconds": 312.88318395614624,
+    "packet_records": 7945,
+    "parsed_tcp_packets": 7928,
+    "snap_truncated_packets": 4420,
+    "incomplete_tail": false,
+    "skipped": {
+      "non_ipv4": 17
+    },
+    "source_path": "target/packet-capture/run-TxSLGWiv/stream.pcap",
+    "interface": "enp5s0",
+    "host_route": "wired Ethernet to board",
+    "tcpdump_version": "4.99.6",
+    "libpcap_version": "1.10.6",
+    "captured_packets": 7945,
+    "received_by_filter": 7945,
+    "kernel_dropped_packets": 0,
+    "termination": "SIGINT after test and full failure observation; flushed normally"
+  },
+  "tcp_flows": [
+    {
+      "server_port": 8000,
+      "client_port": 48402,
+      "start_seconds": 78.51374101638794,
+      "end_seconds": 130.12421202659607,
+      "packet_count": 3680,
+      "server_data_packets": 2085,
+      "max_server_record_body_bytes": 5760,
+      "unique_body_bytes": 3328532,
+      "repeated_range_packet_count": 6,
+      "repeated_range_overlap_bytes": 8640,
+      "observed_holes": [
+        {
+          "first_observed_seconds": 82.51695704460144,
+          "missing_start_relative_seq": 277261,
+          "missing_end_relative_seq": 278701,
+          "filled_seconds": 82.67559790611267,
+          "acknowledged_before_observed_fill": false,
+          "duration_seconds": 0.15864086151123047
+        },
+        {
+          "first_observed_seconds": 104.32105994224548,
+          "missing_start_relative_seq": 1949441,
+          "missing_end_relative_seq": 1956641,
+          "filled_seconds": 107.3870439529419,
+          "acknowledged_before_observed_fill": false,
+          "duration_seconds": 3.065984010696411
+        },
+        {
+          "first_observed_seconds": 108.27299690246582,
+          "missing_start_relative_seq": 2022881,
+          "missing_end_relative_seq": 2024321,
+          "filled_seconds": 108.7042989730835,
+          "acknowledged_before_observed_fill": false,
+          "duration_seconds": 0.4313020706176758
+        },
+        {
+          "first_observed_seconds": 114.39005208015442,
+          "missing_start_relative_seq": 2721281,
+          "missing_end_relative_seq": 2725601,
+          "filled_seconds": 116.64632391929626,
+          "acknowledged_before_observed_fill": false,
+          "duration_seconds": 2.2562718391418457
+        },
+        {
+          "first_observed_seconds": 121.67375802993774,
+          "missing_start_relative_seq": 2979860,
+          "missing_end_relative_seq": 2981300,
+          "filled_seconds": 122.14310002326965,
+          "acknowledged_before_observed_fill": false,
+          "duration_seconds": 0.4693419933319092
+        },
+        {
+          "first_observed_seconds": 121.67375802993774,
+          "missing_start_relative_seq": 2985620,
+          "missing_end_relative_seq": 2989940,
+          "filled_seconds": 125.05064606666565,
+          "acknowledged_before_observed_fill": false,
+          "duration_seconds": 3.3768880367279053
+        }
+      ],
+      "delivery_gaps_over_half_second": [
+        {
+          "start_seconds": 83.03157901763916,
+          "end_seconds": 83.69650411605835,
+          "duration_seconds": 0.6649250984191895,
+          "last_packet_seq_end": 325256,
+          "next_packet_seq_start": 325256,
+          "next_packet_out_of_order": false
+        },
+        {
+          "start_seconds": 84.18061399459839,
+          "end_seconds": 84.8987820148468,
+          "duration_seconds": 0.7181680202484131,
+          "last_packet_seq_end": 392238,
+          "next_packet_seq_start": 392238,
+          "next_packet_out_of_order": false
+        },
+        {
+          "start_seconds": 92.74280595779419,
+          "end_seconds": 93.3244469165802,
+          "duration_seconds": 0.5816409587860107,
+          "last_packet_seq_end": 1082588,
+          "next_packet_seq_start": 1082588,
+          "next_packet_out_of_order": false
+        },
+        {
+          "start_seconds": 94.74236989021301,
+          "end_seconds": 95.28911209106445,
+          "duration_seconds": 0.5467422008514404,
+          "last_packet_seq_end": 1245308,
+          "next_packet_seq_start": 1245308,
+          "next_packet_out_of_order": false
+        },
+        {
+          "start_seconds": 95.4491810798645,
+          "end_seconds": 96.1901490688324,
+          "duration_seconds": 0.7409679889678955,
+          "last_packet_seq_end": 1291388,
+          "next_packet_seq_start": 1291388,
+          "next_packet_out_of_order": false
+        },
+        {
+          "start_seconds": 102.99060010910034,
+          "end_seconds": 103.52301788330078,
+          "duration_seconds": 0.5324177742004395,
+          "last_packet_seq_end": 1886081,
+          "next_packet_seq_start": 1886081,
+          "next_packet_out_of_order": false
+        },
+        {
+          "start_seconds": 104.92903590202332,
+          "end_seconds": 107.08553910255432,
+          "duration_seconds": 2.156503200531006,
+          "last_packet_seq_end": 1950881,
+          "next_packet_seq_start": 1950881,
+          "next_packet_out_of_order": false
+        },
+        {
+          "start_seconds": 111.18977904319763,
+          "end_seconds": 111.74661993980408,
+          "duration_seconds": 0.5568408966064453,
+          "last_packet_seq_end": 2318081,
+          "next_packet_seq_start": 2318081,
+          "next_packet_out_of_order": false
+        },
+        {
+          "start_seconds": 113.77459192276001,
+          "end_seconds": 114.28010988235474,
+          "duration_seconds": 0.5055179595947266,
+          "last_packet_seq_end": 2712641,
+          "next_packet_seq_start": 2712641,
+          "next_packet_out_of_order": false
+        },
+        {
+          "start_seconds": 114.82548999786377,
+          "end_seconds": 116.51201391220093,
+          "duration_seconds": 1.6865239143371582,
+          "last_packet_seq_end": 2767361,
+          "next_packet_seq_start": 2722721,
+          "next_packet_out_of_order": false
+        },
+        {
+          "start_seconds": 117.95884609222412,
+          "end_seconds": 118.76198291778564,
+          "duration_seconds": 0.8031368255615234,
+          "last_packet_seq_end": 2804801,
+          "next_packet_seq_start": 2804801,
+          "next_packet_out_of_order": false
+        },
+        {
+          "start_seconds": 122.39908790588379,
+          "end_seconds": 125.00259399414062,
+          "duration_seconds": 2.603506088256836,
+          "last_packet_seq_end": 3008660,
+          "next_packet_seq_start": 2985620,
+          "next_packet_out_of_order": false
+        },
+        {
+          "start_seconds": 128.54810309410095,
+          "end_seconds": 129.1482219696045,
+          "duration_seconds": 0.60011887550354,
+          "last_packet_seq_end": 3275060,
+          "next_packet_seq_start": 3275060,
+          "next_packet_out_of_order": false
+        }
+      ],
+      "receiver_zero_window_count": 0,
+      "receiver_window_min": 64109,
+      "receiver_window_max": 65535,
+      "client_window_scale": 0,
+      "client_syn_options": {
+        "mss": 1460,
+        "sack_permitted": true,
+        "window_scale": 10
+      },
+      "server_syn_options": {
+        "mss": 1440
+      },
+      "fin_rst": [
+        {
+          "seconds": 129.98469710350037,
+          "direction": "server",
+          "flags": 25
+        },
+        {
+          "seconds": 129.99892711639404,
+          "direction": "client",
+          "flags": 17
+        }
+      ],
+      "receiver_ack_ahead_of_observed_data_count": 0,
+      "sack_event_count": 0,
+      "listener": 2
+    },
+    {
+      "server_port": 8000,
+      "client_port": 48400,
+      "start_seconds": 78.51374101638794,
+      "end_seconds": 130.06097888946533,
+      "packet_count": 4014,
+      "server_data_packets": 2278,
+      "max_server_record_body_bytes": 7200,
+      "unique_body_bytes": 3618633,
+      "repeated_range_packet_count": 1,
+      "repeated_range_overlap_bytes": 1440,
+      "observed_holes": [
+        {
+          "first_observed_seconds": 90.94336605072021,
+          "missing_start_relative_seq": 952630,
+          "missing_end_relative_seq": 954070,
+          "filled_seconds": 91.35625004768372,
+          "acknowledged_before_observed_fill": false,
+          "duration_seconds": 0.412883996963501
+        },
+        {
+          "first_observed_seconds": 104.05724811553955,
+          "missing_start_relative_seq": 1962633,
+          "missing_end_relative_seq": 1965513,
+          "filled_seconds": 107.08593893051147,
+          "acknowledged_before_observed_fill": false,
+          "duration_seconds": 3.028690814971924
+        },
+        {
+          "first_observed_seconds": 111.31427597999573,
+          "missing_start_relative_seq": 2472393,
+          "missing_end_relative_seq": 2476713,
+          "filled_seconds": 114.46509599685669,
+          "acknowledged_before_observed_fill": false,
+          "duration_seconds": 3.150820016860962
+        },
+        {
+          "first_observed_seconds": 118.76198196411133,
+          "missing_start_relative_seq": 2789193,
+          "missing_end_relative_seq": 2790633,
+          "filled_seconds": 118.9375569820404,
+          "acknowledged_before_observed_fill": false,
+          "duration_seconds": 0.17557501792907715
+        },
+        {
+          "first_observed_seconds": 123.97332811355591,
+          "missing_start_relative_seq": 3283113,
+          "missing_end_relative_seq": 3284553,
+          "filled_seconds": 124.12051510810852,
+          "acknowledged_before_observed_fill": false,
+          "duration_seconds": 0.1471869945526123
+        },
+        {
+          "first_observed_seconds": 123.97332906723022,
+          "missing_start_relative_seq": 3287433,
+          "missing_end_relative_seq": 3288873,
+          "filled_seconds": 125.50338101387024,
+          "acknowledged_before_observed_fill": false,
+          "duration_seconds": 1.5300519466400146
+        }
+      ],
+      "delivery_gaps_over_half_second": [
+        {
+          "start_seconds": 83.18263006210327,
+          "end_seconds": 83.79968905448914,
+          "duration_seconds": 0.6170589923858643,
+          "last_packet_seq_end": 358131,
+          "next_packet_seq_start": 358131,
+          "next_packet_out_of_order": false
+        },
+        {
+          "start_seconds": 84.19089198112488,
+          "end_seconds": 84.85778093338013,
+          "duration_seconds": 0.666888952255249,
+          "last_packet_seq_end": 435891,
+          "next_packet_seq_start": 435891,
+          "next_packet_out_of_order": false
+        },
+        {
+          "start_seconds": 94.75471806526184,
+          "end_seconds": 95.28230595588684,
+          "duration_seconds": 0.527587890625,
+          "last_packet_seq_end": 1250881,
+          "next_packet_seq_start": 1250881,
+          "next_packet_out_of_order": false
+        },
+        {
+          "start_seconds": 95.33390998840332,
+          "end_seconds": 96.18819308280945,
+          "duration_seconds": 0.8542830944061279,
+          "last_packet_seq_end": 1292470,
+          "next_packet_seq_start": 1292470,
+          "next_packet_out_of_order": false
+        },
+        {
+          "start_seconds": 102.99293899536133,
+          "end_seconds": 103.52331495285034,
+          "duration_seconds": 0.5303759574890137,
+          "last_packet_seq_end": 1899273,
+          "next_packet_seq_start": 1899273,
+          "next_packet_out_of_order": false
+        },
+        {
+          "start_seconds": 104.62935090065002,
+          "end_seconds": 107.08593893051147,
+          "duration_seconds": 2.45658802986145,
+          "last_packet_seq_end": 1964073,
+          "next_packet_seq_start": 1964073,
+          "next_packet_out_of_order": false
+        },
+        {
+          "start_seconds": 111.8370521068573,
+          "end_seconds": 114.39000105857849,
+          "duration_seconds": 2.5529489517211914,
+          "last_packet_seq_end": 2473833,
+          "next_packet_seq_start": 2473833,
+          "next_packet_out_of_order": false
+        },
+        {
+          "start_seconds": 117.96256494522095,
+          "end_seconds": 118.66099500656128,
+          "duration_seconds": 0.698430061340332,
+          "last_packet_seq_end": 2787753,
+          "next_packet_seq_start": 2787753,
+          "next_packet_out_of_order": false
+        },
+        {
+          "start_seconds": 124.12051510810852,
+          "end_seconds": 125.50338101387024,
+          "duration_seconds": 1.3828659057617188,
+          "last_packet_seq_end": 3284553,
+          "next_packet_seq_start": 3287433,
+          "next_packet_out_of_order": false
+        },
+        {
+          "start_seconds": 128.58555507659912,
+          "end_seconds": 129.14889407157898,
+          "duration_seconds": 0.5633389949798584,
+          "last_packet_seq_end": 3536553,
+          "next_packet_seq_start": 3536553,
+          "next_packet_out_of_order": false
+        }
+      ],
+      "receiver_zero_window_count": 0,
+      "receiver_window_min": 64109,
+      "receiver_window_max": 65535,
+      "client_window_scale": 0,
+      "client_syn_options": {
+        "mss": 1460,
+        "sack_permitted": true,
+        "window_scale": 10
+      },
+      "server_syn_options": {
+        "mss": 1440
+      },
+      "fin_rst": [
+        {
+          "seconds": 129.7973439693451,
+          "direction": "client",
+          "flags": 17
+        },
+        {
+          "seconds": 129.86134910583496,
+          "direction": "client",
+          "flags": 4
+        },
+        {
+          "seconds": 129.9626429080963,
+          "direction": "client",
+          "flags": 4
+        },
+        {
+          "seconds": 129.97524094581604,
+          "direction": "client",
+          "flags": 4
+        },
+        {
+          "seconds": 129.97544693946838,
+          "direction": "client",
+          "flags": 4
+        },
+        {
+          "seconds": 129.97820210456848,
+          "direction": "client",
+          "flags": 4
+        },
+        {
+          "seconds": 129.9782679080963,
+          "direction": "client",
+          "flags": 4
+        },
+        {
+          "seconds": 129.9827630519867,
+          "direction": "client",
+          "flags": 4
+        },
+        {
+          "seconds": 129.98296904563904,
+          "direction": "client",
+          "flags": 4
+        },
+        {
+          "seconds": 130.0037031173706,
+          "direction": "client",
+          "flags": 4
+        },
+        {
+          "seconds": 130.0039119720459,
+          "direction": "client",
+          "flags": 4
+        },
+        {
+          "seconds": 130.00419998168945,
+          "direction": "client",
+          "flags": 4
+        },
+        {
+          "seconds": 130.05506896972656,
+          "direction": "client",
+          "flags": 4
+        },
+        {
+          "seconds": 130.0552990436554,
+          "direction": "client",
+          "flags": 4
+        },
+        {
+          "seconds": 130.05560493469238,
+          "direction": "client",
+          "flags": 4
+        },
+        {
+          "seconds": 130.0558979511261,
+          "direction": "client",
+          "flags": 4
+        },
+        {
+          "seconds": 130.05619192123413,
+          "direction": "client",
+          "flags": 4
+        },
+        {
+          "seconds": 130.05651998519897,
+          "direction": "client",
+          "flags": 4
+        },
+        {
+          "seconds": 130.056823015213,
+          "direction": "client",
+          "flags": 4
+        },
+        {
+          "seconds": 130.05710411071777,
+          "direction": "client",
+          "flags": 4
+        },
+        {
+          "seconds": 130.06048893928528,
+          "direction": "client",
+          "flags": 4
+        },
+        {
+          "seconds": 130.06071209907532,
+          "direction": "client",
+          "flags": 4
+        },
+        {
+          "seconds": 130.06097888946533,
+          "direction": "client",
+          "flags": 4
+        }
+      ],
+      "receiver_ack_ahead_of_observed_data_count": 0,
+      "sack_event_count": 0,
+      "listener": 1
+    }
+  ],
+  "method": {
+    "analysis_script": "target/capture-publication/packet-analysis/analyze.py",
+    "analysis_script_sha256": "aaca5fde1bfc26367c36b69130af0f03fe42ca2dfef2b044b9e1f064b4e91894",
+    "analysis_kind": "throwaway offline analysis, independently reviewed; no production code changes",
+    "flow_time_origin": "seconds since first packet in pcap; sequence zero is first stream byte after server SYN",
+    "lengths": "Original IPv4 total length minus IP/TCP headers, not truncated snapshot length",
+    "window_scaling": "Both SYNs required; neither stream negotiated scaling or SACK",
+    "clock_limit": "Packet timestamps share a capture clock. Host monotonic elapsed, directory UTC and UART device milliseconds are separate; no exact clock mapping asserted.",
+    "source_limit": "Music audible from workstation speakers does not establish the signal entering LINE IN; no controlled tone launched.",
+    "capture_limit": "Receiver Ethernet capture only; host aggregation means records are not on-air segments; 128-byte snapshots cannot validate full payload checksums/FLAC."
+  },
+  "next_step": "Correlate sender TCP/Wi-Fi progress with AP-side capture; no buffer or timeout change justified by this receiver trace alone."
+}

@@ -115,7 +115,20 @@ Final 45-second two-listener acceptance failed at 1,990,656 / 532,480 frames aga
 counters remained unchanged. Do not mark the combined restore/acceptance checkbox
 complete or close dp08. Detailed receipts live in the October 8 audit evidence.
 
-Next: collect a bounded packet trace alongside the current-format stream test
-for pd6c. sudo authentication blocks capture from this session; the prepared local
-terminal command is scripts/capture-stream-packets 192.168.23.217 enp5s0 600.
-Do not blindly repeat until green or change Wi-Fi/buffering without evidence.
+Doctor Biz started packet capture through local sudo authentication. The correlated
+production test failed: one listener completed 2,160,000 frames and the other
+2,072,576. Capture counters stayed unchanged through the full 120-second failure
+observation. Receiver TCP missing ranges took up to 3.377 seconds to arrive despite
+nonzero advertised windows; both flows had overlapping stalls. The capture ended
+cleanly with 7,945 packets and zero kernel-reported drops. See
+docs/audit-evidence/2026-10-08/stream-packet-correlation.md and its numeric JSON.
+
+The first invocation omitted ESPFLASH_PORT=/dev/ttyUSB0 and failed before opening
+audio streams; retain that separate invocation failure. Doctor Biz clarified music
+was audible from workstation speakers, which does not establish the LINE IN signal.
+No controlled tone, firmware change or speaker command was used in this test.
+
+Next for pd6c: pair sender TCP/Wi-Fi progress with AP-side capture. Receiver-side
+evidence establishes delayed delivery but cannot locate the failing hop. Keep
+dp08 open; do not change Wi-Fi/buffering without evidence. Production and settings
+remain restored, board controller stopped, autoplay and recognition off.

@@ -1,5 +1,12 @@
 # Gotchas
 
+On this Linux workstation, invoke serial-backed harnesses with
+`ESPFLASH_PORT=/dev/ttyUSB0`; `scripts/serial-log` otherwise defaults to a macOS
+device path. A collector failure before stream admission is an invocation failure,
+not transport evidence. Doctor Biz's report of music from workstation speakers
+does not establish what signal reaches the board's LINE IN; record routing as
+unverified until the ADC measurement or physical path establishes it.
+
 Known live FLAC/WAV endpoints must select their input demuxer before FFmpeg
 startup checks. Constant production FLAC can take over 12 seconds to fill the
 auto-detection probe despite timely audio delivery. Keep sample, CRC and
@@ -650,7 +657,9 @@ fails. Keep creation and cleanup outcomes distinct: returning a retryable launch
 error after success can create duplicate workers. Log cleanup failures separately
 and retain startup resources only when creation actually failed.
 
-Doctor Biz confirmed LINE IN was disconnected during the October 8 settling
-and TLS experiments. Physical ALSA playback does not prove signal at the ADC.
-Keep signal-dependent settling conclusions pending a verified connection; quiet
-soft-reinit trials included a transient through about 420 ms.
+Doctor Biz confirmed LINE IN was disconnected during the earlier October 8
+quiet-input settling and TLS experiments. Physical ALSA playback does not prove
+signal at the ADC. Those quiet soft-reinit trials included a transient through
+about 420 ms. Later connected-input trials verified driven tones and measured
+soft-reinit anomalies through 490 ms; retain the 500 ms policy. Neither set proves
+physical cold-start behavior or calibrates gain.
