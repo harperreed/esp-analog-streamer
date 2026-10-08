@@ -551,3 +551,9 @@ cannot clear a pre-reset fault. A known signal with measured jack voltage is
 the missing absolute gain reference. The old generated host FLAC fixture uses
 -24 dB attenuation and must not serve as a unity-gain comparison. See
 docs/audit-evidence/2026-10-07/quiet-input-squad.md for ranked findings and tests.
+
+FLAC validation must count decoded samples, not FFmpeg's `out_time_us`: timestamps
+can span omitted blocks. A valid stream prefix can also lose its final block
+without a CRC error or frame-number gap, so a symmetric duration tolerance can
+hide loss. Keep exact sample counts for output-duration decoders; packet-copy
+captures may include a final whole packet, but must never accept underflow.
