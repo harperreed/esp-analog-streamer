@@ -67,6 +67,36 @@ impl Commands {
     }
 }
 
+/// Keeps launch resources outside a fallible thread closure until the worker owns them.
+type WorkerResources<T> = std::sync::Arc<std::sync::Mutex<Option<T>>>;
+
+struct WorkerStart<T> {
+    pending: std::sync::Mutex<Option<WorkerResources<T>>>,
+}
+
+impl<T> WorkerStart<T> {
+    fn new(resources: T) -> Self {
+        Self {
+            pending: std::sync::Mutex::new(Some(std::sync::Arc::new(std::sync::Mutex::new(Some(
+                resources,
+            ))))),
+        }
+    }
+
+    fn ensure_started<E>(
+        &self,
+        spawn: impl FnOnce(WorkerResources<T>) -> Result<(), E>,
+    ) -> Result<(), E> {
+        // Serialize creation; only an actual successful launch consumes the pending owner.
+        let mut pending = self.pending.lock().unwrap();
+        if let Some(resources) = pending.as_ref() {
+            spawn(resources.clone())?;
+            *pending = None;
+        }
+        Ok(())
+    }
+}
+
 #[derive(Debug, Clone, Copy, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum State {
@@ -85,6 +115,20 @@ pub struct Snapshot {
     pub active_player_id: Option<String>,
     pub state: State,
     pub last_error: Option<String>,
+}
+
+fn start_autoplay<E: std::fmt::Display>(
+    status: &std::sync::Mutex<Snapshot>,
+    start: impl FnOnce() -> Result<(), E>,
+) {
+    let enabled = status.lock().unwrap().config.autoplay;
+    if enabled {
+        if let Err(error) = start() {
+            let mut snapshot = status.lock().unwrap();
+            snapshot.state = State::Error;
+            snapshot.last_error = Some(format!("Cannot start Sonos worker: {error}"));
+        }
+    }
 }
 
 const CHUNK_BYTES: usize = 1024;
@@ -361,7 +405,7 @@ mod device {
     pub struct Handle {
         commands: Arc<Commands>,
         status: Arc<Mutex<Snapshot>>,
-        pending: Arc<Mutex<Option<Launch>>>,
+        pending: Arc<WorkerStart<Launch>>,
         queue: Queue,
     }
 
@@ -381,7 +425,7 @@ mod device {
         }
 
         fn ensure_started(&self) -> Result<()> {
-            if let Some(launch) = self.pending.lock().unwrap().take() {
+            self.pending.ensure_started(|resources| {
                 let status = self.status.clone();
                 let queue = self.queue.clone();
                 let commands = self.commands.clone();
@@ -392,6 +436,11 @@ mod device {
                     stack_bytes: 16 * 1024,
                 }
                 .spawn(move || {
+                    let launch = resources
+                        .lock()
+                        .unwrap()
+                        .take()
+                        .expect("Sonos launch owner");
                     let mut policy =
                         protocol::Autoplay::new(-50.0, -60.0).expect("Valid Sonos thresholds");
                     policy.update(
@@ -417,9 +466,8 @@ mod device {
                         diagnostic_at: Instant::now(),
                     }
                     .run(launch.receiver);
-                })?;
-            }
-            Ok(())
+                })
+            })
         }
 
         pub fn submit(&self, command: Command) -> Result<()> {
@@ -454,21 +502,18 @@ mod device {
             state: State::Stopped,
         }));
         let (commands, receiver) = Commands::new();
-        let enabled = status.lock().unwrap().config.autoplay;
         let handle = Handle {
             commands: Arc::new(commands),
             status,
             queue: Queue::default(),
-            pending: Arc::new(Mutex::new(Some(Launch {
+            pending: Arc::new(WorkerStart::new(Launch {
                 receiver,
                 nvs,
                 store,
-            }))),
+            })),
         };
         // No task stack until an explicit command, unless autoplay was deliberately persisted.
-        if enabled {
-            handle.ensure_started()?;
-        }
+        start_autoplay(&handle.status, || handle.ensure_started());
         Ok(handle)
     }
 
@@ -1589,6 +1634,186 @@ pub use device::*;
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn failed_worker_launch_retains_receiver_and_saved_state_for_retry() {
+        use std::io::{Read, Seek, SeekFrom, Write};
+        use std::sync::mpsc;
+
+        struct SavedPath(std::path::PathBuf);
+        impl Drop for SavedPath {
+            fn drop(&mut self) {
+                let _ = std::fs::remove_file(&self.0);
+            }
+        }
+        let unique = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let path = SavedPath(
+            std::env::temp_dir().join(format!("sonos-launch-{}-{unique}.json", std::process::id())),
+        );
+        let mut saved = std::fs::OpenOptions::new()
+            .create_new(true)
+            .read(true)
+            .write(true)
+            .open(&path.0)
+            .unwrap();
+        saved.write_all(b"autoplay=false").unwrap();
+        let (sender, receiver) = mpsc::channel();
+        let start = WorkerStart::new((receiver, saved));
+        let failed = start.ensure_started(|resources| {
+            // Invalid stack size is rejected by the actual std thread implementation.
+            std::thread::Builder::new()
+                .stack_size(usize::MAX)
+                .spawn(move || drop(resources))
+                .map(|_| ())
+        });
+        assert!(failed.is_err());
+        let (finished, result) = mpsc::channel();
+        let launched = start.ensure_started(|resources| {
+            std::thread::Builder::new()
+                .spawn(move || {
+                    let (receiver, mut saved) = resources.lock().unwrap().take().unwrap();
+                    assert_eq!(receiver.recv().unwrap(), "play");
+                    saved.seek(SeekFrom::Start(0)).unwrap();
+                    let mut config = String::new();
+                    saved.read_to_string(&mut config).unwrap();
+                    assert_eq!(config, "autoplay=false");
+                    saved.seek(SeekFrom::Start(0)).unwrap();
+                    saved.write_all(b"autoplay=true ").unwrap();
+                    finished.send(()).unwrap();
+                })
+                .map(|_| ())
+        });
+        assert!(launched.is_ok());
+        assert!(
+            sender.send("play").is_ok(),
+            "sole receiver must survive failed launch"
+        );
+        result
+            .recv_timeout(std::time::Duration::from_secs(2))
+            .unwrap();
+        assert_eq!(std::fs::read(&path.0).unwrap(), b"autoplay=true ");
+    }
+
+    #[test]
+    fn concurrent_launch_attempts_start_one_real_worker() {
+        use std::sync::{
+            atomic::{AtomicUsize, Ordering},
+            Arc, Barrier,
+        };
+        let count = Arc::new(AtomicUsize::new(0));
+        let start = Arc::new(WorkerStart::new(()));
+        assert!(start
+            .ensure_started(|resources| {
+                std::thread::Builder::new()
+                    .stack_size(usize::MAX)
+                    .spawn(move || drop(resources))
+                    .map(|_| ())
+            })
+            .is_err());
+        let barrier = Arc::new(Barrier::new(8));
+        let (finished, result) = std::sync::mpsc::channel();
+        let callers: Vec<_> = (0..8)
+            .map(|_| {
+                let (count, start, barrier, finished) = (
+                    count.clone(),
+                    start.clone(),
+                    barrier.clone(),
+                    finished.clone(),
+                );
+                std::thread::spawn(move || {
+                    barrier.wait();
+                    start
+                        .ensure_started(|resources| {
+                            count.fetch_add(1, Ordering::SeqCst);
+                            std::thread::Builder::new()
+                                .spawn(move || {
+                                    resources.lock().unwrap().take().unwrap();
+                                    finished.send(()).unwrap();
+                                })
+                                .map(|_| ())
+                        })
+                        .unwrap();
+                })
+            })
+            .collect();
+        for caller in callers {
+            caller.join().unwrap();
+        }
+        result
+            .recv_timeout(std::time::Duration::from_secs(2))
+            .unwrap();
+        assert_eq!(count.load(Ordering::SeqCst), 1);
+    }
+
+    #[test]
+    fn initial_autoplay_launch_failure_is_visible_and_keeps_manual_retry() {
+        let status = std::sync::Mutex::new(Snapshot {
+            config: SonosConfig {
+                autoplay: true,
+                ..Default::default()
+            },
+            groups: Vec::new(),
+            active_player_id: None,
+            state: State::Stopped,
+            last_error: None,
+        });
+        let (commands, receiver) = Commands::new();
+        let start = WorkerStart::new(receiver);
+        start_autoplay(&status, || {
+            start.ensure_started(|resources| {
+                std::thread::Builder::new()
+                    .stack_size(usize::MAX)
+                    .spawn(move || drop(resources))
+                    .map(|_| ())
+            })
+        });
+        let snapshot = status.lock().unwrap().clone();
+        assert_eq!(snapshot.state, State::Error);
+        assert!(snapshot
+            .last_error
+            .unwrap()
+            .contains("Cannot start Sonos worker"));
+        assert!(
+            snapshot.config.autoplay,
+            "launch failure must not change persisted autoplay"
+        );
+        let (finished, result) = std::sync::mpsc::channel();
+        start
+            .ensure_started(|resources| {
+                std::thread::Builder::new()
+                    .spawn(move || {
+                        let receiver = resources.lock().unwrap().take().unwrap();
+                        assert!(matches!(receiver.recv().unwrap().command, Command::Stop));
+                        finished.send(()).unwrap();
+                    })
+                    .map(|_| ())
+            })
+            .unwrap();
+        commands.submit(Command::Stop).unwrap();
+        result
+            .recv_timeout(std::time::Duration::from_secs(2))
+            .unwrap();
+    }
+
+    #[test]
+    fn disabled_autoplay_never_attempts_initial_worker_launch() {
+        let status = std::sync::Mutex::new(Snapshot {
+            config: SonosConfig::default(),
+            groups: Vec::new(),
+            active_player_id: None,
+            state: State::Stopped,
+            last_error: Some("saved config error".into()),
+        });
+        start_autoplay(&status, || -> Result<(), std::io::Error> {
+            panic!("disabled autoplay must stay lazy");
+        });
+        let snapshot = status.lock().unwrap();
+        assert_eq!(snapshot.state, State::Stopped);
+        assert_eq!(snapshot.last_error.as_deref(), Some("saved config error"));
+    }
 
     #[test]
     fn captured_header_scoped_eviction_releases_ownership_and_requires_quiet_rearm() {
