@@ -1,7 +1,8 @@
 // ABOUTME: Captures LINE IN over I2S at 48 kHz, 24-bit stereo, on its own high-priority thread on core 0.
 // ABOUTME: Feeds the stream ring, the optional 12 s recognition ring, and the store's level.
 
-use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
+use std::ffi::c_void;
+use std::sync::atomic::{AtomicBool, AtomicPtr, AtomicU32, Ordering};
 use std::sync::{Arc, Mutex, TryLockError};
 use std::time::Duration;
 
@@ -9,18 +10,22 @@ use anyhow::Result;
 use esp_idf_svc::hal::cpu::Core;
 use esp_idf_svc::hal::gpio::{InputPin, OutputPin};
 use esp_idf_svc::hal::i2s::I2s;
-use esp_shazam_core::audio::{
-    samples_from_i2s_slots, RecognitionBuffer, SampleRing, StereoLevelMeter,
-};
+use esp_shazam_core::audio::{samples_from_i2s_slots, SampleRing, StereoLevelMeter};
 use esp_shazam_core::capture_buffer::CaptureBuffer;
 use esp_shazam_core::capture_health::{Action, CaptureHealth};
-use esp_shazam_core::decimate::Decimator;
 use esp_shazam_core::stream_ring::StreamRing;
 
 use crate::config::CONFIG;
 use crate::i2s_capture::{self, CaptureRx};
 use crate::recognizer::SharedStore;
 use crate::threads::ThreadSpec;
+
+#[path = "capture_timing.rs"]
+mod capture_timing;
+use capture_timing::ReadServiceTiming;
+#[path = "recognition_feed.rs"]
+mod recognition_feed;
+use recognition_feed::RecognitionFeed;
 
 /// LINE IN's sample rate, and the stream's.
 pub const CAPTURE_RATE_HZ: u32 = 48_000;
@@ -61,6 +66,12 @@ static FRAMES: AtomicU32 = AtomicU32::new(0);
 static DROPPED: AtomicU32 = AtomicU32::new(0);
 static READ_ERRORS: AtomicU32 = AtomicU32::new(0);
 static RESTARTS: AtomicU32 = AtomicU32::new(0);
+static SUPERVISOR_RESTARTS: AtomicU32 = AtomicU32::new(0);
+static OVERFLOW_RESTARTS: AtomicU32 = AtomicU32::new(0);
+static SETTLING_DISCARDED_FRAMES: AtomicU32 = AtomicU32::new(0);
+static READ_SERVICE_DELAY_US: AtomicU32 = AtomicU32::new(0);
+// The capture owner never returns or deletes its task; metrics only reads its runtime counter.
+static CAPTURE_TASK: AtomicPtr<c_void> = AtomicPtr::new(std::ptr::null_mut());
 static HEALTH_RESTART_REQUESTS: AtomicU32 = AtomicU32::new(0);
 static GAPS: AtomicU32 = AtomicU32::new(0);
 static RAW_WORK_US: AtomicU32 = AtomicU32::new(0);
@@ -100,13 +111,13 @@ pub fn spawn_capture(
     rx: CaptureRx<'static>,
     store: SharedStore,
 ) -> Result<(Option<SharedRing>, SharedStreamRing)> {
-    let recognition = RecognitionBuffer::new(
+    let recognition = RecognitionFeed::new(
         CONFIG.shazam_enabled,
         WINDOW_SAMPLES,
         WAITING_LIMIT,
-        DMA_FRAMES / 3 + 1,
+        DMA_FRAMES,
     );
-    let ring = recognition.as_ref().map(RecognitionBuffer::shared_ring);
+    let ring = recognition.shared_ring();
     let stream: SharedStreamRing = Arc::new(Mutex::new(StreamRing::new(STREAM_FRAMES)));
     let stream_writer = stream.clone();
     ThreadSpec {
@@ -136,43 +147,47 @@ pub fn spawn_capture(
 
 fn capture(
     mut rx: CaptureRx<'static>,
-    mut recognition: Option<RecognitionBuffer>,
+    mut recognition: RecognitionFeed,
     stream: SharedStreamRing,
     store: SharedStore,
 ) -> ! {
     let mut bytes = vec![0u8; DMA_BYTES];
     let mut interleaved: Vec<i32> = Vec::with_capacity(2 * DMA_FRAMES);
-    let mut decimator = Decimator::new();
-    let mut feed: Vec<i16> = Vec::with_capacity(DMA_FRAMES / 3 + 1);
     let mut meter = StereoLevelMeter::new(CAPTURE_RATE_HZ as usize);
     let mut settle_frames = CAPTURE_RATE_HZ as usize / 2;
     let mut staging = CaptureBuffer::new(STAGING_FRAMES);
     let mut pending_since = None;
     let mut pending_attempts = 0u32;
+    let mut read_timing = ReadServiceTiming::new(CAPTURE_RATE_HZ);
     // Clocks ran during codec setup; flush startup backlog before the overflow baseline.
     if let Err(error) = rx.restart() {
         log::warn!("audio: initial queue flush failed: {error}");
     }
     let mut overflow_seen = i2s_capture::counters().queue_overflows;
     let mut pending_level = None;
+    // SAFETY: this is the live capture task, whose function never returns.
+    CAPTURE_TASK.store(
+        unsafe { esp_idf_svc::sys::xTaskGetCurrentTaskHandle().cast() },
+        Ordering::Release,
+    );
     STARTED.store(true, Ordering::Release);
     loop {
         // A snapshot may have held the recognition ring at the gap. Retry clearing it even
         // while I2S fails or the codec settles, rather than retaining a stale full window.
-        if let Some(recognition) = recognition.as_mut() {
-            recognition.push(&[]);
-        }
+        recognition.retry_reset();
         let overflow = i2s_capture::counters().queue_overflows;
-        if RESTART.swap(false, Ordering::AcqRel) || overflow != overflow_seen {
+        let supervisor_restart = RESTART.swap(false, Ordering::AcqRel);
+        let overflow_restart = overflow != overflow_seen;
+        if supervisor_restart || overflow_restart {
+            SUPERVISOR_RESTARTS.fetch_add(u32::from(supervisor_restart), Ordering::Relaxed);
+            OVERFLOW_RESTARTS.fetch_add(u32::from(overflow_restart), Ordering::Relaxed);
+            read_timing.reset();
             overflow_seen = overflow;
             DROPPED.fetch_add(staging.invalidate() as u32, Ordering::Relaxed);
             staging.publish(&[], &stream);
             record_staging(0, micros(), &mut pending_since, &mut pending_attempts);
             GAPS.fetch_add(1, Ordering::Relaxed);
-            if let Some(recognition) = recognition.as_mut() {
-                recognition.reset();
-            }
-            decimator = Decimator::new();
+            recognition.reset();
             meter.reset();
             pending_level = None;
             settle_frames = CAPTURE_RATE_HZ as usize / 2;
@@ -184,11 +199,13 @@ fn capture(
         let n = match rx.read(&mut bytes, READ_TIMEOUT_MS) {
             Ok(n) => n - n % 8, // whole frames only
             Err(_) => {
+                read_timing.reset();
                 READ_ERRORS.fetch_add(1, Ordering::Relaxed);
                 std::thread::sleep(Duration::from_millis(100));
                 continue;
             }
         };
+        READ_SERVICE_DELAY_US.fetch_max(read_timing.complete(micros(), n / 8), Ordering::Relaxed);
         FRAMES.fetch_add((n / 8) as u32, Ordering::Relaxed);
         // The overflow may have occurred during this read. Its queued audio has an uncertain gap;
         // discard this chunk and flush/restart at the next iteration before publishing again.
@@ -198,6 +215,7 @@ fn capture(
         }
         samples_from_i2s_slots(&bytes[..n], &mut interleaved);
         if settle_frames > 0 {
+            SETTLING_DISCARDED_FRAMES.fetch_add((interleaved.len() / 2) as u32, Ordering::Relaxed);
             settle_frames = settle_frames.saturating_sub(interleaved.len() / 2);
             continue;
         }
@@ -213,17 +231,11 @@ fn capture(
         if dropped > 0 {
             DROPPED.fetch_add(dropped as u32, Ordering::Relaxed);
             GAPS.fetch_add(1, Ordering::Relaxed);
-            if let Some(recognition) = recognition.as_mut() {
-                recognition.reset();
-            }
-            decimator = Decimator::new();
+            recognition.reset();
             meter.reset();
             pending_level = None;
         }
-        decimator.process(&interleaved, &mut feed);
-        if let Some(recognition) = recognition.as_mut() {
-            recognition.push(&feed);
-        }
+        recognition.process(&interleaved);
         let meter_started = micros();
         if let Some(level) = meter.push(&interleaved) {
             pending_level = Some((level, std::time::Instant::now()));
@@ -308,12 +320,14 @@ fn metrics() {
     let mut observed = 0u64;
     let mut requests_seen = 0;
     let mut next_log = launched + 10_000_000;
+    let mut runtime_sample = None;
     loop {
         let now = micros();
         let frames = FRAMES.load(Ordering::Relaxed);
         if epoch.is_none() && STARTED.load(Ordering::Acquire) {
             epoch = Some(now);
             observed = 0;
+            runtime_sample = capture_runtime();
         } else if epoch.is_some() {
             observed += u64::from(frames.wrapping_sub(previous));
         }
@@ -326,7 +340,12 @@ fn metrics() {
         }
         if now >= next_log {
             if let Some(epoch) = epoch {
-                log_capture(now - epoch, observed, &mut window_start_free);
+                log_capture(
+                    now - epoch,
+                    observed,
+                    &mut window_start_free,
+                    &mut runtime_sample,
+                );
             }
             next_log = now + 10_000_000;
         }
@@ -351,7 +370,27 @@ fn start_heap_window() -> [usize; 2] {
     }
 }
 
-fn log_capture(elapsed_us: u64, observed: u64, window_start_free: &mut [usize; 2]) {
+fn capture_runtime() -> Option<(u64, u32)> {
+    use esp_idf_svc::sys;
+    let task = CAPTURE_TASK.load(Ordering::Acquire);
+    if task.is_null() {
+        return None;
+    }
+    let mut status = sys::TaskStatus_t::default();
+    // SAFETY: capture publishes its permanently live task. pdFALSE skips stack scanning;
+    // eRunning skips state lookup. Pinned IDF reads the counter without heap allocation.
+    unsafe {
+        sys::vTaskGetInfo(task.cast(), &mut status, 0, sys::eTaskState_eRunning);
+    }
+    Some((micros(), status.ulRunTimeCounter))
+}
+
+fn log_capture(
+    elapsed_us: u64,
+    observed: u64,
+    window_start_free: &mut [usize; 2],
+    runtime_sample: &mut Option<(u64, u32)>,
+) {
     use esp_idf_svc::sys;
     let counters = i2s_capture::counters();
     let internal = sys::MALLOC_CAP_INTERNAL | sys::MALLOC_CAP_8BIT;
@@ -370,14 +409,30 @@ fn log_capture(elapsed_us: u64, observed: u64, window_start_free: &mut [usize; 2
         )
     };
     let start_free = *window_start_free;
+    let current_runtime = capture_runtime();
+    let (runtime_window_us, task_runtime_us, runtime_valid) =
+        match (*runtime_sample, current_runtime) {
+            (Some((previous_us, previous_runtime)), Some((now_us, runtime))) => (
+                now_us - previous_us,
+                runtime.wrapping_sub(previous_runtime),
+                now_us <= u64::from(u32::MAX),
+            ),
+            _ => (0, 0, false),
+        };
+    *runtime_sample = current_runtime;
     // Logging overhead belongs to the next window. No stop/start allocation cycle.
     *window_start_free = start_heap_window();
     let deficit = (elapsed_us * u64::from(CAPTURE_RATE_HZ) / 1_000_000) as i64 - observed as i64;
-    log::info!("audio: frames={} callbacks={} queue_overflows={} software_dropped_frames={} read_errors={} restarts={} discontinuities={} health_restart_requests={} raw_work_max_us={} meter_work_max_us={} store_work_max_us={} raw_read_max_us={} staged_frames={} staged_max_frames={} staging_pending_attempts={} staging_pending_max_attempts={} staging_pending_us={} staging_pending_max_us={} timing_deficit_estimate_frames={} (clock drift/scheduling; not proof of loss) internal_free={} internal_largest={} psram_free={} psram_largest={} internal_min_sum={} psram_min_sum={} internal_window_start_free={} psram_window_start_free={} (minima sum per-region lows; largest is a snapshot; staging current values sampled at publish/reset)",
+    log::info!("audio: frames={} callbacks={} queue_overflows={} software_dropped_frames={} read_errors={} restarts={} supervisor_restarts={} overflow_restarts={} settling_discarded_frames={} discontinuities={} health_restart_requests={} capture_runtime_window_us={} capture_task_runtime_us={} capture_runtime_valid={} read_service_delay_estimate_max_us={} raw_work_max_us={} meter_work_max_us={} store_work_max_us={} raw_read_max_us={} staged_frames={} staged_max_frames={} staging_pending_attempts={} staging_pending_max_attempts={} staging_pending_us={} staging_pending_max_us={} timing_deficit_estimate_frames={} (clock drift/scheduling; not proof of loss) internal_free={} internal_largest={} psram_free={} psram_largest={} internal_min_sum={} psram_min_sum={} internal_window_start_free={} psram_window_start_free={} (runtime includes charged interrupts and excludes unfinished slice; service delay includes work/preemption; minima sum per-region lows; largest is a snapshot; staging current values sampled at publish/reset)",
         FRAMES.load(Ordering::Relaxed), counters.callbacks, counters.queue_overflows,
         DROPPED.load(Ordering::Relaxed), READ_ERRORS.load(Ordering::Relaxed),
-        RESTARTS.load(Ordering::Relaxed), GAPS.load(Ordering::Relaxed),
+        RESTARTS.load(Ordering::Relaxed),
+        SUPERVISOR_RESTARTS.load(Ordering::Relaxed), OVERFLOW_RESTARTS.load(Ordering::Relaxed),
+        SETTLING_DISCARDED_FRAMES.load(Ordering::Relaxed),
+        GAPS.load(Ordering::Relaxed),
         HEALTH_RESTART_REQUESTS.load(Ordering::Relaxed),
+        runtime_window_us, task_runtime_us, runtime_valid,
+        READ_SERVICE_DELAY_US.swap(0, Ordering::Relaxed),
         RAW_WORK_US.swap(0, Ordering::Relaxed), METER_WORK_US.swap(0, Ordering::Relaxed), STORE_WORK_US.swap(0, Ordering::Relaxed),
         crate::stream::take_raw_read_max_us(), STAGED_FRAMES.load(Ordering::Relaxed),
         STAGED_MAX_FRAMES.swap(0, Ordering::Relaxed),
