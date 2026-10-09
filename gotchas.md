@@ -1,5 +1,12 @@
 # Gotchas
 
+Doctor Biz corrected automatic FLAC restoration on October 9: this board is
+actively iterating on MP3. Leave the current experimental MP3 firmware deployed
+between tests. Preserve stopped playback and settings, but do not confuse
+cleanup with firmware rollback. Keep the saved FLAC ELF for recovery; restore
+it only when requested or needed to recover a failed board. The default build
+can remain FLAC while the development board runs MP3.
+
 Doctor Biz corrected stopping after the MP3 benchmark on October 9: the standing
 instruction was to start and continue the implementation. Treat the benchmark
 as a checkpoint when the follow-on prototype is already authorized; do not turn

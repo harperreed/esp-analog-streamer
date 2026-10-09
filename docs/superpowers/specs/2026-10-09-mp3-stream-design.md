@@ -41,8 +41,9 @@ failure cleanup, both build profiles, bounded ring/reset behavior and unchanged
 Sonos Stop/source-ownership behavior. Hardware tests must use real capture,
 one/two MP3 listeners, startup presets, slow readers, TLS and real Sonos playback.
 Record actual decoded samples, capture/encoder progress and faults. Do not infer
-content continuity from timestamps alone. Preserve a known production ELF and
-restore stopped/autoplay-off/Medium settings after tests; never change volume.
+content continuity from timestamps alone. Preserve a known FLAC recovery ELF.
+Doctor Biz clarified that the development board should retain MP3 between iterations; do not automatically restore FLAC
+after tests. Keep stopped/autoplay-off/Medium settings and never change volume.
 
 MP3 is lossy. Measured delay/tail handling, roughly +1 dB gain, join warmup,
 occasional half-second encoder stalls, license obligations and long-soak gates
