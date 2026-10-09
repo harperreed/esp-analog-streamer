@@ -14,6 +14,14 @@ Priority 8 kept MP3 encoding current, but encoded-ring overruns still ended High
 Sonos and two-listener streams. Keep MP3 opt-in and preserve these failed gates.
 See docs/audit-evidence/2026-10-09/mp3-stream.md.
 
+The staged MP3 test on October 9 showed why whole-run average throughput can
+mislead: listener 1 ran near real time alone, slowed to about 71% while a second
+was connected, then caught up after listener 2 overran and closed. Its full
+post-join average was 99.9%. Report actual joint-connection and catch-up windows
+separately, with admission skew and telemetry sampling limits. Capture/encoder
+progress stayed current; the test does not locate the failing network hop.
+See docs/audit-evidence/2026-10-09/mp3-staged.md.
+
 The October 9 Shine benchmark kept up on average at 48 kHz stereo 320 kbps
 with capture/TLS only, but concurrent production FLAC caused growing backlog.
 The corrected exclusive run still had a 508 ms encode call. MP3 input was
