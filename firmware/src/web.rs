@@ -94,6 +94,10 @@ mod device {
                 },
             );
             let (code, body) = match action {
+                Ok(Action::Buffer { .. }) if !sonos.snapshot().buffer_available => (
+                    409,
+                    r#"{"error":"Startup buffer unavailable while recognition is enabled"}"#,
+                ),
                 Ok(action) => {
                     let command = match action {
                         Action::Discover {} => Command::Discover,
@@ -101,6 +105,7 @@ mod device {
                         Action::Play {} => Command::Play,
                         Action::Stop {} => Command::Stop,
                         Action::Autoplay { enabled } => Command::SetAutoplay(enabled),
+                        Action::Buffer { preset } => Command::SetBufferPreset(preset),
                     };
                     match sonos.submit(command) {
                         Ok(()) => (202, r#"{"accepted":true}"#),

@@ -86,6 +86,27 @@ impl FlacRing {
         }
     }
 
+    /// Selects the oldest of exactly `frames` retained whole frames in this generation.
+    /// None means the producer must fill more history; invalid targets are never clamped.
+    pub fn cursor_retained(&self, frames: usize) -> Result<Option<Cursor>, CreateError> {
+        if frames == 0 || frames > self.capacity() {
+            return Err(CreateError::InvalidCapacity);
+        }
+        if self.written < frames as u64 {
+            return Ok(None);
+        }
+        Ok(Some(Cursor {
+            sequence: self.written - frames as u64,
+            generation: self.generation,
+            offset: 0,
+        }))
+    }
+
+    /// Producer position, including the generation so resets cannot conceal missing history.
+    pub fn progress(&self) -> (u64, u64) {
+        (self.generation, self.written)
+    }
+
     /// Drops queued frames after a capture gap and invalidates all existing readers.
     /// New readers join the restarted encoder with a fresh FLAC stream header.
     pub fn reset(&mut self) {

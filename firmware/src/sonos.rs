@@ -12,6 +12,14 @@ pub enum Command {
     Play,
     Stop,
     SetAutoplay(bool),
+    SetBufferPreset(esp_shazam_core::stream_buffer::BufferPreset),
+}
+
+fn validate_buffer_command(command: &Command, available: bool) -> Result<(), &'static str> {
+    if matches!(command, Command::SetBufferPreset(_)) && !available {
+        return Err("Startup buffer unavailable while recognition is enabled");
+    }
+    Ok(())
 }
 
 struct QueuedCommand {
@@ -111,10 +119,37 @@ pub enum State {
 #[derive(Debug, Clone, Serialize)]
 pub struct Snapshot {
     pub config: SonosConfig,
+    pub buffer_available: bool,
     pub groups: Vec<DiscoveryGroup>,
     pub active_player_id: Option<String>,
     pub state: State,
     pub last_error: Option<String>,
+}
+
+fn save_config<E>(
+    status: &std::sync::Mutex<Snapshot>,
+    config: SonosConfig,
+    persist: impl FnOnce(&SonosConfig) -> Result<(), E>,
+) -> Result<(), E> {
+    persist(&config)?;
+    let mut status = status.lock().unwrap();
+    status.last_error = None;
+    status.config = config;
+    Ok(())
+}
+
+fn queue_for_play(
+    item: String,
+    host: std::net::Ipv4Addr,
+    status: &Snapshot,
+) -> Result<QueueSnapshot, sonos_queue::Error> {
+    QueueSnapshot::new(
+        item,
+        host,
+        status
+            .buffer_available
+            .then_some(status.config.buffer_preset),
+    )
 }
 
 fn start_autoplay<E: std::fmt::Display>(
@@ -471,6 +506,8 @@ mod device {
         }
 
         pub fn submit(&self, command: Command) -> Result<()> {
+            validate_buffer_command(&command, self.status.lock().unwrap().buffer_available)
+                .map_err(|error| anyhow!(error))?;
             if let Command::Select(id) = &command {
                 ensure!(
                     !id.is_empty() && id.len() <= 256 && !id.chars().any(char::is_control),
@@ -495,6 +532,7 @@ mod device {
             ),
         };
         let status = Arc::new(Mutex::new(Snapshot {
+            buffer_available: !crate::config::CONFIG.shazam_enabled,
             last_error,
             config,
             groups: Vec::new(),
@@ -1259,12 +1297,11 @@ mod device {
         }
 
         fn save(&mut self, config: SonosConfig) -> Result<()> {
-            self.nvs
-                .set_str("config", &serde_json::to_string(&config)?)?;
-            let mut status = self.status.lock().unwrap();
-            status.last_error = None;
-            status.config = config;
-            Ok(())
+            save_config(&self.status, config, |config| {
+                self.nvs
+                    .set_str("config", &serde_json::to_string(config)?)?;
+                Ok(())
+            })
         }
 
         fn command(&mut self, command: Command) -> Result<()> {
@@ -1292,6 +1329,16 @@ mod device {
                     self.save(config)?;
                     self.policy
                         .update(self.now(), protocol::AutoplayEvent::Enabled(enabled));
+                }
+                Command::SetBufferPreset(preset) => {
+                    let mut config = self.status.lock().unwrap().config.clone();
+                    validate_buffer_command(
+                        &Command::SetBufferPreset(preset),
+                        self.status.lock().unwrap().buffer_available,
+                    )
+                    .map_err(|error| anyhow!(error))?;
+                    config.buffer_preset = preset;
+                    self.save(config)?;
                 }
                 Command::Play => self.play()?,
                 Command::Stop => self.stop()?,
@@ -1394,7 +1441,7 @@ mod device {
                     "Sonos session lost before load"
                 );
                 let item = format!("{context}-{}-{}", self.now(), self.sequence);
-                let queue = QueueSnapshot::new(item, board_ip()?)
+                let queue = queue_for_play(item, board_ip()?, &self.status.lock().unwrap())
                     .map_err(|error| anyhow!("Invalid Sonos queue: {error:?}"))?;
                 let body = queue_load_body(&queue);
                 // Sonos can request the queue before the command reply arrives.
@@ -1636,6 +1683,92 @@ mod tests {
     use super::*;
 
     #[test]
+    fn saved_buffer_updates_only_future_queue_and_failed_save_keeps_settings() {
+        let status = std::sync::Mutex::new(Snapshot {
+            config: SonosConfig {
+                player_id: Some("selected".into()),
+                autoplay: true,
+                ..Default::default()
+            },
+            buffer_available: true,
+            groups: vec![],
+            active_player_id: Some("selected".into()),
+            state: State::Playing,
+            last_error: None,
+        });
+        let host = "192.0.2.10".parse().unwrap();
+        let current = queue_for_play("current".into(), host, &status.lock().unwrap()).unwrap();
+        let mut config = status.lock().unwrap().config.clone();
+        config.buffer_preset = esp_shazam_core::stream_buffer::BufferPreset::High;
+        let saved = std::sync::Mutex::new(String::new());
+        save_config(&status, config.clone(), |config| {
+            *saved.lock().unwrap() = serde_json::to_string(config).unwrap();
+            Ok::<_, &str>(())
+        })
+        .unwrap();
+        assert_eq!(
+            serde_json::from_str::<SonosConfig>(&saved.lock().unwrap()).unwrap(),
+            config
+        );
+        assert_eq!(status.lock().unwrap().config, config);
+        assert_eq!(status.lock().unwrap().state, State::Playing);
+        assert_eq!(
+            status.lock().unwrap().active_player_id.as_deref(),
+            Some("selected")
+        );
+        assert_eq!(
+            current.buffer_preset,
+            Some(esp_shazam_core::stream_buffer::BufferPreset::Medium)
+        );
+        assert_eq!(
+            queue_for_play("next".into(), host, &status.lock().unwrap())
+                .unwrap()
+                .buffer_preset,
+            Some(esp_shazam_core::stream_buffer::BufferPreset::High)
+        );
+        let mut failed = config.clone();
+        failed.buffer_preset = esp_shazam_core::stream_buffer::BufferPreset::Low;
+        assert_eq!(
+            save_config(&status, failed, |_| Err("NVS failed")),
+            Err("NVS failed")
+        );
+        assert_eq!(status.lock().unwrap().config, config);
+        status.lock().unwrap().buffer_available = false;
+        assert_eq!(
+            queue_for_play("live".into(), host, &status.lock().unwrap())
+                .unwrap()
+                .buffer_preset,
+            None
+        );
+    }
+
+    #[test]
+    fn buffer_command_keeps_inflight_play_and_rejects_recognition_profile() {
+        let (commands, receiver) = Commands::new();
+        commands.submit(Command::Play).unwrap();
+        let play = receiver.recv().unwrap();
+        commands
+            .submit(Command::SetBufferPreset(
+                esp_shazam_core::stream_buffer::BufferPreset::High,
+            ))
+            .unwrap();
+        assert!(commands.is_current(play.generation));
+        assert!(validate_buffer_command(
+            &Command::SetBufferPreset(esp_shazam_core::stream_buffer::BufferPreset::Low),
+            false
+        )
+        .is_err());
+        assert!(validate_buffer_command(
+            &Command::SetBufferPreset(esp_shazam_core::stream_buffer::BufferPreset::High),
+            true
+        )
+        .is_ok());
+        assert!(validate_buffer_command(&Command::Stop, false).is_ok());
+        commands.submit(Command::Stop).unwrap();
+        assert!(!commands.is_current(play.generation));
+    }
+
+    #[test]
     fn failed_worker_launch_retains_receiver_and_saved_state_for_retry() {
         use std::io::{Read, Seek, SeekFrom, Write};
         use std::sync::mpsc;
@@ -1751,6 +1884,7 @@ mod tests {
     #[test]
     fn initial_autoplay_launch_failure_is_visible_and_keeps_manual_retry() {
         let status = std::sync::Mutex::new(Snapshot {
+            buffer_available: true,
             config: SonosConfig {
                 autoplay: true,
                 ..Default::default()
@@ -1801,6 +1935,7 @@ mod tests {
     #[test]
     fn disabled_autoplay_never_attempts_initial_worker_launch() {
         let status = std::sync::Mutex::new(Snapshot {
+            buffer_available: true,
             config: SonosConfig::default(),
             groups: Vec::new(),
             active_player_id: None,
@@ -1833,9 +1968,11 @@ mod tests {
         };
         let mut session = Some("owned".to_owned());
         let mut status = Snapshot {
+            buffer_available: true,
             config: SonosConfig {
                 player_id: Some("selected".into()),
                 autoplay: true,
+                ..Default::default()
             },
             groups: vec![],
             active_player_id: Some("selected".into()),
@@ -1843,7 +1980,9 @@ mod tests {
             last_error: None,
         };
         let queue = Queue::default();
-        queue.publish(QueueSnapshot::new("item".into(), "192.0.2.10".parse().unwrap()).unwrap());
+        queue.publish(
+            QueueSnapshot::new("item".into(), "192.0.2.10".parse().unwrap(), None).unwrap(),
+        );
         let mut policy = protocol::Autoplay::new(-50.0, -60.0).unwrap();
         policy.update(0, protocol::AutoplayEvent::Enabled(true));
         policy.update(0, protocol::AutoplayEvent::OwnershipAcquired);
@@ -2122,6 +2261,7 @@ mod tests {
         let snapshot = QueueSnapshot {
             item_id: "item-first".into(),
             host: "192.0.2.10".parse().unwrap(),
+            buffer_preset: None,
         };
         queue.publish(snapshot.clone());
         assert_eq!(reader.snapshot(), Some(snapshot.clone()));
@@ -2140,6 +2280,7 @@ mod tests {
         let snapshot = QueueSnapshot {
             item_id: "item-live".into(),
             host: "192.0.2.10".parse().unwrap(),
+            buffer_preset: None,
         };
         assert_eq!(
             queue_load_body(&snapshot),

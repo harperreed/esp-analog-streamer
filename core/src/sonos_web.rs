@@ -9,8 +9,15 @@ pub enum Action {
     Discover {},
     Play {},
     Stop {},
-    Select { player_id: String },
-    Autoplay { enabled: bool },
+    Select {
+        player_id: String,
+    },
+    Autoplay {
+        enabled: bool,
+    },
+    Buffer {
+        preset: crate::stream_buffer::BufferPreset,
+    },
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -33,6 +40,22 @@ pub fn parse(body: &[u8]) -> Result<Action, Error> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn accepts_only_named_buffer_presets() {
+        for preset in ["low", "med", "high"] {
+            let body = format!(r#"{{"action":"buffer","preset":"{preset}"}}"#);
+            assert!(parse(body.as_bytes()).is_ok());
+        }
+        for body in [
+            r#"{"action":"buffer","preset":"medium"}"#,
+            r#"{"action":"buffer","preset":4}"#,
+            r#"{"action":"buffer","preset":"low","url":"http://evil"}"#,
+            r#"{"action":"buffer"}"#,
+        ] {
+            assert!(parse(body.as_bytes()).is_err());
+        }
+    }
 
     #[test]
     fn accepts_only_supported_actions_and_fields() {

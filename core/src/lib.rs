@@ -26,6 +26,7 @@ pub mod sonos;
 pub mod sonos_queue;
 pub mod sonos_web;
 pub mod store;
+pub mod stream_buffer;
 pub mod stream_http;
 pub mod stream_ring;
 pub mod stream_wait;

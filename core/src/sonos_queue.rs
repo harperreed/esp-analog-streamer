@@ -10,6 +10,7 @@ pub const MAX_REPORT_BYTES: usize = 1024;
 pub struct QueueSnapshot {
     pub item_id: String,
     pub host: Ipv4Addr,
+    pub buffer_preset: Option<crate::stream_buffer::BufferPreset>,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -27,9 +28,17 @@ pub enum Error {
 }
 
 impl QueueSnapshot {
-    pub fn new(item_id: String, host: Ipv4Addr) -> Result<Self, Error> {
+    pub fn new(
+        item_id: String,
+        host: Ipv4Addr,
+        buffer_preset: Option<crate::stream_buffer::BufferPreset>,
+    ) -> Result<Self, Error> {
         crate::sonos::validate_id(&item_id).map_err(|_| Error::Invalid)?;
-        Ok(Self { item_id, host })
+        Ok(Self {
+            item_id,
+            host,
+            buffer_preset,
+        })
     }
 }
 
@@ -84,7 +93,11 @@ pub fn response(
 }
 
 fn media_url(snapshot: &QueueSnapshot) -> String {
-    format!("http://{}:8000/stream.flac", snapshot.host)
+    let url = format!("http://{}:8000/stream.flac", snapshot.host);
+    match snapshot.buffer_preset {
+        Some(preset) => format!("{url}?buffer={}", preset.query_value()),
+        None => url,
+    }
 }
 
 fn decode_query(value: &str) -> Result<String, Error> {
@@ -170,11 +183,49 @@ mod tests {
         QueueSnapshot {
             item_id: "esp-test-1".into(),
             host: Ipv4Addr::new(192, 0, 2, 10),
+            buffer_preset: None,
         }
     }
 
     fn report() -> Value {
         json!({"items":[{"contextVersion":"esp-test-1", "queueVersion":"esp-test-1", "id":"esp-test-1", "mediaUrl":"http://192.0.2.10:8000/stream.flac", "type":"update", "positionMillis":2500, "positionMillisAtSegmentStart":0, "durationPlayedMillis":2500, "timeSincePlaybackMillis":2500}]})
+    }
+
+    #[test]
+    fn buffered_snapshot_url_is_fixed_and_reports_require_that_exact_url() {
+        for (preset, value) in [
+            (crate::stream_buffer::BufferPreset::Low, "low"),
+            (crate::stream_buffer::BufferPreset::Medium, "med"),
+            (crate::stream_buffer::BufferPreset::High, "high"),
+        ] {
+            let s = QueueSnapshot::new("esp-test-1".into(), snapshot().host, Some(preset)).unwrap();
+            let expected = format!("http://192.0.2.10:8000/stream.flac?buffer={value}");
+            let body: Value = serde_json::from_str(
+                &response(
+                    &s,
+                    Endpoint::ItemWindow,
+                    "buffer=high&mediaUrl=http%3A%2F%2Fevil",
+                )
+                .unwrap(),
+            )
+            .unwrap();
+            assert_eq!(body["items"][0]["track"]["mediaUrl"], expected);
+            assert_eq!(
+                validate_time_played(&s, report().to_string().as_bytes()),
+                Err(Error::StaleItem)
+            );
+            let mut played = report();
+            played["items"][0]["mediaUrl"] = json!(expected);
+            assert_eq!(
+                validate_time_played(&s, played.to_string().as_bytes()),
+                Ok(())
+            );
+            let clone = s.clone();
+            assert_eq!(
+                response(&clone, Endpoint::ItemWindow, "").unwrap(),
+                response(&s, Endpoint::ItemWindow, "").unwrap()
+            );
+        }
     }
 
     #[test]
@@ -244,9 +295,9 @@ mod tests {
 
     #[test]
     fn snapshot_validation_bounds_output_and_escapes_ids() {
-        assert!(QueueSnapshot::new(String::new(), snapshot().host).is_err());
-        assert!(QueueSnapshot::new("x".repeat(257), snapshot().host).is_err());
-        let s = QueueSnapshot::new("\"".repeat(256), snapshot().host).unwrap();
+        assert!(QueueSnapshot::new(String::new(), snapshot().host, None).is_err());
+        assert!(QueueSnapshot::new("x".repeat(257), snapshot().host, None).is_err());
+        let s = QueueSnapshot::new("\"".repeat(256), snapshot().host, None).unwrap();
         let encoded = response(&s, Endpoint::ItemWindow, "").unwrap();
         assert!(encoded.len() < 4096);
         let v: Value = serde_json::from_str(&encoded).unwrap();

@@ -104,6 +104,60 @@ pub fn lock_before<T>(
     }
 }
 
+/// Why retained-history admission failed before sending a successful response.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum BufferWaitError {
+    Stalled,
+    Disconnected,
+    Unsupported,
+}
+
+/// Selects retained history under its ring lock, with independent fill and freshness budgets.
+/// Resets may refill history but cannot restart the absolute deadline. Socket work stays
+/// outside the ring lock, and contention consumes the same bounded wait.
+pub fn buffered_cursor_before(
+    ring: &Mutex<crate::flac_ring::FlacRing>,
+    sock: &std::net::TcpStream,
+    frames: usize,
+    deadline: Instant,
+    freshness: Duration,
+    interval: Duration,
+) -> Result<crate::flac_ring::Cursor, BufferWaitError> {
+    assert!(!freshness.is_zero() && !interval.is_zero());
+    let mut last_progress = Instant::now();
+    let mut observed = None;
+    loop {
+        let now = Instant::now();
+        if now >= deadline || now.duration_since(last_progress) >= freshness {
+            return Err(BufferWaitError::Stalled);
+        }
+        if !crate::stream_http::peer_connected(sock).unwrap_or(false) {
+            return Err(BufferWaitError::Disconnected);
+        }
+        match ring.try_lock() {
+            Ok(ring) => {
+                let progress = ring.progress();
+                if let Some((generation, written)) = observed {
+                    if (progress.0 == generation && progress.1 > written)
+                        || (progress.0 != generation && progress.1 > 0)
+                    {
+                        last_progress = Instant::now();
+                    }
+                }
+                observed = Some(progress);
+                match ring.cursor_retained(frames) {
+                    Ok(Some(cursor)) => return Ok(cursor),
+                    Ok(None) => {}
+                    Err(_) => return Err(BufferWaitError::Unsupported),
+                }
+            }
+            Err(TryLockError::WouldBlock) => {}
+            Err(TryLockError::Poisoned(_)) => panic!("stream ring lock poisoned"),
+        }
+        std::thread::sleep(interval);
+    }
+}
+
 /// One listener place. Drop the socket before dropping this guard.
 pub struct Slot(Arc<AtomicUsize>);
 

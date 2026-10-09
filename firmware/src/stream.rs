@@ -13,10 +13,12 @@ use esp_idf_svc::hal::cpu::Core;
 use esp_idf_svc::mdns::EspMdns;
 use esp_idf_svc::sys;
 use esp_shazam_core::flac_ring::FlacRing;
+use esp_shazam_core::stream_buffer::BufferPreset;
 use esp_shazam_core::stream_http::{self, DeadlineReader, DeadlineWriter, Format, Route, Status};
 use esp_shazam_core::stream_ring::{Cursor, ReadError};
 use esp_shazam_core::stream_wait::{
-    cursor_before, lock_before, read_atomic_fresh_with, read_locked_fresh, Slot, WaitError,
+    buffered_cursor_before, cursor_before, lock_before, read_atomic_fresh_with, read_locked_fresh,
+    BufferWaitError, Slot, WaitError,
 };
 use esp_shazam_core::{flac, wav};
 
@@ -205,8 +207,14 @@ fn answer(
             return;
         }
     };
-    match stream_http::route(&request_line) {
-        Route::Stream(format) => {
+    let route = stream_http::route(&request_line).with_buffer_availability(!CONFIG.shazam_enabled);
+    match route {
+        Route::Stream(_) | Route::BufferedFlac(_) => {
+            let (format, preset) = match route {
+                Route::Stream(format) => (format, None),
+                Route::BufferedFlac(preset) => (Format::Flac, Some(preset)),
+                Route::Refuse(_) => unreachable!(),
+            };
             // Reject unsupported close configuration before taking a slot or allocating audio.
             if let Err(error) = socket_close::configure(&sock) {
                 log::warn!("stream: {peer}: close policy unavailable ({error})");
@@ -247,8 +255,8 @@ fn answer(
                     let ring = ring.clone();
                     let encoded = encoded.clone();
                     // The owned connection's drop observes close even if no thread can be created.
-                    if let Err(e) =
-                        LISTENER_THREAD.spawn(move || listen(connection, ring, encoded, buffer))
+                    if let Err(e) = LISTENER_THREAD
+                        .spawn(move || listen(connection, ring, encoded, buffer, preset))
                     {
                         log::warn!("stream: no thread for a listener: {e}");
                     }
@@ -285,13 +293,16 @@ fn listen(
     ring: SharedStreamRing,
     encoded: SharedFlacRing,
     buffer: ListenerBuffer,
+    preset: Option<BufferPreset>,
 ) {
     let sock = connection.socket();
     let peer = &connection.peer;
     let started = Instant::now();
     let end = match buffer {
         ListenerBuffer::Wav => stream_wav(sock, &ring),
-        ListenerBuffer::Flac(mut bytes) => stream_flac(sock, &encoded, bytes.as_mut_slice()),
+        ListenerBuffer::Flac(mut bytes) => {
+            stream_flac(sock, &encoded, bytes.as_mut_slice(), preset)
+        }
     };
     // Integer tenths: formatting a float to a precision puts a 1 KB buffer on this small stack.
     let tenths = started.elapsed().as_millis() / 100;
@@ -545,14 +556,41 @@ impl EncoderMetrics {
 /// A fresh header precedes shared frames whose copied headers count from zero for this listener.
 /// The bounded output buffer holds one complete frame, so every socket write shares that frame's
 /// single deadline. The ring's mutex is released before any socket call.
-fn stream_flac(sock: &TcpStream, ring: &SharedFlacRing, bytes: &mut [u8]) -> End {
+fn stream_flac(
+    sock: &TcpStream,
+    ring: &SharedFlacRing,
+    bytes: &mut [u8],
+    preset: Option<BufferPreset>,
+) -> End {
     // Keep slow socket writes bounded independently of the longer encoded history.
     let write_limit =
         Duration::from_millis(stream_limits::flac_write_limit_ms(CONFIG.shazam_enabled));
     let mut writer = DeadlineWriter::new(sock);
     let mut header = Format::Flac.response_head().as_bytes().to_vec();
     header.extend_from_slice(&flac::stream_header());
-    let mut cursor = {
+    let mut cursor = if let Some(preset) = preset {
+        match buffered_cursor_before(
+            ring,
+            sock,
+            preset.frames(),
+            Instant::now() + Duration::from_secs(preset.seconds()) + FRESH_AUDIO_TIMEOUT,
+            FRESH_AUDIO_TIMEOUT,
+            CAUGHT_UP_SLEEP,
+        ) {
+            Ok(cursor) => cursor,
+            Err(error) => {
+                if error != BufferWaitError::Disconnected {
+                    send_refusal(
+                        sock,
+                        "buffered listener",
+                        "buffer startup",
+                        Status::ServiceUnavailable,
+                    );
+                }
+                return End::CaptureStalled;
+            }
+        }
+    } else {
         let Some(ring) = lock_before(ring, Instant::now() + FRESH_AUDIO_TIMEOUT, CAUGHT_UP_SLEEP)
         else {
             return End::CaptureStalled;

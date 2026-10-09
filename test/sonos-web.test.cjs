@@ -91,3 +91,37 @@ test('an old controller error cannot cancel a newly queued selection', async () 
   p.sandbox.renderSonos(snapshot({ config: { player_id: 'player-2', autoplay: false } }));
   assert.equal(p.get('sonos-action-status').textContent, 'Setting saved.');
 });
+
+test('buffer choice waits for saved settings and preserves Stop', async () => {
+  const p = page();
+  const initial = snapshot({ buffer_available: true, config: { player_id: 'player-1', autoplay: true, buffer_preset: 'med' } });
+  p.sandbox.renderSonos(initial);
+  assert.equal(p.get('sonos-buffer').value, 'med');
+  assert.equal(p.get('sonos-buffer').disabled, false);
+  p.get('sonos-buffer').value = 'high';
+  p.sandbox.fetch = async () => ({ ok: true, json: async () => ({ accepted: true }) });
+  assert.equal(await p.sandbox.sendSonos({ action: 'buffer', preset: 'high' }), true);
+  p.sandbox.renderSonos(initial);
+  assert.match(p.get('sonos-action-status').textContent, /queued/i);
+  assert.equal(p.get('sonos-buffer').disabled, true);
+  assert.equal(p.get('sonos-stop').disabled, false);
+  p.sandbox.renderSonos({ ...initial, config: { ...initial.config, buffer_preset: 'high' } });
+  assert.equal(p.get('sonos-action-status').textContent, 'Setting saved.');
+  assert.equal(p.get('sonos-buffer').value, 'high');
+  assert.equal(p.get('sonos-autoplay').checked, true);
+  assert.equal(p.get('sonos-status').textContent, 'buffering');
+});
+
+test('buffer failure restores confirmed choice and recognition disables presets', async () => {
+  const p = page();
+  const initial = snapshot({ buffer_available: true, config: { player_id: 'player-1', autoplay: false, buffer_preset: 'low' } });
+  p.sandbox.renderSonos(initial);
+  p.get('sonos-buffer').value = 'high';
+  p.sandbox.fetch = async () => ({ ok: false, json: async () => ({ error: 'Queue full' }) });
+  assert.equal(await p.sandbox.sendSonos({ action: 'buffer', preset: 'high' }), false);
+  assert.equal(p.get('sonos-buffer').value, 'low');
+  assert.equal(p.get('sonos-action-status').textContent, 'Queue full');
+  p.sandbox.renderSonos({ ...initial, buffer_available: false });
+  assert.equal(p.get('sonos-buffer').disabled, true);
+  assert.match(p.get('sonos-buffer-note').textContent, /recognition/i);
+});

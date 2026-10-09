@@ -32,6 +32,8 @@ pub struct DiscoveryGroup {
 pub struct SonosConfig {
     pub player_id: Option<String>,
     pub autoplay: bool,
+    #[serde(default)]
+    pub buffer_preset: crate::stream_buffer::BufferPreset,
 }
 
 /// Parse one SSDP response, retaining followers for stable player-to-group resolution.
@@ -767,9 +769,35 @@ mod tests {
             SonosConfig::default(),
             SonosConfig {
                 player_id: None,
-                autoplay: false
+                autoplay: false,
+                buffer_preset: crate::stream_buffer::BufferPreset::Medium,
             }
         );
+    }
+
+    #[test]
+    fn saved_settings_default_and_round_trip_buffer_presets() {
+        let old = r#"{"player_id":"player","autoplay":true}"#;
+        let mut config: SonosConfig = serde_json::from_str(old).unwrap();
+        assert_eq!(
+            serde_json::to_value(&config).unwrap()["buffer_preset"],
+            "med"
+        );
+        for value in ["low", "med", "high"] {
+            let json =
+                format!(r#"{{"player_id":"player","autoplay":true,"buffer_preset":"{value}"}}"#);
+            config = serde_json::from_str(&json).unwrap();
+            assert_eq!(
+                serde_json::to_value(&config).unwrap()["buffer_preset"],
+                value
+            );
+            assert_eq!(config.player_id.as_deref(), Some("player"));
+            assert!(config.autoplay);
+        }
+        assert!(serde_json::from_str::<SonosConfig>(
+            r#"{"player_id":null,"autoplay":false,"buffer_preset":"4"}"#
+        )
+        .is_err());
     }
 
     fn command() -> Command<'static> {

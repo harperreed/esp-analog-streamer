@@ -55,6 +55,13 @@
     </div>
     <label><input id="sonos-autoplay" type="checkbox" disabled> Start automatically when audio begins</label>
     <p class="muted">Automatic playback waits for quiet, then new audio. Selecting a destination does not start playback.</p>
+    <label for="sonos-buffer">Startup buffer</label>
+    <select id="sonos-buffer" disabled>
+      <option value="low">Low — 1 s</option>
+      <option value="med">Medium — 4 s</option>
+      <option value="high">High — 8 s</option>
+    </select>
+    <p class="muted" id="sonos-buffer-note">Applies on next Play.</p>
     <p>Status: <span id="sonos-status" role="status">connecting…</span></p>
     <p class="muted" id="sonos-active"></p>
     <p class="error" id="sonos-error" role="status"></p>
@@ -76,7 +83,9 @@ function renderSonos(s, observed = true) {
   if (sonosPending && observed) {
     const confirmed = sonosPending.action === 'select'
       ? s.config.player_id === sonosPending.player_id
-      : s.config.autoplay === sonosPending.enabled;
+      : sonosPending.action === 'buffer'
+        ? s.config.buffer_preset === sonosPending.preset
+        : s.config.autoplay === sonosPending.enabled;
     const failed = s.last_error && s.last_error !== sonosPending.previousError;
     if (confirmed || failed || Date.now() >= sonosPending.until) {
       $('sonos-action-status').textContent = confirmed ? 'Setting saved.' : (s.last_error || 'Setting not confirmed; check the destination and retry.');
@@ -100,6 +109,10 @@ function renderSonos(s, observed = true) {
     select.value = wanted;
   }
   $('sonos-autoplay').checked = s.config.autoplay;
+  $('sonos-buffer').value = sonosPending?.preset || s.config.buffer_preset;
+  $('sonos-buffer').disabled = sonosBusy || Boolean(sonosPending) || !s.buffer_available;
+  $('sonos-buffer-note').textContent = s.buffer_available
+    ? 'Applies on next Play.' : 'Startup buffer unavailable while recognition is enabled.';
   $('sonos-status').textContent = s.state.replaceAll('_', ' ');
   $('sonos-error').textContent = s.last_error || '';
   const active = s.groups.find(g => g.player_id === s.active_player_id);
@@ -125,7 +138,7 @@ async function sendSonos(action) {
     });
     const result = await response.json();
     if (!response.ok) throw new Error(result.error || 'Sonos request failed.');
-    if (action.action === 'select' || action.action === 'autoplay') {
+    if (action.action === 'select' || action.action === 'autoplay' || action.action === 'buffer') {
       sonosPending = { ...action, previousError: sonosSnapshot?.last_error, until: Date.now() + 10000 };
     }
     $('sonos-action-status').textContent = 'Request queued; waiting for the controller.';
@@ -163,6 +176,7 @@ $('sonos-discover').addEventListener('click', () => sendSonos({ action: 'discove
 $('sonos-select').addEventListener('click', () => sendSonos({ action: 'select', player_id: $('sonos-destination').value }));
 $('sonos-play').addEventListener('click', () => sendSonos({ action: 'play' }));
 $('sonos-stop').addEventListener('click', () => sendSonos({ action: 'stop' }));
+$('sonos-buffer').addEventListener('change', () => sendSonos({ action: 'buffer', preset: $('sonos-buffer').value }));
 $('sonos-autoplay').addEventListener('change', () => sendSonos({ action: 'autoplay', enabled: $('sonos-autoplay').checked }));
 // The URLs come from Shazam's response: only https ones reach src or href, so no javascript: links.
 const https = (u) => typeof u === 'string' && /^https:\/\//.test(u);

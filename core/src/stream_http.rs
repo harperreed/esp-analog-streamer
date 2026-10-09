@@ -192,6 +192,54 @@ impl Drop for SocketMode<'_> {
     }
 }
 
+/// Checks definitive peer failure without waiting. FIN alone remains a valid request half-close.
+pub fn peer_connected(sock: &TcpStream) -> io::Result<bool> {
+    let mut error: libc::c_int = 0;
+    let mut len = std::mem::size_of_val(&error) as libc::socklen_t;
+    // SAFETY: socket remains open; error and len are correctly sized writable storage.
+    let status = unsafe {
+        libc::getsockopt(
+            sock.as_raw_fd(),
+            libc::SOL_SOCKET,
+            libc::SO_ERROR,
+            (&mut error as *mut libc::c_int).cast(),
+            &mut len,
+        )
+    };
+    if status < 0 {
+        return Err(io::Error::last_os_error());
+    }
+    if error != 0 {
+        return Ok(false);
+    }
+    let mut mode = SocketMode::nonblocking(sock)?;
+    let mut byte = 0u8;
+    // SAFETY: socket remains open and byte provides one writable byte. A bounded peek
+    // never drains request data. EOF cannot distinguish close from shutdown(Write).
+    let received = unsafe {
+        libc::recv(
+            sock.as_raw_fd(),
+            (&mut byte as *mut u8).cast(),
+            1,
+            libc::MSG_PEEK,
+        )
+    };
+    let result = if received >= 0 {
+        Ok(true)
+    } else {
+        let error = io::Error::last_os_error();
+        match error.kind() {
+            io::ErrorKind::WouldBlock | io::ErrorKind::Interrupted => Ok(true),
+            io::ErrorKind::ConnectionReset
+            | io::ErrorKind::ConnectionAborted
+            | io::ErrorKind::NotConnected => Ok(false),
+            _ => Err(error),
+        }
+    };
+    mode.restore()?;
+    result
+}
+
 /// The socket timeout for `left` time left: whole milliseconds, rounded up. lwIP truncates a timeout
 /// to milliseconds, and to lwIP 0 ms means no timeout at all, so nothing above zero may round to 0.
 fn socket_timeout(left: Duration) -> Duration {
@@ -245,8 +293,20 @@ impl Format {
 pub enum Route {
     /// `GET` of a format's path: stream it, if a listener slot is free.
     Stream(Format),
+    /// Whole-frame retained startup history, available only in the streaming profile.
+    BufferedFlac(crate::stream_buffer::BufferPreset),
     /// Answer with this status and close.
     Refuse(Status),
+}
+
+impl Route {
+    /// Rejects unavailable buffer profiles while preserving every existing live route.
+    pub fn with_buffer_availability(self, available: bool) -> Self {
+        match self {
+            Self::BufferedFlac(_) if !available => Self::Refuse(Status::ServiceUnavailable),
+            route => route,
+        }
+    }
 }
 
 /// The statuses the server refuses a request with.
@@ -331,8 +391,7 @@ pub fn read_request_line(reader: impl BufRead, max_bytes: u64) -> io::Result<Str
     }
 }
 
-/// Where a request goes, from its request line. Only the method and the path count: a query
-/// string is ignored, so players that add one to defeat caches still get the stream.
+/// Routes live paths and strict FLAC buffer queries. Other cache-busting queries stay live.
 pub fn route(request_line: &str) -> Route {
     let mut parts = request_line.split_whitespace();
     let (Some(method), Some(target), Some(version), None) =
@@ -346,7 +405,29 @@ pub fn route(request_line: &str) -> Route {
     if method != "GET" {
         return Route::Refuse(Status::MethodNotAllowed);
     }
-    let path = target.split_once('?').map_or(target, |(path, _query)| path);
+    let (path, query) = target
+        .split_once('?')
+        .map_or((target, None), |(path, query)| (path, Some(query)));
+    if let Some(query) = query {
+        // Any occurrence of the buffer key requests buffering, including malformed combinations.
+        if query
+            .split('&')
+            .any(|part| part.split('=').next() == Some("buffer"))
+        {
+            use crate::stream_buffer::BufferPreset;
+            let preset = match query {
+                "buffer=low" => BufferPreset::Low,
+                "buffer=med" => BufferPreset::Medium,
+                "buffer=high" => BufferPreset::High,
+                _ => return Route::Refuse(Status::BadRequest),
+            };
+            return if path == Format::Flac.path() {
+                Route::BufferedFlac(preset)
+            } else {
+                Route::Refuse(Status::BadRequest)
+            };
+        }
+    }
     match Format::ALL.into_iter().find(|format| format.path() == path) {
         Some(format) => Route::Stream(format),
         None => Route::Refuse(Status::NotFound),
