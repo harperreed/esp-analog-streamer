@@ -1,5 +1,18 @@
 # Gotchas
 
+The October 9 Shine benchmark kept up on average at 48 kHz stereo 320 kbps
+with capture/TLS only, but concurrent production FLAC caused growing backlog.
+The corrected exclusive run still had a 508 ms encode call. MP3 input was
+synthetic; no ADC-to-MP3 transport or Sonos path was built. Keep these limits
+with the 53% music-payload saving; lower bandwidth is not a proven radio fix.
+See docs/audit-evidence/2026-10-09/mp3-benchmark.md and Kata e8hd.
+
+Pinned IDF 5.5.5 implements sub-tick usleep with esp_rom_delay_us. Short Rust
+sleeps can busy-wait instead of releasing the core. Use explicit vTaskDelay
+in timing probes, record late deadlines separately from final backlog, and
+retain original runs when correcting pacing. A zero final backlog can hide
+a half-second stall; task runtime includes charged interrupts.
+
 Doctor Biz chose Low 1 s / Medium 4 s / High 8 s startup history, default Medium,
 applied on the next Play. Actual whole-frame offsets are 1.024/4.010667/8.021333 s.
 The October 8 hardware check matched live and buffered PCM exactly and verified
