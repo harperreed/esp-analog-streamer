@@ -1,5 +1,12 @@
 # Gotchas
 
+Doctor Biz chose Low 1 s / Medium 4 s / High 8 s startup history, default Medium,
+applied on the next Play. Actual whole-frame offsets are 1.024/4.010667/8.021333 s.
+The October 8 hardware check matched live and buffered PCM exactly and verified
+real Sonos queue immutability and Stop. This proves source history, not receiver
+playout protection. The same test reproduced a capture restart during Sonos setup;
+do not present the preset feature as a capture or network reliability fix.
+
 Doctor Biz confirmed on October 8 that the ESP32 LINE IN cable uses the
 workstation's front jack, labeled Headphone by ALSA. For board-only input use
 `plughw:CARD=PCH,DEV=0`, Headphone on and rear Line Out muted; Master and PCM
