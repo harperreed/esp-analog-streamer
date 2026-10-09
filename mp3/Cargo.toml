@@ -1,0 +1,13 @@
+[package]
+name = "esp-shazam-mp3"
+version = "0.1.0"
+edition = "2021"
+license = "GPL-3.0-or-later"
+publish = false
+
+[build-dependencies]
+cc = "=1.6.0"
+
+[target.'cfg(target_os = "espidf")'.dependencies]
+# Exposes the same installed compiler path used by the firmware's pinned IDF build.
+esp-idf-sys = "=0.38.1"

@@ -1,5 +1,5 @@
 // ABOUTME: HTTP for the stream server on port 8000: reading a request's head, routing its request line, the responses.
-// ABOUTME: Only GET /stream.flac and GET /stream.wav stream; anything else gets a short, complete response and the connection closes.
+// ABOUTME: Only GET for the selected compressed codec and /stream.wav stream; anything else gets a short, complete response and the connection closes.
 
 use std::io::{self, BufRead, Read};
 use std::net::TcpStream;
@@ -246,25 +246,40 @@ fn socket_timeout(left: Duration) -> Duration {
     Duration::from_millis(u64::try_from(left.as_nanos().div_ceil(1_000_000)).unwrap_or(u64::MAX))
 }
 
-/// The two forms of the stream: the same 48 kHz, 24-bit stereo frames, each with a path of its own.
+/// Stream formats; this build serves WAV and one selected compressed codec.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Format {
     /// An endless WAV of 24-bit PCM, 2.3 Mbit/s: the debug and fallback stream.
     Wav,
     /// FLAC: lossless, in fewer bytes.
     Flac,
+    /// MPEG-1 Layer III at 320 kbps for the codec-exclusive prototype.
+    Mp3,
 }
 
 impl Format {
     /// Every form, for routing by path.
-    pub const ALL: [Format; 2] = [Format::Flac, Format::Wav];
+    #[cfg(not(feature = "mp3-stream"))]
+    pub const COMPRESSED: Format = Format::Flac;
+    #[cfg(feature = "mp3-stream")]
+    pub const COMPRESSED: Format = Format::Mp3;
+    pub const ALL: [Format; 2] = [Self::COMPRESSED, Format::Wav];
 
     /// The path this form is served at.
     pub fn path(self) -> &'static str {
         match self {
             Format::Wav => "/stream.wav",
             Format::Flac => "/stream.flac",
+            Format::Mp3 => "/stream.mp3",
         }
+    }
+
+    /// Shares the response header's media type with Sonos queue metadata.
+    pub fn content_type(self) -> &'static str {
+        self.response_head()
+            .split("\r\n")
+            .find_map(|line| line.strip_prefix("Content-Type: "))
+            .expect("every stream response has a content type")
     }
 
     /// The head of the 200 response. It has no Content-Length: the body ends when the connection does.
@@ -284,6 +299,13 @@ impl Format {
                  Connection: close\r\n\
                  \r\n"
             }
+            Format::Mp3 => {
+                "HTTP/1.1 200 OK\r\n\
+                 Content-Type: audio/mpeg\r\n\
+                 Cache-Control: no-store\r\n\
+                 Connection: close\r\n\
+                 \r\n"
+            }
         }
     }
 }
@@ -294,7 +316,7 @@ pub enum Route {
     /// `GET` of a format's path: stream it, if a listener slot is free.
     Stream(Format),
     /// Whole-frame retained startup history, available only in the streaming profile.
-    BufferedFlac(crate::stream_buffer::BufferPreset),
+    Buffered(crate::stream_buffer::BufferPreset),
     /// Answer with this status and close.
     Refuse(Status),
 }
@@ -303,7 +325,7 @@ impl Route {
     /// Rejects unavailable buffer profiles while preserving every existing live route.
     pub fn with_buffer_availability(self, available: bool) -> Self {
         match self {
-            Self::BufferedFlac(_) if !available => Self::Refuse(Status::ServiceUnavailable),
+            Self::Buffered(_) if !available => Self::Refuse(Status::ServiceUnavailable),
             route => route,
         }
     }
@@ -332,7 +354,7 @@ impl Status {
                 "",
                 format!(
                     "Not found. The streams are {} and {}.\n",
-                    Format::Flac.path(),
+                    Format::COMPRESSED.path(),
                     Format::Wav.path()
                 ),
             ),
@@ -391,7 +413,7 @@ pub fn read_request_line(reader: impl BufRead, max_bytes: u64) -> io::Result<Str
     }
 }
 
-/// Routes live paths and strict FLAC buffer queries. Other cache-busting queries stay live.
+/// Routes live paths and strict compressed buffer queries. Other cache-busting queries stay live.
 pub fn route(request_line: &str) -> Route {
     let mut parts = request_line.split_whitespace();
     let (Some(method), Some(target), Some(version), None) =
@@ -408,6 +430,12 @@ pub fn route(request_line: &str) -> Route {
     let (path, query) = target
         .split_once('?')
         .map_or((target, None), |(path, query)| (path, Some(query)));
+    if [Format::Flac, Format::Mp3]
+        .into_iter()
+        .any(|format| format != Format::COMPRESSED && format.path() == path)
+    {
+        return Route::Refuse(Status::NotFound);
+    }
     if let Some(query) = query {
         // Any occurrence of the buffer key requests buffering, including malformed combinations.
         if query
@@ -421,8 +449,8 @@ pub fn route(request_line: &str) -> Route {
                 "buffer=high" => BufferPreset::High,
                 _ => return Route::Refuse(Status::BadRequest),
             };
-            return if path == Format::Flac.path() {
-                Route::BufferedFlac(preset)
+            return if path == Format::COMPRESSED.path() {
+                Route::Buffered(preset)
             } else {
                 Route::Refuse(Status::BadRequest)
             };
@@ -780,6 +808,7 @@ mod tests {
         );
     }
 
+    #[cfg(not(feature = "mp3-stream"))]
     #[test]
     fn get_stream_flac_streams_the_flac() {
         assert_eq!(
@@ -792,6 +821,7 @@ mod tests {
         );
     }
 
+    #[cfg(not(feature = "mp3-stream"))]
     #[test]
     fn a_query_string_does_not_change_the_route() {
         assert_eq!(
@@ -917,6 +947,7 @@ mod tests {
         assert_eq!(Format::Flac.path(), "/stream.flac");
     }
 
+    #[cfg(not(feature = "mp3-stream"))]
     #[test]
     fn not_found_names_both_streams() {
         let response = Status::NotFound.response();

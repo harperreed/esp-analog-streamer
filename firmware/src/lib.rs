@@ -15,6 +15,7 @@ mod shazam_http;
 mod socket_close;
 mod sonos;
 mod stream;
+mod stream_codec;
 mod threads;
 mod web;
 
@@ -54,7 +55,7 @@ pub fn run() -> Result<()> {
     codec::setup_line_in(&mut i2c, CONFIG.pga_gain)?;
     let store: recognizer::SharedStore =
         Arc::new(Mutex::new(SongStore::new(20, CONFIG.shazam_enabled)));
-    // Raw frames feed WAV and the shared FLAC encoder; encoded frames hold FLAC's longer backlog.
+    // Raw frames feed WAV and one shared encoder; encoded frames hold the longer backlog.
     let (ring, stream_ring) = audio_in::spawn_capture(rx, store.clone())?;
     #[cfg(feature = "capture-fixture")]
     capture_fixture::spawn(stream_ring.clone())?;

@@ -1,4 +1,4 @@
-// ABOUTME: Whole-frame startup buffering presets for board-local FLAC playback.
+// ABOUTME: Whole-frame startup buffering presets for board-local compressed playback.
 // ABOUTME: Shares stable settings values and duration targets with stream admission.
 use serde::{Deserialize, Serialize};
 
@@ -21,12 +21,10 @@ impl BufferPreset {
             Self::High => 8,
         }
     }
-    pub const fn frames(self) -> usize {
-        match self {
-            Self::Low => 12,
-            Self::Medium => 47,
-            Self::High => 94,
-        }
+    /// Rounds the duration up to whole encoder blocks at 48 kHz.
+    pub const fn frames(self, block_samples: usize) -> usize {
+        assert!(block_samples > 0 && block_samples <= 48_000);
+        (self.seconds() as usize * 48_000).div_ceil(block_samples)
     }
     pub const fn query_value(self) -> &'static str {
         match self {

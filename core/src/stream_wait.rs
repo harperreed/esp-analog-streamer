@@ -32,14 +32,30 @@ pub fn read_fresh<E>(
 }
 
 /// Reads raw history while allowing callers to time each single copy.
+/// Retry means a publication raced the copy, not that capture has no audio.
+/// Retry attempts share a 1 ms wall budget; a copy or preemption can finish later.
+/// Exhausted retries and empty reads retain the ordinary sleep policy.
 pub fn read_atomic_fresh_with(
     limit: Duration,
     interval: Duration,
     mut read: impl FnMut() -> Result<usize, crate::stream_ring::ReadError>,
 ) -> Result<usize, WaitError<crate::stream_ring::ReadError>> {
-    read_fresh(limit, interval, || match read() {
-        Err(crate::stream_ring::ReadError::Retry) => Ok(0),
-        result => result,
+    const RETRY_SPIN_LIMIT: Duration = Duration::from_millis(1);
+    let started = Instant::now();
+    read_fresh(limit, interval, || {
+        let retry_started = Instant::now();
+        loop {
+            match read() {
+                Err(crate::stream_ring::ReadError::Retry)
+                    if retry_started.elapsed() < RETRY_SPIN_LIMIT && started.elapsed() < limit =>
+                {
+                    std::hint::spin_loop();
+                }
+                // The outer wait sleeps one existing interval or ends its absolute budget.
+                Err(crate::stream_ring::ReadError::Retry) => return Ok(0),
+                result => return result,
+            }
+        }
     })
 }
 
@@ -213,7 +229,7 @@ mod tests {
         let (started, ready) = mpsc::channel();
         let begin_wait = Arc::new(Barrier::new(3));
         let mut clients = Vec::new();
-        for format in [Format::Wav, Format::Flac] {
+        for format in Format::ALL {
             let slot = Slot::take(&slots, 2).unwrap();
             let raw = raw.clone();
             let encoded = encoded.clone();
@@ -240,7 +256,7 @@ mod tests {
                             Err(WaitError::Stalled)
                         )
                     }
-                    Format::Flac => {
+                    Format::Flac | Format::Mp3 => {
                         let mut cursor = encoded.lock().unwrap().cursor_now();
                         let mut out = [0; 16];
                         matches!(
@@ -401,12 +417,91 @@ mod tests {
         });
     }
     #[test]
-    fn raw_retry_waits_for_budget_instead_of_returning_a_read_error() {
+    fn a_real_ring_retry_revalidates_without_sleeping_a_full_interval() {
+        let (mut publisher, ring) = CaptureBuffer::new(8, 2);
+        let mut cursor = ring.cursor_now().unwrap();
+        publisher.publish(&[17, -17, 23, -23]).unwrap();
+        let before = cursor;
+        let mut out = [0; 4];
+        let mut attempts = 0;
+        let interval = Duration::from_millis(200);
         let started = Instant::now();
-        let result = read_atomic_fresh_with(LIMIT, INTERVAL, || {
+        let result = read_atomic_fresh_with(Duration::from_secs(1), interval, || {
+            attempts += 1;
+            if attempts == 1 {
+                let result = ring.read_with_copy_hook(&mut cursor, &mut out, || {
+                    // Deterministic protocol fixture: cross an era during the real copy,
+                    // keeping its published slot, head and generation unchanged.
+                    // Ordinary publication into another retained slot need not reject a copy.
+                    ring.commit(2, 1, 2, 0, 1, None);
+                });
+                assert_eq!(result, Err(crate::stream_ring::ReadError::Retry));
+                assert_eq!(
+                    cursor, before,
+                    "rejected scratch must not advance the cursor"
+                );
+                out.fill(i32::MIN);
+                result
+            } else {
+                ring.read(&mut cursor, &mut out)
+            }
+        });
+        assert_eq!(result, Ok(2));
+        assert_eq!(attempts, 2);
+        assert_eq!(out, [17, -17, 23, -23]);
+        assert_ne!(cursor, before);
+        assert!(
+            started.elapsed() < interval / 2,
+            "Retry slept a whole interval"
+        );
+    }
+
+    #[test]
+    fn raw_retry_wait_policy_yields_between_bounded_bursts_without_refreshing_budget() {
+        // Callback policy fixture, not evidence about target publication or scheduling.
+        let interval = Duration::from_millis(5);
+        let limit = Duration::from_millis(30);
+        let started = Instant::now();
+        let mut previous = started;
+        let mut longest_gap = Duration::ZERO;
+        let result = read_atomic_fresh_with(limit, interval, || {
+            let now = Instant::now();
+            longest_gap = longest_gap.max(now.duration_since(previous));
+            previous = now;
             Err::<usize, _>(crate::stream_ring::ReadError::Retry)
         });
         assert_eq!(result, Err(WaitError::Stalled));
-        assert!(started.elapsed() >= LIMIT);
+        assert!(started.elapsed() >= limit);
+        assert!(started.elapsed() < limit + interval + Duration::from_millis(100));
+        assert!(
+            longest_gap >= interval,
+            "persistent Retry must yield between bursts"
+        );
+    }
+
+    #[test]
+    fn a_real_empty_ring_still_sleeps_before_retrying() {
+        let (mut publisher, ring) = CaptureBuffer::new(8, 2);
+        let mut cursor = ring.cursor_now().unwrap();
+        let mut out = [0; 4];
+        let interval = Duration::from_millis(30);
+        let started = Instant::now();
+        let mut attempts = 0;
+        let result = read_atomic_fresh_with(Duration::from_secs(1), interval, || {
+            attempts += 1;
+            let result = ring.read(&mut cursor, &mut out);
+            if attempts == 1 {
+                assert_eq!(result, Ok(0));
+                publisher.publish(&[31, -31, 37, -37]).unwrap();
+            }
+            result
+        });
+        assert_eq!(result, Ok(2));
+        assert_eq!(attempts, 2);
+        assert_eq!(out, [31, -31, 37, -37]);
+        assert!(
+            started.elapsed() >= interval,
+            "empty reads must retain the sleep policy"
+        );
     }
 }

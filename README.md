@@ -49,7 +49,7 @@ and autoplay setting persist across restarts.
 
 ## Listening to LINE IN
 
-The board captures LINE IN at 48 kHz, 24-bit stereo and streams it on port 8000. Two listeners at most, WAV and FLAC together; a third gets `503`.
+The board captures LINE IN at 48 kHz, 24-bit stereo and streams it on port 8000. It accepts at most two listeners across WAV and the selected compressed format; a third gets `503`. FLAC is the default build.
 
 - `http://esp-shazam.local:8000/stream.flac`: 48 kHz, 16-bit stereo FLAC. The encoder discards the lowest eight capture bits, then losslessly encodes those 16-bit samples. Compression depends on the input; no music bitrate is guaranteed.
 - `http://esp-shazam.local:8000/stream.wav`: the original 48 kHz, 24-bit stereo PCM, 2.304 Mbit/s before headers, for debugging and for players without FLAC.
@@ -62,9 +62,47 @@ Historical results: players tried on the previous **24-bit FLAC** output from th
 - **VLC 3.0.23:** `VLC -I dummy --aout adummy --run-time 30 --play-and-exit <url>` used its FLAC demuxer and decoder (48000 Hz, 2 channels, 24 bits) and played the full 30 s. At the start it warned that the clock arrived late, raised its buffer to 1 s, and dropped one late buffer.
 - **ffmpeg and ffprobe:** ffprobe read `flac`, 48000 Hz, stereo, 24 bits. `scripts/stream-check --path /stream.flac` captured the stream with ffmpeg and checked it.
 
-With Shazam off (R26), one shared encoder feeds independent FLAC readers: the raw ring holds 2 s and 94 encoded slots hold 8.02 s. WAV is a debug stream with 2 s of slack. The encoder retains a conservative 24,591-byte slot bound despite its 16-bit output. On the 32-bit board these rings request 3,079,930 heap bytes: 96,000 raw frames × 8 bytes, plus 94 × (24,591 payload bytes + 4 length bytes). This excludes encoder, listener and network storage. Large payloads prefer PSRAM with internal fallback; slot lengths prefer internal RAM. The board maps 4 MiB PSRAM. PSRAM is required at boot; this is not a free-memory guarantee. See the [design](docs/superpowers/specs/2026-10-03-esp-shazam-design.md) and [measurement record](docs/superpowers/plans/2026-10-04-kata-audit.md).
+With Shazam off, one shared encoder feeds independent readers. Raw history holds
+2 seconds; the FLAC ring holds 141 frames (12.032 seconds), using 16,399-byte
+slots. Its payload allocation is 2,312,259 bytes, separate from raw samples,
+slot metadata, encoder state, listeners and network storage. PSRAM is required
+at boot. The Sonos Low/Medium/High settings request 1/4/8 seconds of retained
+source audio, rounded up to complete frames, and apply on the next Play.
+They do not specify source-to-speaker latency.
 
-A slow reader or a capture gap ends its stream; reconnect to resume. Fresh-audio waits are bounded to 2 s plus a tick and scheduling delay. Each whole frame has an absolute write deadline equal to its ring's duration; checked socket close drains queued payload for 2 s plus lwIP's 500 ms poll and scheduling delay. Two worst-case 16-bit FLAC streams carry 3.072 Mbit/s of sample payload (48,000 × 16 × 2 channels × 2 listeners), plus small FLAC headers and network overhead. This is a calculated bandwidth requirement, not a measured throughput result.
+A slow reader or capture gap ends its stream. Fresh-audio waits are bounded to
+2 seconds plus scheduling delay. Compressed frame writes have a separate roughly
+8-second absolute deadline, independent of the longer history. Socket cleanup
+retains its bounded drain policy. Two worst-case 16-bit FLAC listeners require
+3.072 Mbit/s of sample payload before framing; this is a calculated requirement,
+not a measured Wi-Fi throughput result.
+
+### MP3 prototype
+
+The opt-in `mp3-stream` build replaces FLAC with 48 kHz stereo **320 kbps MP3**.
+It requires recognition off and runs one shared encoder. WAV remains available;
+`/stream.flac` refuses in this profile. MP3 is lossy and uses the same 24-to-16-bit
+input conversion. The [benchmark](docs/audit-evidence/2026-10-09/mp3-benchmark.md)
+records CPU, fidelity and delay limits; lower bandwidth is not a proven fix for
+Wi-Fi stalls. The [live-pipeline results](docs/audit-evidence/2026-10-09/mp3-stream.md)
+include successful single-listener playback and reconnect checks, but sustained
+two-listener and High-buffer Sonos runs still overrun. Keep FLAC as the default;
+MP3 remains experimental. Kata `e8hd` tracks the failed reliability gates.
+
+```sh
+ESPFLASH_PORT=/dev/ttyUSB0 scripts/flash --mp3
+ESPFLASH_PORT=/dev/ttyUSB0 scripts/stream-soak HOST --path /stream.mp3 --seconds 120
+```
+
+Use `http://HOST:8000/stream.mp3` for live output, or append `?buffer=low`,
+`?buffer=med` or `?buffer=high`. The 500-frame ring holds 12 seconds in 480,000
+payload bytes. Whole-frame preset offsets are 1.008/4.008/8.016 seconds.
+Sonos queue URLs and media types follow the selected build automatically.
+`scripts/flash` without `--mp3` restores the default FLAC build.
+
+The Shine source is pinned and vendored with its original license and notices;
+see [component provenance](mp3/vendor/shine/UPSTREAM.md). Encoder warmup, finite
+stream tails and the measured gain difference remain explicit prototype limits.
 
 Real-board checks (replace `HOST` with the board's IP):
 

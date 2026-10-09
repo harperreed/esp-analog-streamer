@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# ABOUTME: Runs real FLAC decoders while checking live capture counters and heap telemetry.
+# ABOUTME: Runs real compressed-audio decoders while checking live capture counters and heap telemetry.
 # ABOUTME: Usage: scripts/stream-soak [HOST] [--seconds N] [--listeners 1|2] [--stream-port PORT] [--state-port PORT] [--out DIR]; resets once and keeps UART private.
 set -euo pipefail
 repo="$(cd "$(dirname "$0")/.." && pwd)"
@@ -20,7 +20,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 sys.path.insert(0, str(Path(os.environ['STREAM_SOAK_REPO']) / 'scripts'))
-from stream_format import input_format_args, validate_flac_decoder_log
+from stream_format import input_format_args, validate_stream_decoder_log
 from decoder_integrity import FrameHash, validate_decoder_line
 from failure_observation import observation_seconds, observe_failure
 
@@ -78,7 +78,7 @@ def port(value):
 def main():
     parser = argparse.ArgumentParser(
         prog='scripts/stream-soak',
-        description='Reset the board once, require Shazam off, then decode one or two real FLAC streams '
+        description='Reset the board once, require Shazam off, then decode one or two real FLAC or MP3 streams '
         'to null for six hours by default. Check UART capture counters against a stable startup '
         'baseline and poll /api/state. UART logs are private. Run under caffeinate -is to prevent '
         'host sleep; keep continuous LINE IN audio playing. No flashing occurs. Decoder success '
@@ -87,6 +87,8 @@ def main():
     parser.add_argument('host', nargs='?', default='esp-shazam.local')
     parser.add_argument('--seconds', type=seconds, default=21600.0)
     parser.add_argument('--listeners', type=int, choices=[1, 2], default=2, help='simultaneous real decoders (default: 2)')
+    parser.add_argument('--path', choices=['/stream.flac', '/stream.mp3'], default='/stream.flac',
+                        help='compressed endpoint (default: /stream.flac)')
     parser.add_argument('--stream-port', type=port, default=8000, help='stream TCP port (default: 8000)')
     parser.add_argument('--state-port', type=port, default=80, help='state HTTP port (default: 80)')
     parser.add_argument('--out', help='parent output directory (default: target/stream-soak)')
@@ -200,7 +202,7 @@ def main():
             job['accounting'].update(final=True)
             job.update(job['accounting'].summary())
             with job['errors'].open('r') as log:
-                validate_flac_decoder_log(log.read(16384))
+                validate_stream_decoder_log(log.read(16384), args.path)
             # The process may flush its last progress update immediately before exit.
             for line in job['tail'].lines():
                 if line.startswith('out_time_us=') and line.split('=', 1)[1].isdigit():
@@ -238,7 +240,7 @@ def main():
         processes.append(serial)
         uart_tail = Tail(out / 'uart.log')
         tails.append(uart_tail)
-        record('start', host=args.host, stream_port=args.stream_port, state_port=args.state_port, ip=ip, requested_seconds=args.seconds, listeners=args.listeners)
+        record('start', host=args.host, path=args.path, stream_port=args.stream_port, state_port=args.state_port, ip=ip, requested_seconds=args.seconds, listeners=args.listeners)
         startup_deadline = time.monotonic() + 60
         state_seen = False
         next_state = 0
@@ -275,8 +277,8 @@ def main():
             process = subprocess.Popen(
                 ['ffmpeg', '-nostdin', '-nostats', '-v', 'level+info', '-xerror', '-stats_period', '1',
                  '-progress', str(progress), '-rw_timeout', '10000000', '-err_detect', 'crccheck',
-                 *input_format_args('/stream.flac'), '-i',
-                 f'http://{ip}:{args.stream_port}/stream.flac', '-t', str(round(args.seconds * 48000) / 48000),
+                 *input_format_args(args.path), '-i',
+                 f'http://{ip}:{args.stream_port}{args.path}', '-t', str(round(args.seconds * 48000) / 48000),
                  '-c:a', 'pcm_s32le', '-f', 'framehash', '-flush_packets', '1', str(hashes)],
                 stdout=subprocess.DEVNULL, stderr=error_handle, start_new_session=True)
             processes.append(process)
@@ -361,7 +363,7 @@ def main():
             check_output_budget()
         except Exception as error:
             failure = failure or str(error)
-        summary = dict(passed=failure is None, error=failure, host=args.host, stream_port=args.stream_port, state_port=args.state_port, ip=ip,
+        summary = dict(passed=failure is None, error=failure, host=args.host, path=args.path, stream_port=args.stream_port, state_port=args.state_port, ip=ip,
                        requested_seconds=args.seconds, listeners=args.listeners, elapsed_seconds=round(time.monotonic() - started, 3),
                        decoded_seconds=[job['decoded_seconds'] for job in jobs], state_polls=state_polls,
                        decoder_accounting=[dict(timeline_seconds=job['timeline_seconds'], **job['accounting'].summary()) for job in jobs],

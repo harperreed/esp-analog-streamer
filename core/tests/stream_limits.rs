@@ -73,3 +73,11 @@ fn history_fits_the_previous_payload_budget_without_extending_write_deadlines() 
     assert_eq!(flac_write_limit_ms(false), 8_021);
     assert_eq!(flac_write_limit_ms(true), 2_048);
 }
+
+#[test]
+fn mp3_history_and_writes_have_separate_fixed_bounds() {
+    assert_eq!(stream_limits::mp3_history_frames(), 500);
+    assert_eq!(500 * 960, 480_000);
+    assert_eq!(500 * 1152, 12 * 48_000);
+    assert_eq!(stream_limits::mp3_write_limit_ms(), 8_016);
+}

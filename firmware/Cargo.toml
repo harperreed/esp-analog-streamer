@@ -27,6 +27,8 @@ debug = true
 opt-level = "z"
 
 [features]
+# Opt-in 320 kbps prototype; replaces the compressed FLAC path in this build.
+mp3-stream = ["dep:esp-shazam-mp3", "esp-shazam-core/mp3-stream"]
 # Explicitly built receive-only TLS adversarial diagnostic; absent from normal firmware.
 sonos-fixture = []
 # Explicit delayed-reader diagnostic; its copy hook is absent from normal firmware.
@@ -38,6 +40,7 @@ esp-idf-hal = "=0.47.0"
 esp-idf-svc = "=0.53.0"
 esp-idf-sys = "=0.38.1"
 esp-shazam-core = { path = "../core" }
+esp-shazam-mp3 = { path = "../mp3", optional = true }
 log = "0.4"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"

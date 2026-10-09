@@ -85,7 +85,7 @@ pub fn response(
         Endpoint::ItemWindow => {
             body["includesBeginningOfQueue"] = json!(true);
             body["includesEndOfQueue"] = json!(true);
-            body["items"] = json!([{"id":item,"track":{"type":"track","name":"ESP Analog Streamer","mediaUrl":media_url(snapshot),"contentType":"audio/flac"}}]);
+            body["items"] = json!([{"id":item,"track":{"type":"track","name":"ESP Analog Streamer","mediaUrl":media_url(snapshot),"contentType":crate::stream_http::Format::COMPRESSED.content_type()}}]);
         }
     }
     // All fields are bounded above; no input-supplied collections enter this body.
@@ -93,7 +93,11 @@ pub fn response(
 }
 
 fn media_url(snapshot: &QueueSnapshot) -> String {
-    let url = format!("http://{}:8000/stream.flac", snapshot.host);
+    let url = format!(
+        "http://{}:8000{}",
+        snapshot.host,
+        crate::stream_http::Format::COMPRESSED.path()
+    );
     match snapshot.buffer_preset {
         Some(preset) => format!("{url}?buffer={}", preset.query_value()),
         None => url,
@@ -187,8 +191,49 @@ mod tests {
         }
     }
 
+    fn test_live_url() -> String {
+        let path = if cfg!(feature = "mp3-stream") {
+            "/stream.mp3"
+        } else {
+            "/stream.flac"
+        };
+        format!("http://192.0.2.10:8000{path}")
+    }
+
     fn report() -> Value {
-        json!({"items":[{"contextVersion":"esp-test-1", "queueVersion":"esp-test-1", "id":"esp-test-1", "mediaUrl":"http://192.0.2.10:8000/stream.flac", "type":"update", "positionMillis":2500, "positionMillisAtSegmentStart":0, "durationPlayedMillis":2500, "timeSincePlaybackMillis":2500}]})
+        json!({"items":[{"contextVersion":"esp-test-1", "queueVersion":"esp-test-1", "id":"esp-test-1", "mediaUrl":test_live_url(), "type":"update", "positionMillis":2500, "positionMillisAtSegmentStart":0, "durationPlayedMillis":2500, "timeSincePlaybackMillis":2500}]})
+    }
+
+    #[test]
+    fn queue_and_reports_use_the_selected_compressed_codec() {
+        let (path, content_type, inactive) = if cfg!(feature = "mp3-stream") {
+            ("/stream.mp3", "audio/mpeg", "/stream.flac")
+        } else {
+            ("/stream.flac", "audio/flac", "/stream.mp3")
+        };
+        let snapshot = QueueSnapshot::new(
+            "esp-test-1".into(),
+            snapshot().host,
+            Some(crate::stream_buffer::BufferPreset::Medium),
+        )
+        .unwrap();
+        let url = format!("http://192.0.2.10:8000{path}?buffer=med");
+        let window: Value =
+            serde_json::from_str(&response(&snapshot, Endpoint::ItemWindow, "").unwrap()).unwrap();
+        assert_eq!(window["items"][0]["track"]["mediaUrl"], url);
+        assert_eq!(window["items"][0]["track"]["contentType"], content_type);
+        let mut played = report();
+        played["items"][0]["mediaUrl"] = json!(url);
+        assert_eq!(
+            validate_time_played(&snapshot, played.to_string().as_bytes()),
+            Ok(())
+        );
+        played["items"][0]["mediaUrl"] =
+            json!(format!("http://192.0.2.10:8000{inactive}?buffer=med"));
+        assert_eq!(
+            validate_time_played(&snapshot, played.to_string().as_bytes()),
+            Err(Error::StaleItem)
+        );
     }
 
     #[test]
@@ -199,7 +244,7 @@ mod tests {
             (crate::stream_buffer::BufferPreset::High, "high"),
         ] {
             let s = QueueSnapshot::new("esp-test-1".into(), snapshot().host, Some(preset)).unwrap();
-            let expected = format!("http://192.0.2.10:8000/stream.flac?buffer={value}");
+            let expected = format!("{}?buffer={value}", test_live_url());
             let body: Value = serde_json::from_str(
                 &response(
                     &s,
@@ -266,7 +311,7 @@ mod tests {
                 .unwrap();
         assert_eq!(
             window,
-            json!({"contextVersion":"esp-test-1","queueVersion":"esp-test-1","includesBeginningOfQueue":true,"includesEndOfQueue":true,"items":[{"id":"esp-test-1","track":{"type":"track","name":"ESP Analog Streamer","mediaUrl":"http://192.0.2.10:8000/stream.flac","contentType":"audio/flac"}}]})
+            json!({"contextVersion":"esp-test-1","queueVersion":"esp-test-1","includesBeginningOfQueue":true,"includesEndOfQueue":true,"items":[{"id":"esp-test-1","track":{"type":"track","name":"ESP Analog Streamer","mediaUrl":test_live_url(),"contentType":crate::stream_http::Format::COMPRESSED.content_type()}}]})
         );
         assert!(response(&snapshot(), Endpoint::ItemWindow, "").is_ok());
         assert!(response(&snapshot(), Endpoint::ItemWindow, "itemId=").is_ok());

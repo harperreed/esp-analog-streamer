@@ -10,7 +10,7 @@ fn preset_values_and_default() {
         (BufferPreset::High, 8, 94, "high"),
     ] {
         assert_eq!(p.seconds(), seconds);
-        assert_eq!(p.frames(), frames);
+        assert_eq!(p.frames(4096), frames);
         assert_eq!(p.query_value(), wire);
         assert_eq!(serde_json::to_string(&p).unwrap(), format!("\"{wire}\""));
         assert_eq!(
@@ -20,28 +20,37 @@ fn preset_values_and_default() {
     }
 }
 #[test]
-fn buffered_routes_require_a_complete_supported_flac_query() {
+fn buffered_routes_require_a_complete_supported_compressed_query() {
     use esp_shazam_core::stream_http::{route, Format, Route, Status};
     assert_eq!(
-        route("GET /stream.flac?buffer=med HTTP/1.1"),
-        Route::BufferedFlac(BufferPreset::Medium)
+        route(&format!(
+            "GET {}?buffer=med HTTP/1.1",
+            Format::COMPRESSED.path()
+        )),
+        Route::Buffered(BufferPreset::Medium)
     );
     assert_eq!(
-        route("GET /stream.flac HTTP/1.1"),
-        Route::Stream(Format::Flac)
+        route(&format!("GET {} HTTP/1.1", Format::COMPRESSED.path())),
+        Route::Stream(Format::COMPRESSED)
     );
-    for target in [
-        "/stream.flac?buffer=",
-        "/stream.flac?buffer=medium",
-        "/stream.flac?buffer=low&x=1",
-        "/stream.flac?x=1&buffer=low",
-        "/stream.wav?buffer=low",
+    for query in [
+        "buffer=",
+        "buffer=medium",
+        "buffer=low&x=1",
+        "x=1&buffer=low",
     ] {
         assert_eq!(
-            route(&format!("GET {target} HTTP/1.1")),
+            route(&format!(
+                "GET {}?{query} HTTP/1.1",
+                Format::COMPRESSED.path()
+            )),
             Route::Refuse(Status::BadRequest)
         );
     }
+    assert_eq!(
+        route("GET /stream.wav?buffer=low HTTP/1.1"),
+        Route::Refuse(Status::BadRequest)
+    );
 }
 #[test]
 fn retained_cursor_selects_exact_whole_frames_and_invalidates_on_reset() {
@@ -194,17 +203,17 @@ fn each_preset_decodes_exact_retained_pcm_after_ring_wrap_and_renumbering() {
             encoder.encode_block(n, &mut frame);
             ring.push(&frame).unwrap();
         }
-        let mut cursor = ring.cursor_retained(preset.frames()).unwrap().unwrap();
+        let mut cursor = ring.cursor_retained(preset.frames(4096)).unwrap().unwrap();
         let mut stream = flac::stream_header().to_vec();
         let mut out = vec![0; flac::MAX_FRAME_BYTES];
-        for n in 0..preset.frames() {
+        for n in 0..preset.frames(4096) {
             let len = ring.read(&mut cursor, &mut out).unwrap();
             assert!(len > 0);
             let len = flac::renumber_frame(&mut out, len, n as u32).unwrap();
             stream.extend_from_slice(&out[..len]);
         }
         assert_eq!(ring.read(&mut cursor, &mut out), Ok(0));
-        let expected: Vec<i32> = ((150 - preset.frames())..150)
+        let expected: Vec<i32> = ((150 - preset.frames(4096))..150)
             .flat_map(|n| {
                 (0..flac::BLOCK_FRAMES).flat_map(move |_| [n as i32 + 1, -(n as i32 + 1)])
             })
@@ -383,16 +392,25 @@ fn complete_request_half_close_can_receive_buffered_response() {
 fn recognition_profile_rejects_buffered_routes_but_preserves_live_routes() {
     use esp_shazam_core::stream_http::{route, Format, Route, Status};
     assert_eq!(
-        route("GET /stream.flac?buffer=low HTTP/1.1").with_buffer_availability(false),
+        route(&format!(
+            "GET {}?buffer=low HTTP/1.1",
+            Format::COMPRESSED.path()
+        ))
+        .with_buffer_availability(false),
         Route::Refuse(Status::ServiceUnavailable)
     );
     assert_eq!(
-        route("GET /stream.flac HTTP/1.1").with_buffer_availability(false),
-        Route::Stream(Format::Flac)
+        route(&format!("GET {} HTTP/1.1", Format::COMPRESSED.path()))
+            .with_buffer_availability(false),
+        Route::Stream(Format::COMPRESSED)
     );
     assert_eq!(
-        route("GET /stream.flac?buffer=low HTTP/1.1").with_buffer_availability(true),
-        Route::BufferedFlac(BufferPreset::Low)
+        route(&format!(
+            "GET {}?buffer=low HTTP/1.1",
+            Format::COMPRESSED.path()
+        ))
+        .with_buffer_availability(true),
+        Route::Buffered(BufferPreset::Low)
     );
 }
 #[test]

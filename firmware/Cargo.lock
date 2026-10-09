@@ -639,10 +639,19 @@ dependencies = [
  "esp-idf-svc",
  "esp-idf-sys",
  "esp-shazam-core",
+ "esp-shazam-mp3",
  "log",
  "serde",
  "serde_json",
  "toml-cfg",
+]
+
+[[package]]
+name = "esp-shazam-mp3"
+version = "0.1.0"
+dependencies = [
+ "cc",
+ "esp-idf-sys",
 ]
 
 [[package]]

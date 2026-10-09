@@ -1,13 +1,14 @@
 #!/usr/bin/env bash
 # ABOUTME: Builds and flashes release firmware or a hardware-check example with the IDF bootloader and partitions.
-# ABOUTME: Usage: scripts/flash [--example NAME] [--monitor]. Port: $ESPFLASH_PORT, default /dev/cu.usbserial-0001.
+# ABOUTME: Usage: scripts/flash [--mp3] [--example NAME] [--monitor]. Port: $ESPFLASH_PORT, default /dev/cu.usbserial-0001.
 set -euo pipefail
 usage() {
     cat <<'HELP'
-Usage: scripts/flash [--example NAME] [--monitor]
+Usage: scripts/flash [--mp3] [--example NAME] [--monitor]
 Build and flash the release firmware, or a named firmware example for hardware verification.
 
   --example NAME  Build firmware/examples/NAME.rs and flash its ELF (letters, digits, _ or -).
+  --mp3           Select the 320 kbps MP3 prototype instead of FLAC; requires Shazam off.
   --monitor       Open the serial monitor after flashing.
   --help          Show this help without building or accessing hardware.
 
@@ -15,11 +16,13 @@ ESPFLASH_PORT selects the serial port; default: /dev/cu.usbserial-0001.
 HELP
 }
 monitor=false
+mp3=false
 example=""
 while [ "$#" -gt 0 ]; do
     case "$1" in
         --help) usage; exit 0 ;;
         --monitor) monitor=true; shift ;;
+        --mp3) mp3=true; shift ;;
         --example)
             if [ "$#" -lt 2 ] || [[ ! "$2" =~ ^[[:alnum:]_-]+$ ]] || [ -n "$example" ]; then
                 echo "FAIL  --example requires one simple name (letters, digits, _ or -)" >&2
@@ -41,6 +44,7 @@ eval "$mise_env" # cmake, ninja, ldproxy, espflash from mise.toml
 if [ -f "$HOME/export-esp.sh" ]; then . "$HOME/export-esp.sh"; fi
 # +esp outranks the RUSTUP_TOOLCHAIN that mise exports
 build_args=(--release)
+if "$mp3"; then build_args+=(--features mp3-stream); fi
 if [ -n "$example" ]; then build_args+=(--example "$example"); fi
 cargo +esp build "${build_args[@]}"
 out=target/xtensa-esp32-espidf/release

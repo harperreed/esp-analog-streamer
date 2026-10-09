@@ -1,5 +1,5 @@
-// ABOUTME: The LINE IN stream on port 8000: GET /stream.flac and GET /stream.wav send endless 48 kHz stereo: 16-bit FLAC and 24-bit WAV.
-// ABOUTME: One core 1 encoder shares FLAC frames; listeners copy out before socket work and drop if they fall behind.
+// ABOUTME: The LINE IN stream on port 8000: serves the selected compressed codec and diagnostic 24-bit WAV at 48 kHz stereo.
+// ABOUTME: One core 1 encoder shares compressed frames; listeners copy out before socket work and drop if they fall behind.
 
 use std::fmt;
 use std::io::{self, BufReader, Write};
@@ -8,6 +8,7 @@ use std::sync::atomic::{AtomicU32, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
+use crate::stream_codec as codec;
 use anyhow::Result;
 use esp_idf_svc::hal::cpu::Core;
 use esp_idf_svc::mdns::EspMdns;
@@ -20,7 +21,7 @@ use esp_shazam_core::stream_wait::{
     buffered_cursor_before, cursor_before, lock_before, read_atomic_fresh_with, read_locked_fresh,
     BufferWaitError, Slot, WaitError,
 };
-use esp_shazam_core::{flac, wav};
+use esp_shazam_core::wav;
 
 use crate::audio_in::{SharedStreamRing, CAPTURE_RATE_HZ};
 use crate::config::CONFIG;
@@ -39,18 +40,20 @@ pub fn take_raw_read_max_us() -> u32 {
     RAW_READ_MAX_US.swap(0, Ordering::Relaxed)
 }
 
-/// A FLAC listener requires byte-addressable PSRAM for its complete encoded frame.
+/// A compressed listener requires byte-addressable PSRAM for its complete encoded frame.
 /// Small headers and the WAV's small buffers retain the normal allocator's preferred placement.
 enum ListenerBuffer {
     Wav,
-    Flac(PsramBytes),
+    Compressed(PsramBytes),
 }
 
 impl ListenerBuffer {
     fn try_new(format: Format) -> io::Result<Self> {
         match format {
             Format::Wav => Ok(Self::Wav),
-            Format::Flac => PsramBytes::try_new(flac::MAX_FRAME_BYTES).map(Self::Flac),
+            Format::Flac | Format::Mp3 => {
+                PsramBytes::try_new(codec::MAX_FRAME_BYTES).map(Self::Compressed)
+            }
         }
     }
 }
@@ -90,27 +93,31 @@ impl Drop for ListenerConnection {
     }
 }
 
-/// Off: 141 slots hold 12.032 s; on: 24 slots hold 2.048 s.
-/// The off profile uses 2,312,259 payload bytes, 705 more than the former 24-bit
-/// allocation, plus 564 bytes of lengths on ESP32 (188 more than before).
-/// Capture remains raw 48 kHz stereo; only FLAC listeners use this longer backlog.
-const FLAC_RING_FRAMES: usize = stream_limits::flac_history_frames(CONFIG.shazam_enabled);
+/// Encoded history is independent of the per-frame socket write budget.
+#[cfg(not(feature = "mp3-stream"))]
+const ENCODED_RING_FRAMES: usize = stream_limits::flac_history_frames(CONFIG.shazam_enabled);
+#[cfg(feature = "mp3-stream")]
+const ENCODED_RING_FRAMES: usize = stream_limits::mp3_history_frames();
+#[cfg(feature = "mp3-stream")]
+const _: () = assert!(
+    !CONFIG.shazam_enabled,
+    "MP3 prototype requires recognition disabled"
+);
 
 /// The stream's port. The page and `/api/state` stay on port 80.
 pub const PORT: u16 = 8000;
-/// WAV and FLAC listeners share the slots, and a third listener of either gets 503. Each one takes a
-/// thread, TCP buffers that prefer PSRAM, and Wi-Fi: 2.3 Mbit/s for the WAV, less for FLAC.
+/// WAV and compressed listeners share the slots, and a third listener of either gets 503. Each one takes a
+/// thread, TCP buffers that prefer PSRAM, and Wi-Fi: 2.3 Mbit/s for the WAV, less for compressed audio.
 const MAX_LISTENERS: usize = 2;
-/// Frames per read from the ring: 5 ms. `read` holds the ring's lock while it copies; capture stages
-/// audio if that lock is busy. For the WAV they pack into 1,440 bytes, one full TCP segment;
-/// the shared encoder fills its 4,096-frame block with reads of at most this many.
+/// Frames per atomic capture read: at most 5 ms, without holding a capture mutex.
+/// WAV packs these samples into 1,440 bytes; the shared encoder accumulates codec-sized blocks.
 const CHUNK_FRAMES: usize = 240;
-// The FLAC encoder writes 48 kHz into every frame header.
-const _: () = assert!(flac::SAMPLE_RATE_HZ == CAPTURE_RATE_HZ);
+// Both compressed codecs encode the capture sample rate.
+const _: () = assert!(codec::SAMPLE_RATE_HZ == CAPTURE_RATE_HZ);
 /// A listener that has caught up sleeps one FreeRTOS tick: ESP-IDF's usleep busy-waits anything shorter.
 const CAUGHT_UP_SLEEP: Duration = Duration::from_millis(10);
 /// A caught-up listener waits at most 2 s for real audio, plus one tick and scheduling delay.
-/// Quiet audio still produces samples/FLAC frames. Capture stalls release both listener slots
+/// Quiet audio still produces samples/encoded frames. Capture stalls release both listener slots
 /// independently of the capture supervisor; the shared encoder waits again after this timeout.
 const FRESH_AUDIO_TIMEOUT: Duration = Duration::from_secs(2);
 /// A client gets this long to send its whole request head, which may be at most `MAX_HEAD_BYTES`,
@@ -118,7 +125,7 @@ const FRESH_AUDIO_TIMEOUT: Duration = Duration::from_secs(2);
 /// one client can hold up the next.
 const HEAD_TIMEOUT: Duration = Duration::from_secs(2);
 const MAX_HEAD_BYTES: u64 = 4096;
-/// The server's threads run on core 1, which is idle while Shazam is off. Their priority, 7, is
+/// The server threads share core 1 with the encoder. Their priority, 7, is
 /// above the recognizer's (5), so a fingerprint can't starve a listener, and below the audio thread
 /// (10), lwIP (18) and Wi-Fi (23).
 const ACCEPT_THREAD: ThreadSpec = ThreadSpec {
@@ -129,6 +136,10 @@ const ACCEPT_THREAD: ThreadSpec = ThreadSpec {
 };
 const ENCODER_THREAD: ThreadSpec = ThreadSpec {
     name: c"stream-encode",
+    #[cfg(feature = "mp3-stream")]
+    priority: 8,
+    #[cfg(feature = "mp3-stream")]
+    stack_bytes: 8 * 1024,
     ..ACCEPT_THREAD
 };
 const LISTENER_THREAD: ThreadSpec = ThreadSpec {
@@ -140,13 +151,16 @@ const LISTENER_THREAD: ThreadSpec = ThreadSpec {
 /// "esp-shazam stream", next to the page's "esp-shazam".
 pub fn start(ring: SharedStreamRing, mdns: &mut EspMdns) -> Result<()> {
     let listener = TcpListener::bind(("0.0.0.0", PORT))?;
-    let encoded = FlacRing::try_new(FLAC_RING_FRAMES, flac::MAX_FRAME_BYTES)
-        .map_err(|e| anyhow::anyhow!("stream: FLAC ring allocation failed: {e:?}"))?;
+    let encoded = FlacRing::try_new(ENCODED_RING_FRAMES, codec::MAX_FRAME_BYTES)
+        .map_err(|e| anyhow::anyhow!("stream: compressed ring allocation failed: {e:?}"))?;
     let encoded = Arc::new(Mutex::new(encoded));
+    // Initialize fallible codec state before a worker can announce or admit streams.
+    let encoder = codec::Encoder::new()?;
     let listeners = Arc::new(AtomicUsize::new(0));
     let encoder_listeners = listeners.clone();
     let (encoder_raw, encoder_output) = (ring.clone(), encoded.clone());
-    ENCODER_THREAD.spawn(move || encode(encoder_raw, encoder_output, encoder_listeners))?;
+    ENCODER_THREAD
+        .spawn(move || encode(encoder_raw, encoder_output, encoder_listeners, encoder))?;
     ACCEPT_THREAD.spawn(move || accept(listener, ring, encoded, listeners))?;
     // The stream works without the advertisement, so a failure is only logged.
     if let Err(e) = mdns.add_service(
@@ -209,10 +223,10 @@ fn answer(
     };
     let route = stream_http::route(&request_line).with_buffer_availability(!CONFIG.shazam_enabled);
     match route {
-        Route::Stream(_) | Route::BufferedFlac(_) => {
+        Route::Stream(_) | Route::Buffered(_) => {
             let (format, preset) = match route {
                 Route::Stream(format) => (format, None),
-                Route::BufferedFlac(preset) => (Format::Flac, Some(preset)),
+                Route::Buffered(preset) => (codec::FORMAT, Some(preset)),
                 Route::Refuse(_) => unreachable!(),
             };
             // Reject unsupported close configuration before taking a slot or allocating audio.
@@ -300,8 +314,11 @@ fn listen(
     let started = Instant::now();
     let end = match buffer {
         ListenerBuffer::Wav => stream_wav(sock, &ring),
-        ListenerBuffer::Flac(mut bytes) => {
-            stream_flac(sock, &encoded, bytes.as_mut_slice(), preset)
+        ListenerBuffer::Compressed(mut bytes) => {
+            let mut metrics = ListenerMetrics::new();
+            let end = stream_compressed(sock, &encoded, bytes.as_mut_slice(), preset, &mut metrics);
+            metrics.log_departure(peer);
+            end
         }
     };
     // Integer tenths: formatting a float to a precision puts a 1 KB buffer on this small stack.
@@ -329,8 +346,8 @@ enum End {
     StoppedReading,
     /// Capture or the shared encoder stopped supplying fresh audio.
     CaptureStalled,
-    /// A copied shared frame could not be numbered for this listener.
-    InvalidFlac(flac::RenumberError),
+    /// A copied shared frame failed its codec-specific listener preparation.
+    InvalidFrame(io::Error),
     /// The socket failed, usually because the listener closed it.
     Failed(io::Error),
 }
@@ -354,7 +371,7 @@ impl fmt::Display for End {
                 write!(f, "no fresh audio for {} s", FRESH_AUDIO_TIMEOUT.as_secs())
             }
             End::Failed(e) => write!(f, "{e}"),
-            End::InvalidFlac(e) => write!(f, "FLAC numbering failed: {e:?}"),
+            End::InvalidFrame(e) => write!(f, "compressed frame invalid: {e}"),
         }
     }
 }
@@ -368,13 +385,15 @@ fn frame_write_limit(capacity: usize) -> Duration {
 }
 
 /// Copies one committed block fragment within the freshness budget.
-/// Retry sleeps one tick; rejected scratch never reaches a socket or encoder.
+/// Brief publication collisions retry before sleeping; rejected scratch never leaves this copy.
 fn read_some(
     ring: &SharedStreamRing,
     cursor: &mut Cursor,
     out: &mut [i32],
+    mut metrics: Option<&mut RawReadMetrics>,
 ) -> Result<usize, WaitError<ReadError>> {
-    read_atomic_fresh_with(FRESH_AUDIO_TIMEOUT, CAUGHT_UP_SLEEP, || {
+    let wait_started = metrics.as_ref().map(|_| Instant::now());
+    let result = read_atomic_fresh_with(FRESH_AUDIO_TIMEOUT, CAUGHT_UP_SLEEP, || {
         // Single-read wall time includes preemption, excludes retry sleeps and socket/encoder work.
         let started = Instant::now();
         let result = ring.read(cursor, out);
@@ -382,8 +401,27 @@ fn read_some(
             started.elapsed().as_micros().min(u128::from(u32::MAX)) as u32,
             Ordering::Relaxed,
         );
+        if let Some(metrics) = metrics.as_deref_mut() {
+            metrics.attempts += 1;
+            match result {
+                Ok(0) => metrics.empty += 1,
+                Ok(frames) => {
+                    metrics.successes += 1;
+                    metrics.frames += frames as u64;
+                }
+                Err(ReadError::Retry) => metrics.retries += 1,
+                Err(ReadError::Overrun) => metrics.overruns += 1,
+            }
+        }
         result
-    })
+    });
+    if let (Some(metrics), Some(started)) = (metrics, wait_started) {
+        let elapsed_us = started.elapsed().as_micros() as u64;
+        metrics.calls += 1;
+        metrics.wait_total_us += elapsed_us;
+        metrics.wait_max_us = metrics.wait_max_us.max(elapsed_us);
+    }
+    result
 }
 
 /// Sends the response head and the WAV header, then frames from the ring as they arrive, until the
@@ -404,7 +442,7 @@ fn stream_wav(sock: &TcpStream, ring: &SharedStreamRing) -> End {
         if let Err(e) = write_frame(&mut writer, &bytes, write_limit) {
             return End::from_write_error(e);
         }
-        let frames_read = match read_some(ring, &mut cursor, &mut frames) {
+        let frames_read = match read_some(ring, &mut cursor, &mut frames, None) {
             Ok(n) => n,
             Err(WaitError::Stalled | WaitError::Read(ReadError::Retry)) => {
                 return End::CaptureStalled
@@ -435,20 +473,31 @@ fn write_frame(writer: &mut DeadlineWriter<'_>, bytes: &[u8], limit: Duration) -
     result
 }
 
-/// One encoder converts raw 24-bit capture to 16-bit FLAC once for every listener.
+/// One encoder converts 24-bit capture to 16-bit PCM and shares the compressed result.
 /// A raw overrun discards the partial block and invalidates old encoded cursors: existing
 /// listeners disconnect rather than hearing discontinuous audio presented as a continuous stream.
-fn encode(raw: SharedStreamRing, encoded: SharedFlacRing, listeners: Arc<AtomicUsize>) {
-    let mut chunk = vec![0i32; flac::CHANNELS * CHUNK_FRAMES];
-    let mut encoder = flac::Encoder::new();
-    let mut bytes = Vec::with_capacity(flac::MAX_FRAME_BYTES);
+fn encode(
+    raw: SharedStreamRing,
+    encoded: SharedFlacRing,
+    listeners: Arc<AtomicUsize>,
+    mut encoder: codec::Encoder,
+) {
+    let mut chunk = vec![0i32; 2 * CHUNK_FRAMES];
+    let mut bytes = Vec::with_capacity(codec::MAX_FRAME_BYTES);
     let mut block_number = 0u32;
+    #[cfg(feature = "mp3-stream")]
+    let mut yield_frames = 0usize;
     let mut metrics = EncoderMetrics::new(&listeners);
     let mut cursor = encoder_cursor(&raw, &listeners, &mut metrics);
     loop {
         let frames = CHUNK_FRAMES.min(encoder.frames_wanted());
-        match read_some(&raw, &mut cursor, &mut chunk[..flac::CHANNELS * frames]) {
-            Ok(n) => encoder.push(&chunk[..flac::CHANNELS * n]),
+        match read_some(
+            &raw,
+            &mut cursor,
+            &mut chunk[..2 * frames],
+            Some(&mut metrics.raw_read),
+        ) {
+            Ok(n) => encoder.push(&chunk[..2 * n]),
             // Keep this one shared encoder alive during a pause. The next read starts a full
             // wait; a capture reset still yields Overrun and discards the partial block below.
             Err(WaitError::Stalled | WaitError::Read(ReadError::Retry)) => {
@@ -456,9 +505,14 @@ fn encode(raw: SharedStreamRing, encoded: SharedFlacRing, listeners: Arc<AtomicU
                 continue;
             }
             Err(WaitError::Read(ReadError::Overrun)) => {
-                log::warn!("stream: encoder fell behind capture; disconnecting FLAC listeners");
-                encoded.lock().expect("FLAC ring lock").reset();
-                encoder.reset();
+                log::warn!(
+                    "stream: encoder fell behind capture; disconnecting compressed listeners"
+                );
+                encoded.lock().expect("encoded ring lock").reset();
+                if let Err(error) = encoder.reset() {
+                    log::error!("stream: encoder reset failed; output remains invalid ({error})");
+                    return;
+                }
                 cursor = encoder_cursor(&raw, &listeners, &mut metrics);
                 block_number = 0;
                 metrics.resets += 1;
@@ -467,15 +521,46 @@ fn encode(raw: SharedStreamRing, encoded: SharedFlacRing, listeners: Arc<AtomicU
             }
         }
         if encoder.frames_wanted() == 0 {
-            encoder.encode_block(block_number, &mut bytes);
-            encoded
-                .lock()
-                .expect("FLAC ring lock")
+            // SAFETY: IDF initialized this monotonic timer before the encoder task starts.
+            let encode_started_us = unsafe { sys::esp_timer_get_time() as u64 };
+            let result = encoder.encode_block(block_number, &mut bytes);
+            // The interval contains the codec call only, including any preemption during it.
+            // SAFETY: the initialized monotonic timer remains available on this task.
+            let encode_elapsed_us = unsafe { sys::esp_timer_get_time() as u64 } - encode_started_us;
+            metrics.encode_max_us = metrics.encode_max_us.max(encode_elapsed_us);
+            metrics.encode_wall_total_us += encode_elapsed_us;
+            if let Err(error) = result {
+                encoded.lock().expect("encoded ring lock").reset();
+                log::error!("stream: encoding failed; disconnecting listeners ({error})");
+                return;
+            }
+            // SAFETY: the initialized monotonic timer measures wall time, including preemption.
+            let lock_started_us = unsafe { sys::esp_timer_get_time() as u64 };
+            let mut output = encoded.lock().expect("encoded ring lock");
+            // SAFETY: same initialized timer; acquisition is separate from the held copy below.
+            let lock_acquired_us = unsafe { sys::esp_timer_get_time() as u64 };
+            output
                 .push(&bytes)
-                .expect("encoder frame fits FLAC ring");
+                .expect("encoder frame fits encoded ring");
+            // SAFETY: same initialized monotonic timer remains available while this lock is held.
+            let push_finished_us = unsafe { sys::esp_timer_get_time() as u64 };
+            drop(output);
+            metrics.encoded_lock_wait_wall_total_us += lock_acquired_us - lock_started_us;
+            metrics.encoded_push_held_wall_total_us += push_finished_us - lock_acquired_us;
             block_number = block_number.wrapping_add(1);
             metrics.frames += 1;
             metrics.log_if_due(&listeners);
+            #[cfg(feature = "mp3-stream")]
+            {
+                yield_frames += 1;
+                if yield_frames == 8 {
+                    // Yield regularly even when capture already has more PCM.
+                    // A one-tick RTOS delay yields; IDF sub-tick usleep can busy-wait.
+                    // SAFETY: this code runs on the initialized encoder FreeRTOS task.
+                    unsafe { sys::vTaskDelay(1) };
+                    yield_frames = 0;
+                }
+            }
         }
     }
 }
@@ -497,6 +582,20 @@ fn encoder_cursor(
     }
 }
 
+/// Worker-local read observations reset after each report; WAV does not contribute.
+#[derive(Default)]
+struct RawReadMetrics {
+    calls: u64,
+    attempts: u64,
+    successes: u64,
+    frames: u64,
+    retries: u64,
+    empty: u64,
+    overruns: u64,
+    wait_total_us: u64,
+    wait_max_us: u64,
+}
+
 /// Task runtime accounting excludes its current scheduling slice and includes interrupt/logging
 /// overhead charged to this task. Compare stable listener windows, not encode-call wall latency.
 struct EncoderMetrics {
@@ -505,6 +604,11 @@ struct EncoderMetrics {
     listeners: usize,
     frames: u64,
     resets: u64,
+    encode_max_us: u64,
+    encode_wall_total_us: u64,
+    encoded_lock_wait_wall_total_us: u64,
+    encoded_push_held_wall_total_us: u64,
+    raw_read: RawReadMetrics,
 }
 
 impl EncoderMetrics {
@@ -516,6 +620,11 @@ impl EncoderMetrics {
             listeners: listeners.load(std::sync::atomic::Ordering::Acquire),
             frames: 0,
             resets: 0,
+            encode_max_us: 0,
+            encode_wall_total_us: 0,
+            encoded_lock_wait_wall_total_us: 0,
+            encoded_push_held_wall_total_us: 0,
+            raw_read: RawReadMetrics::default(),
         }
     }
 
@@ -542,37 +651,89 @@ impl EncoderMetrics {
         }
         let (now, runtime) = Self::snapshot();
         let current = listeners.load(std::sync::atomic::Ordering::Acquire);
+        // SAFETY: NULL selects only this live task; IDF reports its lifetime minimum free stack
+        // in bytes. Scan at the ten-second reporting interval, never once per encoded frame.
+        let stack_free_bytes = unsafe { sys::uxTaskGetStackHighWaterMark(std::ptr::null_mut()) };
         // U32 runtime stats lose accounting at the timer wrap (~71.6 min). Mark later
         // windows invalid rather than presenting wrapping arithmetic as accurate CPU use.
-        log::info!("stream-encode: elapsed_us={} task_runtime_us={} runtime_valid={} encoded_frames={} resets={} listeners_start={} listeners_end={} (slots include WAV and closing listeners)",
+        log::info!("stream-encode: elapsed_us={} task_runtime_us={} runtime_valid={} encoded_frames={} resets={} listeners_start={} listeners_end={} (slots include WAV and closing listeners) encode_max_us={} stack_free_bytes={} block_samples={} raw_read_calls={} raw_read_attempts={} raw_read_successes={} raw_read_frames={} raw_read_retries={} raw_read_empty={} raw_read_overruns={} raw_wait_total_us={} raw_wait_max_us={} encode_wall_total_us={} encoded_lock_wait_wall_total_us={} encoded_push_held_wall_total_us={}",
             now - self.since_us, runtime.wrapping_sub(self.runtime_us), now <= u64::from(u32::MAX),
-            self.frames, self.resets, self.listeners, current);
+            self.frames, self.resets, self.listeners, current, self.encode_max_us, stack_free_bytes, codec::BLOCK_FRAMES,
+            self.raw_read.calls, self.raw_read.attempts, self.raw_read.successes,
+            self.raw_read.frames, self.raw_read.retries, self.raw_read.empty,
+            self.raw_read.overruns, self.raw_read.wait_total_us, self.raw_read.wait_max_us,
+            self.encode_wall_total_us, self.encoded_lock_wait_wall_total_us, self.encoded_push_held_wall_total_us);
         self.since_us = now;
         self.runtime_us = runtime;
         self.listeners = current;
+        self.encode_max_us = 0;
+        self.encode_wall_total_us = 0;
+        self.encoded_lock_wait_wall_total_us = 0;
+        self.encoded_push_held_wall_total_us = 0;
+        self.raw_read = RawReadMetrics::default();
     }
 }
 
-/// A fresh header precedes shared frames whose copied headers count from zero for this listener.
+/// Local compressed-media observations; task runtime excludes its unfinished scheduling slice.
+/// Wall intervals include preemption. Frame counters exclude HTTP/media headers and startup fill.
+struct ListenerMetrics {
+    since_us: u64,
+    runtime_us: u32,
+    frames_sent: u64,
+    bytes_sent: u64,
+    frame_write_wall_total_us: u64,
+    frame_write_wall_max_us: u64,
+    frame_read_wait_wall_total_us: u64,
+}
+
+impl ListenerMetrics {
+    fn new() -> Self {
+        let (since_us, runtime_us) = EncoderMetrics::snapshot();
+        Self {
+            since_us,
+            runtime_us,
+            frames_sent: 0,
+            bytes_sent: 0,
+            frame_write_wall_total_us: 0,
+            frame_write_wall_max_us: 0,
+            frame_read_wait_wall_total_us: 0,
+        }
+    }
+
+    fn log_departure(&self, peer: &str) {
+        let (now, runtime) = EncoderMetrics::snapshot();
+        log::info!("stream-listener: peer={} elapsed_us={} task_runtime_us={} runtime_valid={} frames_sent={} bytes_sent={} frame_write_wall_total_us={} frame_write_wall_max_us={} frame_read_wait_wall_total_us={} block_samples={}",
+            peer, now - self.since_us, runtime.wrapping_sub(self.runtime_us),
+            now <= u64::from(u32::MAX), self.frames_sent, self.bytes_sent,
+            self.frame_write_wall_total_us, self.frame_write_wall_max_us,
+            self.frame_read_wait_wall_total_us, codec::BLOCK_FRAMES);
+    }
+}
+
+/// An HTTP header precedes shared whole frames. FLAC adds its media header and listener numbering.
 /// The bounded output buffer holds one complete frame, so every socket write shares that frame's
 /// single deadline. The ring's mutex is released before any socket call.
-fn stream_flac(
+fn stream_compressed(
     sock: &TcpStream,
     ring: &SharedFlacRing,
     bytes: &mut [u8],
     preset: Option<BufferPreset>,
+    metrics: &mut ListenerMetrics,
 ) -> End {
     // Keep slow socket writes bounded independently of the longer encoded history.
+    #[cfg(not(feature = "mp3-stream"))]
     let write_limit =
         Duration::from_millis(stream_limits::flac_write_limit_ms(CONFIG.shazam_enabled));
+    #[cfg(feature = "mp3-stream")]
+    let write_limit = Duration::from_millis(stream_limits::mp3_write_limit_ms());
     let mut writer = DeadlineWriter::new(sock);
-    let mut header = Format::Flac.response_head().as_bytes().to_vec();
-    header.extend_from_slice(&flac::stream_header());
+    let mut header = codec::FORMAT.response_head().as_bytes().to_vec();
+    header.extend_from_slice(&codec::stream_header());
     let mut cursor = if let Some(preset) = preset {
         match buffered_cursor_before(
             ring,
             sock,
-            preset.frames(),
+            preset.frames(codec::BLOCK_FRAMES),
             Instant::now() + Duration::from_secs(preset.seconds()) + FRESH_AUDIO_TIMEOUT,
             FRESH_AUDIO_TIMEOUT,
             CAUGHT_UP_SLEEP,
@@ -602,22 +763,32 @@ fn stream_flac(
     }
     let mut block_number = 0;
     loop {
-        let n = match read_locked_fresh(ring, FRESH_AUDIO_TIMEOUT, CAUGHT_UP_SLEEP, |ring| {
+        let read_started = Instant::now();
+        let read_result = read_locked_fresh(ring, FRESH_AUDIO_TIMEOUT, CAUGHT_UP_SLEEP, |ring| {
             ring.read(&mut cursor, bytes)
-        }) {
+        });
+        metrics.frame_read_wait_wall_total_us += read_started.elapsed().as_micros() as u64;
+        let n = match read_result {
             Ok(n) => n,
             Err(WaitError::Stalled) => return End::CaptureStalled,
             Err(WaitError::Read(_)) => return End::FellBehind,
         };
-        let n = match flac::renumber_frame(bytes, n, block_number) {
+        let n = match codec::prepare_listener_frame(bytes, n, block_number) {
             Ok(n) => n,
-            Err(error) => return End::InvalidFlac(error),
+            Err(error) => return End::InvalidFrame(error),
         };
-        if let Err(e) = write_frame(&mut writer, &bytes[..n], write_limit) {
+        let write_started = Instant::now();
+        let write_result = write_frame(&mut writer, &bytes[..n], write_limit);
+        let write_elapsed_us = write_started.elapsed().as_micros() as u64;
+        metrics.frame_write_wall_total_us += write_elapsed_us;
+        metrics.frame_write_wall_max_us = metrics.frame_write_wall_max_us.max(write_elapsed_us);
+        if let Err(e) = write_result {
             return End::from_write_error(e);
         }
-        // Advance only after the whole frame was written. At 2^31 the helper rejects the
-        // next frame, ending through normal bounded connection cleanup rather than wrapping.
-        block_number += 1;
+        metrics.frames_sent += 1;
+        metrics.bytes_sent += n as u64;
+        // FLAC numbering advances after a whole write and rejects numbers at 2^31.
+        // MP3 ignores this counter, so wrap cannot alter its frame bytes.
+        block_number = block_number.wrapping_add(1);
     }
 }

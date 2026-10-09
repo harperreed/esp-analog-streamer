@@ -1,5 +1,19 @@
 # Gotchas
 
+Doctor Biz corrected stopping after the MP3 benchmark on October 9: the standing
+instruction was to start and continue the implementation. Treat the benchmark
+as a checkpoint when the follow-on prototype is already authorized; do not turn
+a recommendation into another permission request or a reason to end work.
+
+The October 9 live MP3 prototype supersedes the benchmark-only status below.
+Inline 4,608-byte PCM storage caused a controlled main-task stack overflow;
+construct it on the heap. A 16 KiB encoder stack starved Sonos TLS allocations;
+8 KiB left 5,924 bytes free in measured runs. A busy atomic publication is Retry,
+not empty audio: bounded rechecks avoid a full 10 ms sleep on each collision.
+Priority 8 kept MP3 encoding current, but encoded-ring overruns still ended High
+Sonos and two-listener streams. Keep MP3 opt-in and preserve these failed gates.
+See docs/audit-evidence/2026-10-09/mp3-stream.md.
+
 The October 9 Shine benchmark kept up on average at 48 kHz stereo 320 kbps
 with capture/TLS only, but concurrent production FLAC caused growing backlog.
 The corrected exclusive run still had a 508 ms encode call. MP3 input was
