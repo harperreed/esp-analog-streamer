@@ -78,8 +78,8 @@ regression candidate; an actual failing invariant should drive a code fix.
 `scripts/test-coverage-host` runs in the canonical check. Root reported all 22
 canonical stages passing; its earlier mise alias warning was retained and then
 resolved by the canonical llvm-tools component spelling. Two subsequent mise
-activations had empty stderr with unchanged Rust/LLVM versions. A separate CI
-coverage job remains unimplemented pending design review; Kata m31k stays open.
+activations had empty stderr with unchanged Rust/LLVM versions. At this pilot
+checkpoint, the separate CI coverage job had not yet been implemented.
 
 ## Clean committed-tree repeat
 
@@ -105,4 +105,8 @@ variation is neither a new behavioral regression nor a reliability improvement.
 The named uncovered failure semantics and all scope exclusions still apply.
 
 This completes the local pinned-tool compatibility and isolated repeated-run
-pilot. The standalone CI job remains a separate acceptance gate; m31k stays open.
+pilot. The [standalone CI workflow](../../../.github/workflows/host-coverage.yml)
+is now implemented, reviewed and linted; the [hardening plan](../../superpowers/plans/2026-10-10-kata-hardening.md)
+records that later checkpoint. Its first hosted execution and artifact upload
+remain unverified, so m31k stays open. Local pilot success does not establish CI
+execution or device coverage.

@@ -125,4 +125,48 @@ caffeinate -is scripts/stream-soak HOST --seconds 21600 --out target/overnight
 
 `stream-check` validates the captured codec, rate, channels and bit depth: FLAC16 or WAV24, both 48 kHz stereo. The soak resets the board once, requires Shazam off, and checks two real decoders and capture telemetry. Each decoder also records its input format in its private log for a check at completion, using the same board connection. `scripts/test-stream-format` checks these format rules with local ffmpeg fixtures and no hardware. Hardware fixtures replace the production image: `scripts/flash --example flac-cost` measures encoding cost; `capture-faults` and `listener-pressure` pair with `scripts/fault-check --mode capture HOST` and `--mode pressure HOST`. Always restore production with `scripts/flash` after a fixture.
 
+### Streaming release evidence
+
+A streaming release requires the applicable evidence below for the candidate
+revision and effective configuration. A successful firmware build proves
+compilation; static checks and hardware acceptance need separate results.
+
+| Gate | Existing command or workflow | Required evidence |
+| --- | --- | --- |
+| Canonical local checks | [scripts/check](scripts/check) | Every applicable stage passes, including ordinary tests, separate capture/listener Loom models, harness checks, firmware build and IRAM checks. Retain stage logs and source revision. |
+| Deterministic replay | [scripts/check-stream-replay](scripts/check-stream-replay), [PR workflow](.github/workflows/stream-replay.yml) | Exact declared source ranges, sample counts and hashes; accounted discontinuities and terminal ownership; negative controls reject their intended faults. Keep seeds, fixtures and decoder receipts. See [replay contract](docs/test-stream-replay.md). |
+| Host diagnostics | [coverage workflow](.github/workflows/host-coverage.yml), [fuzz workflow](.github/workflows/host-fuzz.yml) | Separate reports, source/tool identities and final statuses. Review uncovered recovery paths and sanitizer findings. Coverage percentages have no arbitrary pass threshold; host coverage does not establish device/FFI/ISR coverage. See [coverage](docs/test-host-coverage.md) and [fuzz limits](docs/test-host-fuzz.md). |
+| Diagnostic completeness | [shared export validators](scripts/encoder_fault_check.py), [probe analyzer](scripts/encoder_probe_check.py) | Encoder/listener sticky export loss, rejected loss counters or missing required final batch receipts invalidate conclusions that depend on those diagnostics. Require producer event times and the corresponding receipt; UART arrival alone cannot certify a delayed event or checked close. |
+| Clean two-listener hardware run | [scripts/stream-soak](scripts/stream-soak), implemented in [stream_soak.py](scripts/stream_soak.py) | Each decoder exits successfully with exactly `round(seconds * 48000)` sample frames. The harness uses a requested-duration-plus-60-second wall timeout, a 20-second decoder-progress limit and a 25-second UART-progress limit. No extra reset, panic or watchdog; capture queue-overflow, software-drop, read-error, restart and discontinuity counters stay at the settled baseline. Require capture telemetry after both decoders finish, with a 20-second final-receipt wait. Preserve raw UART, decoder logs and the run summary. |
+| Fault recovery and endurance | Existing fault/soak harnesses; [hardening backlog](docs/superpowers/plans/2026-10-10-kata-hardening.md) | Passing bounded scenarios precede longer runs. Retain failed attempts, actual two-listener overlap and survivor catch-up separately. Six-hour reconnect and 24-hour continuity gates require their full workloads; a short pass or an open socket cannot replace them. Manual Stop and foreign-session ownership need their own evidence. |
+
+For each required gate, record `passed`, `failed`, `missing`, `canceled` or
+`infrastructure-failed`, with links to its raw evidence. Only a reviewed `passed`
+result satisfies that gate. Missing artifacts, canceled jobs and infrastructure
+failures leave release acceptance blocked; retries preserve earlier failures.
+This is the review contract, not an implemented CI aggregator or dedicated HIL
+runner. Any threshold without an existing contract remains an open decision.
+
+Hardware receipts must identify the exact firmware hash, boot, effective codec,
+buffer/radio settings and input fixture/hash; verify physical routing separately.
+Compare revisions only under matched workloads. A frame count and decoder hash
+alone cannot prove sample-exact analog input; use an independent reference where
+one exists, as replay does.
+
+Replay, coverage and fuzz workflows are checked in, but their first hosted
+execution and artifact uploads remain unverified. The dedicated HIL runner and
+the backlog's delivery, capture and ownership gates also remain open. See the
+[current hardening plan](docs/superpowers/plans/2026-10-10-kata-hardening.md);
+local checks do not waive those gates.
+
+Harness contracts differ. The soak checks the five capture-loss counters above
+and calls the shared encoder export-loss validator. Fault close checks require
+departure/close evidence and a later covering listener batch receipt; the probe
+analyzer requires covering encoder receipts for its windows and boundaries.
+Probe capture coverage checks nine counters, adding `supervisor_restarts`,
+`overflow_restarts`, `settling_discarded_frames` and `health_restart_requests` to
+the soak's five. Capture-specific acceptance may need this broader coverage;
+retain the [probe contract](docs/test-encoder-probe.md) and the actual harness
+schema with each receipt rather than treating a soak pass as all these checks.
+
 Licensed GPL-3.0-or-later (the fingerprint code comes from SongRec).

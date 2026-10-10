@@ -463,3 +463,11 @@ The probe preflight also omitted Master/PCM gain checks. A Sol6.1 follow-up now
 validates each declared channel plus Master unmuted, with actual archived
 readback fixtures, runtime negative controls and passing check-harnesses.
 No mixer writes or firmware changes accompany that harness correction.
+
+Independent local97bk unit: README now maps release gates to existing commands,
+exact sample/progress limits, diagnostic completeness and distinct five/nine
+capture-counter schemas. Missing/canceled/infrastructure failures cannot pass.
+Coverage evidence now distinguishes historical unimplemented CI from the later
+checked-in workflow; hosted execution remains unverified. Independent source/link
+review and parent fresh-eyes pass. This is a review contract, not an implemented
+CI aggregator or dedicated HIL runner; 97bk/m31k remain open for those gates.
