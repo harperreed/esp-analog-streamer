@@ -871,3 +871,10 @@ Do not name scratch Python helpers inspect.py: imports from dataclasses/argparse
 can load and execute that helper instead of the standard library. The October 10
 layout helper is inspect-layout.py; original images and trial hashes were checked
 after the collision and remained unchanged.
+
+The supervisor samples metrics on the same core at higher priority. A Ready
+sample includes a metrics task preempted by that supervisor; sampled states are
+not time accounting. New observer firmware measured slower MP3 generation than
+its archived control on October 10, but changed addresses confound runtime cost.
+Use one image with a runtime gate before attributing that difference to logging
+or queries; do not call a layout/cache mechanism proven from symbol shifts.

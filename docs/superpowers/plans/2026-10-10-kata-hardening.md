@@ -1,7 +1,7 @@
 # Finish the Kata hardening backlog
 
 Doctor Biz's active goal on October 10: finish all Kata work, then assess.
-Base c134069 on wip/kata-capture-protection. Compactions in this phase: 10; latest firmware implementation checkpoint is eb38c65.
+Base c134069 on wip/kata-capture-protection. Compactions in this phase: 11; latest firmware implementation checkpoint is 55d5416 (experimental, hardware acceptance failed).
 Use GPT-6.1 Sol subagents with clean contexts. Parent owns review, integration,
 canonical checks, commits and every hardware action. Continue through batches;
 a phase checkpoint is not a reason to abandon the active goal.
@@ -529,3 +529,36 @@ FreeRTOS critical sections and permanent-task lifetime before implementation.
 Only low-rate sampled Ready/Blocked counts are proposed; priorities, stacks,
 queues and stream policy remain unchanged. A missing final diagnostic receipt
 must remain incomplete evidence. Kata 21tp/wbz6 remain open.
+
+## Metrics-state hardware checkpoint
+
+The bounded sampled-state observer is committed as 55d5416 after all 27
+canonical stages, both target builds/IRAM, independent source and linked reviews,
+and parent fresh-eyes. Three immutable-image acquisitions retain their failures.
+New default encoding measured 0.780–0.789x across five complete windows, each
+with raw loss; the exact preceding eb38c65 control measured 0.994–1.006x across
+five windows with no raw loss. Both fast listeners fell behind before reclamation.
+This comparison establishes an association, not an observer or cache root cause.
+
+The new probe ran without listeners and retained four raw overruns. Parent ended
+the partial run through its owned cleanup handler; thirteen complete windows
+measured 0.928–0.941x. It did not complete its probe sequence. Sampled Ready
+counts do not prove uninterrupted execution; supervisor preemption itself can
+leave metrics Ready. Query maxima of 8/12 microseconds are observed values,
+not bounds. Late or missing diagnostic dumps restrict which intervals they cover.
+
+Reviewed receipts are in docs/audit-evidence/2026-10-10/metrics-state-device.md
+and .json. All acquisitions completed cleanup; original failed artifacts remain
+under target/kata-hardening/metrics-state. The exact preceding unified default image eb38c65 is installed
+because the new default regressed encoding. Fresh API/routing checks confirm
+stopped MP3/Medium, autoplay and recognition off, front Headphone on, rear Line
+Out off, unchanged zero-dB gains, and no source/UART processes. This preserves
+both output formats; it does not revert to FLAC playback policy.
+
+Next: independently review the small same-image observer OFF/ON/OFF experiment.
+Metrics owns its transitions and logging; supervisor never formats transition
+logs. Preserve existing capture/encoder work and hold code placement fixed within
+the run. All losses remain failures and missing phase evidence stays incomplete.
+Kata 21tp/wbz6 remain open. Root-session replacement is still unavailable; this
+durable checkpoint and fresh Sol 6.1 contexts preserve continuity without claiming
+a fresh root session.
