@@ -1,0 +1,621 @@
+{
+  "source_commit": "05cf802",
+  "device_image_attested": false,
+  "default_elf_sha256": "1eca73c09675d41d74a2c1d5b76477f20871548a6a9b1f50014576a938b19f71",
+  "audio_source_sha256": "9311d9ca5dfe1a5f9269631afe22647834207f2b3239571474acc8ac15f3228d",
+  "trials": {
+    "1": {
+      "source_sha256": {
+        "aplay.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "events.jsonl": "6a0fb724085ffc772f056c806bd2ddafe3b31295ff577aa2d83864ca1f24d0c2",
+        "image.elf": "1eca73c09675d41d74a2c1d5b76477f20871548a6a9b1f50014576a938b19f71",
+        "result.json": "c2fb407ef21923883dfc1e81451a174809547ce0eafc2bfcadc6be0735e218ce",
+        "soak/20261010T212604.643591Z/events.jsonl": "7a7138a52b12732a131e034eb4b0bee6d41d55446c89379bb96e4976be042a3c",
+        "soak/20261010T212604.643591Z/listener-1.ffmpeg.log": "b313ac22b75f82ca2ea4344bde40fa6c154f3b056ba138a53522e18beb9adccc",
+        "soak/20261010T212604.643591Z/listener-1.framehash": "60edad940a3ca0a7e2873159aa635b6d781a7bb4a3298741845e6ca51d46137c",
+        "soak/20261010T212604.643591Z/listener-1.progress": "108976c4dddc4dcc30e35e69aaa9051d5271cbacb54ec0d24b182292c3bf6620",
+        "soak/20261010T212604.643591Z/listener-2.ffmpeg.log": "4cf9aae7b126cef36d6a79b8df475cdcd6fbaf9b850e0a9928db0524bee11e7a",
+        "soak/20261010T212604.643591Z/listener-2.framehash": "9d94444a3c4be1ccb52a280ac78a85643852745c56e7b42683b1eebcfbc2bb54",
+        "soak/20261010T212604.643591Z/listener-2.progress": "96b68eeff9fe6f6b4ef5554740d6d6b17fb73177565a2dd88621b5e434ce717f",
+        "soak/20261010T212604.643591Z/serial.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "soak/20261010T212604.643591Z/summary.json": "3b0a78af3180673821c3a1d99fe66d1e2d21d9027e5610320da136c8e933f965",
+        "soak/20261010T212604.643591Z/uart.log": "9900b2e6434e9be22eda23331e0989b5d928ef0b88fc2cf0eef32a3f47a6e7de",
+        "soak-cleanup.json": "bcae79eab57576290da28d30773f459d07b949b11083d997b03c60e97d410a2e",
+        "soak.log": "0e6df8cb4e3f17991f7143b45c1c2c474d8f20980914936297fa70affe61a365",
+        "source-liveness.jsonl": "4b9c06cf4cabdf580513b3c8ca039f455843cfb3382ace595fc81ae3cb6ea563"
+      },
+      "generation": [
+        {
+          "window": 1,
+          "epoch": 1,
+          "frame_delta": 416,
+          "span_us": 10016302,
+          "audio_seconds": 9.984,
+          "ratio": 0.996775057301587,
+          "contiguous": true,
+          "kind": "individual window"
+        },
+        {
+          "window": 2,
+          "epoch": 1,
+          "frame_delta": 409,
+          "span_us": 10021767,
+          "audio_seconds": 9.816,
+          "ratio": 0.9794679920217663,
+          "contiguous": true,
+          "kind": "individual window"
+        },
+        {
+          "window": 3,
+          "epoch": 1,
+          "frame_delta": 401,
+          "span_us": 10009115,
+          "audio_seconds": 9.624,
+          "ratio": 0.9615235712647923,
+          "contiguous": true,
+          "kind": "individual window"
+        },
+        {
+          "window": 5,
+          "epoch": 1,
+          "frame_delta": 816,
+          "span_us": 20010255,
+          "audio_seconds": 19.584,
+          "ratio": 0.9786981725120444,
+          "contiguous": false,
+          "kind": "cumulative across missing window"
+        }
+      ],
+      "missing_windows": [
+        4
+      ],
+      "fault_values": {
+        "queue_overflows": [
+          14,
+          14,
+          14
+        ],
+        "software_dropped_frames": [
+          480,
+          480,
+          480
+        ],
+        "read_errors": [
+          0,
+          0,
+          0
+        ],
+        "restarts": [
+          2,
+          2,
+          2
+        ],
+        "supervisor_restarts": [
+          0,
+          0,
+          0
+        ],
+        "overflow_restarts": [
+          2,
+          2,
+          2
+        ],
+        "settling_discarded_frames": [
+          26400,
+          26400,
+          26400
+        ],
+        "discontinuities": [
+          2,
+          2,
+          2
+        ],
+        "health_restart_requests": [
+          0,
+          0,
+          0
+        ]
+      },
+      "stack_minima_bytes": {
+        "metrics_stack_free_bytes": 1164,
+        "listener_stack_free_bytes": 1672,
+        "encoder_stack_free_bytes": 5188
+      },
+      "heap_minima_complete_reports": {
+        "internal_free": 66511,
+        "internal_largest": 59392,
+        "psram_free": 2770824,
+        "psram_largest": 2359296,
+        "internal_min_sum": 55451,
+        "psram_min_sum": 360008
+      },
+      "capture_stack_watermark": "not reported",
+      "receipts": {
+        "encoder": {
+          "count": 5,
+          "values": [
+            {
+              "dropped": 0,
+              "observed_event_min_us": 4037284,
+              "observed_event_max_us": 4037284,
+              "record_bytes": 200,
+              "queue_bytes": 440,
+              "metrics_stack_free_bytes": 1548,
+              "export_us": 4109393,
+              "loss_occurred": false,
+              "observed_event_range_valid": true,
+              "dropped_full": 0,
+              "dropped_contended": 0,
+              "dropped_poisoned": 0
+            },
+            {
+              "dropped": 0,
+              "observed_event_min_us": 4233400,
+              "observed_event_max_us": 4233400,
+              "record_bytes": 200,
+              "queue_bytes": 440,
+              "metrics_stack_free_bytes": 1516,
+              "export_us": 4466941,
+              "loss_occurred": false,
+              "observed_event_range_valid": true,
+              "dropped_full": 0,
+              "dropped_contended": 0,
+              "dropped_poisoned": 0
+            },
+            {
+              "dropped": 0,
+              "observed_event_min_us": 14249702,
+              "observed_event_max_us": 14249702,
+              "record_bytes": 200,
+              "queue_bytes": 440,
+              "metrics_stack_free_bytes": 1276,
+              "export_us": 15131555,
+              "loss_occurred": false,
+              "observed_event_range_valid": true,
+              "dropped_full": 0,
+              "dropped_contended": 0,
+              "dropped_poisoned": 0
+            },
+            {
+              "dropped": 1,
+              "observed_event_min_us": 24271469,
+              "observed_event_max_us": 34280584,
+              "record_bytes": 200,
+              "queue_bytes": 440,
+              "metrics_stack_free_bytes": 1244,
+              "export_us": 46559831,
+              "loss_occurred": true,
+              "observed_event_range_valid": true,
+              "dropped_full": 1,
+              "dropped_contended": 0,
+              "dropped_poisoned": 0
+            },
+            {
+              "dropped": 1,
+              "observed_event_min_us": 54290839,
+              "observed_event_max_us": 54290839,
+              "record_bytes": 200,
+              "queue_bytes": 440,
+              "metrics_stack_free_bytes": 1164,
+              "export_us": 55386173,
+              "loss_occurred": true,
+              "observed_event_range_valid": true,
+              "dropped_full": 1,
+              "dropped_contended": 0,
+              "dropped_poisoned": 0
+            }
+          ],
+          "validation_error": "encoder telemetry export loss",
+          "final_delivery_certified": false
+        },
+        "listener": {
+          "count": 3,
+          "values": [
+            {
+              "dropped": 0,
+              "observed_event_min_us": 22454311,
+              "observed_event_max_us": 22460435,
+              "record_bytes": 248,
+              "queue_bytes": 2024,
+              "metrics_stack_free_bytes": 1276,
+              "export_us": 44645977,
+              "loss_occurred": false,
+              "observed_event_range_valid": true,
+              "dropped_full": 0,
+              "dropped_contended": 0,
+              "dropped_poisoned": 0
+            },
+            {
+              "dropped": 0,
+              "observed_event_min_us": 42627851,
+              "observed_event_max_us": 42629855,
+              "record_bytes": 248,
+              "queue_bytes": 2024,
+              "metrics_stack_free_bytes": 1164,
+              "export_us": 50395499,
+              "loss_occurred": false,
+              "observed_event_range_valid": true,
+              "dropped_full": 0,
+              "dropped_contended": 0,
+              "dropped_poisoned": 0
+            },
+            {
+              "dropped": 0,
+              "observed_event_min_us": 44453146,
+              "observed_event_max_us": 44645403,
+              "record_bytes": 248,
+              "queue_bytes": 2024,
+              "metrics_stack_free_bytes": 1164,
+              "export_us": 52333451,
+              "loss_occurred": false,
+              "observed_event_range_valid": true,
+              "dropped_full": 0,
+              "dropped_contended": 0,
+              "dropped_poisoned": 0
+            }
+          ],
+          "validation_error": null,
+          "final_delivery_certified": false
+        }
+      },
+      "analysis_sha256": "80da50b2e6e5653bf5f638d5e12c43d4be4930eb7f024170c6d03d170b16185d",
+      "verdict": "failed",
+      "source_dir": "target/kata-hardening/encoder-telemetry-device/trial-1",
+      "decoded_audio_seconds": [
+        7.368,
+        9.072
+      ],
+      "complete_uart_lines": 175,
+      "truncated_tail_bytes": 901,
+      "capture_frames": [
+        477360,
+        2249760
+      ],
+      "complete_capture_reports": 3,
+      "slow_scenario_ran": false
+    },
+    "2": {
+      "source_sha256": {
+        "aplay.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "events.jsonl": "7cdee2eb07238ff9177043bf1551cddc79b1db51fe8c6fc5ab45e16c9cbc54fa",
+        "image.elf": "1eca73c09675d41d74a2c1d5b76477f20871548a6a9b1f50014576a938b19f71",
+        "result.json": "856f38a0deb2213a8d41c43865c9358ca1675d6c351bec2ea2f4307718ce8b1d",
+        "slow/reclaimed-slot.ffmpeg.log": "7ea3af4ebe4a74b4eddc5a19425e1b81195028227f893302724659248056f9ef",
+        "slow/reclaimed-slot.framehash": "4f9f371eb2fb6b3ad89ded3a002e68884f7fb478a1fbc13fd0450d284d6013f6",
+        "slow/reclaimed-slot.mp3": "280959fe30741087c6fadc319228c1b402d7813166af2b7db9a804170b875f24",
+        "slow/result.json": "5ef4f92daa9ae55e0b721ed328477caa1132b226a09381391dad233d8da2ae80",
+        "slow-cleanup.json": "21e2123acac4a4b9571577869d6c4c37792592a0146e0f0b0cc07ce9e41c0945",
+        "slow-uart-cleanup.json": "3fb1aafc96382fac9d1d06b65c933836a82fbc9cb7e376b6bc8ea74f3f2afdcc",
+        "slow-uart.log": "15977cd4aecf93e01fe6fb2a29494223c3d2d18a4c42cc4813092bd2a26d3fe0",
+        "slow.log": "f442e31afee3d50393e491da224e0e4ff04c5a345d1d2ca835d4de28e1df3e6e",
+        "source-liveness.jsonl": "7d0042a851009d27454a15c0df2591b077583c2ba1f6e58881b0990cda25d98a"
+      },
+      "generation": [
+        {
+          "window": 1,
+          "frame_delta": 416,
+          "span_us": 10015602,
+          "ratio": 0.9968447228633885,
+          "contiguous": true
+        },
+        {
+          "window": 2,
+          "frame_delta": 416,
+          "span_us": 10012063,
+          "ratio": 0.9971970811609956,
+          "contiguous": true
+        },
+        {
+          "window": 3,
+          "frame_delta": 400,
+          "span_us": 10000334,
+          "ratio": 0.9599679370709018,
+          "contiguous": true
+        },
+        {
+          "window": 4,
+          "frame_delta": 399,
+          "span_us": 10019600,
+          "ratio": 0.9557267755199809,
+          "contiguous": true
+        },
+        {
+          "window": 7,
+          "frame_delta": 1200,
+          "span_us": 30055766,
+          "ratio": 0.9582187990151375,
+          "contiguous": false
+        },
+        {
+          "window": 8,
+          "frame_delta": 417,
+          "span_us": 10002776,
+          "ratio": 1.0005222550220059,
+          "contiguous": true
+        }
+      ],
+      "missing_windows": [
+        5,
+        6
+      ],
+      "fault_values": {
+        "queue_overflows": [
+          17,
+          17,
+          17,
+          17,
+          17
+        ],
+        "software_dropped_frames": [
+          480,
+          480,
+          480,
+          480,
+          480
+        ],
+        "read_errors": [
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "restarts": [
+          2,
+          2,
+          2,
+          2,
+          2
+        ],
+        "supervisor_restarts": [
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "overflow_restarts": [
+          2,
+          2,
+          2,
+          2,
+          2
+        ],
+        "settling_discarded_frames": [
+          26400,
+          26400,
+          26400,
+          26400,
+          26400
+        ],
+        "discontinuities": [
+          2,
+          2,
+          2,
+          2,
+          2
+        ],
+        "health_restart_requests": [
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "stack_minima_bytes": {
+        "metrics_stack_free_bytes": 1148,
+        "listener_stack_free_bytes": 1664,
+        "encoder_stack_free_bytes": 5192
+      },
+      "heap_minima_complete_reports": {
+        "internal_free": 61287,
+        "internal_largest": 55296,
+        "psram_free": 2766440,
+        "psram_largest": 2359296,
+        "internal_min_sum": 55951,
+        "psram_min_sum": 363548
+      },
+      "capture_stack_watermark": "absent",
+      "receipts": {
+        "encoder": {
+          "count": 7,
+          "values": [
+            {
+              "dropped": 0,
+              "observed_event_min_us": 4246451,
+              "observed_event_max_us": 4246451,
+              "record_bytes": 200,
+              "queue_bytes": 440,
+              "metrics_stack_free_bytes": 1548,
+              "export_us": 4317163,
+              "loss_occurred": false,
+              "observed_event_range_valid": true,
+              "dropped_full": 0,
+              "dropped_contended": 0,
+              "dropped_poisoned": 0
+            },
+            {
+              "dropped": 0,
+              "observed_event_min_us": 4446289,
+              "observed_event_max_us": 4446289,
+              "record_bytes": 200,
+              "queue_bytes": 440,
+              "metrics_stack_free_bytes": 1516,
+              "export_us": 4870565,
+              "loss_occurred": false,
+              "observed_event_range_valid": true,
+              "dropped_full": 0,
+              "dropped_contended": 0,
+              "dropped_poisoned": 0
+            },
+            {
+              "dropped": 0,
+              "observed_event_min_us": 14461891,
+              "observed_event_max_us": 14461891,
+              "record_bytes": 200,
+              "queue_bytes": 440,
+              "metrics_stack_free_bytes": 1244,
+              "export_us": 15202589,
+              "loss_occurred": false,
+              "observed_event_range_valid": true,
+              "dropped_full": 0,
+              "dropped_contended": 0,
+              "dropped_poisoned": 0
+            },
+            {
+              "dropped": 0,
+              "observed_event_min_us": 24473954,
+              "observed_event_max_us": 24473954,
+              "record_bytes": 200,
+              "queue_bytes": 440,
+              "metrics_stack_free_bytes": 1244,
+              "export_us": 25268531,
+              "loss_occurred": false,
+              "observed_event_range_valid": true,
+              "dropped_full": 0,
+              "dropped_contended": 0,
+              "dropped_poisoned": 0
+            },
+            {
+              "dropped": 3,
+              "observed_event_min_us": 34474288,
+              "observed_event_max_us": 44493888,
+              "record_bytes": 200,
+              "queue_bytes": 440,
+              "metrics_stack_free_bytes": 1244,
+              "export_us": 73221232,
+              "loss_occurred": true,
+              "observed_event_range_valid": true,
+              "dropped_full": 3,
+              "dropped_contended": 0,
+              "dropped_poisoned": 0
+            },
+            {
+              "dropped": 3,
+              "observed_event_min_us": 74549654,
+              "observed_event_max_us": 74549654,
+              "record_bytes": 200,
+              "queue_bytes": 440,
+              "metrics_stack_free_bytes": 1180,
+              "export_us": 77061813,
+              "loss_occurred": true,
+              "observed_event_range_valid": true,
+              "dropped_full": 3,
+              "dropped_contended": 0,
+              "dropped_poisoned": 0
+            },
+            {
+              "dropped": 3,
+              "observed_event_min_us": 84552430,
+              "observed_event_max_us": 84552430,
+              "record_bytes": 200,
+              "queue_bytes": 440,
+              "metrics_stack_free_bytes": 1148,
+              "export_us": 85513561,
+              "loss_occurred": true,
+              "observed_event_range_valid": true,
+              "dropped_full": 3,
+              "dropped_contended": 0,
+              "dropped_poisoned": 0
+            }
+          ],
+          "validation_error": "encoder telemetry export loss",
+          "final_delivery_certified": false
+        },
+        "listener": {
+          "count": 5,
+          "values": [
+            {
+              "dropped": 0,
+              "observed_event_min_us": 25265222,
+              "observed_event_max_us": 25868480,
+              "record_bytes": 248,
+              "queue_bytes": 2024,
+              "metrics_stack_free_bytes": 1244,
+              "export_us": 72044027,
+              "loss_occurred": false,
+              "observed_event_range_valid": true,
+              "dropped_full": 0,
+              "dropped_contended": 0,
+              "dropped_poisoned": 0
+            },
+            {
+              "dropped": 0,
+              "observed_event_min_us": 35676573,
+              "observed_event_max_us": 35677025,
+              "record_bytes": 248,
+              "queue_bytes": 2024,
+              "metrics_stack_free_bytes": 1180,
+              "export_us": 75920001,
+              "loss_occurred": false,
+              "observed_event_range_valid": true,
+              "dropped_full": 0,
+              "dropped_contended": 0,
+              "dropped_poisoned": 0
+            },
+            {
+              "dropped": 0,
+              "observed_event_min_us": 37878333,
+              "observed_event_max_us": 51737870,
+              "record_bytes": 248,
+              "queue_bytes": 2024,
+              "metrics_stack_free_bytes": 1180,
+              "export_us": 77840566,
+              "loss_occurred": false,
+              "observed_event_range_valid": true,
+              "dropped_full": 0,
+              "dropped_contended": 0,
+              "dropped_poisoned": 0
+            },
+            {
+              "dropped": 0,
+              "observed_event_min_us": 52940363,
+              "observed_event_max_us": 52941953,
+              "record_bytes": 248,
+              "queue_bytes": 2024,
+              "metrics_stack_free_bytes": 1148,
+              "export_us": 79381327,
+              "loss_occurred": false,
+              "observed_event_range_valid": true,
+              "dropped_full": 0,
+              "dropped_contended": 0,
+              "dropped_poisoned": 0
+            },
+            {
+              "dropped": 0,
+              "observed_event_min_us": 72041728,
+              "observed_event_max_us": 72043394,
+              "record_bytes": 248,
+              "queue_bytes": 2024,
+              "metrics_stack_free_bytes": 1148,
+              "export_us": 81113333,
+              "loss_occurred": false,
+              "observed_event_range_valid": true,
+              "dropped_full": 0,
+              "dropped_contended": 0,
+              "dropped_poisoned": 0
+            }
+          ],
+          "validation_error": null,
+          "final_delivery_certified": false
+        }
+      },
+      "analysis_sha256": "843e08559075bc7cd69066ad9fd8f5da9a8d310bd7e67974e1f75c6df507f730",
+      "verdict": "failed",
+      "source_dir": "target/kata-hardening/encoder-telemetry-device/trial-2",
+      "fast_accepted_bytes": 1391040,
+      "fast_accepted_audio_seconds": 34.776,
+      "fast_decoded_audio_measured": false,
+      "third_probe_decoded_frames": 11520,
+      "complete_capture_reports": 5,
+      "capture_frames": [
+        477840,
+        4008720
+      ],
+      "observed_raw_overrun": 1,
+      "observed_cumulative_resets": 1
+    }
+  },
+  "harness_identity": "Per-trial original file hashes are authoritative; trial 1 ran during the Python routing follow-up, trial 2 after c2ba29a. No firmware edits."
+}

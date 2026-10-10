@@ -844,3 +844,14 @@ Probe routing readbacks must check gain as well as jack switches. Master is mono
 and must be on at 0 dB; PCM has two gain channels and no switch. Validate each
 declared channel instead of counting duplicate tokens. These controls do not
 prove that the ADC received the intended signal.
+
+A failed soak summary can precede further decoder output during its observation
+tail. For final decoded totals, count the retained framehash rows and preserve
+the earlier summary as its own observation. In probe builds, a reset keeps
+cumulative frame totals but starts a fresh timing baseline; subtract the actual
+replacement-boundary count rather than the prior window's count.
+
+Moving probe Storage formatting onto metrics measured only 428 bytes free on its
+4 KiB stack in the October 10 failed diagnostic. Linked application frame sums
+omit recursive Debug/logger/libc work. Static arithmetic cannot certify runtime
+margin; exercise the real storage renderer before accepting that extraction.

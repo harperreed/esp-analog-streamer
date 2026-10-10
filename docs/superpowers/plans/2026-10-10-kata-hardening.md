@@ -1,7 +1,7 @@
 # Finish the Kata hardening backlog
 
 Doctor Biz's active goal on October 10: finish all Kata work, then assess.
-Base c134069 on wip/kata-capture-protection. Compactions in this phase: 9; latest implementation checkpoint is bb56186.
+Base c134069 on wip/kata-capture-protection. Compactions in this phase: 9; latest firmware implementation checkpoint is 05cf802.
 Use GPT-6.1 Sol subagents with clean contexts. Parent owns review, integration,
 canonical checks, commits and every hardware action. Continue through batches;
 a phase checkpoint is not a reason to abandon the active goal.
@@ -471,3 +471,26 @@ Coverage evidence now distinguishes historical unimplemented CI from the later
 checked-in workflow; hosted execution remains unverified. Independent source/link
 review and parent fresh-eyes pass. This is a review contract, not an implemented
 CI aggregator or dedicated HIL runner; 97bk/m31k remain open for those gates.
+
+Device acceptance for 05cf802 failed. Independent reviews verified all original
+hashes and producer-time accounting. Default two-listener trial decoded 7.368 /
+9.072 seconds, with one full encoder queue drop and missing window 4. Slow-only
+trial reclaimed a slot and decoded ten probe frames, but fast delivery failed;
+three encoder queue drops hide windows 5/6, and window 7 proves raw overrun/reset.
+Observed metrics minima are 1164 / 1148 bytes, not safe worst-case allowances.
+Receipts: encoder-telemetry-default-device.md/.json in October 10 audit evidence.
+
+Probe image ran no media listeners. Five raw overruns repeatedly invalidated its
+first OFF1 interval; baseline-backed output was roughly 0.87x real time. Storage
+and Window paths ran, with metrics minimum free stack 428 bytes. Parent ended
+the partial acquisition through its SIGTERM cleanup handler after sufficient
+failure evidence; original canceled result and raw bytes remain. Independent
+strict replay and provenance review agree. Receipt: encoder-telemetry-probe-device
+.md/.json. No completed OFF/ON/OFF, performance pass or overflow proof is claimed.
+
+Parent restored the exact default unified image, verified stopped MP3/Medium,
+autoplay and recognition off, and checked routing with no mixer writes. Source
+and UART cleanup passed before every reset. Kata 21tp/wbz6 comments retain all
+failed gates. Next investigate measured exporter stack cost and delay using
+pinned logger/task source; do not enlarge queues/stacks or tune priority blindly.
+The new release contract and CI-status clarification are committed as 5eb5786.
