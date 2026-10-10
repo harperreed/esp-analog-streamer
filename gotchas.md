@@ -839,3 +839,8 @@ The real stream boot starts FLAC before Sonos applies saved MP3. Probe acceptanc
 must validate the complete inactive startup replacement, not reject every switch
 or alter firmware startup to suit a synthetic fixture. Active invalidation and
 raw loss still reject; preserve archived negative evidence unchanged.
+
+Probe routing readbacks must check gain as well as jack switches. Master is mono
+and must be on at 0 dB; PCM has two gain channels and no switch. Validate each
+declared channel instead of counting duplicate tokens. These controls do not
+prove that the ADC received the intended signal.

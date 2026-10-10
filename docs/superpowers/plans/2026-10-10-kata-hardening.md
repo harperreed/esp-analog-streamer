@@ -455,3 +455,11 @@ defect and corrected the capture plan's no-retry claim to match target CAS loops
 Build receipt: docs/audit-evidence/2026-10-10/encoder-telemetry-build.md. Next:
 commit, then bounded exact-image default and probe trials, preserving failures.
 No queue, stack, codec, priority or buffering policy change accompanied this unit.
+
+Encoder/capture extraction is committed as 05cf802. Its exact default image
+flashed successfully. Bounded two-listener trial1 reached premature MP3 EOF;
+retain the failure and complete cleanup before the separate slow-reader trial.
+The probe preflight also omitted Master/PCM gain checks. A Sol6.1 follow-up now
+validates each declared channel plus Master unmuted, with actual archived
+readback fixtures, runtime negative controls and passing check-harnesses.
+No mixer writes or firmware changes accompany that harness correction.

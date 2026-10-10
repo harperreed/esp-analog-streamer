@@ -633,6 +633,21 @@ def parse_args(argv=None):
     return args
 
 
+def require_routing(control, expected, returncode, stdout):
+    """Check each declared playback channel in a read-only amixer receipt."""
+    if 'Playback channels: Mono' in stdout:
+        channels = ('Mono',)
+    elif 'Playback channels: Front Left - Front Right' in stdout:
+        channels = ('Front Left', 'Front Right')
+    else:
+        raise ValueError('unknown playback channels: ' + control)
+    rows = [line.strip() for line in stdout.splitlines()]
+    if returncode or any(not any(row.startswith(channel + ': Playback ') and expected in row
+                                and (control != 'Master' or '[on]' in row)
+                                for row in rows) for channel in channels):
+        raise ValueError('unexpected routing/gain: ' + control)
+
+
 def remaining_timeout(deadline, now=None, maximum=8):
     remaining = deadline - (time.monotonic() if now is None else now)
     if remaining <= 0:
@@ -751,7 +766,7 @@ def main(argv=None):
 
     def routing(label, final=False):
         reads = {}
-        for control, expected in [('Headphone', '[on]'), ('Line Out', '[off]'), ('Master', None), ('PCM', None)]:
+        for control, expected in [('Headphone', '[on]'), ('Line Out', '[off]'), ('Master', '[0.00dB]'), ('PCM', '[0.00dB]')]:
             timeout = (remaining_timeout(final_deadline, maximum=1) if final else
                        5 if deadline is None else remaining_timeout(deadline, maximum=5))
             if timeout <= 0:
@@ -759,8 +774,7 @@ def main(argv=None):
             command = subprocess.run(['amixer', '-c', 'PCH', 'sget', control], capture_output=True, text=True, timeout=timeout)
             reads[control] = dict(stdout=command.stdout, stderr=command.stderr, returncode=command.returncode)
             event('routing_readback', label=label, control=control, **reads[control])
-            if command.returncode or expected and command.stdout.count(expected) < 2:
-                raise ValueError('unexpected frontend routing: ' + control)
+            require_routing(control, expected, command.returncode, command.stdout)
         return reads
 
     def collect():

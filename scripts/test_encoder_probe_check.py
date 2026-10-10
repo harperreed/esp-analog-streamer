@@ -77,6 +77,74 @@ def analyze_file(rows):
         return probe.analyze(probe.load_uart(root))
 
 
+class Routing(unittest.TestCase):
+    # Actual amixer readbacks from listener-telemetry-device/trial-3.
+    READBACKS = {
+        'Headphone': (
+            "Simple mixer control 'Headphone',0\n"
+            '  Capabilities: pvolume pswitch\n'
+            '  Playback channels: Front Left - Front Right\n'
+            '  Limits: Playback 0 - 87\n'
+            '  Mono:\n'
+            '  Front Left: Playback 87 [100%] [0.00dB] [on]\n'
+            '  Front Right: Playback 87 [100%] [0.00dB] [on]\n'
+        ),
+        'Line Out': (
+            "Simple mixer control 'Line Out',0\n"
+            '  Capabilities: pvolume pswitch\n'
+            '  Playback channels: Front Left - Front Right\n'
+            '  Limits: Playback 0 - 87\n'
+            '  Mono:\n'
+            '  Front Left: Playback 87 [100%] [0.00dB] [off]\n'
+            '  Front Right: Playback 87 [100%] [0.00dB] [off]\n'
+        ),
+        'Master': (
+            "Simple mixer control 'Master',0\n"
+            '  Capabilities: pvolume pvolume-joined pswitch pswitch-joined\n'
+            '  Playback channels: Mono\n'
+            '  Limits: Playback 0 - 87\n'
+            '  Mono: Playback 87 [100%] [0.00dB] [on]\n'
+        ),
+        'PCM': (
+            "Simple mixer control 'PCM',0\n"
+            '  Capabilities: pvolume\n'
+            '  Playback channels: Front Left - Front Right\n'
+            '  Limits: Playback 0 - 255\n'
+            '  Mono:\n'
+            '  Front Left: Playback 255 [100%] [0.00dB]\n'
+            '  Front Right: Playback 255 [100%] [0.00dB]\n'
+        ),
+    }
+
+    def test_declared_mono_and_stereo_routing_readbacks(self):
+        for control, expected in (('Headphone', '[on]'), ('Line Out', '[off]'),
+                                  ('Master', '[0.00dB]'), ('PCM', '[0.00dB]')):
+            with self.subTest(control=control):
+                probe.require_routing(control, expected, 0, self.READBACKS[control])
+
+    def test_muted_master_rejects_zero_db_readback(self):
+        muted = self.READBACKS['Master'].replace('[on]', '[off]')
+        with self.assertRaises(ValueError):
+            probe.require_routing('Master', '[0.00dB]', 0, muted)
+
+    def test_each_declared_channel_requires_the_expected_value(self):
+        for control, expected in (('Headphone', '[on]'), ('Line Out', '[off]'),
+                                  ('Master', '[0.00dB]'), ('PCM', '[0.00dB]')):
+            text = self.READBACKS[control]
+            invalid = [text.replace(expected, '[wrong]', 1),
+                       text.replace('Playback channels:', 'Unknown channels:')]
+            if control != 'Master':
+                missing_channel = '\n'.join(line for line in text.splitlines()
+                                            if not line.strip().startswith('Front Right: Playback '))
+                invalid.append(missing_channel.replace(expected, expected + ' ' + expected))
+            for bad in invalid:
+                with self.subTest(control=control, text=bad):
+                    with self.assertRaises(ValueError):
+                        probe.require_routing(control, expected, 0, bad)
+            with self.assertRaises(ValueError):
+                probe.require_routing(control, expected, 1, text)
+
+
 class Availability(unittest.TestCase):
     def test_module_available(self):
         self.assertIsNotNone(SPEC, 'importable bounded encoder probe harness is missing')
