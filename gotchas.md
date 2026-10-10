@@ -817,3 +817,8 @@ formatting kept an 800-byte metrics frame beneath the 992-byte exporter. An
 out-of-line capture boundary reduces that caller to 208 bytes in both linked
 builds. Inspect actual call frames before increasing task stacks; static savings
 still need device watermarks. See the October 10 metrics-stack-isolation evidence.
+
+The matching stack-boundary repeats measured 1188 bytes free versus 420/580 in
+the original soak/slow trials, without enlarging the task. Delivery still failed.
+The repeated slow test ended before its third admission, so zero export loss in
+that smaller event sequence cannot clear the earlier dropped record.

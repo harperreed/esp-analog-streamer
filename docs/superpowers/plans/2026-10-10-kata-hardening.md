@@ -377,3 +377,19 @@ output. Build receipt: docs/audit-evidence/2026-10-10/metrics-stack-isolation.md
 Next: commit the reviewed boundary, flash its exact default unified ELF, and
 repeat bounded two-listener and slow-only measurements with the same source.
 Do not close 21tp or add encoder output based on linked sizes alone.
+
+Stack boundary committed as 3b3afdb and flashed. Both bounded repeats measured
+1188 bytes minimum free metrics stack, versus 420/580 in prior soak/slow trials.
+Both still failed delivery; the slow repeat failed before third admission, so
+its zero-loss record set is smaller and cannot clear the original loss. Strict
+complete-line analysis and all 27 evidence hashes passed independent review.
+See metrics-stack-device.md and JSON in the October 10 evidence directory.
+Source/UART cleanup passed; stopped MP3/Medium, autoplay/recognition off remains.
+
+Next unit: distinguish full, contended and poisoned listener publication drops
+without changing capacity or scheduling. Binding brief:
+2026-10-10-listener-loss-reasons.md. The existing nine-field acceptance contract
+and loss rejection remain; attribution adds a strict three-counter reader.
+Implementation is in progress with a clean-context Sol 6.1 worker; parent still
+owns independent review, target builds, canonical checks and hardware. Encoder
+export and broader recovery/admission architecture remain separate.
