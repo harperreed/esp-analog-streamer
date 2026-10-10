@@ -484,8 +484,6 @@
         },
         "retry_queue_flac_medium": true,
         "limitation": "Unread payload and HTTP slot capacity prove admission/retirement state, not a blocked sender write.",
-        "commit_to_stop_request_seconds": 5.8440957218408585e-05,
-        "commit_to_stop_accepted_seconds": 0.20392420794814825,
         "elapsed_seconds": 26.794491,
         "http_probe_proves_sender_blocking": false,
         "uart_frame_write_stall_observed": {
@@ -500,7 +498,9 @@
           "old_slots_release_device_ms": 161792,
           "format_commit_device_ms": 152432,
           "interpretation": "Nonblocking deadline-writer progress stalled across retirement; not a claim that libc send blocked or that the network failure hop is known."
-        }
+        },
+        "host_observed_commit_to_stop_request_seconds": 5.8440957218408585e-05,
+        "host_observed_commit_to_stop_accepted_seconds": 0.20392420794814825
       },
       "run_id_utc": "20261010T034411Z",
       "capture_and_memory": {
@@ -675,6 +675,8 @@
     "Capture counters include startup faults; only settled-baseline deltas are zero.",
     "Memory figures are sampled; per-region low-water sums are not simultaneous free memory or a long-term leak bound.",
     "Blocked-retry HTTP proof is augmented by the UART write-timeout observations in the companion markdown.",
-    "Raw logs and identifiers remain private under target/runtime-codec."
+    "Raw logs and identifiers remain private under target/runtime-codec.",
+    "Stop timing starts when the host observed active format, not at the actual firmware commit; host and UART clocks are unsynchronized.",
+    "Empty helper errors means assertions passed; UART retains external MQTT/TLS connection timeouts."
   ]
 }

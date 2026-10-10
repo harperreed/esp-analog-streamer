@@ -76,15 +76,35 @@ gates, including real Chromium and occupied-slot retry. Both receipts are retain
 - [x] Run real source/decode switches both directions, repeated cycles, reboot
   persistence and buffer/queue checks; record capture and memory deltas.
 - [x] Leave unified firmware with MP3 selected, stopped/autoplay off/Medium.
-- [ ] Save sanitized evidence and known P1 delivery limits, update Kata, fresh-eyes
+- [x] Save sanitized evidence and known P1 delivery limits, update Kata, fresh-eyes
   review and local commit. Do not call runtime selection a throughput fix.
+
+Feature committed as `fa7f610`; Kata `ckcc` closed with canonical and hardware
+evidence. Runtime-codec report retains the first failed High MP3 run and the later
+passing feature run. Independent evidence review confirmed capture/heap/decode
+arithmetic and clarified HTTP-only proof versus actual UART frame-write stalls.
 
 ## Next reliability experiment
 
-Matched MP3/FLAC/MP3 staged trials are running on the unchanged unified image:
+Matched MP3/FLAC/MP3 staged trials completed on the unchanged unified image:
 `target/runtime-codec/matched/20261010T035157Z`. Each measures 30 seconds solo,
-then a second receiver through 90 seconds. Preserve actual overlap and catch-up
-separately; parent owns UART and front-jack noise source. No Sonos Play or reflash.
+then a second receiver through 90 seconds. Both MP3 trials lost both listeners;
+FLAC retained both for 90 seconds, with a small delivery deficit during overlap.
+Preserve actual overlap and catch-up separately. No Sonos Play or reflash occurred.
+Source/UART cleanup completed; direct API readback confirmed stopped MP3/Medium,
+autoplay off. Do not repeat until green: collect new sender evidence next.
 Same-image MP3 encode time varied across feature runs; allocation/cache placement
 is a hypothesis, not an established cause. Record delivery results before choosing
 the next measured change. Kata e8hd stays open for these failed reliability gates.
+
+## Continuation
+
+This implementation phase is complete. Start fresh from this plan and the matched
+report for the next phase; do not reimplement settings or rerun their accepted
+checks without a relevant change. The next bounded diagnostic should separate
+nonblocking-send acceptance, writable waits and scheduling time. Keep the pinned
+lwIP source evidence with that design; TCP_NODELAY and PSRAM placement are
+hypotheses, not fixes already justified by the comparison. Next task is Kata
+`d2cb` (P0, child of `pd6c`), scoped in
+[sender-timing plan](2026-10-09-sender-timing.md). The comparison is archived in
+[runtime-codec-matched.md](../../audit-evidence/2026-10-09/runtime-codec-matched.md).

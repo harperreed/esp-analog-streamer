@@ -60,7 +60,10 @@ frame writes, not a claim that a libc send call blocked. They do not identify
 an RF/AP/TCP failure hop.
 
 Both runs finished stopped with MP3 selected, Medium buffer, autoplay off and
-no firmware rollback. The complete run did not change volume.
+no firmware rollback. The complete run did not change volume. Stop timing in JSON
+begins when the host observed the format commit; it does not measure the actual commit time. Host and
+UART clocks were not synchronized. UART also retained existing external MQTT/TLS
+connection timeouts; passing helper assertions do not mean error-free logs.
 
 ## Capture, memory and limits
 

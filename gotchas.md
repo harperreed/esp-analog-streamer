@@ -14,6 +14,19 @@ the browser's eight-second POST budget covers its five-second deadline. A browse
 timeout means the outcome is unknown. Every Play retry waits for listener capacity,
 even if a canceled earlier Play already committed the requested codec.
 
+The unified-image MP3/FLAC/MP3 comparison on October 9 reproduced both MP3
+listeners overrunning in both repeats, while capture and encoding stayed current.
+FLAC kept its sockets for 90 seconds but delivered only about 96% of real time
+during overlap. Socket survival is not a throughput pass. Preserve actual joint
+and survivor-only intervals whichever listener ends first. See
+docs/audit-evidence/2026-10-09/runtime-codec-matched.md.
+
+Pinned IDF 5.5.5 lwIP with TCP/IP core locking disabled posts socket API work
+to a mailbox and waits on a completion semaphore even for nonblocking sends.
+Long send-call wall time does not by itself prove send-buffer pressure. Measure
+accepted bytes, send-call time and WouldBlock/poll time separately before changing
+priorities or Nagle. The generated build uses MSS 1440, not an assumed 1460.
+
 Doctor Biz corrected stopping after the MP3 benchmark on October 9: the standing
 instruction was to start and continue the implementation. Treat the benchmark
 as a checkpoint when the follow-on prototype is already authorized; do not turn
