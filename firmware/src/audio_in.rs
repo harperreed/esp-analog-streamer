@@ -14,6 +14,7 @@ use esp_shazam_core::audio::{samples_from_i2s_slots, SampleRing, StereoLevelMete
 use esp_shazam_core::capture_buffer::CaptureBuffer;
 use esp_shazam_core::capture_health::{Action, CaptureHealth};
 use esp_shazam_core::stream_ring::StreamRing;
+use esp_shazam_core::task_observation::{Counts, Gate, Phase, Receipt, PHASES};
 
 use crate::capture_failure_telemetry::{ExportState, FailureKind, Handoff, Summary};
 use crate::config::CONFIG;
@@ -72,6 +73,12 @@ static SETTLING_DISCARDED_FRAMES: AtomicU32 = AtomicU32::new(0);
 static READ_SERVICE_DELAY_US: AtomicU32 = AtomicU32::new(0);
 // The capture owner never returns or deletes its task; metrics only reads its runtime counter.
 static CAPTURE_TASK: AtomicPtr<c_void> = AtomicPtr::new(std::ptr::null_mut());
+// Metrics never returns or deletes its task; revisit this observer before changing that lifetime.
+static METRICS_TASK: AtomicPtr<c_void> = AtomicPtr::new(std::ptr::null_mut());
+// Supervisor also never returns or deletes its task; metrics alone scans its stack.
+static SUPERVISOR_TASK: AtomicPtr<c_void> = AtomicPtr::new(std::ptr::null_mut());
+static METRICS_PHASE: AtomicU32 = AtomicU32::new(Phase::Init as u32);
+static METRICS_OBSERVATIONS: Receipt = Receipt::new();
 static HEALTH_RESTART_REQUESTS: AtomicU32 = AtomicU32::new(0);
 static GAPS: AtomicU32 = AtomicU32::new(0);
 static RAW_WORK_US: AtomicU32 = AtomicU32::new(0);
@@ -126,7 +133,7 @@ pub fn spawn_capture(
         priority: 11,
         stack_bytes: 4 * 1024,
     }
-    .spawn(supervise)?;
+    .spawn(|| supervise())?;
     // Keep ordinary UART and heap work below the shared encoder's priority.
     ThreadSpec {
         name: c"audio-metrics",
@@ -134,7 +141,7 @@ pub fn spawn_capture(
         priority: 3,
         stack_bytes: 4 * 1024,
     }
-    .spawn(metrics)?;
+    .spawn(|| metrics())?;
     ThreadSpec {
         name: c"audio",
         core: Core::Core0,
@@ -322,8 +329,15 @@ fn record_staging(frames: usize, now: u64, since: &mut Option<u64>, attempts: &m
     STAGED_MAX_FRAMES.fetch_max(frames as u32, Ordering::Relaxed);
 }
 
-fn supervise() {
+fn supervise() -> ! {
+    // SAFETY: this diverging task stays live for the boot; pinned ESP-IDF panics abort.
+    let task = unsafe { esp_idf_svc::sys::xTaskGetCurrentTaskHandle() };
+    SUPERVISOR_TASK.store(task.cast(), Ordering::Release);
     let launched = micros();
+    let mut sampling = Gate::new(launched);
+    let mut observations = Counts::new();
+    let mut metrics_task = std::ptr::null_mut();
+    let mut status = esp_idf_svc::sys::TaskStatus_t::default();
     // Startup shares the stall grace even if capture is blocked before STARTED.
     let mut health = CaptureHealth::new(
         STALL_MS,
@@ -344,11 +358,19 @@ fn supervise() {
                 unsafe { esp_idf_svc::sys::esp_restart() }
             }
         }
+        if sampling.due(micros(), 1_000_000) {
+            observe_metrics(&mut observations, &mut metrics_task, &mut status);
+            METRICS_OBSERVATIONS.publish(&observations);
+        }
         std::thread::sleep(Duration::from_millis(100));
     }
 }
 
-fn metrics() {
+fn metrics() -> ! {
+    METRICS_PHASE.store(Phase::Init as u32, Ordering::Relaxed);
+    // SAFETY: this diverging task stays live for the boot; pinned ESP-IDF panics abort.
+    let task = unsafe { esp_idf_svc::sys::xTaskGetCurrentTaskHandle() };
+    METRICS_TASK.store(task.cast(), Ordering::Release);
     // Sole owner of IDF's process-global minimum-heap monitor. Allocate its small saved
     // minima array once at boot, before measuring rolling windows under listener load.
     let mut window_start_free = start_heap_window();
@@ -360,6 +382,7 @@ fn metrics() {
     let mut next_log = launched + 10_000_000;
     let mut runtime_sample = None;
     let mut failure_exports = ExportState::new();
+    let mut diagnostic_exports = Gate::new(launched);
     loop {
         let now = micros();
         let frames = FRAMES.load(Ordering::Relaxed);
@@ -374,25 +397,130 @@ fn metrics() {
         let requests = HEALTH_RESTART_REQUESTS.load(Ordering::Relaxed);
         if requests != requests_seen {
             requests_seen = requests;
+            METRICS_PHASE.store(Phase::HealthWarning as u32, Ordering::Relaxed);
             // Event delivery is asynchronous and may lag the capture owner's restart.
             log::warn!("audio: no captured-frame progress for {STALL_MS} ms; requesting restart (asynchronously observed; health_restart_requests={requests})");
+            METRICS_PHASE.store(Phase::Init as u32, Ordering::Relaxed);
         }
         if now >= next_log {
             if let Some(epoch) = epoch {
+                METRICS_PHASE.store(Phase::Capture as u32, Ordering::Relaxed);
                 log_capture(
                     now - epoch,
                     observed,
                     &mut window_start_free,
                     &mut runtime_sample,
                 );
+                METRICS_PHASE.store(Phase::Init as u32, Ordering::Relaxed);
             }
+            METRICS_PHASE.store(Phase::RestartExport as u32, Ordering::Relaxed);
             export_restart_failures(&mut failure_exports);
+            METRICS_PHASE.store(Phase::Init as u32, Ordering::Relaxed);
             next_log = now + 10_000_000;
         }
+        METRICS_PHASE.store(Phase::ListenerExport as u32, Ordering::Relaxed);
         crate::stream::export_listener_events();
+        METRICS_PHASE.store(Phase::Init as u32, Ordering::Relaxed);
+        METRICS_PHASE.store(Phase::EncoderExport as u32, Ordering::Relaxed);
         crate::stream::export_encoder_events();
+        METRICS_PHASE.store(Phase::Init as u32, Ordering::Relaxed);
+        if diagnostic_exports.due(micros(), 10_000_000) {
+            METRICS_PHASE.store(Phase::DiagnosticExport as u32, Ordering::Relaxed);
+            export_metrics_observations();
+            METRICS_PHASE.store(Phase::Init as u32, Ordering::Relaxed);
+        }
+        METRICS_PHASE.store(Phase::Sleep as u32, Ordering::Relaxed);
         std::thread::sleep(Duration::from_millis(100));
+        METRICS_PHASE.store(Phase::Init as u32, Ordering::Relaxed);
     }
+}
+
+// This query takes the kernel lock and has no hard latency bound. Health acts first.
+#[inline(never)]
+fn observe_metrics(
+    counts: &mut Counts,
+    seen: &mut *mut c_void,
+    status: &mut esp_idf_svc::sys::TaskStatus_t,
+) {
+    use esp_idf_svc::sys;
+    let task = METRICS_TASK.load(Ordering::Acquire);
+    if counts.invalidated || task.is_null() {
+        counts.unavailable();
+        return;
+    }
+    if !(*seen).is_null() && *seen != task {
+        counts.invalidated = true;
+        counts.unavailable();
+        return;
+    }
+    *seen = task;
+    let before = METRICS_PHASE.load(Ordering::Relaxed);
+    let started = micros();
+    // SAFETY: permanent metrics lifetime is required, not established by the later check.
+    // pdFALSE skips stack scanning; eInvalid requests the actual state.
+    unsafe { sys::vTaskGetInfo(task.cast(), status, 0, sys::eTaskState_eInvalid) };
+    let elapsed = micros().saturating_sub(started);
+    let after = METRICS_PHASE.load(Ordering::Relaxed);
+    let identity_matches =
+        status.xHandle.cast::<c_void>() == task && METRICS_TASK.load(Ordering::Acquire) == task;
+    counts.record(
+        before,
+        after,
+        status.eCurrentState,
+        elapsed,
+        identity_matches,
+    );
+}
+
+// Each leaf reads independent atomic values. Equal phases permit ABA; Ready includes
+// a metrics task preempted by supervisor. Counts are samples, never time in state.
+#[inline(never)]
+fn export_metrics_observations() {
+    let start_us = micros();
+    log_metrics_totals(start_us);
+    for phase in 0..PHASES {
+        log_metrics_phase(start_us, phase);
+    }
+    log_metrics_complete(start_us);
+}
+
+#[inline(never)]
+fn log_metrics_totals(start_us: u64) {
+    let receipt = &METRICS_OBSERVATIONS;
+    log::info!("metrics_state: schema=1 start_us={} independent=true attempted={} unavailable={} unassigned={} last_raw={} max_query_us={} saturated={} invalidated={}",
+        start_us, receipt.attempted.load(Ordering::Relaxed),
+        receipt.unavailable.load(Ordering::Relaxed), receipt.unassigned.load(Ordering::Relaxed),
+        receipt.last_raw.load(Ordering::Relaxed), receipt.max_query_us.load(Ordering::Relaxed),
+        receipt.saturated.load(Ordering::Relaxed), receipt.invalidated.load(Ordering::Relaxed));
+}
+
+#[inline(never)]
+fn log_metrics_phase(start_us: u64, phase: usize) {
+    log::info!(
+        "metrics_state_phase: schema=1 start_us={} phase={} ready={} blocked={} other={}",
+        start_us,
+        phase,
+        METRICS_OBSERVATIONS.counter(phase, 0),
+        METRICS_OBSERVATIONS.counter(phase, 1),
+        METRICS_OBSERVATIONS.counter(phase, 2)
+    );
+}
+
+#[inline(never)]
+fn log_metrics_complete(start_us: u64) {
+    let task = SUPERVISOR_TASK.load(Ordering::Acquire);
+    let stack_valid = !task.is_null();
+    let stack_min_bytes = if stack_valid {
+        // SAFETY: published supervisor is permanent. Pinned Xtensa StackType_t is u8,
+        // so this preemptible fill-byte scan reports bytes, not a coherent snapshot.
+        unsafe { esp_idf_svc::sys::uxTaskGetStackHighWaterMark(task.cast()) }
+    } else {
+        0
+    };
+    log::info!(
+        "metrics_state_complete: schema=1 start_us={} end_us={} phases=8 supervisor_stack_valid={} supervisor_stack_min_bytes={}",
+        start_us, micros(), stack_valid, stack_min_bytes
+    );
 }
 
 // Aggregate rare driver failures after capture reporting returns, outside the owner path.
