@@ -650,3 +650,19 @@ Shared require_state remains the source of truth; FLAC is limited to the strict
 90-second WAV acquisition. Next: parent selects saved and active FLAC while
 stopped on the archived image, collects the input, then explicitly restores MP3
 even after uncertain command delivery. If input fails, stop this collection route.
+
+The archived FLAC-selected attempt completed its acquisition but its WAV input
+failed after 1.465 seconds. Independent review verifies 0.999743x FLAC generation
+and zero observed encoder overrun/reset, separately from the listener's ring loss.
+Reports: metrics-state-flac-wav-input.md/.json. Parent reaped session 10016,
+verified no source/UART owner, and restored saved and active MP3/Medium with the
+complete original config. Sonos remains stopped. This ADC-fixture route is closed;
+do not run a current-image FLAC counterpart or accept partial bodies for host work.
+
+Next diagnosis: four monotonic readings around the three existing Shine phases,
+under a diagnostic feature with unchanged normal allocation and audio contracts.
+Keep existing queued metrics export/reporting cadence and interrupted tails as
+incomplete evidence. Source provenance review must distinguish the frozen eb38c65
+and bacdecb contexts from current HEAD; rate separation must survive instrumentation
+before interpreting phase differences. No cause, delivery pass or broader Kata
+completion follows from these measurements.
