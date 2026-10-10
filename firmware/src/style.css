@@ -1,0 +1,22 @@
+/* ABOUTME: Shared board-local styles for playback and audio settings.
+ * ABOUTME: Supports light and dark themes with readable native controls. */
+:root { color-scheme: light dark; --bg: #f6f5f2; --fg: #1b1b1b; --muted: #6b6b6b; --card: #ffffff; --accent: #0a66d8; }
+  @media (prefers-color-scheme: dark) { :root { --bg: #121212; --fg: #ececec; --muted: #9a9a9a; --card: #1d1d1d; --accent: #6aa8ff; } }
+  [hidden] { display: none !important; }
+  body { margin: 0; font: 16px/1.45 system-ui, sans-serif; background: var(--bg); color: var(--fg); }
+  main { max-width: 34rem; margin: 0 auto; padding: 1.5rem 1rem; }
+  .now { display: flex; gap: 1rem; align-items: center; background: var(--card); border-radius: 12px; padding: 1rem; }
+  .now img { width: 96px; height: 96px; border-radius: 8px; object-fit: cover; background: var(--muted); flex: none; }
+  .title { font-size: 1.3rem; font-weight: 600; }
+  .muted { color: var(--muted); font-size: .9rem; }
+  h2 { font-size: 1rem; margin-top: 2rem; }
+  ol { padding-left: 1.2rem; }
+  li { margin: .35rem 0; }
+  a { color: var(--accent); }
+  .sonos { background: var(--card); border-radius: 12px; padding: 1rem; margin-top: 1.5rem; }
+  .sonos h2 { margin-top: 0; }
+  .controls { display: flex; flex-wrap: wrap; gap: .5rem; margin: .75rem 0; }
+  button, select { font: inherit; padding: .45rem .65rem; }
+  select { width: 100%; }
+  button:disabled { opacity: .55; }
+  .error { color: #c34436; }

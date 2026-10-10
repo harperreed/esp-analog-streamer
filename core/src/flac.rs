@@ -201,15 +201,27 @@ impl Default for Encoder {
 
 impl Encoder {
     pub fn new() -> Self {
-        Self {
-            samples: vec![0; CHANNELS * BLOCK_FRAMES],
+        Self::try_new().expect("FLAC encoder allocation")
+    }
+
+    pub fn try_new() -> Result<Self, std::collections::TryReserveError> {
+        fn zeroes<T: Default + Clone>(
+            len: usize,
+        ) -> Result<Vec<T>, std::collections::TryReserveError> {
+            let mut values = Vec::new();
+            values.try_reserve_exact(len)?;
+            values.resize(len, T::default());
+            Ok(values)
+        }
+        Ok(Self {
+            samples: zeroes(CHANNELS * BLOCK_FRAMES)?,
             filled: 0,
             previous: [[0; MAX_FIXED_ORDER]; CHANNELS],
             partial: [[0; MAX_FIXED_ORDER + 1]; CHANNELS],
-            sums: vec![0; CHANNELS * (MAX_FIXED_ORDER + 1) * PARTITIONS],
-            parameters: vec![0; PARTITIONS],
-            best_parameters: vec![0; PARTITIONS],
-        }
+            sums: zeroes(CHANNELS * (MAX_FIXED_ORDER + 1) * PARTITIONS)?,
+            parameters: zeroes(PARTITIONS)?,
+            best_parameters: zeroes(PARTITIONS)?,
+        })
     }
 
     /// Discards the current block without replacing any buffers. A capture gap starts fresh

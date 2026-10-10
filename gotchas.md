@@ -4,8 +4,15 @@ Doctor Biz corrected automatic FLAC restoration on October 9: this board is
 actively iterating on MP3. Leave the current experimental MP3 firmware deployed
 between tests. Preserve stopped playback and settings, but do not confuse
 cleanup with firmware rollback. Keep the saved FLAC ELF for recovery; restore
-it only when requested or needed to recover a failed board. The default build
-can remain FLAC while the development board runs MP3.
+it only when requested or needed to recover a failed board. The unified build
+contains both codecs; missing saved settings default to FLAC while this board
+keeps MP3 selected.
+
+Runtime format switching must revoke the original Play token on Stop, including
+the final Sonos create/load send. Stop acceptance can wait for that bounded send;
+the browser's eight-second POST budget covers its five-second deadline. A browser
+timeout means the outcome is unknown. Every Play retry waits for listener capacity,
+even if a canceled earlier Play already committed the requested codec.
 
 Doctor Biz corrected stopping after the MP3 benchmark on October 9: the standing
 instruction was to start and continue the implementation. Treat the benchmark

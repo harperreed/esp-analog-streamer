@@ -77,34 +77,45 @@ retains its bounded drain policy. Two worst-case 16-bit FLAC listeners require
 3.072 Mbit/s of sample payload before framing; this is a calculated requirement,
 not a measured Wi-Fi throughput result.
 
-### MP3 prototype
+### Format and buffer settings
 
-The opt-in `mp3-stream` build replaces FLAC with 48 kHz stereo **320 kbps MP3**.
-It requires recognition off and runs one shared encoder. WAV remains available;
-`/stream.flac` refuses in this profile. MP3 is lossy and uses the same 24-to-16-bit
-input conversion. The [benchmark](docs/audit-evidence/2026-10-09/mp3-benchmark.md)
+One firmware includes FLAC and experimental 48 kHz stereo **320 kbps MP3**.
+Open `http://HOST/settings` to save the output format, Low/Medium/High startup
+buffer, and autoplay. The main page keeps destination selection and Play/Stop.
+Format and buffer changes during playback apply on the next Stop → Play; the
+current queue keeps its original settings. When stopped with no compressed
+listeners, a format change can apply immediately. The API and page distinguish
+the selected format from the active encoder.
+
+MP3 requires recognition off. Only one encoder runs, and only its compressed
+route accepts listeners; WAV remains available. Switching formats starts a fresh
+audio history. MP3 is lossy and uses the same 24-to-16-bit input conversion.
+The [benchmark](docs/audit-evidence/2026-10-09/mp3-benchmark.md)
 records CPU, fidelity and delay limits; lower bandwidth is not a proven fix for
 Wi-Fi stalls. The [live-pipeline results](docs/audit-evidence/2026-10-09/mp3-stream.md)
 include successful single-listener playback and reconnect checks, but sustained
-two-listener and High-buffer Sonos runs still overrun. Keep FLAC as the default;
-MP3 remains experimental. Kata `e8hd` tracks the failed reliability gates.
+two-listener and High-buffer Sonos runs still overrun. FLAC is the default when
+no format has been saved; MP3 remains experimental. Kata `e8hd` tracks the failed
+reliability gates. Runtime selection does not resolve those delivery failures.
 
 ```sh
-ESPFLASH_PORT=/dev/ttyUSB0 scripts/flash --mp3
+ESPFLASH_PORT=/dev/ttyUSB0 scripts/flash
+# Select MP3 on /settings before checking its stream.
 ESPFLASH_PORT=/dev/ttyUSB0 scripts/stream-soak HOST --path /stream.mp3 --seconds 120
 ```
 
 Use `http://HOST:8000/stream.mp3` for live output, or append `?buffer=low`,
 `?buffer=med` or `?buffer=high`. The 500-frame ring holds 12 seconds in 480,000
 payload bytes. Whole-frame preset offsets are 1.008/4.008/8.016 seconds.
-Sonos queue URLs and media types follow the selected build automatically.
-`scripts/flash` without `--mp3` restores the default FLAC build.
+Sonos queue URLs and media types capture the active format at Play. Format and
+buffer settings survive a reboot; changing codecs needs no reflash.
 
 The Shine source is pinned and vendored with its original license and notices;
 see [component provenance](mp3/vendor/shine/UPSTREAM.md). Encoder warmup, finite
 stream tails and the measured gain difference remain explicit prototype limits.
 
-Real-board checks (replace `HOST` with the board's IP):
+Real-board checks (replace `HOST` with the board's IP and select FLAC before
+running these examples):
 
 ```sh
 caffeinate -is scripts/stream-check --path /stream.flac --seconds 60 HOST

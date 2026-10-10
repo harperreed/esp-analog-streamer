@@ -229,7 +229,7 @@ mod tests {
         let (started, ready) = mpsc::channel();
         let begin_wait = Arc::new(Barrier::new(3));
         let mut clients = Vec::new();
-        for format in Format::ALL {
+        for format in [Format::Flac, Format::Wav] {
             let slot = Slot::take(&slots, 2).unwrap();
             let raw = raw.clone();
             let encoded = encoded.clone();

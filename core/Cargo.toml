@@ -7,7 +7,6 @@ description = "Pure logic shared by the esp-shazam firmware and its Mac tools"
 publish = false
 
 [features]
-mp3-stream = []
 capture-fixture = []
 capture-loom = ["dep:loom"]
 

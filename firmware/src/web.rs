@@ -36,6 +36,30 @@ mod device {
                 .write_all(INDEX_HTML.as_bytes())?;
             Ok(())
         })?;
+        for (path, content_type, body) in [
+            (
+                "/settings",
+                "text/html; charset=utf-8",
+                include_str!("settings.html"),
+            ),
+            (
+                "/app.js",
+                "text/javascript; charset=utf-8",
+                include_str!("app.js"),
+            ),
+            (
+                "/style.css",
+                "text/css; charset=utf-8",
+                include_str!("style.css"),
+            ),
+        ] {
+            server.fn_handler::<anyhow::Error, _>(path, Method::Get, move |request| {
+                request
+                    .into_response(200, Some("OK"), &[("Content-Type", content_type)])?
+                    .write_all(body.as_bytes())?;
+                Ok(())
+            })?;
+        }
         server.fn_handler::<anyhow::Error, _>("/api/state", Method::Get, move |request| {
             let body = store
                 .lock()
@@ -94,6 +118,12 @@ mod device {
                 },
             );
             let (code, body) = match action {
+                Ok(Action::Format {
+                    format: esp_shazam_core::stream_buffer::OutputFormat::Mp3,
+                }) if !sonos.snapshot().buffer_available => (
+                    409,
+                    r#"{"error":"MP3 unavailable while recognition is enabled"}"#,
+                ),
                 Ok(Action::Buffer { .. }) if !sonos.snapshot().buffer_available => (
                     409,
                     r#"{"error":"Startup buffer unavailable while recognition is enabled"}"#,
@@ -105,6 +135,7 @@ mod device {
                         Action::Play {} => Command::Play,
                         Action::Stop {} => Command::Stop,
                         Action::Autoplay { enabled } => Command::SetAutoplay(enabled),
+                        Action::Format { format } => Command::SetFormat(format),
                         Action::Buffer { preset } => Command::SetBufferPreset(preset),
                     };
                     match sonos.submit(command) {

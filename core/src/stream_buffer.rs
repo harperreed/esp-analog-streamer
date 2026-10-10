@@ -34,3 +34,59 @@ impl BufferPreset {
         }
     }
 }
+
+/// Persisted compressed output and its complete frame/storage profile.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum OutputFormat {
+    #[default]
+    Flac,
+    Mp3,
+}
+impl OutputFormat {
+    pub const fn format(self) -> crate::stream_http::Format {
+        match self {
+            Self::Flac => crate::stream_http::Format::Flac,
+            Self::Mp3 => crate::stream_http::Format::Mp3,
+        }
+    }
+    pub const fn block_frames(self) -> usize {
+        match self {
+            Self::Flac => crate::flac::BLOCK_FRAMES,
+            Self::Mp3 => 1152,
+        }
+    }
+    pub const fn max_frame_bytes(self) -> usize {
+        match self {
+            Self::Flac => crate::flac::MAX_FRAME_BYTES,
+            Self::Mp3 => 960,
+        }
+    }
+    pub const fn history_frames(self, recognition: bool) -> usize {
+        match self {
+            Self::Flac if recognition => 24,
+            Self::Flac => 141,
+            Self::Mp3 => 500,
+        }
+    }
+    pub const fn write_limit_ms(self, recognition: bool) -> u64 {
+        match self {
+            Self::Flac if recognition => 2048,
+            Self::Flac => 8021,
+            Self::Mp3 => 8016,
+        }
+    }
+    pub const fn priority(self) -> u8 {
+        match self {
+            Self::Flac => 7,
+            Self::Mp3 => 8,
+        }
+    }
+    pub fn validate(self, recognition: bool) -> Result<(), &'static str> {
+        if self == Self::Mp3 && recognition {
+            Err("MP3 unavailable while recognition is enabled")
+        } else {
+            Ok(())
+        }
+    }
+}

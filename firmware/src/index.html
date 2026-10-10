@@ -1,37 +1,17 @@
 <!doctype html>
 <!-- ABOUTME: The now-playing page the board serves at /: current song with cover art, state, loudness, history. -->
-<!-- ABOUTME: Self-contained (no external scripts or styles); polls /api/state every 3 s and writes song fields as text. -->
+<!-- ABOUTME: Uses board-local shared scripts and styles; polls /api/state every 3 s and writes song fields as text. -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>esp-shazam</title>
 <link rel="icon" href="data:,">
-<style>
-  :root { color-scheme: light dark; --bg: #f6f5f2; --fg: #1b1b1b; --muted: #6b6b6b; --card: #ffffff; --accent: #0a66d8; }
-  @media (prefers-color-scheme: dark) { :root { --bg: #121212; --fg: #ececec; --muted: #9a9a9a; --card: #1d1d1d; --accent: #6aa8ff; } }
-  [hidden] { display: none !important; }
-  body { margin: 0; font: 16px/1.45 system-ui, sans-serif; background: var(--bg); color: var(--fg); }
-  main { max-width: 34rem; margin: 0 auto; padding: 1.5rem 1rem; }
-  .now { display: flex; gap: 1rem; align-items: center; background: var(--card); border-radius: 12px; padding: 1rem; }
-  .now img { width: 96px; height: 96px; border-radius: 8px; object-fit: cover; background: var(--muted); flex: none; }
-  .title { font-size: 1.3rem; font-weight: 600; }
-  .muted { color: var(--muted); font-size: .9rem; }
-  h2 { font-size: 1rem; margin-top: 2rem; }
-  ol { padding-left: 1.2rem; }
-  li { margin: .35rem 0; }
-  a { color: var(--accent); }
-  .sonos { background: var(--card); border-radius: 12px; padding: 1rem; margin-top: 1.5rem; }
-  .sonos h2 { margin-top: 0; }
-  .controls { display: flex; flex-wrap: wrap; gap: .5rem; margin: .75rem 0; }
-  button, select { font: inherit; padding: .45rem .65rem; }
-  select { width: 100%; }
-  button:disabled { opacity: .55; }
-  .error { color: #c34436; }
-</style>
+<link rel="stylesheet" href="/style.css">
 </head>
 <body>
 <main>
+  <nav><a href="/settings">Settings</a></nav>
   <p class="muted" id="status">connecting…</p>
   <section class="now" id="now" hidden>
     <img id="cover" alt="">
@@ -53,15 +33,6 @@
       <button id="sonos-play" type="button" disabled>Play</button>
       <button id="sonos-stop" type="button" disabled>Stop</button>
     </div>
-    <label><input id="sonos-autoplay" type="checkbox" disabled> Start automatically when audio begins</label>
-    <p class="muted">Automatic playback waits for quiet, then new audio. Selecting a destination does not start playback.</p>
-    <label for="sonos-buffer">Startup buffer</label>
-    <select id="sonos-buffer" disabled>
-      <option value="low">Low — 1 s</option>
-      <option value="med">Medium — 4 s</option>
-      <option value="high">High — 8 s</option>
-    </select>
-    <p class="muted" id="sonos-buffer-note">Applies on next Play.</p>
     <p>Status: <span id="sonos-status" role="status">connecting…</span></p>
     <p class="muted" id="sonos-active"></p>
     <p class="error" id="sonos-error" role="status"></p>
@@ -70,148 +41,6 @@
   <h2 class="muted">History</h2>
   <ol id="history"></ol>
 </main>
-<script>
-const $ = (id) => document.getElementById(id);
-let sonosSnapshot = null;
-let sonosBusy = false;
-let sonosEdited = false;
-let sonosPending = null;
-let sonosVersion = 0;
-
-function renderSonos(s, observed = true) {
-  sonosSnapshot = s;
-  if (sonosPending && observed) {
-    const confirmed = sonosPending.action === 'select'
-      ? s.config.player_id === sonosPending.player_id
-      : sonosPending.action === 'buffer'
-        ? s.config.buffer_preset === sonosPending.preset
-        : s.config.autoplay === sonosPending.enabled;
-    const failed = s.last_error && s.last_error !== sonosPending.previousError;
-    if (confirmed || failed || Date.now() >= sonosPending.until) {
-      $('sonos-action-status').textContent = confirmed ? 'Setting saved.' : (s.last_error || 'Setting not confirmed; check the destination and retry.');
-      sonosPending = null;
-      sonosEdited = false;
-    }
-  }
-  const select = $('sonos-destination');
-  if (document.activeElement !== select) {
-    const wanted = sonosPending?.player_id || (sonosEdited ? select.value : s.config.player_id) || '';
-    const options = [{ player_id: '', name: 'Choose a destination' }, ...s.groups];
-    if (wanted && !options.some(g => g.player_id === wanted)) {
-      options.push({ player_id: wanted, name: 'Selected destination (unavailable)' });
-    }
-    select.replaceChildren(...options.map(g => {
-      const option = document.createElement('option');
-      option.value = g.player_id;
-      option.textContent = g.name;
-      return option;
-    }));
-    select.value = wanted;
-  }
-  $('sonos-autoplay').checked = s.config.autoplay;
-  $('sonos-buffer').value = sonosPending?.preset || s.config.buffer_preset;
-  $('sonos-buffer').disabled = sonosBusy || Boolean(sonosPending) || !s.buffer_available;
-  $('sonos-buffer-note').textContent = s.buffer_available
-    ? 'Applies on next Play.' : 'Startup buffer unavailable while recognition is enabled.';
-  $('sonos-status').textContent = s.state.replaceAll('_', ' ');
-  $('sonos-error').textContent = s.last_error || '';
-  const active = s.groups.find(g => g.player_id === s.active_player_id);
-  $('sonos-active').textContent = s.active_player_id ? `Active destination: ${active?.name || 'previously selected destination'}` : '';
-  select.disabled = sonosBusy || Boolean(sonosPending);
-  $('sonos-discover').disabled = sonosBusy;
-  $('sonos-select').disabled = sonosBusy || Boolean(sonosPending) || !select.value || select.value === s.config.player_id;
-  $('sonos-play').disabled = sonosBusy || Boolean(sonosPending) || !s.config.player_id || select.value !== s.config.player_id;
-  $('sonos-stop').disabled = sonosBusy || (!s.active_player_id && s.state === 'stopped');
-  $('sonos-autoplay').disabled = sonosBusy || Boolean(sonosPending);
-}
-
-async function sendSonos(action) {
-  if (sonosBusy) return false;
-  sonosBusy = true;
-  ++sonosVersion;
-  if (sonosSnapshot) renderSonos(sonosSnapshot, false);
-  $('sonos-action-status').textContent = 'Sending request…';
-  try {
-    const response = await fetch('/api/sonos', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(action), signal: AbortSignal.timeout(3000),
-    });
-    const result = await response.json();
-    if (!response.ok) throw new Error(result.error || 'Sonos request failed.');
-    if (action.action === 'select' || action.action === 'autoplay' || action.action === 'buffer') {
-      sonosPending = { ...action, previousError: sonosSnapshot?.last_error, until: Date.now() + 10000 };
-    }
-    $('sonos-action-status').textContent = 'Request queued; waiting for the controller.';
-    return true;
-  } catch (error) {
-    $('sonos-action-status').textContent = error.message || 'Sonos request failed.';
-    return false;
-  } finally {
-    sonosBusy = false;
-    ++sonosVersion;
-    if (sonosSnapshot) renderSonos(sonosSnapshot, false);
-  }
-}
-
-async function refreshSonos() {
-  const version = sonosVersion;
-  try {
-    const response = await fetch('/api/sonos', { cache: 'no-store', signal: AbortSignal.timeout(2500) });
-    if (!response.ok) throw new Error('Sonos status unavailable');
-    const snapshot = await response.json();
-    if (!sonosBusy && version === sonosVersion) renderSonos(snapshot);
-  } catch (error) {
-    if (version === sonosVersion) $('sonos-error').textContent = 'Sonos status unavailable; retrying…';
-  }
-}
-
-$('sonos-destination').addEventListener('change', () => {
-  sonosEdited = true;
-  if (sonosSnapshot) renderSonos(sonosSnapshot, false);
-});
-$('sonos-destination').addEventListener('blur', () => {
-  if (sonosSnapshot) renderSonos(sonosSnapshot, false);
-});
-$('sonos-discover').addEventListener('click', () => sendSonos({ action: 'discover' }));
-$('sonos-select').addEventListener('click', () => sendSonos({ action: 'select', player_id: $('sonos-destination').value }));
-$('sonos-play').addEventListener('click', () => sendSonos({ action: 'play' }));
-$('sonos-stop').addEventListener('click', () => sendSonos({ action: 'stop' }));
-$('sonos-buffer').addEventListener('change', () => sendSonos({ action: 'buffer', preset: $('sonos-buffer').value }));
-$('sonos-autoplay').addEventListener('change', () => sendSonos({ action: 'autoplay', enabled: $('sonos-autoplay').checked }));
-// The URLs come from Shazam's response: only https ones reach src or href, so no javascript: links.
-const https = (u) => typeof u === 'string' && /^https:\/\//.test(u);
-async function refresh() {
-  try {
-    const s = await (await fetch('/api/state', { cache: 'no-store', signal: AbortSignal.timeout(2500) })).json();
-    const paused = s.rate_limited_until ? ` · paused until ${s.rate_limited_until}` : '';
-    // A board built without Shazam runs no listen policy: its state and "Nothing playing." would mislead.
-    const off = s.shazam_enabled === false;
-    const label = off ? 'Shazam is off' : s.state.replace('_', ' ');
-    $('status').textContent = `${label} · ${s.level_dbfs.toFixed(1)} dBFS${paused}`;
-    const n = s.now;
-    $('now').hidden = !n;
-    $('idle').hidden = Boolean(n) || off;
-    if (n) {
-      $('title').textContent = n.title;
-      $('artist').textContent = n.artist;
-      $('album').textContent = n.album || '';
-      if (https(n.cover_url)) { $('cover').src = n.cover_url; } else { $('cover').removeAttribute('src'); }
-      $('link').hidden = !https(n.shazam_url);
-      if (https(n.shazam_url)) { $('link').href = n.shazam_url; }
-    }
-    $('history').replaceChildren(...s.history.map((h) => {
-      const li = document.createElement('li');
-      li.textContent = `${h.title} — ${h.artist} (${h.identified_at.replace('T', ' ').replace('Z', ' UTC')})`;
-      return li;
-    }));
-  } catch (e) {
-    $('status').textContent = 'board unreachable, retrying…';
-  }
-}
-refresh();
-setInterval(refresh, 3000);
-refreshSonos();
-setInterval(refreshSonos, 3000);
-</script>
+<script src="/app.js" defer></script>
 </body>
 </html>

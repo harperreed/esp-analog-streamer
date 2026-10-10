@@ -1,0 +1,39 @@
+<!doctype html>
+<!-- ABOUTME: Persistent audio format, buffer and autoplay settings served at /settings. -->
+<!-- ABOUTME: Uses the shared Sonos API and page script to confirm settings after saving. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Settings · esp-shazam</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="/style.css">
+<script src="/app.js" defer></script>
+</head>
+<body>
+<main>
+  <nav><a href="/">Playback</a></nav>
+  <h1>Settings</h1>
+  <section class="sonos" aria-label="Audio settings">
+    <label for="sonos-format">Format</label>
+    <select id="sonos-format" disabled>
+      <option id="sonos-format-mp3" value="mp3">MP3</option>
+      <option value="flac">FLAC</option>
+    </select>
+    <p class="muted" id="sonos-format-note">Applies on next Play.</p>
+    <label><input id="sonos-autoplay" type="checkbox" disabled> Start automatically when audio begins</label>
+    <p class="muted">Automatic playback waits for quiet, then new audio. Selecting a destination does not start playback.</p>
+    <label for="sonos-buffer">Startup buffer</label>
+    <select id="sonos-buffer" disabled>
+      <option value="low">Low — 1 s</option>
+      <option value="med">Medium — 4 s</option>
+      <option value="high">High — 8 s</option>
+    </select>
+    <p class="muted" id="sonos-buffer-note">Applies on next Play.</p>
+    <p>Status: <span id="sonos-status" role="status">connecting…</span></p>
+    <p class="error" id="sonos-error" role="status"></p>
+    <p class="muted" id="sonos-action-status" role="status"></p>
+  </section>
+</main>
+</body>
+</html>

@@ -15,6 +15,9 @@ pub enum Action {
     Autoplay {
         enabled: bool,
     },
+    Format {
+        format: crate::stream_buffer::OutputFormat,
+    },
     Buffer {
         preset: crate::stream_buffer::BufferPreset,
     },

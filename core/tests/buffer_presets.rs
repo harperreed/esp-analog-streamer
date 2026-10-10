@@ -21,17 +21,14 @@ fn preset_values_and_default() {
 }
 #[test]
 fn buffered_routes_require_a_complete_supported_compressed_query() {
-    use esp_shazam_core::stream_http::{route, Format, Route, Status};
+    use esp_shazam_core::stream_http::{Format, Route, Status};
     assert_eq!(
-        route(&format!(
-            "GET {}?buffer=med HTTP/1.1",
-            Format::COMPRESSED.path()
-        )),
+        route(&format!("GET {}?buffer=med HTTP/1.1", Format::Flac.path())),
         Route::Buffered(BufferPreset::Medium)
     );
     assert_eq!(
-        route(&format!("GET {} HTTP/1.1", Format::COMPRESSED.path())),
-        Route::Stream(Format::COMPRESSED)
+        route(&format!("GET {} HTTP/1.1", Format::Flac.path())),
+        Route::Stream(Format::Flac)
     );
     for query in [
         "buffer=",
@@ -40,10 +37,7 @@ fn buffered_routes_require_a_complete_supported_compressed_query() {
         "x=1&buffer=low",
     ] {
         assert_eq!(
-            route(&format!(
-                "GET {}?{query} HTTP/1.1",
-                Format::COMPRESSED.path()
-            )),
+            route(&format!("GET {}?{query} HTTP/1.1", Format::Flac.path())),
             Route::Refuse(Status::BadRequest)
         );
     }
@@ -390,26 +384,19 @@ fn complete_request_half_close_can_receive_buffered_response() {
 }
 #[test]
 fn recognition_profile_rejects_buffered_routes_but_preserves_live_routes() {
-    use esp_shazam_core::stream_http::{route, Format, Route, Status};
+    use esp_shazam_core::stream_http::{Format, Route, Status};
     assert_eq!(
-        route(&format!(
-            "GET {}?buffer=low HTTP/1.1",
-            Format::COMPRESSED.path()
-        ))
-        .with_buffer_availability(false),
+        route(&format!("GET {}?buffer=low HTTP/1.1", Format::Flac.path()))
+            .with_buffer_availability(false),
         Route::Refuse(Status::ServiceUnavailable)
     );
     assert_eq!(
-        route(&format!("GET {} HTTP/1.1", Format::COMPRESSED.path()))
-            .with_buffer_availability(false),
-        Route::Stream(Format::COMPRESSED)
+        route(&format!("GET {} HTTP/1.1", Format::Flac.path())).with_buffer_availability(false),
+        Route::Stream(Format::Flac)
     );
     assert_eq!(
-        route(&format!(
-            "GET {}?buffer=low HTTP/1.1",
-            Format::COMPRESSED.path()
-        ))
-        .with_buffer_availability(true),
+        route(&format!("GET {}?buffer=low HTTP/1.1", Format::Flac.path()))
+            .with_buffer_availability(true),
         Route::Buffered(BufferPreset::Low)
     );
 }
@@ -502,4 +489,11 @@ fn rst_during_fill_releases_listener_slot_without_sending_200() {
     assert_eq!(worker.join().unwrap(), Err(BufferWaitError::Disconnected));
     assert!(cancelled.elapsed() < Duration::from_millis(150));
     assert_eq!(slots.load(Ordering::Acquire), 0);
+}
+
+fn route(line: &str) -> esp_shazam_core::stream_http::Route {
+    esp_shazam_core::stream_http::route_for(
+        line,
+        esp_shazam_core::stream_buffer::OutputFormat::Flac,
+    )
 }

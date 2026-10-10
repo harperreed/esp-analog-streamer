@@ -12,6 +12,7 @@ pub enum Command {
     Play,
     Stop,
     SetAutoplay(bool),
+    SetFormat(esp_shazam_core::stream_buffer::OutputFormat),
     SetBufferPreset(esp_shazam_core::stream_buffer::BufferPreset),
 }
 
@@ -28,7 +29,11 @@ struct QueuedCommand {
 }
 
 struct Commands {
-    sender: std::sync::Mutex<(std::sync::mpsc::SyncSender<QueuedCommand>, u64)>,
+    sender: std::sync::Mutex<(
+        std::sync::mpsc::SyncSender<QueuedCommand>,
+        u64,
+        std::sync::Arc<std::sync::Mutex<bool>>,
+    )>,
 }
 
 impl Commands {
@@ -36,7 +41,11 @@ impl Commands {
         let (sender, receiver) = std::sync::mpsc::sync_channel(4);
         (
             Self {
-                sender: std::sync::Mutex::new((sender, 0)),
+                sender: std::sync::Mutex::new((
+                    sender,
+                    0,
+                    std::sync::Arc::new(std::sync::Mutex::new(true)),
+                )),
             },
             receiver,
         )
@@ -66,8 +75,37 @@ impl Commands {
                 std::sync::mpsc::TrySendError::Full(_) => "Sonos command queue is full",
                 std::sync::mpsc::TrySendError::Disconnected(_) => "Sonos worker has stopped",
             })?;
+        if cancels {
+            *sender.2.lock().unwrap() = false;
+            sender.2 = std::sync::Arc::new(std::sync::Mutex::new(true));
+        }
         sender.1 = generation;
         Ok(())
+    }
+
+    fn token(
+        &self,
+        generation: u64,
+    ) -> Result<std::sync::Arc<std::sync::Mutex<bool>>, &'static str> {
+        let sender = self.sender.lock().unwrap();
+        if sender.1 != generation {
+            return Err("Sonos Play cancelled");
+        }
+        Ok(sender.2.clone())
+    }
+
+    /// Serializes one bounded final send with acceptance of commands that cancel Play.
+    fn run_if_current<T>(
+        &self,
+        generation: u64,
+        operation: impl FnOnce() -> T,
+    ) -> Result<T, &'static str> {
+        let token = self.token(generation)?;
+        let permit = token.lock().unwrap();
+        if !*permit {
+            return Err("Sonos Play cancelled");
+        }
+        Ok(operation())
     }
 
     fn is_current(&self, generation: u64) -> bool {
@@ -120,6 +158,7 @@ pub enum State {
 pub struct Snapshot {
     pub config: SonosConfig,
     pub buffer_available: bool,
+    pub active_format: esp_shazam_core::stream_buffer::OutputFormat,
     pub groups: Vec<DiscoveryGroup>,
     pub active_player_id: Option<String>,
     pub state: State,
@@ -149,6 +188,7 @@ fn queue_for_play(
         status
             .buffer_available
             .then_some(status.config.buffer_preset),
+        status.active_format,
     )
 }
 
@@ -452,7 +492,9 @@ mod device {
 
     impl Handle {
         pub fn snapshot(&self) -> Snapshot {
-            self.status.lock().unwrap().clone()
+            let mut snapshot = self.status.lock().unwrap().clone();
+            snapshot.active_format = crate::stream::active_format();
+            snapshot
         }
 
         pub fn queue_snapshot(&self) -> Option<QueueSnapshot> {
@@ -531,7 +573,14 @@ mod device {
                 Some(format!("Cannot read saved Sonos configuration: {error}")),
             ),
         };
+        let mut last_error = last_error;
+        if let Err(error) =
+            crate::stream::select_format(config.output_format, false, Arc::new(Mutex::new(true)))
+        {
+            last_error = Some(error.to_string());
+        }
         let status = Arc::new(Mutex::new(Snapshot {
+            active_format: esp_shazam_core::stream_buffer::OutputFormat::Flac,
             buffer_available: !crate::config::CONFIG.shazam_enabled,
             last_error,
             config,
@@ -1330,6 +1379,23 @@ mod device {
                     self.policy
                         .update(self.now(), protocol::AutoplayEvent::Enabled(enabled));
                 }
+                Command::SetFormat(format) => {
+                    format
+                        .validate(crate::config::CONFIG.shazam_enabled)
+                        .map_err(|error| anyhow!(error))?;
+                    let mut config = self.status.lock().unwrap().config.clone();
+                    config.output_format = format;
+                    self.save(config)?;
+                    if self.status.lock().unwrap().state == State::Stopped {
+                        crate::stream::select_format(
+                            format,
+                            false,
+                            self.commands
+                                .token(self.generation)
+                                .map_err(|error| anyhow!(error))?,
+                        )?;
+                    }
+                }
                 Command::SetBufferPreset(preset) => {
                     let mut config = self.status.lock().unwrap().config.clone();
                     validate_buffer_command(
@@ -1392,6 +1458,10 @@ mod device {
         }
 
         fn play_current(&mut self) -> Result<()> {
+            let play_token = self
+                .commands
+                .token(self.generation)
+                .map_err(|error| anyhow!(error))?;
             self.stop()?;
             let player = self
                 .status
@@ -1401,6 +1471,13 @@ mod device {
                 .player_id
                 .clone()
                 .context("Choose a Sonos destination first")?;
+            let format = self.status.lock().unwrap().config.output_format;
+            crate::stream::select_format(format, true, play_token.clone())?;
+            self.status.lock().unwrap().active_format = crate::stream::active_format();
+            ensure!(
+                self.commands.is_current(self.generation),
+                "Sonos Play cancelled"
+            );
             self.status.lock().unwrap().state = State::Connecting;
             let group = self.resolve(&player)?;
             ensure!(
@@ -1445,7 +1522,15 @@ mod device {
                     .map_err(|error| anyhow!("Invalid Sonos queue: {error:?}"))?;
                 let body = queue_load_body(&queue);
                 // Sonos can request the queue before the command reply arrives.
-                self.queue.publish(queue);
+                {
+                    ensure!(
+                        self.commands.is_current(self.generation),
+                        "Sonos Play cancelled"
+                    );
+                    let permit = play_token.lock().unwrap();
+                    ensure!(*permit, "Sonos Play cancelled");
+                    self.queue.publish(queue);
+                }
                 self.item_confirmed = false;
                 self.request(
                     "playbackSession:1",
@@ -1631,16 +1716,14 @@ mod device {
                 sent_at_ms: sent,
                 deadline_ms: sent + TIMEOUT.as_millis() as u64,
             };
+            let socket = self.socket.as_mut().context("Sonos is disconnected")?;
             if matches!(name, "createSession" | "loadCloudQueue") {
-                ensure!(
-                    self.commands.is_current(self.generation),
-                    "Sonos Play cancelled"
-                );
+                self.commands
+                    .run_if_current(self.generation, || socket.send(&bytes))
+                    .map_err(|error| anyhow!(error))??;
+            } else {
+                socket.send(&bytes)?;
             }
-            self.socket
-                .as_mut()
-                .context("Sonos is disconnected")?
-                .send(&bytes)?;
             while self.now() < pending.deadline_ms {
                 let message = self
                     .socket
@@ -1690,6 +1773,7 @@ mod tests {
                 autoplay: true,
                 ..Default::default()
             },
+            active_format: esp_shazam_core::stream_buffer::OutputFormat::Flac,
             buffer_available: true,
             groups: vec![],
             active_player_id: Some("selected".into()),
@@ -1884,6 +1968,7 @@ mod tests {
     #[test]
     fn initial_autoplay_launch_failure_is_visible_and_keeps_manual_retry() {
         let status = std::sync::Mutex::new(Snapshot {
+            active_format: esp_shazam_core::stream_buffer::OutputFormat::Flac,
             buffer_available: true,
             config: SonosConfig {
                 autoplay: true,
@@ -1935,6 +2020,7 @@ mod tests {
     #[test]
     fn disabled_autoplay_never_attempts_initial_worker_launch() {
         let status = std::sync::Mutex::new(Snapshot {
+            active_format: esp_shazam_core::stream_buffer::OutputFormat::Flac,
             buffer_available: true,
             config: SonosConfig::default(),
             groups: Vec::new(),
@@ -1968,6 +2054,7 @@ mod tests {
         };
         let mut session = Some("owned".to_owned());
         let mut status = Snapshot {
+            active_format: esp_shazam_core::stream_buffer::OutputFormat::Flac,
             buffer_available: true,
             config: SonosConfig {
                 player_id: Some("selected".into()),
@@ -1981,7 +2068,13 @@ mod tests {
         };
         let queue = Queue::default();
         queue.publish(
-            QueueSnapshot::new("item".into(), "192.0.2.10".parse().unwrap(), None).unwrap(),
+            QueueSnapshot::new(
+                "item".into(),
+                "192.0.2.10".parse().unwrap(),
+                None,
+                esp_shazam_core::stream_buffer::OutputFormat::Flac,
+            )
+            .unwrap(),
         );
         let mut policy = protocol::Autoplay::new(-50.0, -60.0).unwrap();
         policy.update(0, protocol::AutoplayEvent::Enabled(true));
@@ -2262,6 +2355,7 @@ mod tests {
             item_id: "item-first".into(),
             host: "192.0.2.10".parse().unwrap(),
             buffer_preset: None,
+            format: esp_shazam_core::stream_buffer::OutputFormat::Flac,
         };
         queue.publish(snapshot.clone());
         assert_eq!(reader.snapshot(), Some(snapshot.clone()));
@@ -2281,6 +2375,7 @@ mod tests {
             item_id: "item-live".into(),
             host: "192.0.2.10".parse().unwrap(),
             buffer_preset: None,
+            format: esp_shazam_core::stream_buffer::OutputFormat::Flac,
         };
         assert_eq!(
             queue_load_body(&snapshot),
@@ -2353,5 +2448,76 @@ mod tests {
                 assert_eq!(result, None);
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod format_cancellation_tests {
+    use super::*;
+    #[test]
+    fn stop_revokes_captured_token_and_old_play_cannot_borrow_replacement() {
+        let (commands, receiver) = Commands::new();
+        commands.submit(Command::Play).unwrap();
+        let play = receiver.recv().unwrap();
+        let token = commands.token(play.generation).unwrap();
+        commands.submit(Command::Stop).unwrap();
+        assert!(!*token.lock().unwrap());
+        assert!(commands.token(play.generation).is_err());
+        let stop = receiver.recv().unwrap();
+        assert!(*commands.token(stop.generation).unwrap().lock().unwrap());
+        let command = Command::SetFormat(esp_shazam_core::stream_buffer::OutputFormat::Mp3);
+        assert!(
+            matches!(command, Command::SetFormat(format) if format == esp_shazam_core::stream_buffer::OutputFormat::Mp3)
+        );
+    }
+}
+
+#[cfg(test)]
+mod send_cancellation_tests {
+    use super::*;
+    use std::{
+        sync::{mpsc, Arc},
+        time::Duration,
+    };
+    #[test]
+    fn revoked_generation_cannot_start_final_operation() {
+        let (commands, receiver) = Commands::new();
+        commands.submit(Command::Play).unwrap();
+        let play = receiver.recv().unwrap();
+        commands.submit(Command::Stop).unwrap();
+        let (sent, received) = mpsc::channel();
+        assert!(commands
+            .run_if_current(play.generation, || sent.send(()).unwrap())
+            .is_err());
+        assert!(received.try_recv().is_err());
+    }
+    #[test]
+    fn stop_acceptance_waits_for_already_started_operation() {
+        let (commands, receiver) = Commands::new();
+        let commands = Arc::new(commands);
+        commands.submit(Command::Play).unwrap();
+        let play = receiver.recv().unwrap();
+        let sending = commands.clone();
+        let (started, running) = mpsc::channel();
+        let (finish, finishing) = mpsc::channel();
+        let operation = std::thread::spawn(move || {
+            sending.run_if_current(play.generation, || {
+                started.send(()).unwrap();
+                finishing.recv_timeout(Duration::from_secs(1)).unwrap();
+            })
+        });
+        running.recv_timeout(Duration::from_secs(1)).unwrap();
+        let stopping = commands.clone();
+        let (accepted, acceptance) = mpsc::channel();
+        let stop = std::thread::spawn(move || {
+            stopping.submit(Command::Stop).unwrap();
+            accepted.send(()).unwrap();
+        });
+        assert!(acceptance.recv_timeout(Duration::from_millis(20)).is_err());
+        finish.send(()).unwrap();
+        operation.join().unwrap().unwrap();
+        acceptance.recv_timeout(Duration::from_secs(1)).unwrap();
+        stop.join().unwrap();
+        assert!(commands.run_if_current(play.generation, || ()).is_err());
     }
 }

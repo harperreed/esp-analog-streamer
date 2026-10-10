@@ -11,6 +11,7 @@ pub struct QueueSnapshot {
     pub item_id: String,
     pub host: Ipv4Addr,
     pub buffer_preset: Option<crate::stream_buffer::BufferPreset>,
+    pub format: crate::stream_buffer::OutputFormat,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -32,12 +33,14 @@ impl QueueSnapshot {
         item_id: String,
         host: Ipv4Addr,
         buffer_preset: Option<crate::stream_buffer::BufferPreset>,
+        format: crate::stream_buffer::OutputFormat,
     ) -> Result<Self, Error> {
         crate::sonos::validate_id(&item_id).map_err(|_| Error::Invalid)?;
         Ok(Self {
             item_id,
             host,
             buffer_preset,
+            format,
         })
     }
 }
@@ -85,7 +88,7 @@ pub fn response(
         Endpoint::ItemWindow => {
             body["includesBeginningOfQueue"] = json!(true);
             body["includesEndOfQueue"] = json!(true);
-            body["items"] = json!([{"id":item,"track":{"type":"track","name":"ESP Analog Streamer","mediaUrl":media_url(snapshot),"contentType":crate::stream_http::Format::COMPRESSED.content_type()}}]);
+            body["items"] = json!([{"id":item,"track":{"type":"track","name":"ESP Analog Streamer","mediaUrl":media_url(snapshot),"contentType":snapshot.format.format().content_type()}}]);
         }
     }
     // All fields are bounded above; no input-supplied collections enter this body.
@@ -96,7 +99,7 @@ fn media_url(snapshot: &QueueSnapshot) -> String {
     let url = format!(
         "http://{}:8000{}",
         snapshot.host,
-        crate::stream_http::Format::COMPRESSED.path()
+        snapshot.format.format().path()
     );
     match snapshot.buffer_preset {
         Some(preset) => format!("{url}?buffer={}", preset.query_value()),
@@ -188,15 +191,12 @@ mod tests {
             item_id: "esp-test-1".into(),
             host: Ipv4Addr::new(192, 0, 2, 10),
             buffer_preset: None,
+            format: crate::stream_buffer::OutputFormat::Flac,
         }
     }
 
     fn test_live_url() -> String {
-        let path = if cfg!(feature = "mp3-stream") {
-            "/stream.mp3"
-        } else {
-            "/stream.flac"
-        };
+        let path = "/stream.flac";
         format!("http://192.0.2.10:8000{path}")
     }
 
@@ -206,15 +206,12 @@ mod tests {
 
     #[test]
     fn queue_and_reports_use_the_selected_compressed_codec() {
-        let (path, content_type, inactive) = if cfg!(feature = "mp3-stream") {
-            ("/stream.mp3", "audio/mpeg", "/stream.flac")
-        } else {
-            ("/stream.flac", "audio/flac", "/stream.mp3")
-        };
+        let (path, content_type, inactive) = ("/stream.flac", "audio/flac", "/stream.mp3");
         let snapshot = QueueSnapshot::new(
             "esp-test-1".into(),
             snapshot().host,
             Some(crate::stream_buffer::BufferPreset::Medium),
+            crate::stream_buffer::OutputFormat::Flac,
         )
         .unwrap();
         let url = format!("http://192.0.2.10:8000{path}?buffer=med");
@@ -243,7 +240,13 @@ mod tests {
             (crate::stream_buffer::BufferPreset::Medium, "med"),
             (crate::stream_buffer::BufferPreset::High, "high"),
         ] {
-            let s = QueueSnapshot::new("esp-test-1".into(), snapshot().host, Some(preset)).unwrap();
+            let s = QueueSnapshot::new(
+                "esp-test-1".into(),
+                snapshot().host,
+                Some(preset),
+                crate::stream_buffer::OutputFormat::Flac,
+            )
+            .unwrap();
             let expected = format!("{}?buffer={value}", test_live_url());
             let body: Value = serde_json::from_str(
                 &response(
@@ -311,7 +314,7 @@ mod tests {
                 .unwrap();
         assert_eq!(
             window,
-            json!({"contextVersion":"esp-test-1","queueVersion":"esp-test-1","includesBeginningOfQueue":true,"includesEndOfQueue":true,"items":[{"id":"esp-test-1","track":{"type":"track","name":"ESP Analog Streamer","mediaUrl":test_live_url(),"contentType":crate::stream_http::Format::COMPRESSED.content_type()}}]})
+            json!({"contextVersion":"esp-test-1","queueVersion":"esp-test-1","includesBeginningOfQueue":true,"includesEndOfQueue":true,"items":[{"id":"esp-test-1","track":{"type":"track","name":"ESP Analog Streamer","mediaUrl":test_live_url(),"contentType":crate::stream_http::Format::Flac.content_type()}}]})
         );
         assert!(response(&snapshot(), Endpoint::ItemWindow, "").is_ok());
         assert!(response(&snapshot(), Endpoint::ItemWindow, "itemId=").is_ok());
@@ -340,9 +343,27 @@ mod tests {
 
     #[test]
     fn snapshot_validation_bounds_output_and_escapes_ids() {
-        assert!(QueueSnapshot::new(String::new(), snapshot().host, None).is_err());
-        assert!(QueueSnapshot::new("x".repeat(257), snapshot().host, None).is_err());
-        let s = QueueSnapshot::new("\"".repeat(256), snapshot().host, None).unwrap();
+        assert!(QueueSnapshot::new(
+            String::new(),
+            snapshot().host,
+            None,
+            crate::stream_buffer::OutputFormat::Flac
+        )
+        .is_err());
+        assert!(QueueSnapshot::new(
+            "x".repeat(257),
+            snapshot().host,
+            None,
+            crate::stream_buffer::OutputFormat::Flac
+        )
+        .is_err());
+        let s = QueueSnapshot::new(
+            "\"".repeat(256),
+            snapshot().host,
+            None,
+            crate::stream_buffer::OutputFormat::Flac,
+        )
+        .unwrap();
         let encoded = response(&s, Endpoint::ItemWindow, "").unwrap();
         assert!(encoded.len() < 4096);
         let v: Value = serde_json::from_str(&encoded).unwrap();

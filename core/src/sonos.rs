@@ -34,6 +34,8 @@ pub struct SonosConfig {
     pub autoplay: bool,
     #[serde(default)]
     pub buffer_preset: crate::stream_buffer::BufferPreset,
+    #[serde(default)]
+    pub output_format: crate::stream_buffer::OutputFormat,
 }
 
 /// Parse one SSDP response, retaining followers for stable player-to-group resolution.
@@ -771,6 +773,7 @@ mod tests {
                 player_id: None,
                 autoplay: false,
                 buffer_preset: crate::stream_buffer::BufferPreset::Medium,
+                output_format: crate::stream_buffer::OutputFormat::Flac,
             }
         );
     }

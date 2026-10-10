@@ -258,12 +258,7 @@ pub enum Format {
 }
 
 impl Format {
-    /// Every form, for routing by path.
-    #[cfg(not(feature = "mp3-stream"))]
-    pub const COMPRESSED: Format = Format::Flac;
-    #[cfg(feature = "mp3-stream")]
-    pub const COMPRESSED: Format = Format::Mp3;
-    pub const ALL: [Format; 2] = [Self::COMPRESSED, Format::Wav];
+    pub const ALL: [Format; 3] = [Self::Flac, Self::Mp3, Self::Wav];
 
     /// The path this form is served at.
     pub fn path(self) -> &'static str {
@@ -353,8 +348,9 @@ impl Status {
                 "404 Not Found",
                 "",
                 format!(
-                    "Not found. The streams are {} and {}.\n",
-                    Format::COMPRESSED.path(),
+                    "Not found. Use the active compressed route ({} or {}) or {}.\n",
+                    Format::Flac.path(),
+                    Format::Mp3.path(),
                     Format::Wav.path()
                 ),
             ),
@@ -414,7 +410,7 @@ pub fn read_request_line(reader: impl BufRead, max_bytes: u64) -> io::Result<Str
 }
 
 /// Routes live paths and strict compressed buffer queries. Other cache-busting queries stay live.
-pub fn route(request_line: &str) -> Route {
+pub fn route_for(request_line: &str, active: crate::stream_buffer::OutputFormat) -> Route {
     let mut parts = request_line.split_whitespace();
     let (Some(method), Some(target), Some(version), None) =
         (parts.next(), parts.next(), parts.next(), parts.next())
@@ -432,7 +428,7 @@ pub fn route(request_line: &str) -> Route {
         .map_or((target, None), |(path, query)| (path, Some(query)));
     if [Format::Flac, Format::Mp3]
         .into_iter()
-        .any(|format| format != Format::COMPRESSED && format.path() == path)
+        .any(|format| format != active.format() && format.path() == path)
     {
         return Route::Refuse(Status::NotFound);
     }
@@ -449,7 +445,7 @@ pub fn route(request_line: &str) -> Route {
                 "buffer=high" => BufferPreset::High,
                 _ => return Route::Refuse(Status::BadRequest),
             };
-            return if path == Format::COMPRESSED.path() {
+            return if path == active.format().path() {
                 Route::Buffered(preset)
             } else {
                 Route::Refuse(Status::BadRequest)
@@ -465,6 +461,9 @@ pub fn route(request_line: &str) -> Route {
 #[cfg(test)]
 mod tests {
     use super::*;
+    fn route(line: &str) -> Route {
+        route_for(line, crate::stream_buffer::OutputFormat::Flac)
+    }
     use std::io::{Read, Write};
     use std::net::TcpListener;
     use std::thread;
@@ -808,7 +807,6 @@ mod tests {
         );
     }
 
-    #[cfg(not(feature = "mp3-stream"))]
     #[test]
     fn get_stream_flac_streams_the_flac() {
         assert_eq!(
@@ -821,7 +819,6 @@ mod tests {
         );
     }
 
-    #[cfg(not(feature = "mp3-stream"))]
     #[test]
     fn a_query_string_does_not_change_the_route() {
         assert_eq!(
@@ -947,7 +944,6 @@ mod tests {
         assert_eq!(Format::Flac.path(), "/stream.flac");
     }
 
-    #[cfg(not(feature = "mp3-stream"))]
     #[test]
     fn not_found_names_both_streams() {
         let response = Status::NotFound.response();

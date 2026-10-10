@@ -2,44 +2,46 @@
 // ABOUTME: Verifies block accumulation, 24-bit scaling and reset state.
 #[path = "../../firmware/src/stream_codec.rs"]
 mod stream_codec;
-use stream_codec::{Encoder, BLOCK_FRAMES, MAX_FRAME_BYTES};
+use esp_shazam_core::stream_buffer::OutputFormat;
+use stream_codec::Encoder;
+const BLOCK_FRAMES: usize = 1152;
+const MAX_FRAME_BYTES: usize = 960;
 
 #[test]
 fn active_encoder_accumulates_chunks_and_reset_discards_partial_pcm() {
-    let mut encoder = Encoder::new().unwrap();
-    assert_eq!(encoder.frames_wanted(), BLOCK_FRAMES);
-    encoder.push(&[256, -256]);
-    assert_eq!(encoder.frames_wanted(), BLOCK_FRAMES - 1);
-    encoder.reset().unwrap();
-    assert_eq!(encoder.frames_wanted(), BLOCK_FRAMES);
-    encoder.push(&vec![0; 2 * BLOCK_FRAMES]);
-    let mut bytes = Vec::with_capacity(MAX_FRAME_BYTES);
-    encoder.encode_block(0, &mut bytes).unwrap();
-    assert!(!bytes.is_empty());
-    assert!(bytes.len() <= MAX_FRAME_BYTES);
-    assert_eq!(encoder.frames_wanted(), BLOCK_FRAMES);
-    let first = bytes.clone();
-    encoder.reset().unwrap();
-    encoder.push(&vec![0; 2 * BLOCK_FRAMES]);
-    encoder.encode_block(0, &mut bytes).unwrap();
-    assert_eq!(bytes, first);
-    assert_eq!(
-        stream_codec::prepare_listener_frame(&mut bytes, first.len(), 0).unwrap(),
-        first.len()
-    );
-    assert_eq!(
-        stream_codec::FORMAT,
-        esp_shazam_core::stream_http::Format::COMPRESSED
-    );
     assert_eq!(stream_codec::SAMPLE_RATE_HZ, 48_000);
-    let header = stream_codec::stream_header();
-    assert_eq!(header.is_empty(), cfg!(feature = "mp3-stream"));
+    for format in [OutputFormat::Flac, OutputFormat::Mp3] {
+        let block_frames = format.block_frames();
+        let max_frame_bytes = format.max_frame_bytes();
+        let mut encoder = Encoder::new(format).unwrap();
+        assert_eq!(encoder.frames_wanted(), block_frames);
+        encoder.push(&[256, -256]);
+        assert_eq!(encoder.frames_wanted(), block_frames - 1);
+        encoder.reset().unwrap();
+        assert_eq!(encoder.frames_wanted(), block_frames);
+        encoder.push(&vec![0; 2 * block_frames]);
+        let mut bytes = Vec::with_capacity(max_frame_bytes);
+        encoder.encode_block(0, &mut bytes).unwrap();
+        assert!(!bytes.is_empty());
+        assert!(bytes.len() <= max_frame_bytes);
+        assert_eq!(encoder.frames_wanted(), block_frames);
+        let first = bytes.clone();
+        encoder.reset().unwrap();
+        encoder.push(&vec![0; 2 * block_frames]);
+        encoder.encode_block(0, &mut bytes).unwrap();
+        assert_eq!(bytes, first);
+        assert_eq!(
+            stream_codec::prepare_listener_frame(format, &mut bytes, first.len(), 0).unwrap(),
+            first.len()
+        );
+        let header = stream_codec::stream_header(format);
+        assert_eq!(header.is_empty(), format == OutputFormat::Mp3);
+    }
 }
 
-#[cfg(feature = "mp3-stream")]
 #[test]
 fn mp3_adapter_uses_flac_24_to_16_scaling_without_gain_changes() {
-    let mut adapter = Encoder::new().unwrap();
+    let mut adapter = Encoder::new(OutputFormat::Mp3).unwrap();
     let source: Vec<i32> = [
         i32::MIN,
         -8_388_608,
@@ -71,11 +73,10 @@ fn mp3_adapter_uses_flac_24_to_16_scaling_without_gain_changes() {
     assert_eq!(actual, expected);
 }
 
-#[cfg(feature = "mp3-stream")]
 #[test]
 fn real_mp3_history_retains_whole_ordered_frames_across_wrap_and_reset() {
     use esp_shazam_core::{flac_ring::FlacRing, stream_buffer::BufferPreset};
-    let mut encoder = Encoder::new().unwrap();
+    let mut encoder = Encoder::new(OutputFormat::Mp3).unwrap();
     let mut ring = FlacRing::try_new(500, MAX_FRAME_BYTES).unwrap();
     let mut fast = ring.cursor_now();
     let mut stale = ring.cursor_now();
