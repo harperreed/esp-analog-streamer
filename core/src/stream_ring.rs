@@ -23,6 +23,12 @@ pub struct StreamRing {
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Cursor(u64, u64);
+impl Cursor {
+    /// Committed sample position and capture generation for source accounting.
+    pub fn position(self) -> (u64, u64) {
+        (self.0, self.1)
+    }
+}
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ReadError {
     Retry,

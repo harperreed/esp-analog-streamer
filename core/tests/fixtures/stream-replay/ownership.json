@@ -1,0 +1,106 @@
+{
+  "schema_version": 1,
+  "generator": "explicit-environment-v1",
+  "seed": 17,
+  "raw_capacity": 8192,
+  "encoded_capacity": 64,
+  "expected": [
+    "rejected",
+    "retained_slot"
+  ],
+  "events": [
+    {
+      "at": 0,
+      "id": 0,
+      "op": "pump",
+      "turns": 1
+    },
+    {
+      "at": 20000,
+      "id": 1,
+      "op": "admit",
+      "actor": 0
+    },
+    {
+      "at": 40000,
+      "id": 2,
+      "op": "listen",
+      "actor": 0,
+      "turns": 3
+    },
+    {
+      "at": 60000,
+      "id": 3,
+      "op": "write",
+      "actor": 0,
+      "result": "send",
+      "size": 100000
+    },
+    {
+      "at": 80000,
+      "id": 4,
+      "op": "admit",
+      "actor": 1
+    },
+    {
+      "at": 100000,
+      "id": 5,
+      "op": "admit",
+      "actor": 2
+    },
+    {
+      "at": 120000,
+      "id": 6,
+      "op": "close",
+      "actor": 0,
+      "fail": false
+    },
+    {
+      "at": 140000,
+      "id": 7,
+      "op": "admit",
+      "actor": 3
+    },
+    {
+      "at": 160000,
+      "id": 8,
+      "op": "close",
+      "actor": 1,
+      "fail": false
+    },
+    {
+      "at": 180000,
+      "id": 9,
+      "op": "close",
+      "actor": 3,
+      "fail": true
+    }
+  ],
+  "raw_block": 16,
+  "actors": {
+    "0": {
+      "ranges": [],
+      "terminal": "fixture_end",
+      "pending_source": null,
+      "close_state": "closed",
+      "admission": [
+        0,
+        0
+      ]
+    },
+    "1": {
+      "ranges": [],
+      "terminal": "fixture_end",
+      "pending_source": null,
+      "close_state": "closed",
+      "admission": null
+    },
+    "3": {
+      "ranges": [],
+      "terminal": "fixture_end",
+      "pending_source": null,
+      "close_state": "retained",
+      "admission": null
+    }
+  }
+}

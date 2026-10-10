@@ -31,6 +31,8 @@ stage harnesses scripts/check-harnesses
 stage coverage-host scripts/test-coverage-host
 stage stream-format scripts/test-stream-format
 stage decoder-integrity scripts/test-decoder-integrity
+stage replay-oracle scripts/test-replay-stream
+stage stream-replay scripts/check-stream-replay
 stage failure-observation scripts/test-failure-observation
 stage tls-capture-peer scripts/test-tls-capture-peer
 stage e2e-fixtures scripts/test-e2e-fixtures

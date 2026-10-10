@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+# ABOUTME: Runs schema and real FFmpeg replay artifact oracle tests without a board.
+# ABOUTME: Uses the repository's locked uv environment and retains no network dependencies.
+set -euo pipefail
+cd "$(dirname "$0")/.."
+exec uv run --quiet --project "$PWD" --locked python3 scripts/test_replay_stream.py "$@"

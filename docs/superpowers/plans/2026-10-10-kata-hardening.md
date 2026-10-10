@@ -1,7 +1,7 @@
 # Finish the Kata hardening backlog
 
 Doctor Biz's active goal on October 10: finish all Kata work, then assess.
-Base c134069 on wip/kata-capture-protection. Compactions in this phase: 3; fourth-batch checkpoint committed as 823c0cc.
+Base c134069 on wip/kata-capture-protection. Compactions in this phase: 4; latest durable checkpoint is 7b05adf.
 Use GPT-6.1 Sol subagents with clean contexts. Parent owns review, integration,
 canonical checks, commits and every hardware action. Continue through batches;
 a phase checkpoint is not a reason to abandon the active goal.
@@ -59,12 +59,12 @@ new consequential architectural choices get a concrete design before code.
 | 7hr4 | P1 | Test importable Python harness implementations instead of AST fragments | Closed, b68318b |
 | ee3q | P1 | Validate 24-hour two-listener continuity and controlled recovery | Reconciling |
 | 97bk | P1 | Make host, firmware and HIL evidence explicit streaming release gates | Reconciling |
-| 89g8 | P0 | Build deterministic host replay of streaming failures | Shared writer slice reviewed and checked; orchestration remains |
+| 89g8 | P0 | Build deterministic host replay of streaming failures | Full local replay gate reviewed and passed; first hosted PR run pending |
 | amqe | P0 | Add a separate ESP32 streaming dashboard and bounded metrics export | Reconciling |
 | n4jb | P0 | Add reproducible network fault injection on the actual board traffic path | Reconciling |
-| 1wny | P1 | Use cargo-mutants to check whether reliability tests detect wrong behavior | Pilot verified: four caught, one unviable; evidence ready for closure |
+| 1wny | P1 | Use cargo-mutants to check whether reliability tests detect wrong behavior | Closed, runner 823c0cc and pilot evidence 7b05adf |
 | m31k | P1 | Measure host recovery-path coverage with cargo-llvm-cov | Two local pilots passed; CI written/reviewed, hosted run pending |
-| t4ae | P1 | Add bounded host fuzzing for FLAC, HTTP and stream transitions | Reconciling |
+| t4ae | P1 | Add bounded host fuzzing for FLAC, HTTP and stream transitions | Scoped targets and runner implemented; review fixes and frozen-source acceptance pending |
 | jq3a | P0 | Model listener admission and shutdown interleavings with Loom | Closed, b68318b |
 | 5yf3 | P0 | Add proptest state-machine tests for rings and listener lifecycles | Closed, 0d9d014 |
 | 21tp | P2 | Move encoder and listener logs off progress and cleanup paths | Reconciling |
@@ -174,3 +174,33 @@ The third-compaction checkpoint is saved here rather than relying on conversatio
 state. This environment cannot start a replacement root session; fresh-context
 workers continue from these durable plans under the active goal. No new hardware
 run has started; the earlier diagnostic ELF remains stopped MP3/Medium.
+
+Full replay extraction now uses the actual encoder/listener/runtime and wait
+operations. Independent review approved clock boundaries, full-tick sleep,
+close-before-release ownership, and the unchanged departure-log parser contract.
+The artifact oracle passes real FFmpeg controls and preserves failed receipts.
+The first 25-stage canonical check passed. Scheduler review then found two P1
+false-pass risks: accepted-input accounting could omit capture ranges, and
+listener expectations could follow whichever publications arrived. Its fix wave
+adds exhaustive source categories, exact per-actor fixture expectations, and
+named omission/duplication controls. Disconnect/stale-ID, same-graph reset and
+partial-block runtime cases were also corrected. The final targeted run passes
+nine Rust tests, 14 oracle positives and 12 intended negative rejections at
+target/stream-replay.N21tfn. Scoped rereview approved all five fixes; the fresh
+canonical run passed all 25 stages, including firmware compilation, with its own
+replay artifacts at target/stream-replay.uHZRMM. See replay.md in October 10
+audit evidence; no firmware was flashed.
+
+The separate replay PR workflow passes actionlint and retains per-run evidence.
+It has not run on GitHub; no push is authorized. Fuzz review likewise found a
+timeout-cleanup defect and weak route/write assertions. A Sol 6.1 fix worker is
+finishing those checks after two earlier worker turns hit unspecified automatic
+content-risk filters. Saved partial work is not accepted evidence. The scoped
+February nightly leaves stable and ESP toolchain pins unchanged; final fuzz
+acceptance requires a reviewed committed-source archive.
+
+Ruling: continue with clean-context workers after this fourth compaction because
+the environment offers no replacement-root-session action. Preserve checkpoints
+and reports rather than imply a fresh session started. The next encoder probe
+brief has been adapted to the shared pump in target/kata-hardening/
+encoder-probe-adapted.md; it remains design-only, with no source or hardware work.

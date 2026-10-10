@@ -78,6 +78,9 @@ sleeps can busy-wait instead of releasing the core. Use explicit vTaskDelay
 in timing probes, record late deadlines separately from final backlog, and
 retain original runs when correcting pacing. A zero final backlog can hide
 a half-second stall; task runtime includes charged interrupts.
+When adapting virtual wake times, preserve the production full sleep interval.
+Subtracting wrapper overhead from a 10 ms wait can turn it into a sub-tick busy
+wait. Host virtual-clock tests do not verify this ESP-IDF scheduling behavior.
 
 Doctor Biz chose Low 1 s / Medium 4 s / High 8 s startup history, default Medium,
 applied on the next Play. Actual whole-frame offsets are 1.024/4.010667/8.021333 s.

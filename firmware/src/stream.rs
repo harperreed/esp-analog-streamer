@@ -9,6 +9,10 @@ use std::sync::{Arc, Mutex, OnceLock};
 use std::time::{Duration, Instant};
 
 use crate::stream_codec as codec;
+use crate::stream_pipeline::{
+    CompressedListener, ConnectionResources, EncoderObservation, EncoderPump, EncoderStep, End,
+    ListenerStep, CAUGHT_UP_SLEEP, CHUNK_FRAMES, FRESH_AUDIO_TIMEOUT,
+};
 use anyhow::Result;
 use esp_idf_svc::hal::cpu::Core;
 use esp_idf_svc::mdns::EspMdns;
@@ -18,10 +22,7 @@ use esp_shazam_core::stream_http::{
     self, DeadlineReader, DeadlineWriter, Format, Route, Status, WriterDiagnostics,
 };
 use esp_shazam_core::stream_ring::{Cursor, ReadError};
-use esp_shazam_core::stream_wait::{
-    buffered_cursor_before, cursor_before, lock_before, read_atomic_fresh_with, read_locked_fresh,
-    BufferWaitError, Slot, WaitError,
-};
+use esp_shazam_core::stream_wait::{cursor_before, read_atomic_fresh_with, Slot, WaitError};
 use esp_shazam_core::wav;
 
 use crate::audio_in::{SharedStreamRing, CAPTURE_RATE_HZ};
@@ -30,7 +31,7 @@ use crate::psram::PsramBytes;
 use crate::socket_close;
 use crate::threads::ThreadSpec;
 
-use crate::stream_runtime::{Epoch, Lease, Runtime, Worker};
+use crate::stream_runtime::{Epoch, Runtime, Worker};
 static LISTENERS: OnceLock<Arc<AtomicUsize>> = OnceLock::new();
 static RUNTIME: OnceLock<Arc<Runtime>> = OnceLock::new();
 
@@ -93,26 +94,29 @@ impl ListenerBuffer {
 
 /// Keeps the listener slot until its socket close succeeds, including spawn failure.
 struct ListenerConnection {
-    sock: Option<TcpStream>,
-    slot: Slot,
+    resources: Option<ConnectionResources<TcpStream>>,
     peer: String,
 }
 
 impl ListenerConnection {
     fn socket(&self) -> &TcpStream {
-        self.sock.as_ref().expect("listener owns its socket")
+        &self
+            .resources
+            .as_ref()
+            .expect("listener owns resources")
+            .socket
     }
 }
 
 impl Drop for ListenerConnection {
     fn drop(&mut self) {
-        if let Some(sock) = self.sock.take() {
-            match socket_close::close(sock) {
-                Ok(report) => log::info!(
+        if let Some(resources) = self.resources.take() {
+            match resources.close(socket_close::close) {
+                Ok((report, held)) => log::info!(
                     "stream: {} socket closed in {} ms; releasing slot ({} held)",
                     self.peer,
                     report.elapsed.as_millis(),
-                    self.slot.taken()
+                    held
                 ),
                 Err(_failure) => {
                     // Keep the failure's owned socket and this slot alive through restart.
@@ -131,17 +135,8 @@ pub const PORT: u16 = 8000;
 /// WAV and compressed listeners share the slots, and a third listener of either gets 503. Each one takes a
 /// thread, TCP buffers that prefer PSRAM, and Wi-Fi: 2.3 Mbit/s for the WAV, less for compressed audio.
 const MAX_LISTENERS: usize = 2;
-/// Frames per atomic capture read: at most 5 ms, without holding a capture mutex.
-/// WAV packs these samples into 1,440 bytes; the shared encoder accumulates codec-sized blocks.
-const CHUNK_FRAMES: usize = 240;
 // Both compressed codecs encode the capture sample rate.
 const _: () = assert!(codec::SAMPLE_RATE_HZ == CAPTURE_RATE_HZ);
-/// A listener that has caught up sleeps one FreeRTOS tick: ESP-IDF's usleep busy-waits anything shorter.
-const CAUGHT_UP_SLEEP: Duration = Duration::from_millis(10);
-/// A caught-up listener waits at most 2 s for real audio, plus one tick and scheduling delay.
-/// Quiet audio still produces samples/encoded frames. Capture stalls release both listener slots
-/// independently of the capture supervisor; the shared encoder waits again after this timeout.
-const FRESH_AUDIO_TIMEOUT: Duration = Duration::from_secs(2);
 /// A client gets this long to send its whole request head, which may be at most `MAX_HEAD_BYTES`,
 /// and to take a refusal. The accept thread answers one connection at a time, so this is how long
 /// one client can hold up the next.
@@ -265,8 +260,7 @@ fn answer(
             match Slot::take(listeners, MAX_LISTENERS) {
                 Some(slot) => {
                     let connection = ListenerConnection {
-                        sock: Some(sock),
-                        slot,
+                        resources: Some(ConnectionResources::new(sock, slot, lease)),
                         peer,
                     };
                     // Required frame storage is admitted before spawning or sending HTTP 200.
@@ -291,12 +285,12 @@ fn answer(
                         "stream: {} joined {} ({} of {MAX_LISTENERS})",
                         connection.peer,
                         format.path(),
-                        connection.slot.taken()
+                        connection.resources.as_ref().unwrap().slot.taken()
                     );
                     let ring = ring.clone();
                     // The owned connection's drop observes close even if no thread can be created.
-                    if let Err(e) = LISTENER_THREAD
-                        .spawn(move || listen(connection, ring, lease, buffer, preset))
+                    if let Err(e) =
+                        LISTENER_THREAD.spawn(move || listen(connection, ring, buffer, preset))
                     {
                         log::warn!("stream: no thread for a listener: {e}");
                     }
@@ -331,11 +325,15 @@ fn send_refusal(mut sock: &TcpStream, peer: &str, request_line: &str, status: St
 fn listen(
     connection: ListenerConnection,
     ring: SharedStreamRing,
-    lease: Option<Lease>,
     buffer: ListenerBuffer,
     preset: Option<BufferPreset>,
 ) {
     let sock = connection.socket();
+    let lease = &connection
+        .resources
+        .as_ref()
+        .expect("listener owns resources")
+        .lease;
     let peer = &connection.peer;
     let started = Instant::now();
     let end = match buffer {
@@ -374,32 +372,6 @@ fn listen(
     // cap bounds active/draining payloads rather than every TCP object. Failures retain the slot
     // until reboot instead of admitting another listener against uncertain resources.
     drop(connection);
-}
-
-/// Why a listener's stream ended.
-enum End {
-    Retired,
-    /// The ring overwrote frames the listener hadn't been sent: it read too slowly.
-    FellBehind,
-    /// Writing a frame exhausted its write budget: the listener stopped reading, or reads too
-    /// little to matter.
-    StoppedReading,
-    /// Capture or the shared encoder stopped supplying fresh audio.
-    CaptureStalled,
-    /// A copied shared frame failed its codec-specific listener preparation.
-    InvalidFrame(io::Error),
-    /// The socket failed, usually because the listener closed it.
-    Failed(io::Error),
-}
-
-impl End {
-    fn from_write_error(e: io::Error) -> Self {
-        // lwIP reports a send timeout as EAGAIN; the deadline running out is TimedOut.
-        match e.kind() {
-            io::ErrorKind::WouldBlock | io::ErrorKind::TimedOut => End::StoppedReading,
-            _ => End::Failed(e),
-        }
-    }
 }
 
 impl fmt::Display for End {
@@ -523,117 +495,113 @@ fn encode(
     listeners: Arc<AtomicUsize>,
     mut worker: Worker,
 ) {
-    let mut chunk = vec![0i32; 2 * CHUNK_FRAMES];
-    let mut block_number = 0u32;
+    let mut pump = EncoderPump::new();
     let mut yield_frames = 0usize;
     let mut metrics = EncoderMetrics::new(&listeners);
-    let mut cursor = encoder_cursor(&raw, &listeners, &mut metrics);
+    let origin = Instant::now();
     loop {
-        if worker.encoder.frames_wanted() == worker.epoch.format.block_frames()
-            && worker.service(&runtime)
-        {
-            block_number = 0;
-            yield_frames = 0;
-            // Per-codec throughput intervals cannot include frames from the retired format.
-            metrics = EncoderMetrics::new(&listeners);
-            // SAFETY: only this worker changes its own FreeRTOS priority at a block boundary.
-            unsafe {
-                sys::vTaskPrioritySet(
-                    std::ptr::null_mut(),
-                    u32::from(worker.epoch.format.priority()),
-                )
-            };
-            cursor = encoder_cursor(&raw, &listeners, &mut metrics);
-            log::info!("stream: active format {:?}", worker.epoch.format);
-        }
-        let frames = CHUNK_FRAMES.min(worker.encoder.frames_wanted());
-        match read_some(
+        let mut published = false;
+        let mut log_due = false;
+        let step = pump.step(
             &raw,
-            &mut cursor,
-            &mut chunk[..2 * frames],
-            Some(&mut metrics.raw_read),
-        ) {
-            Ok(n) => worker.encoder.push(&chunk[..2 * n]),
-            // Keep this one shared encoder alive during a pause. The next read starts a full
-            // wait; a capture reset still yields Overrun and discards the partial block below.
-            Err(WaitError::Stalled | WaitError::Read(ReadError::Retry)) => {
-                metrics.log_if_due(&listeners);
-                continue;
-            }
-            Err(WaitError::Read(ReadError::Overrun)) => {
-                log::warn!(
-                    "stream: encoder fell behind capture; disconnecting compressed listeners"
-                );
-                worker.epoch.ring.lock().expect("encoded ring lock").reset();
-                if let Err(error) = worker.encoder.reset() {
-                    log::error!("stream: encoder reset failed; output remains invalid ({error})");
-                    return;
+            &mut worker,
+            &runtime,
+            &mut || origin.elapsed(),
+            &mut |observation| match observation {
+                EncoderObservation::AcceptedInput {
+                    generation,
+                    start,
+                    frames,
+                } => {
+                    let _ = (generation, start, frames);
                 }
-                cursor = encoder_cursor(&raw, &listeners, &mut metrics);
-                block_number = 0;
-                metrics.resets += 1;
-                metrics.log_if_due(&listeners);
-                continue;
+                EncoderObservation::CursorAcquired { generation, start } => {
+                    let _ = (generation, start);
+                }
+                EncoderObservation::RawAttempt { result, elapsed } => {
+                    RAW_READ_MAX_US.fetch_max(
+                        elapsed.as_micros().min(u128::from(u32::MAX)) as u32,
+                        Ordering::Relaxed,
+                    );
+                    metrics.raw_read.attempts += 1;
+                    match result {
+                        Ok(0) => metrics.raw_read.empty += 1,
+                        Ok(frames) => {
+                            metrics.raw_read.successes += 1;
+                            metrics.raw_read.frames += frames as u64;
+                        }
+                        Err(ReadError::Retry) => metrics.raw_read.retries += 1,
+                        Err(ReadError::Overrun) => metrics.raw_read.overruns += 1,
+                    }
+                }
+                EncoderObservation::RawWait(elapsed) => {
+                    let us = elapsed.as_micros() as u64;
+                    metrics.raw_read.calls += 1;
+                    metrics.raw_read.wait_total_us += us;
+                    metrics.raw_read.wait_max_us = metrics.raw_read.wait_max_us.max(us);
+                }
+                EncoderObservation::Codec(elapsed) => {
+                    let us = elapsed.as_micros() as u64;
+                    metrics.encode_max_us = metrics.encode_max_us.max(us);
+                    metrics.encode_wall_total_us += us;
+                }
+                EncoderObservation::Publication { lock_wait, held } => {
+                    metrics.encoded_lock_wait_wall_total_us += lock_wait.as_micros() as u64;
+                    metrics.encoded_push_held_wall_total_us += held.as_micros() as u64;
+                    metrics.frames += 1;
+                    published = true;
+                    log_due = true;
+                }
+                EncoderObservation::Reset => {
+                    log::warn!(
+                        "stream: encoder fell behind capture; disconnecting compressed listeners"
+                    );
+                    metrics.resets += 1;
+                    log_due = true;
+                }
+                EncoderObservation::CursorWaitExpired | EncoderObservation::Stalled => {
+                    log_due = true;
+                }
+            },
+        );
+        match step {
+            EncoderStep::Switched => {
+                yield_frames = 0;
+                metrics = EncoderMetrics::new(&listeners);
+                // SAFETY: only this worker changes its own FreeRTOS priority at a block boundary.
+                unsafe {
+                    sys::vTaskPrioritySet(
+                        std::ptr::null_mut(),
+                        u32::from(worker.epoch.format.priority()),
+                    )
+                };
+                log::info!("stream: active format {:?}", worker.epoch.format);
             }
-        }
-        if worker.encoder.frames_wanted() == 0 {
-            // SAFETY: IDF initialized this monotonic timer before the encoder task starts.
-            let encode_started_us = unsafe { sys::esp_timer_get_time() as u64 };
-            let result = worker.encoder.encode_block(block_number, &mut worker.bytes);
-            // The interval contains the codec call only, including any preemption during it.
-            // SAFETY: the initialized monotonic timer remains available on this task.
-            let encode_elapsed_us = unsafe { sys::esp_timer_get_time() as u64 } - encode_started_us;
-            metrics.encode_max_us = metrics.encode_max_us.max(encode_elapsed_us);
-            metrics.encode_wall_total_us += encode_elapsed_us;
-            if let Err(error) = result {
-                worker.epoch.ring.lock().expect("encoded ring lock").reset();
-                log::error!("stream: encoding failed; disconnecting listeners ({error})");
+            EncoderStep::SleepUntil(at) => {
+                let _ = at;
+                // Preserve a full tick: subtracting wrapper overhead can make IDF busy-wait.
+                std::thread::sleep(CAUGHT_UP_SLEEP);
+            }
+            EncoderStep::Spin => std::hint::spin_loop(),
+            EncoderStep::Stopped(error) => {
+                log::error!("stream: encoder failed; output remains invalid ({error})");
                 return;
             }
-            // SAFETY: the initialized monotonic timer measures wall time, including preemption.
-            let lock_started_us = unsafe { sys::esp_timer_get_time() as u64 };
-            let mut output = worker.epoch.ring.lock().expect("encoded ring lock");
-            // SAFETY: same initialized timer; acquisition is separate from the held copy below.
-            let lock_acquired_us = unsafe { sys::esp_timer_get_time() as u64 };
-            output
-                .push(&worker.bytes)
-                .expect("encoder frame fits encoded ring");
-            // SAFETY: same initialized monotonic timer remains available while this lock is held.
-            let push_finished_us = unsafe { sys::esp_timer_get_time() as u64 };
-            drop(output);
-            metrics.encoded_lock_wait_wall_total_us += lock_acquired_us - lock_started_us;
-            metrics.encoded_push_held_wall_total_us += push_finished_us - lock_acquired_us;
-            block_number = block_number.wrapping_add(1);
-            metrics.frames += 1;
+            EncoderStep::Progress => {}
+        }
+        if log_due {
             metrics.log_if_due(&listeners);
-            if worker.epoch.format == OutputFormat::Mp3 {
-                yield_frames += 1;
-                if yield_frames == 8 {
-                    // Yield regularly even when capture already has more PCM.
-                    // A one-tick RTOS delay yields; IDF sub-tick usleep can busy-wait.
-                    // SAFETY: this code runs on the initialized encoder FreeRTOS task.
-                    unsafe { sys::vTaskDelay(1) };
-                    yield_frames = 0;
-                }
+        }
+        if published && worker.epoch.format == OutputFormat::Mp3 {
+            yield_frames += 1;
+            if yield_frames == 8 {
+                // Yield regularly even when capture already has more PCM.
+                // A one-tick RTOS delay yields; IDF sub-tick usleep can busy-wait.
+                // SAFETY: this code runs on the initialized encoder FreeRTOS task.
+                unsafe { sys::vTaskDelay(1) };
+                yield_frames = 0;
             }
         }
-    }
-}
-
-/// The shared encoder stays alive while capture exposes a busy header.
-/// Initial and reset cursor snapshots share the same bounded wait policy.
-fn encoder_cursor(
-    raw: &SharedStreamRing,
-    listeners: &AtomicUsize,
-    metrics: &mut EncoderMetrics,
-) -> Cursor {
-    loop {
-        if let Some(cursor) =
-            cursor_before(raw, Instant::now() + FRESH_AUDIO_TIMEOUT, CAUGHT_UP_SLEEP)
-        {
-            return cursor;
-        }
-        metrics.log_if_due(listeners);
     }
 }
 
@@ -790,90 +758,64 @@ fn stream_compressed(
     preset: Option<BufferPreset>,
     metrics: &mut ListenerMetrics,
 ) -> End {
-    let ring = &epoch.ring;
-    let format = epoch.format;
-    let write_limit = Duration::from_millis(format.write_limit_ms(CONFIG.shazam_enabled));
+    let origin = Instant::now();
+    let mut listener = CompressedListener::new(epoch, preset, CONFIG.shazam_enabled, &mut || {
+        origin.elapsed()
+    });
     let mut writer = DeadlineWriter::new(sock);
     let mut payload_started = None;
-    let end = (|| {
-        let mut header = format.format().response_head().as_bytes().to_vec();
-        header.extend_from_slice(&codec::stream_header(format));
-        let mut cursor = if let Some(preset) = preset {
-            match buffered_cursor_before(
-                ring,
-                sock,
-                preset.frames(format.block_frames()),
-                Instant::now() + Duration::from_secs(preset.seconds()) + FRESH_AUDIO_TIMEOUT,
-                FRESH_AUDIO_TIMEOUT,
-                CAUGHT_UP_SLEEP,
-            ) {
-                Ok(cursor) => cursor,
-                Err(error) => {
-                    if error != BufferWaitError::Disconnected {
-                        send_refusal(
-                            sock,
-                            "buffered listener",
-                            "buffer startup",
-                            Status::ServiceUnavailable,
-                        );
-                    }
-                    return End::CaptureStalled;
+    let end = loop {
+        let action = listener.step(epoch, bytes, &mut || origin.elapsed(), &mut || {
+            stream_http::peer_connected(sock).unwrap_or(false)
+        });
+        match action {
+            ListenerStep::Progress => {}
+            ListenerStep::SleepUntil(at) => {
+                let _ = at;
+                // Preserve a full tick: subtracting wrapper overhead can make IDF busy-wait.
+                std::thread::sleep(CAUGHT_UP_SLEEP);
+            }
+            ListenerStep::End(end) => break end,
+            ListenerStep::Write { deadline, header } => {
+                let started = Instant::now();
+                let result =
+                    writer.write_all_before(listener.write_bytes(bytes), origin + deadline);
+                if matches!(&result, Err(error) if matches!(error.kind(), io::ErrorKind::WouldBlock | io::ErrorKind::TimedOut))
+                {
+                    log::info!(
+                        "stream: frame write timed out elapsed_ms={} limit_ms={} bytes={}",
+                        started.elapsed().as_millis(),
+                        epoch.format.write_limit_ms(CONFIG.shazam_enabled),
+                        listener.write_bytes(bytes).len()
+                    );
+                }
+                if !header {
+                    let us = started.elapsed().as_micros() as u64;
+                    metrics.frame_write_wall_total_us += us;
+                    metrics.frame_write_wall_max_us = metrics.frame_write_wall_max_us.max(us);
+                }
+                let succeeded = result.is_ok();
+                if let ListenerStep::End(end) = listener.write_finished(result) {
+                    break end;
+                }
+                if header && succeeded {
+                    writer.reset_diagnostics();
+                    payload_started = Some(Instant::now());
                 }
             }
-        } else {
-            let Some(ring) =
-                lock_before(ring, Instant::now() + FRESH_AUDIO_TIMEOUT, CAUGHT_UP_SLEEP)
-            else {
-                return End::CaptureStalled;
-            };
-            ring.cursor_now()
-        };
-        if epoch.retired() {
-            return End::Retired;
         }
-        if let Err(e) = write_frame(&mut writer, &header, write_limit) {
-            return End::from_write_error(e);
-        }
-        writer.reset_diagnostics();
-        payload_started = Some(Instant::now());
-        let mut block_number = 0;
-        loop {
-            if epoch.retired() {
-                return End::Retired;
-            }
-            let read_started = Instant::now();
-            let read_result =
-                read_locked_fresh(ring, FRESH_AUDIO_TIMEOUT, CAUGHT_UP_SLEEP, |ring| {
-                    if epoch.retired() {
-                        return Err(esp_shazam_core::flac_ring::Overrun);
-                    }
-                    ring.read(&mut cursor, bytes)
-                });
-            metrics.frame_read_wait_wall_total_us += read_started.elapsed().as_micros() as u64;
-            let n = match read_result {
-                Ok(n) => n,
-                Err(WaitError::Stalled) => return End::CaptureStalled,
-                Err(WaitError::Read(_)) => return End::FellBehind,
-            };
-            let n = match codec::prepare_listener_frame(format, bytes, n, block_number) {
-                Ok(n) => n,
-                Err(error) => return End::InvalidFrame(error),
-            };
-            let write_started = Instant::now();
-            let write_result = write_frame(&mut writer, &bytes[..n], write_limit);
-            let write_elapsed_us = write_started.elapsed().as_micros() as u64;
-            metrics.frame_write_wall_total_us += write_elapsed_us;
-            metrics.frame_write_wall_max_us = metrics.frame_write_wall_max_us.max(write_elapsed_us);
-            if let Err(e) = write_result {
-                return End::from_write_error(e);
-            }
-            metrics.frames_sent += 1;
-            metrics.bytes_sent += n as u64;
-            // FLAC numbering advances after a whole write and rejects numbers at 2^31.
-            // MP3 ignores this counter, so wrap cannot alter its frame bytes.
-            block_number = block_number.wrapping_add(1);
-        }
-    })();
+    };
+    if listener.refuse_buffered {
+        send_refusal(
+            sock,
+            "buffered listener",
+            "buffer startup",
+            Status::ServiceUnavailable,
+        );
+    }
+    metrics.frame_read_wait_wall_total_us += listener.read_wait.as_micros() as u64;
+    metrics.frames_sent += listener.frames_sent;
+    metrics.bytes_sent += listener.bytes_sent;
     metrics.socket = writer.diagnostics();
     metrics.payload_elapsed_us =
         payload_started.map_or(0, |started| started.elapsed().as_micros() as u64);

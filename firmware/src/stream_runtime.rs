@@ -70,7 +70,7 @@ struct Request {
     prepared: Prepared,
     force: bool,
     token: Arc<Mutex<bool>>,
-    deadline: Instant,
+    deadline: Duration,
     outcome: Arc<Mutex<Option<io::Result<bool>>>>,
     notify: SyncSender<()>,
 }
@@ -79,6 +79,7 @@ pub struct Runtime {
     sender: SyncSender<Request>,
     recognition: bool,
     listeners: Arc<AtomicUsize>,
+    clock: std::sync::Arc<dyn Fn() -> Duration + Send + Sync>,
 }
 pub struct Worker {
     pub epoch: Arc<Epoch>,
@@ -88,6 +89,18 @@ pub struct Worker {
 }
 impl Runtime {
     pub fn new(format: OutputFormat, recognition: bool) -> io::Result<(Arc<Self>, Worker)> {
+        let origin = Instant::now();
+        Self::with_clock(
+            format,
+            recognition,
+            std::sync::Arc::new(move || origin.elapsed()),
+        )
+    }
+    pub(crate) fn with_clock(
+        format: OutputFormat,
+        recognition: bool,
+        clock: std::sync::Arc<dyn Fn() -> Duration + Send + Sync>,
+    ) -> io::Result<(Arc<Self>, Worker)> {
         format.validate(recognition).map_err(io::Error::other)?;
         let prepared = Prepared::new(format, recognition)?;
         let (sender, receiver) = mpsc::sync_channel(1);
@@ -95,6 +108,7 @@ impl Runtime {
             active: Mutex::new(prepared.epoch.clone()),
             sender,
             recognition,
+            clock,
             listeners: Arc::new(AtomicUsize::new(0)),
         });
         Ok((
@@ -136,13 +150,25 @@ impl Runtime {
         token: Arc<Mutex<bool>>,
         timeout: Duration,
     ) -> io::Result<bool> {
-        format
-            .validate(self.recognition)
-            .map_err(io::Error::other)?;
-        if self.active_format() == format {
-            return Ok(true);
+        match self.begin_switch(format, force, token, timeout) {
+            SwitchStart::Finished(result) => result,
+            SwitchStart::Pending(pending) => pending.wait(),
         }
-        self.switch_prepared(format, force, token, timeout, || {
+    }
+    pub(crate) fn begin_switch(
+        &self,
+        format: OutputFormat,
+        force: bool,
+        token: Arc<Mutex<bool>>,
+        timeout: Duration,
+    ) -> SwitchStart {
+        if let Err(error) = format.validate(self.recognition) {
+            return SwitchStart::Finished(Err(io::Error::other(error)));
+        }
+        if self.active_format() == format {
+            return SwitchStart::Finished(Ok(true));
+        }
+        self.begin_prepared(force, token, timeout, || {
             Prepared::new(format, self.recognition)
         })
     }
@@ -174,6 +200,7 @@ impl Runtime {
         }
     }
 
+    #[cfg(test)]
     fn switch_prepared(
         &self,
         _format: OutputFormat,
@@ -182,11 +209,27 @@ impl Runtime {
         timeout: Duration,
         prepare: impl FnOnce() -> io::Result<Prepared>,
     ) -> io::Result<bool> {
-        let deadline = Instant::now() + timeout;
-        let prepared = prepare()?;
+        match self.begin_prepared(force, token, timeout, prepare) {
+            SwitchStart::Finished(result) => result,
+            SwitchStart::Pending(pending) => pending.wait(),
+        }
+    }
+    fn begin_prepared(
+        &self,
+        force: bool,
+        token: Arc<Mutex<bool>>,
+        timeout: Duration,
+        prepare: impl FnOnce() -> io::Result<Prepared>,
+    ) -> SwitchStart {
+        let deadline = (self.clock)() + timeout;
+        let prepared = match prepare() {
+            Ok(prepared) => prepared,
+            Err(error) => return SwitchStart::Finished(Err(error)),
+        };
         let outcome = Arc::new(Mutex::new(None));
         let (notify, notified) = mpsc::sync_channel(1);
-        self.sender
+        if self
+            .sender
             .try_send(Request {
                 prepared,
                 force,
@@ -195,9 +238,56 @@ impl Runtime {
                 outcome: outcome.clone(),
                 notify,
             })
-            .map_err(|_| io::Error::other("encoder switch busy or unavailable"))?;
-        let _ = notified.recv_timeout(deadline.saturating_duration_since(Instant::now()));
-        let mut result = outcome.lock().unwrap();
+            .is_err()
+        {
+            return SwitchStart::Finished(Err(io::Error::other(
+                "encoder switch busy or unavailable",
+            )));
+        }
+        SwitchStart::Pending(PendingSwitch {
+            notified,
+            outcome,
+            deadline,
+            clock: self.clock.clone(),
+        })
+    }
+}
+pub(crate) enum SwitchStart {
+    Finished(io::Result<bool>),
+    Pending(PendingSwitch),
+}
+#[cfg(not(target_os = "espidf"))]
+#[allow(dead_code)] // Host test binaries import different subsets of this production module.
+pub(crate) enum SwitchPoll {
+    Finished(io::Result<bool>),
+    Pending(PendingSwitch),
+}
+pub(crate) struct PendingSwitch {
+    notified: Receiver<()>,
+    outcome: Arc<Mutex<Option<io::Result<bool>>>>,
+    deadline: Duration,
+    clock: std::sync::Arc<dyn Fn() -> Duration + Send + Sync>,
+}
+impl PendingSwitch {
+    #[cfg(not(target_os = "espidf"))]
+    #[allow(dead_code)] // The cooperative host adapter is absent from blocking-only test binaries.
+    pub(crate) fn poll(self) -> SwitchPoll {
+        match self.notified.try_recv() {
+            Ok(()) | Err(mpsc::TryRecvError::Disconnected) => SwitchPoll::Finished(self.finalize()),
+            Err(mpsc::TryRecvError::Empty) if (self.clock)() >= self.deadline => {
+                SwitchPoll::Finished(self.finalize())
+            }
+            Err(mpsc::TryRecvError::Empty) => SwitchPoll::Pending(self),
+        }
+    }
+    fn wait(self) -> io::Result<bool> {
+        let _ = self
+            .notified
+            .recv_timeout(self.deadline.saturating_sub((self.clock)()));
+        self.finalize()
+    }
+    pub(crate) fn finalize(self) -> io::Result<bool> {
+        let mut result = self.outcome.lock().unwrap();
         // This lock serializes expiry with the worker's commit: a timeout revokes authority.
         result.take().unwrap_or_else(|| {
             *result = Some(Err(io::Error::new(
@@ -211,6 +301,7 @@ impl Runtime {
         })
     }
 }
+
 impl Worker {
     /// Called between complete PCM blocks; only this worker ever executes an encoder.
     pub fn service(&mut self, runtime: &Runtime) -> bool {
@@ -230,7 +321,7 @@ impl Worker {
         let permit = request.token.lock().unwrap();
         let mut outcome = request.outcome.lock().unwrap();
         let mut active = runtime.active.lock().unwrap();
-        let result = if outcome.is_some() || !*permit || Instant::now() >= request.deadline {
+        let result = if outcome.is_some() || !*permit || (runtime.clock)() >= request.deadline {
             Err(io::Error::other("encoder switch cancelled"))
         } else if !request.force && runtime.listeners.load(Ordering::Acquire) != 0 {
             Ok(false)

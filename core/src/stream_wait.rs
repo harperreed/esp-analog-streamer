@@ -24,6 +24,154 @@ pub enum WaitError<E> {
     Read(E),
 }
 
+/// Result of one real read attempt; callers perform the requested sleep or spin.
+#[derive(Debug, PartialEq, Eq)]
+pub enum WaitStep<E> {
+    Ready(usize),
+    Failed(E),
+    Stalled,
+    RetryNow,
+    SleepUntil(Duration),
+}
+
+pub struct FreshWait {
+    started: Duration,
+    limit: Duration,
+    interval: Duration,
+}
+impl FreshWait {
+    pub fn new(started: Duration, limit: Duration, interval: Duration) -> Self {
+        assert!(!limit.is_zero() && !interval.is_zero());
+        Self {
+            started,
+            limit,
+            interval,
+        }
+    }
+    pub fn finish<E>(
+        &self,
+        result: Result<usize, E>,
+        now: &mut impl FnMut() -> Duration,
+    ) -> WaitStep<E> {
+        match result {
+            Ok(0) => {
+                let finished = now();
+                if finished.saturating_sub(self.started) >= self.limit {
+                    WaitStep::Stalled
+                } else {
+                    WaitStep::SleepUntil(finished + self.interval)
+                }
+            }
+            Ok(n) => WaitStep::Ready(n),
+            Err(error) => WaitStep::Failed(error),
+        }
+    }
+}
+
+pub struct RawWait {
+    fresh: FreshWait,
+    retry_started: Option<Duration>,
+}
+impl RawWait {
+    pub fn new(started: Duration, limit: Duration, interval: Duration) -> Self {
+        Self {
+            fresh: FreshWait::new(started, limit, interval),
+            retry_started: None,
+        }
+    }
+    pub fn before_attempt(&mut self, now: &mut impl FnMut() -> Duration) {
+        if self.retry_started.is_none() {
+            self.retry_started = Some(now());
+        }
+    }
+    pub fn finish(
+        &mut self,
+        result: Result<usize, crate::stream_ring::ReadError>,
+        now: &mut impl FnMut() -> Duration,
+    ) -> WaitStep<crate::stream_ring::ReadError> {
+        let result = match result {
+            Err(crate::stream_ring::ReadError::Retry) => {
+                // Preserve the original short-circuit order and separate clock observations.
+                if now().saturating_sub(self.retry_started.expect("attempt started"))
+                    < Duration::from_millis(1)
+                    && now().saturating_sub(self.fresh.started) < self.fresh.limit
+                {
+                    return WaitStep::RetryNow;
+                }
+                Ok(0)
+            }
+            other => other,
+        };
+        let result = self.fresh.finish(result, now);
+        if matches!(result, WaitStep::SleepUntil(_)) {
+            self.retry_started = None;
+        }
+        result
+    }
+}
+
+pub struct SnapshotWait {
+    deadline: Duration,
+    interval: Duration,
+}
+impl SnapshotWait {
+    pub fn new(deadline: Duration, interval: Duration) -> Self {
+        assert!(!interval.is_zero());
+        Self { deadline, interval }
+    }
+    pub fn before_attempt(&self, now: Duration) -> bool {
+        now < self.deadline
+    }
+    pub fn retry_at(&self, now: Duration) -> Duration {
+        now + self.interval
+    }
+}
+
+pub struct BufferedWait {
+    snapshot: SnapshotWait,
+    freshness: Duration,
+    last_progress: Duration,
+    observed: Option<(u64, u64)>,
+}
+impl BufferedWait {
+    pub fn new(
+        started: Duration,
+        deadline: Duration,
+        freshness: Duration,
+        interval: Duration,
+    ) -> Self {
+        assert!(!freshness.is_zero());
+        Self {
+            snapshot: SnapshotWait::new(deadline, interval),
+            freshness,
+            last_progress: started,
+            observed: None,
+        }
+    }
+    pub fn before_attempt(&self, now: Duration) -> bool {
+        self.snapshot.before_attempt(now) && now.saturating_sub(self.last_progress) < self.freshness
+    }
+    pub fn observe_progress(&mut self, progress: (u64, u64), now: &mut impl FnMut() -> Duration) {
+        if let Some((generation, written)) = self.observed {
+            if (progress.0 == generation && progress.1 > written)
+                || (progress.0 != generation && progress.1 > 0)
+            {
+                self.last_progress = now();
+            }
+        }
+        self.observed = Some(progress);
+    }
+    pub fn retained<T, E>(
+        &self,
+        result: Result<Option<T>, E>,
+    ) -> Result<Option<T>, BufferWaitError> {
+        result.map_err(|_| BufferWaitError::Unsupported)
+    }
+    pub fn retry_at(&self, now: Duration) -> Duration {
+        self.snapshot.retry_at(now)
+    }
+}
+
 /// Reads fresh data within `limit`, releasing the producer's lock before sleeping.
 /// Any nonzero read is progress, including silent samples. A read error stays distinct from a
 /// stalled producer. A retry may run one `interval` past the limit, plus scheduler delay.
@@ -32,14 +180,15 @@ pub fn read_fresh<E>(
     interval: Duration,
     mut read: impl FnMut() -> Result<usize, E>,
 ) -> Result<usize, WaitError<E>> {
-    assert!(!limit.is_zero() && !interval.is_zero());
-    let started = Instant::now();
+    let origin = Instant::now();
+    let wait = FreshWait::new(Duration::ZERO, limit, interval);
     loop {
-        match read() {
-            Ok(0) if started.elapsed() >= limit => return Err(WaitError::Stalled),
-            Ok(0) => std::thread::sleep(interval),
-            Ok(n) => return Ok(n),
-            Err(error) => return Err(WaitError::Read(error)),
+        match wait.finish(read(), &mut || origin.elapsed()) {
+            WaitStep::Ready(n) => return Ok(n),
+            WaitStep::Failed(error) => return Err(WaitError::Read(error)),
+            WaitStep::Stalled => return Err(WaitError::Stalled),
+            WaitStep::SleepUntil(_) => std::thread::sleep(interval),
+            WaitStep::RetryNow => unreachable!(),
         }
     }
 }
@@ -53,23 +202,18 @@ pub fn read_atomic_fresh_with(
     interval: Duration,
     mut read: impl FnMut() -> Result<usize, crate::stream_ring::ReadError>,
 ) -> Result<usize, WaitError<crate::stream_ring::ReadError>> {
-    const RETRY_SPIN_LIMIT: Duration = Duration::from_millis(1);
-    let started = Instant::now();
-    read_fresh(limit, interval, || {
-        let retry_started = Instant::now();
-        loop {
-            match read() {
-                Err(crate::stream_ring::ReadError::Retry)
-                    if retry_started.elapsed() < RETRY_SPIN_LIMIT && started.elapsed() < limit =>
-                {
-                    std::hint::spin_loop();
-                }
-                // The outer wait sleeps one existing interval or ends its absolute budget.
-                Err(crate::stream_ring::ReadError::Retry) => return Ok(0),
-                result => return result,
-            }
+    let origin = Instant::now();
+    let mut wait = RawWait::new(Duration::ZERO, limit, interval);
+    loop {
+        wait.before_attempt(&mut || origin.elapsed());
+        match wait.finish(read(), &mut || origin.elapsed()) {
+            WaitStep::Ready(n) => return Ok(n),
+            WaitStep::Failed(error) => return Err(WaitError::Read(error)),
+            WaitStep::Stalled => return Err(WaitError::Stalled),
+            WaitStep::SleepUntil(_) => std::thread::sleep(interval),
+            WaitStep::RetryNow => std::hint::spin_loop(),
         }
-    })
+    }
 }
 
 /// Copies fresh raw audio within one wait budget, sleeping between retries.
@@ -90,7 +234,9 @@ pub fn cursor_before(
     interval: Duration,
 ) -> Option<crate::stream_ring::Cursor> {
     assert!(!interval.is_zero());
-    while Instant::now() < deadline {
+    let origin = Instant::now();
+    let wait = SnapshotWait::new(deadline.saturating_duration_since(origin), interval);
+    while wait.before_attempt(origin.elapsed()) {
         match ring.cursor_now() {
             Ok(cursor) => return Some(cursor),
             Err(crate::stream_ring::ReadError::Retry) => std::thread::sleep(interval),
@@ -121,8 +267,10 @@ pub fn lock_before<T>(
     interval: Duration,
 ) -> Option<MutexGuard<'_, T>> {
     assert!(!interval.is_zero());
+    let origin = Instant::now();
+    let wait = SnapshotWait::new(deadline.saturating_duration_since(origin), interval);
     loop {
-        if Instant::now() >= deadline {
+        if !wait.before_attempt(origin.elapsed()) {
             return None;
         }
         match ring.try_lock() {
@@ -153,11 +301,15 @@ pub fn buffered_cursor_before(
     interval: Duration,
 ) -> Result<crate::flac_ring::Cursor, BufferWaitError> {
     assert!(!freshness.is_zero() && !interval.is_zero());
-    let mut last_progress = Instant::now();
-    let mut observed = None;
+    let origin = Instant::now();
+    let mut wait = BufferedWait::new(
+        Duration::ZERO,
+        deadline.saturating_duration_since(origin),
+        freshness,
+        interval,
+    );
     loop {
-        let now = Instant::now();
-        if now >= deadline || now.duration_since(last_progress) >= freshness {
+        if !wait.before_attempt(origin.elapsed()) {
             return Err(BufferWaitError::Stalled);
         }
         if !crate::stream_http::peer_connected(sock).unwrap_or(false) {
@@ -165,16 +317,8 @@ pub fn buffered_cursor_before(
         }
         match ring.try_lock() {
             Ok(ring) => {
-                let progress = ring.progress();
-                if let Some((generation, written)) = observed {
-                    if (progress.0 == generation && progress.1 > written)
-                        || (progress.0 != generation && progress.1 > 0)
-                    {
-                        last_progress = Instant::now();
-                    }
-                }
-                observed = Some(progress);
-                match ring.cursor_retained(frames) {
+                wait.observe_progress(ring.progress(), &mut || origin.elapsed());
+                match wait.retained(ring.cursor_retained(frames)) {
                     Ok(Some(cursor)) => return Ok(cursor),
                     Ok(None) => {}
                     Err(_) => return Err(BufferWaitError::Unsupported),

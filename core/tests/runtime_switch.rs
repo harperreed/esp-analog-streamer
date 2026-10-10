@@ -281,3 +281,92 @@ fn same_format_play_waits_for_real_slots_after_cancelled_switch() {
         .is_err());
     drop((first, second));
 }
+
+#[test]
+fn pending_switch_expiry_revokes_the_actual_worker_commit() {
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    use stream_runtime::{SwitchPoll, SwitchStart};
+    let tick = Arc::new(AtomicUsize::new(0));
+    let clock = tick.clone();
+    let (runtime, mut worker) = Runtime::with_clock(
+        OutputFormat::Flac,
+        false,
+        Arc::new(move || Duration::from_millis(clock.load(Ordering::Acquire) as u64)),
+    )
+    .unwrap();
+    let SwitchStart::Pending(pending) = runtime.begin_switch(
+        OutputFormat::Mp3,
+        true,
+        Arc::new(Mutex::new(true)),
+        Duration::from_millis(10),
+    ) else {
+        panic!("must enqueue")
+    };
+    tick.store(9, Ordering::Release);
+    let SwitchPoll::Pending(pending) = pending.poll() else {
+        panic!("before deadline")
+    };
+    tick.store(10, Ordering::Release);
+    let SwitchPoll::Finished(result) = pending.poll() else {
+        panic!("at deadline")
+    };
+    assert_eq!(result.unwrap_err().kind(), std::io::ErrorKind::TimedOut);
+    assert!(!worker.service(&runtime));
+    assert_eq!(runtime.active_format(), OutputFormat::Flac);
+}
+
+#[test]
+fn disconnected_worker_finalizes_pending_switch_before_clock_expiry() {
+    use stream_runtime::{SwitchPoll, SwitchStart};
+    let (runtime, worker) =
+        Runtime::with_clock(OutputFormat::Flac, false, Arc::new(|| Duration::ZERO)).unwrap();
+    let SwitchStart::Pending(pending) = runtime.begin_switch(
+        OutputFormat::Mp3,
+        true,
+        Arc::new(Mutex::new(true)),
+        Duration::from_secs(10),
+    ) else {
+        panic!("must enqueue")
+    };
+    drop(worker);
+    let SwitchPoll::Finished(result) = pending.poll() else {
+        panic!("disconnection must finalize without advancing clock")
+    };
+    assert_eq!(result.unwrap_err().kind(), std::io::ErrorKind::TimedOut);
+    assert_eq!(runtime.active_format(), OutputFormat::Flac);
+}
+
+#[test]
+fn committed_switch_result_wins_when_finalized_after_expiry() {
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    use stream_runtime::{SwitchPoll, SwitchStart};
+    let tick = Arc::new(AtomicUsize::new(0));
+    let clock = tick.clone();
+    let (runtime, mut worker) = Runtime::with_clock(
+        OutputFormat::Flac,
+        false,
+        Arc::new(move || Duration::from_millis(clock.load(Ordering::Acquire) as u64)),
+    )
+    .unwrap();
+    let (_, old) = runtime.admit("GET /stream.flac HTTP/1.1");
+    let SwitchStart::Pending(pending) = runtime.begin_switch(
+        OutputFormat::Mp3,
+        true,
+        Arc::new(Mutex::new(true)),
+        Duration::from_millis(10),
+    ) else {
+        panic!("must enqueue")
+    };
+    tick.store(9, Ordering::Release);
+    assert!(worker.service(&runtime));
+    tick.store(11, Ordering::Release);
+    let SwitchPoll::Finished(result) = pending.poll() else {
+        panic!("completed result")
+    };
+    assert!(
+        result.unwrap(),
+        "committed success survives late caller finalization"
+    );
+    assert!(old.unwrap().epoch.retired());
+    assert_eq!(runtime.active_format(), OutputFormat::Mp3);
+}

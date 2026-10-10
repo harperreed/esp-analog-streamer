@@ -10,7 +10,7 @@ fn request(force: bool, token: Arc<Mutex<bool>>) -> Request {
         prepared: Prepared::new(OutputFormat::Flac, false).unwrap(),
         force,
         token,
-        deadline: Instant::now() + Duration::from_secs(86400),
+        deadline: Duration::from_secs(86400),
         outcome: Arc::new(Mutex::new(None)),
         notify,
     }
@@ -115,7 +115,7 @@ fn expired_request_cannot_commit() {
         let (runtime, mut worker) = Runtime::new(OutputFormat::Flac, false).unwrap();
         let old = worker.epoch.clone();
         let mut pending = request(true, Arc::new(Mutex::new(true)));
-        pending.deadline = Instant::now() - Duration::from_secs(1);
+        pending.deadline = Duration::ZERO;
         let outcome = pending.outcome.clone();
         assert!(!worker.commit(&runtime, pending));
         assert!(outcome.lock().unwrap().as_ref().unwrap().is_err());

@@ -1,0 +1,67 @@
+{
+  "schema_version": 1,
+  "generator": "explicit-environment-v1",
+  "seed": 17,
+  "raw_capacity": 8192,
+  "encoded_capacity": 64,
+  "expected": [
+    "zero_slots"
+  ],
+  "events": [
+    {
+      "at": 0,
+      "id": 0,
+      "op": "pump",
+      "turns": 1
+    },
+    {
+      "at": 20000,
+      "id": 1,
+      "op": "admit",
+      "actor": 0
+    },
+    {
+      "at": 40000,
+      "id": 2,
+      "op": "listen",
+      "actor": 0,
+      "turns": 3
+    },
+    {
+      "at": 60000,
+      "op": "write",
+      "actor": 0,
+      "result": "send",
+      "size": 3,
+      "id": 3
+    },
+    {
+      "at": 80000,
+      "op": "write",
+      "actor": 0,
+      "result": "error",
+      "size": 0,
+      "id": 4
+    },
+    {
+      "at": 100000,
+      "op": "close",
+      "actor": 0,
+      "fail": false,
+      "id": 5
+    }
+  ],
+  "raw_block": 16,
+  "actors": {
+    "0": {
+      "ranges": [],
+      "terminal": "write_error",
+      "pending_source": null,
+      "close_state": "closed",
+      "admission": [
+        0,
+        0
+      ]
+    }
+  }
+}

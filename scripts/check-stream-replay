@@ -1,0 +1,39 @@
+#!/usr/bin/env bash
+# ABOUTME: Emits bounded production Rust replay artifacts and checks them with real FFmpeg.
+# ABOUTME: Requires exact PCM positives and the intended decoder rejection for every negative.
+set -euo pipefail
+cd "$(dirname "$0")/.."
+mise_env="$(mise env -s bash)"
+eval "$mise_env"
+mkdir -p target
+run_dir=$(mktemp -d "$PWD/target/stream-replay.XXXXXX")
+export STREAM_REPLAY_OUTPUT="$run_dir"
+cargo test -p esp-shazam-core --features capture-fixture --test stream_replay
+[[ -s "$run_dir/fixture-index.txt" ]]
+positive=0
+negative=0
+while IFS= read -r fixture; do
+    index="$run_dir/$fixture/manifest-index.tsv"
+    [[ -s "$index" ]]
+    while IFS=$'\t' read -r file expected; do
+        manifest="$run_dir/$fixture/$file"
+        [[ -f "$manifest" ]]
+        if [[ "$expected" == positive ]]; then
+            uv run --quiet --locked python3 scripts/replay_stream.py "$manifest"
+            positive=$((positive + 1))
+        else
+            if uv run --quiet --locked python3 scripts/replay_stream.py "$manifest" > "$manifest.oracle.log" 2>&1; then
+                echo "Negative control passed unexpectedly: $manifest" >&2
+                exit 1
+            fi
+            if ! rg -F -- "$expected" "$manifest.oracle.log" > /dev/null; then
+                cat "$manifest.oracle.log" >&2
+                echo "Negative control missed intended diagnostic '$expected': $manifest" >&2
+                exit 1
+            fi
+            negative=$((negative + 1))
+        fi
+    done < "$index"
+done < "$run_dir/fixture-index.txt"
+[[ "$positive" -gt 0 && "$negative" -gt 0 ]]
+printf 'Replay: %s positives, %s intended negative rejections. Artifacts: %s\n' "$positive" "$negative" "$run_dir"
