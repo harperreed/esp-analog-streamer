@@ -1,7 +1,7 @@
 # Finish the Kata hardening backlog
 
 Doctor Biz's active goal on October 10: finish all Kata work, then assess.
-Base c134069 on wip/kata-capture-protection. Compactions in this phase: 5; replay checkpoint is 32c2300.
+Base c134069 on wip/kata-capture-protection. Compactions in this phase: 6; replay checkpoint is 32c2300.
 Use GPT-6.1 Sol subagents with clean contexts. Parent owns review, integration,
 canonical checks, commits and every hardware action. Continue through batches;
 a phase checkpoint is not a reason to abandon the active goal.
@@ -276,3 +276,38 @@ Before claiming device acceptance, retain actual probe UART/arrival/state data
 and add a real replay regression. The synthetic host records do not prove that
 integration. Parent alone will flash the saved probe ELF and run one bounded
 trial, preserving failure if a full sequence cannot survive.
+
+Collector/noise work is committed as 26d21c1. The actual 360-second probe trial
+failed with raw overruns at device 166116 and 346626 ms; neither sequence reached
+the retained OFF2 span. Its original timeout, source cleanup and unchanged
+stopped MP3/Medium state are preserved. Six retained OFF1/ON windows generated
+0.993720885/0.980450643x in sequence 1 and 0.989639746/0.985457331x in sequence 2.
+Zero later capture fault deltas do not clear those encoder losses. Durable trial
+receipts and selected real UART replay are independently reviewed. Review found
+a provenance-length test gap; zip(strict=True) rejects the shortened mapping
+that previously passed. The restored real fixture passes.
+
+The saved default unified ELF then ran the identical source and collector for
+one fixed budget. Its missing probe feature necessarily produces the original
+timeout and completed=false; assess ordinary encoder/capture counters separately,
+without converting that acquisition negative control into a probe pass. The
+run has ended and source/UART are released. Independent full-window analysis
+finds 32 capture-covered windows, 320.287614 seconds and 13,345 MP3 frames:
+0.999976228x generation, no raw overruns or resets and zero capture fault deltas.
+The final encoder window lacks a later capture bracket and stays excluded.
+The feature OFF path cannot substitute for the normal-image baseline; causation
+and listener delivery remain unresolved. All 27 canonical stages passed, including
+the real rejected-trial replay and firmware build; log is
+target/kata-hardening/check-probe-evidence.log. Independent control review verified
+artifact hashes, retained/rolling totals, capture brackets and the expected
+timeout with no findings. Hardware retains MP3/Medium, stopped,
+autoplay and recognition off. Do not close wbz6 or d2cb from this control alone.
+
+Next bounded unit: 21tp listener telemetry must not delay checked close or slot
+release. Keep encoder/probe export out of this first slice while the OFF-path
+audit proceeds. Capture fixed-size records without waiting; the existing metrics
+task formats them after removing them from bounded storage. Explicit overflow
+must invalidate diagnostic acceptance. No new task, playback policy, socket
+ownership policy, per-frame allocation or firmware fallback is authorized by
+this unit. Existing audit authorization covers this routine implementation;
+the broader recovery and admission architecture decisions remain separate.

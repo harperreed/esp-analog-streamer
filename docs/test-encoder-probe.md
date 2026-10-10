@@ -21,3 +21,19 @@ The analyzer requires one sequence's 24 consecutive paired report windows: two d
 Phase results use sums across six complete retained windows: generated audio divided by elapsed wall, codec wall divided by exact cumulative frame deltas, task runtime and wall totals. ON-only attempt spans remain nested in raw wait; checked remainders/residuals must match firmware. Capture coverage endpoints are saved separately. A valid slow OFF phase is a performance finding. No overhead tolerance, historical-image attribution or release acceptance is invented; repeated OFF controls and parent judgment establish those.
 
 Host verification runs through `scripts/check-harnesses` and canonical `scripts/check`. Synthetic probe unit rows are labelled synthetic. Durable sanitized state and production UART slices under `scripts/fixtures/encoder-probe/` include source-file/ELF hashes; they prove existing metric parsing, not probe HIL. The parent must run the actual diagnostic command and review complete raw evidence before claiming device acceptance. Source liveness/read-only routing do not prove sample delivery at the ADC, and zero listener endpoints cannot exclude unlogged brief churn.
+
+The `device-rejected/` fixture preserves selected real diagnostic UART from the
+October 10 trial, after sequence 1's storage receipt. Sequences 1 and 2 lost raw
+input at device milliseconds 166116 and 346626; sequence 3 remained partial when
+the fixed 360-second budget expired. Replay must reject this run. Both completed
+OFF1/ON spans retain their measured accounting, valid storage and bracketed capture
+counters; those facts do not clear either raw loss or establish performance acceptance.
+
+Selected UART line bytes are unchanged. `provenance.json` maps each line to its
+original line number, byte range and read-arrival record, and hashes the private
+source files and ELF. `uart-arrival.jsonl` reconstructs offsets over selected bytes
+while retaining each line's original completion-arrival timestamp; it is explicitly
+not the original UART read-chunk file. The event subset preserves reset, state and
+source cleanup order, omitting the private player ID. Startup inactive sequence 0
+and unrelated UART lines are excluded. No audio or ELF is included. Tests consume
+only these checked-in files through the actual `load_uart` and `analyze` functions.

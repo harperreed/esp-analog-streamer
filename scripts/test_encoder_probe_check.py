@@ -178,6 +178,76 @@ import encoder_probe_check
         self.assertEqual(second['elapsed_us'], 10007713)
         self.assertFalse(probe.analyze([(1, lines[0]), (2, lines[1])])['valid_sequence'])
 
+    def test_saved_device_rejection_replays_actual_order_and_accounting(self):
+        saved = Path(__file__).resolve().parent/'fixtures/encoder-probe/device-rejected'
+        provenance = json.loads((saved/'provenance.json').read_text())
+        events = [json.loads(line) for line in (saved/'events.jsonl').read_text().splitlines()]
+        self.assertEqual([event['kind'] for event in events], [
+            'before_reset', 'reset_asserted', 'reset_released', 'after_boot',
+            'final_before_source_cleanup', 'source_cleanup_begin', 'source_cleanup_end'])
+        for event in events:
+            if 'sonos' in event:
+                probe.require_state(event['sonos'], event['app_state'])
+        reset = events[2]['host_monotonic']
+        self.assertIsNone(events[-2]['returncode'])
+        self.assertEqual(events[-1]['returncode'], 0)
+        self.assertFalse(provenance['completed'])
+        self.assertFalse(provenance['acquisition_complete'])
+        self.assertEqual(provenance['budget_seconds'], 360)
+        self.assertIn('fixed global collection budget exhausted', provenance['errors'][0]['error'])
+        rows = probe.load_uart(saved)
+        self.assertTrue(all(reset <= stamp < events[-2]['host_monotonic'] for stamp, _ in rows))
+        import hashlib
+        raw = (saved/'uart.log').read_bytes()
+        for mapping, line in zip(provenance['uart_mapping'], raw.splitlines(keepends=True), strict=True):
+            self.assertEqual(hashlib.sha256(line).hexdigest(), mapping['sha256'])
+            self.assertEqual(raw[mapping['fixture_offset']:mapping['fixture_offset']+mapping['bytes']], line)
+            self.assertLessEqual(mapping['source_offset']+mapping['bytes'],
+                                 mapping['source_arrival_offset']+mapping['source_arrival_bytes'])
+        value = probe.analyze(rows)
+        self.assertFalse(value['valid_sequence'])
+        self.assertEqual(value['performance_acceptance'], 'not assessed')
+        self.assertEqual([q['sequence'] for q in value['sequences']], [1, 2, 3])
+        # Constants were independently summed from source UART fields and adjacent
+        # cumulative frame counts, without using analyze or phase_summary.
+        expected = [((2487, 60065156, 54488758, 0), (2455, 60094815, 53905144, 1409964)),
+                    ((2477, 60070344, 54324351, 0), (2467, 60081749, 54083073, 1231049))]
+        for sequence, count, totals in zip(value['sequences'], (16, 18), expected):
+            self.assertTrue(sequence['storage_valid'])
+            self.assertTrue(sequence['capture_valid'])
+            self.assertFalse(sequence['valid'])
+            self.assertEqual(sequence['phases'], {})
+            self.assertEqual(len(sequence['windows']), count)
+            self.assertEqual(len(sequence['errors']), 2)
+            self.assertTrue(sequence['errors'][0].startswith('invalidated at line '))
+            self.assertEqual(sequence['errors'][1], f'expected 24 windows, found {count}')
+            self.assertEqual(sequence['capture_coverage']['fault_deltas'], dict.fromkeys(probe.FAULTS, 0))
+            receipt = sequence['storage_receipt']
+            self.assertEqual((receipt['pcm_bytes'], receipt['config_bytes'], receipt['bitstream_bytes']),
+                             (4608, 95888, 4096))
+            self.assertIsNone(sequence['windows'][0]['frame_delta'])
+            self.assertFalse(sequence['windows'][0]['probe']['retained'])
+            self.assertTrue(all(not window['errors'] for window in sequence['windows']))
+            for phase, (frames, elapsed, codec, delay) in zip(('OFF1', 'ON'), totals):
+                retained = [window for window in sequence['windows']
+                            if window['probe']['phase'] == phase and window['probe']['retained']]
+                self.assertEqual(len(retained), 6)
+                summary = probe.phase_summary(retained)
+                self.assertEqual((summary['frame_delta'], summary['elapsed_us'],
+                                  summary['encode_wall_total_us'], summary['delay_us']),
+                                 (frames, elapsed, codec, delay))
+                self.assertAlmostEqual(summary['generation_ratio'], frames * 1152 / 48000 / (elapsed / 1e6))
+        tail = value['sequences'][2]
+        self.assertTrue(tail['storage_valid'])
+        self.assertEqual(len(tail['windows']), 1)
+        self.assertIsNone(tail['windows'][0]['frame_delta'])
+        self.assertFalse(tail['capture_valid'])
+        losses = [line for _, line in rows if 'invalidated' in line]
+        self.assertEqual(len(losses), 2)
+        for line, device_ms, frames, resets in zip(losses, (166116, 346626), (6597, 14025), (1, 2)):
+            self.assertIn(f'({device_ms})', line)
+            self.assertIn(f'frames={frames} resets={resets} raw_overruns=1', line)
+
     def test_global_deadline_does_not_restart(self):
         self.assertEqual(probe.remaining_timeout(100, now=92), 8)
         self.assertEqual(probe.remaining_timeout(100, now=99), 1)

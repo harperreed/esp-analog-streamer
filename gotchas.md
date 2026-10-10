@@ -792,3 +792,9 @@ Diagnostic cleanup must tolerate a thread object whose start failed. Joining
 an unstarted thread raises and can skip source termination. Establish deadlines
 before starting helpers, record the real source PID, and keep cleanup failures
 separate from the initiating failure.
+
+An encoder probe's OFF phase is not automatically equivalent to a default build.
+The October 10 probe lost raw history while a matched normal-image control kept
+up over 320 capture-covered seconds. Keep failed sequences and image identities;
+that association does not identify timing, code placement or cache as the cause.
+See docs/audit-evidence/2026-10-10/encoder-default-control.md.
