@@ -1,5 +1,6 @@
 // ABOUTME: Exercises the production epoch and bounded switch request with real codec/ring state.
 // ABOUTME: Covers cancelled commits, admission races and retirement without a device.
+#![cfg(not(feature = "listener-loom"))]
 #[path = "../../firmware/src/stream_codec.rs"]
 mod stream_codec;
 #[path = "../../firmware/src/stream_runtime.rs"]

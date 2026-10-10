@@ -6,13 +6,19 @@ use esp_shazam_core::{
     stream_buffer::OutputFormat,
     stream_http::{self, Route},
 };
+#[cfg(feature = "listener-loom")]
+use loom::sync::{
+    atomic::{AtomicBool, AtomicUsize, Ordering},
+    Arc, Mutex,
+};
+#[cfg(not(feature = "listener-loom"))]
+use std::sync::{
+    atomic::{AtomicBool, AtomicUsize, Ordering},
+    Arc, Mutex,
+};
 use std::{
     io,
-    sync::{
-        atomic::{AtomicBool, AtomicUsize, Ordering},
-        mpsc::{self, Receiver, SyncSender},
-        Arc, Mutex,
-    },
+    sync::mpsc::{self, Receiver, SyncSender},
     time::{Duration, Instant},
 };
 
@@ -243,7 +249,7 @@ impl Worker {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, not(feature = "listener-loom")))]
 mod tests {
     use super::*;
     #[test]
@@ -316,3 +322,7 @@ mod tests {
         worker.encoder.reset().unwrap();
     }
 }
+
+#[cfg(all(test, feature = "listener-loom"))]
+#[path = "../../core/tests/support/listener_runtime_models.rs"]
+mod models;

@@ -1,6 +1,6 @@
 // ABOUTME: Compares real raw and encoded histories with append-only reference logs.
 // ABOUTME: Generates bounded reader, reset, reconnect and listener ownership sequences.
-#![cfg(not(feature = "capture-loom"))]
+#![cfg(not(any(feature = "capture-loom", feature = "listener-loom")))]
 use esp_shazam_core::{
     capture_buffer::CaptureBuffer,
     flac_ring::{FlacRing, InvalidFrame, Overrun},

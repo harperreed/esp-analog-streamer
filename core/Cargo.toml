@@ -9,6 +9,7 @@ publish = false
 [features]
 capture-fixture = []
 capture-loom = ["dep:loom"]
+listener-loom = ["dep:loom"]
 
 [target.'cfg(not(target_os = "espidf"))'.dependencies]
 loom = { version = "=0.7.2", optional = true }

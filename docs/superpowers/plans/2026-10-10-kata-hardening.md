@@ -45,7 +45,7 @@ new consequential architectural choices get a concrete design before code.
 | Kata | Priority | Work | State |
 | --- | --- | --- | --- |
 | e8hd | P1 | Validate the experimental buffered MP3 pipeline on ESP32 | Reconciling |
-| d2cb | P0 | Separate send-call delay from socket backpressure on the ESP32 | Implementing |
+| d2cb | P0 | Separate send-call delay from socket backpressure on the ESP32 | Committed 0d9d014; device comparison running |
 | pd6c | P0 | Instrument and locate intermittent TCP delivery stalls | Reconciling |
 | z5fs | P1 | Automate dedicated hardware-in-the-loop streaming validation | Reconciling |
 | dp08 | P1 | Isolate capture publication from delayed raw-ring readers | Reconciling |
@@ -56,7 +56,7 @@ new consequential architectural choices get a concrete design before code.
 | wmsy | P0 | Improve streaming recovery and validate independent failure handling | Reconciling |
 | hv4x | P1 | Apply and verify a reproducible Wi-Fi protocol baseline | Reconciling |
 | cxbw | P1 | Add pinned ESP-IDF heap, UART core-dump and selective timing diagnostics | Reconciling |
-| 7hr4 | P1 | Test importable Python harness implementations instead of AST fragments | Reconciling |
+| 7hr4 | P1 | Test importable Python harness implementations instead of AST fragments | Implementing |
 | ee3q | P1 | Validate 24-hour two-listener continuity and controlled recovery | Reconciling |
 | 97bk | P1 | Make host, firmware and HIL evidence explicit streaming release gates | Reconciling |
 | 89g8 | P0 | Build deterministic host replay of streaming failures | Reconciling |
@@ -65,8 +65,8 @@ new consequential architectural choices get a concrete design before code.
 | 1wny | P1 | Use cargo-mutants to check whether reliability tests detect wrong behavior | Reconciling |
 | m31k | P1 | Measure host recovery-path coverage with cargo-llvm-cov | Reconciling |
 | t4ae | P1 | Add bounded host fuzzing for FLAC, HTTP and stream transitions | Reconciling |
-| jq3a | P0 | Model listener admission and shutdown interleavings with Loom | Reconciling |
-| 5yf3 | P0 | Add proptest state-machine tests for rings and listener lifecycles | Implementing |
+| jq3a | P0 | Model listener admission and shutdown interleavings with Loom | Implementing; heavy tests held during device measurement |
+| 5yf3 | P0 | Add proptest state-machine tests for rings and listener lifecycles | Closed, 0d9d014 |
 | 21tp | P2 | Move encoder and listener logs off progress and cleanup paths | Reconciling |
 | qm2a | P2 | Measure and define FLAC16 quantization policy | Reconciling |
 | 45k9 | P2 | Benchmark reversible stereo decorrelation for FLAC | Reconciling |
@@ -78,7 +78,8 @@ new consequential architectural choices get a concrete design before code.
 | 6hjs | P2 | Validate poll error and hangup handling in deadline writes | Reconciling |
 | 8s9m | P2 | Prevent slow request headers from serializing stream admission | Reconciling |
 | ewvq | P2 | Track Wi-Fi and IP generations across stream and control lifecycles | Reconciling |
-| 37k3 | P2 | Defer Shazam requests until capture has fresh usable samples | Reconciling |
+| 37k3 | P2 | Defer Shazam requests until capture has fresh usable samples | Closed, 0d9d014 |
+| wbz6 | P1 | Resolve diagnostic-image MP3 encoder throughput regression | Added from cold controls; investigating |
 
 ## Verification
 
@@ -93,6 +94,20 @@ target/kata-hardening/check-first-batch{,-fixed}.log. The backlog audit is retai
 target/kata-hardening/backlog-audit.md; no issue closes from static review alone.
 Read-only planning for importable harnesses (7hr4) and listener Loom (jq3a)
 continues while the parent validates this batch.
+
+Second batch: importable harness modules, actual listener Loom models and real
+poll departure tests passed task and combined review. The harness timing fixture
+finding was corrected and re-reviewed. All 21 canonical stages passed, including
+the target firmware build; log target/kata-hardening/check-second-batch.log.
+The build locked optional host Loom dependencies in firmware/Cargo.lock; a target
+cargo tree confirms they do not enter the default ESP-IDF dependency graph.
+
+Device evidence: diagnostic three-trial run 174257, archived-image cold MP3
+control 175027 and exact diagnostic cold repeat 175503 all completed cleanup.
+Both images fail MP3 delivery, while diagnostic zero-listener encoding slows
+to about 0.95x and loses raw history. Full receipts are in October 10 sender
+analysis/control evidence. wbz6 blocks d2cb overhead acceptance; neither closes.
+The diagnostic image is deployed, stopped MP3/Medium with autoplay off.
 
 Each code task supplies targeted red/green evidence and independent review.
 Run scripts/check on a frozen integration state. Hardware comparisons keep

@@ -1,8 +1,21 @@
 // ABOUTME: Waits for fresh stream data and holds listener slots until their sockets close.
 // ABOUTME: Shares the firmware's producer-wait and slot-release behavior with real host tests.
 
-use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::{Arc, Mutex, MutexGuard, TryLockError};
+#[cfg(all(feature = "listener-loom", target_os = "espidf"))]
+compile_error!("listener-loom is host-only");
+#[cfg(all(feature = "listener-loom", feature = "capture-loom"))]
+compile_error!("listener-loom and capture-loom require separate model invocations");
+#[cfg(feature = "listener-loom")]
+use loom::sync::{
+    atomic::{AtomicUsize, Ordering},
+    Arc,
+};
+#[cfg(not(feature = "listener-loom"))]
+use std::sync::{
+    atomic::{AtomicUsize, Ordering},
+    Arc,
+};
+use std::sync::{Mutex, MutexGuard, TryLockError};
 use std::time::{Duration, Instant};
 
 #[derive(Debug, PartialEq, Eq)]
@@ -198,7 +211,7 @@ impl Drop for Slot {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, not(feature = "listener-loom")))]
 mod tests {
     use super::*;
     use crate::capture_buffer::CaptureBuffer;

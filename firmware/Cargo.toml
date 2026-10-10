@@ -27,6 +27,8 @@ debug = true
 opt-level = "z"
 
 [features]
+# Declared for shared host runtime models; core rejects this feature on ESP-IDF.
+listener-loom = ["esp-shazam-core/listener-loom"]
 # Explicitly built receive-only TLS adversarial diagnostic; absent from normal firmware.
 sonos-fixture = []
 # Explicit delayed-reader diagnostic; its copy hook is absent from normal firmware.

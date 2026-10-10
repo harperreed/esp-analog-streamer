@@ -1,5 +1,12 @@
 # Gotchas
 
+October 10 cold MP3 controls reproduce delivery failure on both archived and
+diagnostic unified images. The diagnostic image also encodes at about 0.95x
+before listeners arrive and incurs raw overruns despite unchanged capture
+fault counters. Do not blame active socket probes for a zero-listener slowdown
+or accept better receiver delivery while encoding loses audio. See sender-controls
+under docs/audit-evidence/2026-10-10 and Kata wbz6.
+
 ESP-IDF 5.5.5's newlib poll header defines POLLNVAL as bit 7 (128), but
 libc 0.2.190 omits that constant for ESP-IDF. The generic lwIP fallback uses
 a different value and is not this target's ABI. Check the platform header

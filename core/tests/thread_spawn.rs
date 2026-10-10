@@ -37,3 +37,24 @@ fn actual_launch_error_survives_an_independent_reset_failure() {
     assert_eq!(result.unwrap_err().to_string(), expected);
     assert_eq!(diagnostic.as_deref(), Some("pthread reset failed"));
 }
+
+#[cfg(not(feature = "listener-loom"))]
+#[test]
+fn actual_failed_launch_drops_captured_listener_slot() {
+    use esp_shazam_core::stream_wait::Slot;
+    use std::sync::{
+        atomic::{AtomicUsize, Ordering},
+        Arc,
+    };
+    let count = Arc::new(AtomicUsize::new(0));
+    let slot = Slot::take(&count, 2).unwrap();
+    let result = std::thread::Builder::new()
+        .stack_size(usize::MAX)
+        .spawn(move || drop(slot));
+    assert!(
+        result.is_err(),
+        "the rejected stack must fail before running the closure"
+    );
+    assert_eq!(count.load(Ordering::Acquire), 0);
+    assert_eq!(Arc::strong_count(&count), 1);
+}

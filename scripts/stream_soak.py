@@ -1,0 +1,431 @@
+# ABOUTME: Implements the public stream-soak hardware harness.
+# ABOUTME: Exposes host-testable helpers while keeping runtime work behind main.
+import argparse
+import json
+import math
+import os
+import re
+import shutil
+import signal
+import socket
+import subprocess
+import sys
+import time
+import urllib.request
+from datetime import datetime, timezone
+from pathlib import Path
+
+from stream_format import input_format_args, validate_stream_decoder_log
+from decoder_integrity import FrameHash, validate_decoder_line
+from failure_observation import observation_seconds, observe_failure
+
+
+class Failure(Exception):
+    pass
+
+
+OUTPUT_BUDGET_BYTES = 128 * 1024 * 1024
+
+
+def seconds(value):
+    result = float(value)
+    if not math.isfinite(result) or result < 1:
+        raise argparse.ArgumentTypeError('must be finite and at least 1 second')
+    return result
+
+
+class Tail:
+    """Consume disk logs incrementally, retaining at most one unfinished line."""
+    def __init__(self, path):
+        self.path = path
+        self.handle = None
+        self.pending = b''
+
+    def lines(self):
+        if self.handle is None:
+            if not self.path.exists():
+                return
+            self.handle = self.path.open('rb')
+        # Limit work per poll as well as memory; excessive UART output is a failure below.
+        for _ in range(16):
+            chunk = self.handle.read(8192)
+            if not chunk:
+                return
+            pieces = (self.pending + chunk).split(b'\n')
+            self.pending = pieces.pop()
+            if len(self.pending) > 16384:
+                raise Failure(f'oversized log line in {self.path.name}')
+            for line in pieces:
+                yield line.decode('utf-8', 'replace').strip()
+        raise Failure(f'log reader cannot keep up with {self.path.name}')
+
+    def close(self):
+        if self.handle is not None:
+            self.handle.close()
+
+
+def port(value):
+    if not 1 <= len(value) <= 5 or not value.isascii() or not value.isdecimal() or not 1 <= int(value) <= 65535:
+        raise argparse.ArgumentTypeError('port must be an integer from 1 to 65535')
+    return int(value)
+
+
+def update_decoder(job, args):
+    job['accounting'].update(final=job['process'].poll() is not None)
+    before = job['decoded_audio_frames']
+    job.update(job['accounting'].summary())
+    if job['decoded_audio_frames'] > before:
+        job['advanced_at'] = time.monotonic()
+    for line in job['tail'].lines():
+        if line.startswith('out_time_us='):
+            value = line.split('=', 1)[1]
+            if value.isdigit():
+                duration = int(value) / 1_000_000
+                job['timeline_seconds'] = duration
+    for line in job['log_tail'].lines():
+        validate_decoder_line(line)
+    code = job['process'].poll()
+    if code is not None:
+        # Exit can race the earlier read: drain FFmpeg's final committed PCM records.
+        job['accounting'].update(final=True)
+        job.update(job['accounting'].summary())
+        with job['errors'].open('r') as log:
+            validate_stream_decoder_log(log.read(16384), args.path)
+        # The process may flush its last progress update immediately before exit.
+        for line in job['tail'].lines():
+            if line.startswith('out_time_us=') and line.split('=', 1)[1].isdigit():
+                job['timeline_seconds'] = int(line.split('=', 1)[1]) / 1_000_000
+        if code != 0 or job['decoded_audio_frames'] != round(args.seconds * 48000):
+            raise Failure(f"{job['label']}: exit={code}, decoded={job['decoded_audio_frames']} actual frames, "
+                          f"timeline={job['timeline_seconds']:.3f}s, requested={args.seconds:g}s; see {job['errors']}")
+    elif time.monotonic() - job['advanced_at'] > 20:
+        raise Failure(f"{job['label']}: no decoder progress for 20 seconds")
+
+
+def stop(process):
+    if process.poll() is None:
+        try:
+            os.killpg(process.pid, signal.SIGTERM)
+        except ProcessLookupError:
+            pass
+        try:
+            process.wait(timeout=3)
+        except subprocess.TimeoutExpired:
+            try:
+                os.killpg(process.pid, signal.SIGKILL)
+            except ProcessLookupError:
+                pass
+            process.wait(timeout=3)
+
+
+def decoder_command(args, ip, progress, hashes):
+    return ['ffmpeg', '-nostdin', '-nostats', '-v', 'level+info', '-xerror', '-stats_period', '1',
+                 '-progress', str(progress), '-rw_timeout', '10000000', '-err_detect', 'crccheck',
+                 *input_format_args(args.path), '-i',
+                 f'http://{ip}:{args.stream_port}{args.path}', '-t', str(round(args.seconds * 48000) / 48000),
+                 '-c:a', 'pcm_s32le', '-f', 'framehash', '-flush_packets', '1', str(hashes)]
+
+
+def decoders_completed(jobs, args):
+    if not all(job['process'].poll() is not None for job in jobs):
+        return False
+    # A decoder can exit after its preceding update. Validate every final drain.
+    for job in jobs:
+        update_decoder(job, args)
+    return True
+
+
+def state_url(ip, args):
+    return f'http://{ip}:{args.state_port}/api/state'
+
+
+def stream_address(ip, args):
+    return ip, args.stream_port
+
+
+def listener_indices(args):
+    return range(1, args.listeners + 1)
+
+
+def resolve_output(args):
+    return Path(args.out or Path(__file__).resolve().parent.parent / 'target/stream-soak').resolve()
+
+
+def output_bytes(out):
+    return sum(path.stat().st_size for path in out.iterdir() if path.is_file())
+
+
+def check_budget(out):
+    # Collectors write directly to disk. This checked budget can overshoot between polls
+    # and during cleanup; it is a stop condition, not a filesystem-enforced quota.
+    total = output_bytes(out)
+    if total > OUTPUT_BUDGET_BYTES:
+        raise Failure(f'output budget exceeded: {total} bytes > {OUTPUT_BUDGET_BYTES}; collectors stopped, logs retained')
+
+
+def argument_parser():
+    parser = argparse.ArgumentParser(
+        prog='scripts/stream-soak',
+        description='Reset the board once, require Shazam off, then decode one or two real FLAC or MP3 streams '
+        'to null for six hours by default. Check UART capture counters against a stable startup '
+        'baseline and poll /api/state. UART logs are private. Run under caffeinate -is to prevent '
+        'host sleep; keep continuous LINE IN audio playing. No flashing occurs. Decoder success '
+        'and counters do not detect every omitted DMA interrupt. Runtime-stat wrap is not a capture fault. '
+        'A checked 128 MiB total output budget stops the run on overflow; logs are retained, not rotated.')
+    parser.add_argument('host', nargs='?', default='esp-shazam.local')
+    parser.add_argument('--seconds', type=seconds, default=21600.0)
+    parser.add_argument('--listeners', type=int, choices=[1, 2], default=2, help='simultaneous real decoders (default: 2)')
+    parser.add_argument('--path', choices=['/stream.flac', '/stream.mp3'], default='/stream.flac',
+                        help='compressed endpoint (default: /stream.flac)')
+    parser.add_argument('--stream-port', type=port, default=8000, help='stream TCP port (default: 8000)')
+    parser.add_argument('--state-port', type=port, default=80, help='state HTTP port (default: 80)')
+    parser.add_argument('--out', help='parent output directory (default: target/stream-soak)')
+    parser.add_argument('--failure-observe-seconds', type=observation_seconds, default=0.0,
+                        help='retain existing raw UART and decoders after failure for 0..120 seconds (default: 0); counters remain pre-failure snapshots')
+    return parser
+
+
+def parse_args(argv=None):
+    return argument_parser().parse_args(argv)
+
+
+def main(argv=None):
+    args = parse_args(argv)
+
+    def interrupted(_number, _frame):
+        raise KeyboardInterrupt
+    signal.signal(signal.SIGTERM, interrupted)
+    signal.signal(signal.SIGHUP, interrupted)
+    repo = Path(__file__).resolve().parent.parent
+    if shutil.which('ffmpeg') is None:
+        argument_parser().error('ffmpeg is required')
+    os.umask(0o077)
+    out = resolve_output(args) / datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%S.%fZ')
+    out.mkdir(parents=True)
+    started = time.monotonic()
+    events = (out / 'events.jsonl').open('w')
+    processes, handles, tails, jobs = [], [], [], []
+    failure = None
+    failure_at = None
+    failure_observation = None
+    serial = None
+    baseline = None
+    latest = None
+    latest_at = started
+    captured = 0
+    samples = 0
+    boots = 0
+    runtime_invalid_windows = 0
+    minimums = {}
+    state_polls = 0
+    ip = None
+    loss_keys = ['queue_overflows', 'software_dropped_frames', 'read_errors', 'restarts', 'discontinuities']
+
+    def check_output_budget():
+        return check_budget(out)
+
+    def record(kind, **fields):
+        value = dict(kind=kind, elapsed_seconds=round(time.monotonic() - started, 3), **fields)
+        events.write(json.dumps(value) + '\n')
+        events.flush()
+        print(json.dumps(value), flush=True)
+
+    def state():
+        nonlocal state_polls
+        opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+        with opener.open(state_url(ip, args), timeout=3) as response:
+            value = json.load(response)
+        if value.get('shazam_enabled') is not False:
+            raise Failure('/api/state must report shazam_enabled=false')
+        state_polls += 1
+        record('state', shazam_enabled=False, level_dbfs=value.get('level_dbfs'))
+
+    def uart_updates():
+        nonlocal latest, latest_at, samples, boots, captured, runtime_invalid_windows
+        check_output_budget()
+        for line in uart_tail.lines():
+            if 'rst:0x' in line:
+                boots += 1
+                if boots > 1:
+                    raise Failure('board reset during soak; see private uart.log')
+            if 'Guru Meditation' in line or 'panicked at' in line or 'Task watchdog got triggered' in line:
+                raise Failure('board reported panic/watchdog; see private uart.log')
+            if 'stream-encode:' in line and 'runtime_valid=false' in line:
+                runtime_invalid_windows += 1
+            if 'audio: frames=' not in line:
+                continue
+            sample = {key: int(value) for key, value in re.findall(r'\b([a-z_]+)=(-?\d+)', line)}
+            required = ['frames', *loss_keys, 'internal_min_sum', 'psram_min_sum']
+            if any(key not in sample for key in required):
+                raise Failure('capture telemetry lacks required counters/window minima')
+            if baseline is not None:
+                for key in loss_keys:
+                    if sample[key] != baseline[key]:
+                        raise Failure(f'capture counter changed: {key} {baseline[key]} -> {sample[key]}')
+                delta = (sample['frames'] - latest['frames']) & 0xffffffff
+                if delta == 0 or delta >= 0x80000000:
+                    raise Failure('capture frames stopped or moved backward')
+                captured += delta
+                for key in ['internal_min_sum', 'psram_min_sum']:
+                    minimums[key] = min(minimums.get(key, sample[key]), sample[key])
+            latest, latest_at = sample, time.monotonic()
+            samples += 1
+            record('capture', counters=sample)
+
+    def decoder_updates(job):
+        return update_decoder(job, args)
+
+
+    try:
+        ip = socket.getaddrinfo(args.host, args.stream_port, socket.AF_INET, socket.SOCK_STREAM)[0][4][0]
+        # Refuse a reset of firmware running with recognition enabled.
+        state()
+        raw = (out / 'uart.log').open('wb')
+        serial_errors = (out / 'serial.log').open('wb')
+        handles += [raw, serial_errors]
+        serial = subprocess.Popen([str(repo / 'scripts/serial-log'), str(args.seconds + 180 + args.failure_observe_seconds)],
+                                  stdout=raw, stderr=serial_errors, start_new_session=True)
+        processes.append(serial)
+        uart_tail = Tail(out / 'uart.log')
+        tails.append(uart_tail)
+        record('start', host=args.host, path=args.path, stream_port=args.stream_port, state_port=args.state_port, ip=ip, requested_seconds=args.seconds, listeners=args.listeners)
+        startup_deadline = time.monotonic() + 60
+        state_seen = False
+        next_state = 0
+        previous_sample = None
+        while baseline is None:
+            if serial.poll() is not None:
+                raise Failure('UART collector exited during startup; see serial.log')
+            uart_updates()
+            if time.monotonic() >= next_state:
+                try:
+                    state()
+                    state_seen = True
+                except Failure:
+                    raise
+                except Exception:
+                    pass  # Startup may still be connecting Wi-Fi; the deadline remains bounded.
+                next_state = time.monotonic() + 3
+            if state_seen and boots == 1 and latest is not None:
+                if previous_sample is not None and latest is not previous_sample:
+                    if latest['frames'] > previous_sample['frames'] and all(latest[key] == previous_sample[key] for key in loss_keys):
+                        baseline = dict(latest)
+                        record('baseline', counters=baseline)
+                previous_sample = latest
+            if time.monotonic() >= startup_deadline:
+                raise Failure('no stable post-startup capture/UART/state baseline within 60 seconds')
+            time.sleep(0.2)
+        for index in listener_indices(args):
+            label = f'listener-{index}'
+            errors_path = out / f'{label}.ffmpeg.log'
+            error_handle = errors_path.open('wb')
+            handles.append(error_handle)
+            progress = out / f'{label}.progress'
+            hashes = out / f'{label}.framehash'
+            process = subprocess.Popen(
+                decoder_command(args, ip, progress, hashes),
+                stdout=subprocess.DEVNULL, stderr=error_handle, start_new_session=True)
+            processes.append(process)
+            tail = Tail(progress)
+            tails.append(tail)
+            log_tail = Tail(errors_path)
+            tails.append(log_tail)
+            jobs.append(dict(label=label, process=process, tail=tail, errors=errors_path,
+                             log_tail=log_tail,
+                             accounting=FrameHash(hashes), decoded_audio_frames=0,
+                             decoded_seconds=0, timeline_seconds=0, advanced_at=time.monotonic()))
+        decode_started = time.monotonic()
+        deadline = decode_started + args.seconds + 60
+        next_state = 0
+        next_progress = 0
+        while True:
+            uart_updates()
+            if serial.poll() is not None:
+                raise Failure('UART collector exited before soak completed; see serial.log')
+            if time.monotonic() - latest_at > 25:
+                raise Failure('capture UART telemetry missing for 25 seconds')
+            for job in jobs:
+                decoder_updates(job)
+            if time.monotonic() >= next_state:
+                state()
+                next_state = time.monotonic() + 5
+            if time.monotonic() >= next_progress:
+                record('progress', listeners=[dict(label=job['label'], timeline_seconds=job['timeline_seconds'],
+                                                  **job['accounting'].summary()) for job in jobs],
+                       capture_samples=samples, minimums=minimums,
+                       runtime_invalid_windows=runtime_invalid_windows)
+                next_progress = time.monotonic() + 60
+            if decoders_completed(jobs, args):
+                break
+            if time.monotonic() >= deadline:
+                raise Failure('decoders exceeded requested duration plus 60 seconds of wall time')
+            time.sleep(0.5)
+        finished_at = time.monotonic()
+        # Require a UART sample after all decoders finish, covering their final capture window.
+        final_deadline = finished_at + 20
+        while latest_at <= finished_at:
+            uart_updates()
+            if serial.poll() is not None or time.monotonic() >= final_deadline:
+                raise Failure('missing final capture telemetry after decoder completion')
+            if time.monotonic() >= next_state:
+                state()
+                next_state = time.monotonic() + 5
+            time.sleep(0.2)
+        record('assertions_passed', listeners=[job['accounting'].summary() for job in jobs])
+        check_output_budget()
+    except KeyboardInterrupt:
+        failure_at = time.monotonic()
+        failure = 'interrupted'
+        record('failure', error=failure)
+    except Exception as error:
+        failure_at = time.monotonic()
+        failure = str(error)
+        record('failure', error=failure)
+        # Preserve raw evidence without re-running assertions against the failed workload.
+        # Decoder exit is expected here; only UART loss, budget or interrupt ends grace early.
+        if args.failure_observe_seconds:
+            observation_started = time.monotonic()
+            failure_observation = observe_failure(args.failure_observe_seconds, serial, check_output_budget, record)
+            failure_observation.update(started_elapsed_seconds=observation_started - started,
+                                       ended_elapsed_seconds=time.monotonic() - started)
+    finally:
+        for process in reversed(processes):
+            try:
+                stop(process)
+            except Exception as error:
+                failure = failure or f'subprocess cleanup failed: {error}'
+        for tail in tails:
+            tail.close()
+        for job in jobs:
+            job['accounting'].close()
+        for handle in handles:
+            handle.close()
+        try:
+            check_output_budget()
+        except Exception as error:
+            failure = failure or str(error)
+        summary = dict(passed=failure is None, error=failure, host=args.host, path=args.path, stream_port=args.stream_port, state_port=args.state_port, ip=ip,
+                       requested_seconds=args.seconds, listeners=args.listeners, elapsed_seconds=round(time.monotonic() - started, 3),
+                       decoded_seconds=[job['decoded_seconds'] for job in jobs], state_polls=state_polls,
+                       decoder_accounting=[dict(timeline_seconds=job['timeline_seconds'], **job['accounting'].summary()) for job in jobs],
+                       baseline=baseline, last_capture=latest, captured_frames_observed=captured,
+                       last_capture_phase='pre_failure' if failure_at is not None else 'completion',
+                       last_capture_age_seconds_at_failure=max(0, failure_at - latest_at) if failure_at is not None and latest is not None else None,
+                       last_capture_age_seconds_at_summary=max(0, time.monotonic() - latest_at) if latest is not None else None,
+                       failure_observation=failure_observation,
+                       capture_samples=samples, minimums=minimums, runtime_invalid_windows=runtime_invalid_windows,
+                       output_bytes_before_summary=output_bytes(out), output_budget_bytes=OUTPUT_BUDGET_BYTES,
+                       counter_deltas={key: ((latest[key] - baseline[key]) & 0xffffffff) for key in loss_keys} if baseline and latest else None,
+                       log_directory=str(out), uart_log=str(out / 'uart.log'),
+                       note='Failure observation retains raw logs only; last_capture, counter_deltas and decoder accounting remain pre-failure snapshots. '
+                       'Zero pre-failure deltas do not prove continuity through failure or observation. '
+                       'Minimum sums are conservative per-region lows; largest blocks are snapshots. '
+                       'Runtime-stat wrap is excluded from capture faults. Counters cannot detect every omitted DMA interrupt.')
+        (out / 'summary.json').write_text(json.dumps(summary, indent=2) + '\n')
+        events.close()
+        print(f"{'PASS' if failure is None else 'FAIL'} {out / 'summary.json'}", flush=True)
+    return 0 if failure is None else 1
+
+
+if __name__ == '__main__':
+    sys.exit(main())

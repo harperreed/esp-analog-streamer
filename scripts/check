@@ -25,6 +25,7 @@ stage fmt cargo fmt --all -- --check
 stage clippy cargo clippy --workspace --all-targets -- -D warnings
 stage test cargo test --workspace
 stage capture-loom cargo test -p esp-shazam-core --features capture-loom models:: --lib
+stage listener-loom cargo test -p esp-shazam-core --features listener-loom --lib --test listener_runtime_loom models::
 stage sonos-web node --test test/sonos-web.test.cjs
 stage harnesses scripts/check-harnesses
 stage stream-format scripts/test-stream-format

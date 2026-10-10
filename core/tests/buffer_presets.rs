@@ -439,6 +439,7 @@ fn reset_during_fill_selects_only_restarted_history() {
     }
     assert!(ring.lock().unwrap().read(&mut cursor, &mut out).is_err());
 }
+#[cfg(not(feature = "listener-loom"))]
 #[test]
 fn rst_during_fill_releases_listener_slot_without_sending_200() {
     use esp_shazam_core::{
