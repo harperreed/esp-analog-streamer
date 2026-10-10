@@ -926,17 +926,31 @@ pub(crate) fn export_listener_events() {
 /// Dequeues before rendering; the metrics owner spends at most two records per iteration.
 #[inline(never)]
 pub(crate) fn export_encoder_events() {
+    let (first, last) = export_encoder_records();
+    render_encoder_batch(&first, &last);
+}
+
+// Release the record workspace before formatting the batch receipt.
+#[inline(never)]
+fn export_encoder_records() -> (Option<u64>, Option<u64>) {
     use encoder_telemetry::EVENTS;
     let mut first = None;
     let mut last = None;
     for _ in 0..2 {
-        let Some(record) = EVENTS.take() else {
+        let Some(ref record) = EVENTS.take() else {
             break;
         };
         first = Some(first.map_or(record.event_us, |us: u64| us.min(record.event_us)));
         last = Some(last.map_or(record.event_us, |us: u64| us.max(record.event_us)));
-        render_encoder_event(&record);
+        render_encoder_event(record);
     }
+    (first, last)
+}
+
+// Keep receipt formatting off the dequeue frame that owns the record storage.
+#[inline(never)]
+fn render_encoder_batch(first: &Option<u64>, last: &Option<u64>) {
+    use encoder_telemetry::EVENTS;
     static LAST_DROPPED: AtomicU32 = AtomicU32::new(0);
     static LOSS_REPORTED: AtomicU32 = AtomicU32::new(0);
     let dropped = EVENTS.dropped();
@@ -960,9 +974,22 @@ fn render_encoder_event(record: &encoder_telemetry::Record) {
             #[cfg(feature = "encoder-probe")]
             render_probe_window(window);
         }
-        Payload::Boundary(boundary) => render_encoder_boundary(record, boundary),
-        Payload::Failure(error) => log::error!("stream: encoder failed; output remains invalid (kind={:?} raw_os_error={:?}) telemetry_epoch={} telemetry_window={} event_us={}", error.kind, error.raw_os_error, record.epoch, record.window, record.event_us),
+        Payload::Boundary(boundary) => {
+            render_encoder_boundary(record, boundary);
+            #[cfg(feature = "encoder-probe")]
+            if let Some(storage) = &boundary.storage {
+                render_probe_storage(record, boundary, storage);
+            }
+            if boundary.reason == Reason::Switched {
+                render_encoder_active_format(record, boundary);
+            }
+        }
+        Payload::Failure(error) => render_encoder_failure(record, error),
     }
+}
+#[inline(never)]
+fn render_encoder_failure(record: &encoder_telemetry::Record, error: &ErrorCode) {
+    log::error!("stream: encoder failed; output remains invalid (kind={:?} raw_os_error={:?}) telemetry_epoch={} telemetry_window={} event_us={}", error.kind, error.raw_os_error, record.epoch, record.window, record.event_us);
 }
 #[inline(never)]
 fn render_encoder_window(w: &encoder_telemetry::Window) {
@@ -995,13 +1022,14 @@ fn render_encoder_boundary(record: &encoder_telemetry::Record, b: &encoder_telem
             log::warn!("encoder-probe: invalidated position={:?} frames={} resets={} raw_overruns={} raw_wait_us={} raw_attempts={} reason={:?} telemetry_epoch={} telemetry_window={} event_us={}",
                 b.position, b.frames, b.resets, b.raw_overruns, b.raw_wait_us, b.raw_attempts, b.reason, b.prior_epoch, record.window, record.event_us);
         }
-        if let Some(storage) = &b.storage {
-            render_probe_storage(record, b, storage);
-        }
     }
-    if b.reason == Reason::Switched {
-        log::info!("stream: active format {:?} telemetry_epoch={} telemetry_window={} event_us={} baseline_us={}", b.format, record.epoch, record.window, record.event_us, b.baseline_us);
-    }
+}
+#[inline(never)]
+fn render_encoder_active_format(
+    record: &encoder_telemetry::Record,
+    b: &encoder_telemetry::Boundary,
+) {
+    log::info!("stream: active format {:?} telemetry_epoch={} telemetry_window={} event_us={} baseline_us={}", b.format, record.epoch, record.window, record.event_us, b.baseline_us);
 }
 #[cfg(feature = "encoder-probe")]
 #[inline(never)]

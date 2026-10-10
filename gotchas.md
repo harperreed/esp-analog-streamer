@@ -855,3 +855,9 @@ Moving probe Storage formatting onto metrics measured only 428 bytes free on its
 4 KiB stack in the October 10 failed diagnostic. Linked application frame sums
 omit recursive Debug/logger/libc work. Static arithmetic cannot certify runtime
 margin; exercise the real storage renderer before accepting that extraction.
+
+On the pinned Xtensa build, destructuring a returned Option<Record> by value
+created a second 200/296-byte stack copy in the exporter. Borrowing that returned
+value removed the actual memcpy. Separating receipt formatting only helps when
+the record-owning helper returns first; an extra leaf alone leaves both frames
+live. Verify generated code and real watermarks rather than assuming either.

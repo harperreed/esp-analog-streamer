@@ -494,3 +494,12 @@ and UART cleanup passed before every reset. Kata 21tp/wbz6 comments retain all
 failed gates. Next investigate measured exporter stack cost and delay using
 pinned logger/task source; do not enlarge queues/stacks or tune priority blindly.
 The new release contract and CI-status clarification are committed as 5eb5786.
+
+The bounded encoder-export stack fix passed all 27 canonical stages, both host
+configurations, both target builds/IRAM, independent source and linked reviews,
+and parent fresh-eyes. Actual duplicate 200/296-byte Record copy is removed;
+probe Storage application nesting drops 1360 to 880 bytes. Record lifetime ends
+before receipt formatting and Boundary returns before Storage. All output and
+queue/task policies remain unchanged. Build receipt: encoder-export-stack-build
+.md. Parent now commits and repeats exact-image hardware; no runtime margin or
+throughput acceptance from these static reductions.
