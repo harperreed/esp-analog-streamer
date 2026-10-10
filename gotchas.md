@@ -811,3 +811,9 @@ trial uses a per-helper Linux subreaper and requires its positive cleanup receip
 before another reset. Real escaped-session child tests cover forced helper death.
 Workstation Master is mono; validate declared mixer channels instead of requiring
 two copies of every gain token. Syntax checks alone missed that preflight error.
+
+Capture reporting and listener export run sequentially, but inlining capture
+formatting kept an 800-byte metrics frame beneath the 992-byte exporter. An
+out-of-line capture boundary reduces that caller to 208 bytes in both linked
+builds. Inspect actual call frames before increasing task stacks; static savings
+still need device watermarks. See the October 10 metrics-stack-isolation evidence.

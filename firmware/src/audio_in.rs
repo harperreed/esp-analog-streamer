@@ -420,6 +420,8 @@ fn capture_runtime() -> Option<(u64, u32)> {
     Some((micros(), status.ulRunTimeCounter))
 }
 
+// Keep capture formatting's stack frame separate from listener export in metrics.
+#[inline(never)]
 fn log_capture(
     elapsed_us: u64,
     observed: u64,

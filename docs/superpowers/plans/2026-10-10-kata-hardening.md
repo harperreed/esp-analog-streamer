@@ -369,3 +369,11 @@ The one-line stack experiment builds in both configurations: metrics now reserve
 caller/export reservation drops from 1792 to 1200 bytes, while caller/capture
 drops from 800 to 736. These are linked frame sizes, not measured runtime savings;
 canonical verification, independent review and a matched device repeat remain.
+
+Device evidence checkpoint is cf03fd8. The stack-only change passed all 27
+canonical stages (check-metrics-stack.log), separate probe IRAM checks and
+independent source/linked-call review. Default artifact SHA matches the canonical
+output. Build receipt: docs/audit-evidence/2026-10-10/metrics-stack-isolation.md.
+Next: commit the reviewed boundary, flash its exact default unified ELF, and
+repeat bounded two-listener and slow-only measurements with the same source.
+Do not close 21tp or add encoder output based on linked sizes alone.
