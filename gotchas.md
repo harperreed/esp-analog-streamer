@@ -804,3 +804,10 @@ them. Otherwise a lost-record warning can arrive after a false pass. Validate
 the same or a newer append-only UART snapshot after the success callback; require
 the sticky loss flag and unique, bounded receipt fields. Use producer event time
 for delayed records, and distinguish pre-listener close from playback departure.
+
+The soak harness starts UART and decoder children in separate sessions. Killing
+only its parent's process group cannot guarantee cleanup. The bounded listener
+trial uses a per-helper Linux subreaper and requires its positive cleanup receipt
+before another reset. Real escaped-session child tests cover forced helper death.
+Workstation Master is mono; validate declared mixer channels instead of requiring
+two copies of every gain token. Syntax checks alone missed that preflight error.

@@ -1,0 +1,489 @@
+{
+  "scope": "Listener-only telemetry bounded device trials; full 21tp remains open",
+  "artifact_sha256": "479e0af815f7509b87f960afb2874530eaf110af0e2869959fab3cb441af636d",
+  "source_sha256": "9311d9ca5dfe1a5f9269631afe22647834207f2b3239571474acc8ac15f3228d",
+  "device_attestation": false,
+  "trials": {
+    "2": {
+      "passed": false,
+      "scenario_returncodes": {
+        "soak": 1
+      },
+      "cleanup_errors": [],
+      "complete_capture_reports": 4,
+      "capture_first_frames": 478080,
+      "capture_last_frames": 1999680,
+      "incomplete_trailing_bytes": 938,
+      "encoder_reports": 4,
+      "encoder_progress_intervals": [
+        {
+          "from_line": 134,
+          "to_line": 145,
+          "encoded_frame_delta": 417,
+          "elapsed_us": 10014595,
+          "audio_seconds": 10.008,
+          "realtime_ratio": 0.9993414611374698,
+          "raw_read_overruns": 0,
+          "resets": 0
+        },
+        {
+          "from_line": 145,
+          "to_line": 152,
+          "encoded_frame_delta": 416,
+          "elapsed_us": 10000929,
+          "audio_seconds": 9.984,
+          "realtime_ratio": 0.998307257255801,
+          "raw_read_overruns": 0,
+          "resets": 0
+        },
+        {
+          "from_line": 152,
+          "to_line": 167,
+          "encoded_frame_delta": 418,
+          "elapsed_us": 10012234,
+          "audio_seconds": 10.032,
+          "realtime_ratio": 1.0019741847823374,
+          "raw_read_overruns": 0,
+          "resets": 0
+        }
+      ],
+      "export_validation": "no loss in present receipts",
+      "receipts": [
+        {
+          "line": 146,
+          "dropped": 0,
+          "observed_event_min_us": 21972413,
+          "observed_event_max_us": 22542218,
+          "record_bytes": 248,
+          "queue_bytes": 2008,
+          "metrics_stack_free_bytes": 948,
+          "export_us": 27574353,
+          "loss_occurred": false,
+          "observed_event_range_valid": true
+        },
+        {
+          "line": 159,
+          "dropped": 0,
+          "observed_event_min_us": 37540017,
+          "observed_event_max_us": 37542583,
+          "record_bytes": 248,
+          "queue_bytes": 2008,
+          "metrics_stack_free_bytes": 420,
+          "export_us": 40029020,
+          "loss_occurred": false,
+          "observed_event_range_valid": true
+        },
+        {
+          "line": 165,
+          "dropped": 0,
+          "observed_event_min_us": 37922106,
+          "observed_event_max_us": 37923621,
+          "record_bytes": 248,
+          "queue_bytes": 2008,
+          "metrics_stack_free_bytes": 420,
+          "export_us": 41547649,
+          "loss_occurred": false,
+          "observed_event_range_valid": true
+        }
+      ],
+      "certified_close_count": 2,
+      "memory_observed_ranges": {
+        "internal_free": {
+          "minimum": 67067,
+          "maximum": 67771
+        },
+        "internal_largest": {
+          "minimum": 61440,
+          "maximum": 65536
+        },
+        "psram_free": {
+          "minimum": 2770408,
+          "maximum": 2771424
+        },
+        "psram_largest": {
+          "minimum": 2359296,
+          "maximum": 2359296
+        },
+        "internal_min_sum": {
+          "minimum": 56143,
+          "maximum": 66963
+        },
+        "psram_min_sum": {
+          "minimum": 356556,
+          "maximum": 2760100
+        }
+      },
+      "stack_observed_minima": {
+        "metrics_stack_free_bytes": 420,
+        "listener_stack_free_bytes": 1676,
+        "stack_free_bytes": 5300
+      },
+      "capture_counter_ranges": {
+        "queue_overflows": {
+          "first": 15,
+          "last": 15,
+          "minimum": 15,
+          "maximum": 15,
+          "delta": 0
+        },
+        "software_dropped_frames": {
+          "first": 480,
+          "last": 480,
+          "minimum": 480,
+          "maximum": 480,
+          "delta": 0
+        },
+        "read_errors": {
+          "first": 0,
+          "last": 0,
+          "minimum": 0,
+          "maximum": 0,
+          "delta": 0
+        },
+        "restarts": {
+          "first": 2,
+          "last": 2,
+          "minimum": 2,
+          "maximum": 2,
+          "delta": 0
+        },
+        "supervisor_restarts": {
+          "first": 0,
+          "last": 0,
+          "minimum": 0,
+          "maximum": 0,
+          "delta": 0
+        },
+        "overflow_restarts": {
+          "first": 2,
+          "last": 2,
+          "minimum": 2,
+          "maximum": 2,
+          "delta": 0
+        },
+        "discontinuities": {
+          "first": 2,
+          "last": 2,
+          "minimum": 2,
+          "maximum": 2,
+          "delta": 0
+        },
+        "health_restart_requests": {
+          "first": 0,
+          "last": 0,
+          "minimum": 0,
+          "maximum": 0,
+          "delta": 0
+        },
+        "settling_discarded_frames": {
+          "first": 26400,
+          "last": 26400,
+          "minimum": 26400,
+          "maximum": 26400,
+          "delta": 0
+        }
+      },
+      "retained_decoders": [
+        {
+          "decoded_audio_frames": 150912,
+          "decoded_seconds": 3.144,
+          "decoded_packets": 131,
+          "skipped_source_audio_frames": 0,
+          "duplicate_audio_frames": 0,
+          "decoded_discontinuities": 0,
+          "sample_hash_format": "SHA256, stereo pcm_s32le, packet boundaries"
+        },
+        {
+          "decoded_audio_frames": 165888,
+          "decoded_seconds": 3.456,
+          "decoded_packets": 144,
+          "skipped_source_audio_frames": 0,
+          "duplicate_audio_frames": 0,
+          "decoded_discontinuities": 0,
+          "sample_hash_format": "SHA256, stereo pcm_s32le, packet boundaries"
+        }
+      ],
+      "slot_reclaimed_helper_flag": null,
+      "helper_error": null,
+      "evidence_sha256": {
+        "aplay.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "events.jsonl": "fd198fcfc18c8f4ff60111f8a77a030e1d82dbdc4759ac2d83e01f8d05aecaa2",
+        "image.elf": "479e0af815f7509b87f960afb2874530eaf110af0e2869959fab3cb441af636d",
+        "result.json": "206444629ae984c8cd87011f96f29730e589b42c86574eb066298fa8a6a45c82",
+        "soak/20261010T202814.079796Z/events.jsonl": "9a8cb31d5b38189adc5a7cc87e48c51fc499ef9389bf6e53a45a8e59979d437c",
+        "soak/20261010T202814.079796Z/listener-1.ffmpeg.log": "746216b9c7e86c6b90258997c340f1584579721ed31d16ac322a4f1b0c5da6de",
+        "soak/20261010T202814.079796Z/listener-1.framehash": "4d583e5b05b83f1c6718302688b6798451108757005b0de9ca84554605f05899",
+        "soak/20261010T202814.079796Z/listener-1.progress": "4bc8e70db6d0ce637729898a76d2d627e2b3bfcc97df26e4e9c040f896d93632",
+        "soak/20261010T202814.079796Z/listener-2.ffmpeg.log": "5a2b5df3c2732993c073234d0eab67c9bd328998a8965b0c4cb4ab0d10912918",
+        "soak/20261010T202814.079796Z/listener-2.framehash": "4daa4940d74ec6d4bf815ceb625730ee1b5aea62e16a4db9d9f709234bd554c5",
+        "soak/20261010T202814.079796Z/listener-2.progress": "d33249fab3ed758aa2d4259c6ba4799344291a6ffb7d267d55ce5cc93917ff5d",
+        "soak/20261010T202814.079796Z/serial.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "soak/20261010T202814.079796Z/summary.json": "66ba29845e2ad8c001fc9e2a70cc281b9bca0b0b85fbae37fc3d1e029e2d7d75",
+        "soak/20261010T202814.079796Z/uart.log": "2bbdbee1e299e15a779957ddca0012fbb356250dc2cbea70ba9ce56a65cf1f32",
+        "soak-cleanup.json": "382570f094d1017ea55278060b95602c0e3a498b1f5ef81239510f6247220693",
+        "soak.log": "8710d974ab7b8502bfe0e7e511e7794c87c54219bd0d59548372ca00e2d8e2e8",
+        "source-liveness.jsonl": "891319f6818502ce1738c9019d0485207c0bad6392e61821fd285ba30020079c"
+      }
+    },
+    "3": {
+      "passed": false,
+      "scenario_returncodes": {
+        "slow": 1
+      },
+      "cleanup_errors": [],
+      "complete_capture_reports": 5,
+      "capture_first_frames": 479760,
+      "capture_last_frames": 3032400,
+      "incomplete_trailing_bytes": 0,
+      "encoder_reports": 6,
+      "encoder_progress_intervals": [
+        {
+          "from_line": 138,
+          "to_line": 145,
+          "encoded_frame_delta": 416,
+          "elapsed_us": 10002775,
+          "audio_seconds": 9.984,
+          "realtime_ratio": 0.9981230208617109,
+          "raw_read_overruns": 0,
+          "resets": 0
+        },
+        {
+          "from_line": 145,
+          "to_line": 155,
+          "encoded_frame_delta": 417,
+          "elapsed_us": 10001016,
+          "audio_seconds": 10.008,
+          "realtime_ratio": 1.0006983290497684,
+          "raw_read_overruns": 0,
+          "resets": 0
+        },
+        {
+          "from_line": 155,
+          "to_line": 157,
+          "encoded_frame_delta": 417,
+          "elapsed_us": 10001836,
+          "audio_seconds": 10.008,
+          "realtime_ratio": 1.0006162868497341,
+          "raw_read_overruns": 0,
+          "resets": 0
+        },
+        {
+          "from_line": 157,
+          "to_line": 169,
+          "encoded_frame_delta": 416,
+          "elapsed_us": 10020652,
+          "audio_seconds": 9.984,
+          "realtime_ratio": 0.9963423537709921,
+          "raw_read_overruns": 0,
+          "resets": 0
+        },
+        {
+          "from_line": 169,
+          "to_line": 188,
+          "encoded_frame_delta": 419,
+          "elapsed_us": 10021819,
+          "audio_seconds": 10.056,
+          "realtime_ratio": 1.0034106582846885,
+          "raw_read_overruns": 0,
+          "resets": 0
+        }
+      ],
+      "export_validation": "listener telemetry export loss",
+      "receipts": [
+        {
+          "line": 148,
+          "dropped": 0,
+          "observed_event_min_us": 24718438,
+          "observed_event_max_us": 24718438,
+          "record_bytes": 248,
+          "queue_bytes": 2008,
+          "metrics_stack_free_bytes": 948,
+          "export_us": 24722786,
+          "loss_occurred": false,
+          "observed_event_range_valid": true
+        },
+        {
+          "line": 166,
+          "dropped": 1,
+          "observed_event_min_us": 25669520,
+          "observed_event_max_us": 37348091,
+          "record_bytes": 248,
+          "queue_bytes": 2008,
+          "metrics_stack_free_bytes": 596,
+          "export_us": 52938363,
+          "loss_occurred": true,
+          "observed_event_range_valid": true
+        },
+        {
+          "line": 174,
+          "dropped": 1,
+          "observed_event_min_us": 37348408,
+          "observed_event_max_us": 39663543,
+          "record_bytes": 248,
+          "queue_bytes": 2008,
+          "metrics_stack_free_bytes": 596,
+          "export_us": 55461355,
+          "loss_occurred": true,
+          "observed_event_range_valid": true
+        },
+        {
+          "line": 180,
+          "dropped": 1,
+          "observed_event_min_us": 50473837,
+          "observed_event_max_us": 52372430,
+          "record_bytes": 248,
+          "queue_bytes": 2008,
+          "metrics_stack_free_bytes": 596,
+          "export_us": 57170628,
+          "loss_occurred": true,
+          "observed_event_range_valid": true
+        },
+        {
+          "line": 186,
+          "dropped": 1,
+          "observed_event_min_us": 52561680,
+          "observed_event_max_us": 52562875,
+          "record_bytes": 248,
+          "queue_bytes": 2008,
+          "metrics_stack_free_bytes": 580,
+          "export_us": 58687891,
+          "loss_occurred": true,
+          "observed_event_range_valid": true
+        }
+      ],
+      "certified_close_count": null,
+      "memory_observed_ranges": {
+        "internal_free": {
+          "minimum": 61927,
+          "maximum": 67851
+        },
+        "internal_largest": {
+          "minimum": 55296,
+          "maximum": 65536
+        },
+        "psram_free": {
+          "minimum": 2761764,
+          "maximum": 2771424
+        },
+        "psram_largest": {
+          "minimum": 2359296,
+          "maximum": 2359296
+        },
+        "internal_min_sum": {
+          "minimum": 56615,
+          "maximum": 67527
+        },
+        "psram_min_sum": {
+          "minimum": 363584,
+          "maximum": 2763928
+        }
+      },
+      "stack_observed_minima": {
+        "metrics_stack_free_bytes": 580,
+        "listener_stack_free_bytes": 1664,
+        "stack_free_bytes": 5308
+      },
+      "capture_counter_ranges": {
+        "queue_overflows": {
+          "first": 15,
+          "last": 15,
+          "minimum": 15,
+          "maximum": 15,
+          "delta": 0
+        },
+        "software_dropped_frames": {
+          "first": 480,
+          "last": 480,
+          "minimum": 480,
+          "maximum": 480,
+          "delta": 0
+        },
+        "read_errors": {
+          "first": 0,
+          "last": 0,
+          "minimum": 0,
+          "maximum": 0,
+          "delta": 0
+        },
+        "restarts": {
+          "first": 2,
+          "last": 2,
+          "minimum": 2,
+          "maximum": 2,
+          "delta": 0
+        },
+        "supervisor_restarts": {
+          "first": 0,
+          "last": 0,
+          "minimum": 0,
+          "maximum": 0,
+          "delta": 0
+        },
+        "overflow_restarts": {
+          "first": 2,
+          "last": 2,
+          "minimum": 2,
+          "maximum": 2,
+          "delta": 0
+        },
+        "discontinuities": {
+          "first": 2,
+          "last": 2,
+          "minimum": 2,
+          "maximum": 2,
+          "delta": 0
+        },
+        "health_restart_requests": {
+          "first": 0,
+          "last": 0,
+          "minimum": 0,
+          "maximum": 0,
+          "delta": 0
+        },
+        "settling_discarded_frames": {
+          "first": 26400,
+          "last": 26400,
+          "minimum": 26400,
+          "maximum": 26400,
+          "delta": 0
+        }
+      },
+      "retained_decoders": [
+        {
+          "decoded_audio_frames": 11520,
+          "decoded_seconds": 0.24,
+          "decoded_packets": 10,
+          "skipped_source_audio_frames": 0,
+          "duplicate_audio_frames": 0,
+          "decoded_discontinuities": 0,
+          "sample_hash_format": "SHA256, stereo pcm_s32le, packet boundaries"
+        }
+      ],
+      "slot_reclaimed_helper_flag": true,
+      "helper_error": "ValueError('premature EOF after 574080 bytes')",
+      "evidence_sha256": {
+        "aplay.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "events.jsonl": "55358fbf43a324d077379e73193012e00cdfc28cdc9d666a43ef84b53b207538",
+        "image.elf": "479e0af815f7509b87f960afb2874530eaf110af0e2869959fab3cb441af636d",
+        "result.json": "408162c8a2112b050e1d531118ba92cb7bdd6f31ffd421daaa14ba895bdddb68",
+        "slow/reclaimed-slot.ffmpeg.log": "61cdcc022c02c4ff2683d0ca4fc13c97e6952a1f441ed4a0383f14a06bd1be83",
+        "slow/reclaimed-slot.framehash": "18ea772e944584af728d15400a27d583e9cc125e74ca06890ffc0374a998aef4",
+        "slow/reclaimed-slot.mp3": "5b12e399004038c6ee2f2f05e540f20968ed52c7e6ad2aeb4f662d5a2faae6ed",
+        "slow/result.json": "77e12a5dd79712af5f794b57dbe1a5f61fa58a586208fee92bba4db9113362e6",
+        "slow-cleanup.json": "4821650b9da7cc3996f445411f57cd2bbf663a8f288c91ef8adc155db92729dd",
+        "slow-uart-cleanup.json": "4aa3359859d37a3610e00a8ddb5647cf13e8a8a9cf15546f2c74133f1af6abca",
+        "slow-uart.log": "7e1a40639181bbdd2bb10e126ca9f96a6429ecf828c2d25b08c6922505c19044",
+        "slow.log": "cd09dbb70c6dc637bb5df2bd0792a29eb010dc29a2750700608596a79e11cab0",
+        "source-liveness.jsonl": "f31c103f8155a61ffeb25a61a059f4577395bdc0ceba0d221a2280caa4b632e3"
+      }
+    }
+  },
+  "limits": [
+    "Only LF-terminated UART records certify evidence; unfinished trailing bytes are retained separately.",
+    "Encoder ratios cover successor report windows only; initial report window excluded.",
+    "Capture fault counters cannot prove sample continuity or detect every omitted DMA interrupt.",
+    "Sticky exporter loss invalidates strict close certification even if individual close lines exist.",
+    "No watchdog, panic, or allocation-failure lines observed; this does not establish stack safety.",
+    "MQTT TLS timeouts recur in logs; association does not prove the cause of listener export loss or delivery failure."
+  ]
+}

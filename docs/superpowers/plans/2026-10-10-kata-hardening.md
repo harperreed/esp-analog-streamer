@@ -1,7 +1,7 @@
 # Finish the Kata hardening backlog
 
 Doctor Biz's active goal on October 10: finish all Kata work, then assess.
-Base c134069 on wip/kata-capture-protection. Compactions in this phase: 6; replay checkpoint is 32c2300.
+Base c134069 on wip/kata-capture-protection. Compactions in this phase: 7; latest implementation checkpoint is 3aa5b5f.
 Use GPT-6.1 Sol subagents with clean contexts. Parent owns review, integration,
 canonical checks, commits and every hardware action. Continue through batches;
 a phase checkpoint is not a reason to abandon the active goal.
@@ -332,3 +332,40 @@ live heap or stack margin measurement. See listener-telemetry-build.md evidence.
 Next: parent-owned bounded MP3 soak/slow-reader validation, retaining separate
 scenario failures and measured cleanup/stack/heap results. No hardware run or
 full 21tp completion is claimed at this implementation checkpoint.
+
+Listener implementation and acceptance fixes are committed as 3aa5b5f. Parent
+flashed the checked default unified ELF; flash completed and postflash GETs
+verify stopped MP3/Medium with autoplay and recognition off. Before playback,
+parent found the throwaway trial wrapper could leave UART/FFmpeg descendants
+behind because the soak helper starts separate sessions. Correct and test owned
+descendant cleanup before running either scenario. A clean-context Sol 6.1
+worker is independently designing the remaining encoder telemetry slice.
+
+Trial 1 stopped in preflight before audio/reset: duplicate event timestamp and
+mono Master validation bugs in the throwaway wrapper. Both have real-receipt
+regressions; original evidence remains intact. Trial 2 failed MP3 delivery: both
+listeners fell behind, while two checked closes had valid later zero-loss batch
+receipts. Its final UART line is incomplete and cannot extend capture coverage.
+The separate slow-only trial 3 reached a write timeout and decoded ten frames
+on a later connection, but the fast stream failed and export reported one lost
+record. Neither run clears delivery or full 21tp. All helper/source cleanup
+receipts passed; hardware remains stopped MP3/Medium, autoplay/recognition off.
+
+Measured metrics stack minimum is 420 bytes out of 4096. Linked inspection finds
+an 800-byte persistent metrics frame (capture formatting is inlined) beneath the
+992-byte listener exporter frame. Ruling: test only an out-of-line boundary on
+existing log_capture before adding encoder telemetry; preserve task sizes,
+priorities, output and sampling order. Actual target call/frame comparison and a
+matched hardware repeat are the meaningful checks, not a host test asserting an
+attribute's presence. No overflow or transport cause is established by this
+stack measurement. The encoder telemetry design remains gated on that result.
+
+Failed-device evidence is independently reviewed and saved as
+docs/audit-evidence/2026-10-10/listener-telemetry-device.md and paired JSON.
+The reviewer verified all 30 original hashes, complete-line capture coverage,
+actual decoded samples and strict rejection of trial 3's sticky export loss.
+The one-line stack experiment builds in both configurations: metrics now reserves
+208 bytes, separate capture reporting 528, and listener export 992. The nested
+caller/export reservation drops from 1792 to 1200 bytes, while caller/capture
+drops from 800 to 736. These are linked frame sizes, not measured runtime savings;
+canonical verification, independent review and a matched device repeat remain.
