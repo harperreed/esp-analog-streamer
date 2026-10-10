@@ -359,3 +359,145 @@ fn cursor_acquisition_reports_the_actual_join_position_before_any_input() {
     assert_eq!(accepted, 0);
     assert_eq!(worker.encoder.frames_wanted(), 4096);
 }
+
+#[cfg(feature = "encoder-probe")]
+#[test]
+fn probe_push_clocks_only_when_enabled_and_storage_is_real() {
+    use stream_pipeline::EncoderObservation;
+    for enabled in [false, true] {
+        let (runtime, mut worker) = Runtime::new(OutputFormat::Mp3, false).unwrap();
+        let (mut publisher, raw) = CaptureBuffer::new(3840, 240);
+        let mut pump = EncoderPump::new();
+        pump.set_probe(enabled);
+        let (address, len, capacity) = pump.storage_receipt();
+        assert_ne!(address, 0);
+        assert_eq!(len, 1920);
+        assert!(capacity >= len);
+        let receipt = worker.encoder.mp3_storage_receipt().unwrap();
+        assert_eq!(receipt.1, 4608);
+        assert!(worker.bytes.capacity() >= 960);
+        pump.step(
+            &raw,
+            &mut worker,
+            &runtime,
+            &mut || Duration::ZERO,
+            &mut |_| {},
+        );
+        publisher.publish(&vec![12345; 480]).unwrap();
+        let mut clocks = 0;
+        let mut pushes = Vec::new();
+        pump.step(
+            &raw,
+            &mut worker,
+            &runtime,
+            &mut || {
+                clocks += 1;
+                Duration::from_micros(clocks)
+            },
+            &mut |event| {
+                if let EncoderObservation::PcmPush(elapsed) = event {
+                    pushes.push(elapsed)
+                }
+            },
+        );
+        assert_eq!(worker.encoder.frames_wanted(), 912);
+        assert_eq!(clocks, if enabled { 7 } else { 5 });
+        assert_eq!(
+            pushes,
+            if enabled {
+                vec![Duration::from_micros(1)]
+            } else {
+                vec![]
+            }
+        );
+        assert_eq!(worker.encoder.mp3_storage_receipt(), Some(receipt));
+    }
+}
+
+#[test]
+fn wrapper_reports_and_delays_at_the_actual_eighth_publication_boundary() {
+    let mut count = 0;
+    let mut events = Vec::new();
+    for _ in 0..9 {
+        stream_pipeline::finish_encoder_turn(
+            true,
+            OutputFormat::Mp3,
+            &mut count,
+            &mut events,
+            |events| events.push("report"),
+            |events| events.push("delay"),
+        );
+    }
+    #[cfg(not(feature = "encoder-probe"))]
+    assert_eq!(
+        events,
+        [
+            "report", "report", "report", "report", "report", "report", "report", "report",
+            "delay", "report"
+        ]
+    );
+    #[cfg(feature = "encoder-probe")]
+    assert_eq!(
+        events,
+        [
+            "report", "report", "report", "report", "report", "report", "report", "delay",
+            "report", "report"
+        ]
+    );
+    assert_eq!(count, 1);
+}
+
+#[cfg(feature = "encoder-probe")]
+#[test]
+fn empty_wait_crosses_report_threshold_without_splitting_raw_wait_or_phase() {
+    use stream_pipeline::EncoderObservation;
+    let (runtime, mut worker) = Runtime::new(OutputFormat::Mp3, false).unwrap();
+    let (_, raw) = CaptureBuffer::new(3840, 240);
+    let mut pump = EncoderPump::new();
+    pump.set_probe(true);
+    pump.step(
+        &raw,
+        &mut worker,
+        &runtime,
+        &mut || Duration::from_secs(9),
+        &mut |_| {},
+    );
+    let mut completed = Vec::new();
+    for millis in [9000, 9500, 10500] {
+        assert!(matches!(
+            pump.step(
+                &raw,
+                &mut worker,
+                &runtime,
+                &mut || Duration::from_millis(millis),
+                &mut |event| match event {
+                    EncoderObservation::RawWait(wait) => completed.push(wait),
+                    EncoderObservation::Publication { .. }
+                    | EncoderObservation::Reset
+                    | EncoderObservation::Stalled
+                    | EncoderObservation::CursorWaitExpired =>
+                        panic!("report boundary before wait completion"),
+                    _ => {}
+                }
+            ),
+            EncoderStep::SleepUntil(_)
+        ));
+        assert!(completed.is_empty());
+    }
+    let mut stalled = false;
+    pump.step(
+        &raw,
+        &mut worker,
+        &runtime,
+        &mut || Duration::from_secs(11),
+        &mut |event| match event {
+            EncoderObservation::RawWait(wait) => completed.push(wait),
+            EncoderObservation::Stalled => {
+                assert_eq!(completed, [Duration::from_secs(2)]);
+                stalled = true;
+            }
+            _ => {}
+        },
+    );
+    assert!(stalled);
+}

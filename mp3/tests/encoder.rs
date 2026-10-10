@@ -8,6 +8,7 @@ struct Counts {
     calls: usize,
     live: usize,
     fail_at: usize,
+    allocations: Vec<(usize, usize)>,
 }
 unsafe extern "C" fn allocate(ctx: *mut c_void, size: usize) -> *mut c_void {
     let counts = &mut *ctx.cast::<Counts>();
@@ -22,6 +23,7 @@ unsafe extern "C" fn allocate(ctx: *mut c_void, size: usize) -> *mut c_void {
     }
     raw.cast::<usize>().write(size);
     counts.live += 1;
+    counts.allocations.push((raw.add(16) as usize, size));
     raw.add(16).cast()
 }
 unsafe extern "C" fn deallocate(ctx: *mut c_void, ptr: *mut c_void) {
@@ -112,4 +114,33 @@ fn independent_noise_matches_pinned_upstream_bytes() {
         }
     }
     assert_eq!(hash, 0xccb10bf832c51705);
+}
+
+#[cfg(feature = "encoder-probe")]
+#[test]
+fn live_receipt_matches_allocator_and_does_not_change_encoding() {
+    let mut counts = Box::new(Counts::default());
+    let mut queried = unsafe { Encoder::with_allocator(allocator(&mut counts)) }.unwrap();
+    let mut control = Encoder::new().unwrap();
+    let receipt = queried.allocation_receipt().unwrap();
+    assert_eq!(
+        (receipt.config.address, receipt.config.bytes),
+        counts.allocations[0]
+    );
+    assert_eq!(
+        (receipt.bitstream.address, receipt.bitstream.bytes),
+        counts.allocations[1]
+    );
+    assert_eq!(receipt.bitstream.bytes, 4096);
+    let mut left = [0; FRAME_BYTES];
+    let mut right = [0; FRAME_BYTES];
+    for _ in 0..8 {
+        assert_eq!(queried.allocation_receipt(), Some(receipt));
+        queried.encode(&mut [137; PCM_SAMPLES], &mut left).unwrap();
+        control.encode(&mut [137; PCM_SAMPLES], &mut right).unwrap();
+        assert_eq!(left, right);
+    }
+    assert_eq!((counts.calls, counts.live), (2, 2));
+    drop(queried);
+    assert_eq!(counts.live, 0);
 }

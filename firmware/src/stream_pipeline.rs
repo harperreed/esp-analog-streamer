@@ -45,6 +45,8 @@ pub(crate) enum EncoderObservation {
     CursorWaitExpired,
     Stalled,
     Codec(Duration),
+    #[cfg(feature = "encoder-probe")]
+    PcmPush(Duration),
     Publication {
         lock_wait: Duration,
         held: Duration,
@@ -57,6 +59,8 @@ pub(crate) struct EncoderPump {
     read_wait: Option<(Duration, RawWait)>,
     chunk: Vec<i32>,
     block_number: u32,
+    #[cfg(feature = "encoder-probe")]
+    probe_enabled: bool,
 }
 impl EncoderPump {
     pub(crate) fn new() -> Self {
@@ -66,7 +70,21 @@ impl EncoderPump {
             read_wait: None,
             chunk: vec![0; 2 * CHUNK_FRAMES],
             block_number: 0,
+            #[cfg(feature = "encoder-probe")]
+            probe_enabled: false,
         }
+    }
+    #[cfg(feature = "encoder-probe")]
+    pub(crate) fn set_probe(&mut self, enabled: bool) {
+        self.probe_enabled = enabled;
+    }
+    #[cfg(feature = "encoder-probe")]
+    pub(crate) fn storage_receipt(&self) -> (usize, usize, usize) {
+        (
+            self.chunk.as_ptr() as usize,
+            self.chunk.len() * std::mem::size_of::<i32>(),
+            self.chunk.capacity() * std::mem::size_of::<i32>(),
+        )
     }
     pub(crate) fn block_boundary(&self, worker: &Worker) -> bool {
         worker.encoder.frames_wanted() == worker.epoch.format.block_frames()
@@ -185,7 +203,13 @@ impl EncoderPump {
                     start,
                     frames: n,
                 });
+                #[cfg(feature = "encoder-probe")]
+                let push_started = self.probe_enabled.then(&mut *now);
                 worker.encoder.push(&self.chunk[..2 * n]);
+                #[cfg(feature = "encoder-probe")]
+                if let Some(started) = push_started {
+                    observe(EncoderObservation::PcmPush(now().saturating_sub(started)));
+                }
             }
             _ => unreachable!(),
         }
@@ -524,4 +548,26 @@ impl<S> ConnectionResources<S> {
             }),
         }
     }
+}
+
+/// Runs the unchanged eight-publication delay, with diagnostic-only report ordering.
+pub(crate) fn finish_encoder_turn<C>(
+    published: bool,
+    format: esp_shazam_core::stream_buffer::OutputFormat,
+    yield_frames: &mut usize,
+    context: &mut C,
+    report: impl FnOnce(&mut C),
+    delay: impl FnOnce(&mut C),
+) {
+    #[cfg(not(feature = "encoder-probe"))]
+    report(context);
+    if published && format == esp_shazam_core::stream_buffer::OutputFormat::Mp3 {
+        *yield_frames += 1;
+        if *yield_frames == 8 {
+            delay(context);
+            *yield_frames = 0;
+        }
+    }
+    #[cfg(feature = "encoder-probe")]
+    report(context);
 }

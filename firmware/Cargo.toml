@@ -27,6 +27,7 @@ debug = true
 opt-level = "z"
 
 [features]
+encoder-probe = ["esp-shazam-core/encoder-probe", "esp-shazam-mp3/encoder-probe"]
 # Declared for shared host runtime models; core rejects this feature on ESP-IDF.
 listener-loom = ["esp-shazam-core/listener-loom"]
 # Explicitly built receive-only TLS adversarial diagnostic; absent from normal firmware.

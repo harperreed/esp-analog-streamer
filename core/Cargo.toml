@@ -7,6 +7,7 @@ description = "Pure logic shared by the esp-shazam firmware and its Mac tools"
 publish = false
 
 [features]
+encoder-probe = ["esp-shazam-mp3/encoder-probe"]
 capture-fixture = []
 capture-loom = ["dep:loom"]
 listener-loom = ["dep:loom"]

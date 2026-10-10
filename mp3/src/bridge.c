@@ -45,3 +45,21 @@ int shazam_mp3_encode(void *encoder, int16_t *pcm, unsigned char *output) {
 void shazam_mp3_close(void *encoder) {
   shine_close(encoder);
 }
+
+#ifdef SHAZAM_ENCODER_PROBE
+#include <stdint.h>
+struct shazam_allocation_receipt { uintptr_t address; size_t bytes; };
+struct shazam_encoder_receipt {
+  struct shazam_allocation_receipt config;
+  struct shazam_allocation_receipt bitstream;
+};
+int shazam_mp3_receipt(const void *encoder, struct shazam_encoder_receipt *out) {
+  const shine_global_config *config = encoder;
+  if (!config || !out || !config->bs.data || config->bs.data_size <= 0) return 1;
+  out->config.address = (uintptr_t)config;
+  out->config.bytes = sizeof(*config);
+  out->bitstream.address = (uintptr_t)config->bs.data;
+  out->bitstream.bytes = (size_t)config->bs.data_size;
+  return 0;
+}
+#endif

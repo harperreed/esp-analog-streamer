@@ -497,11 +497,31 @@ fn encode(
 ) {
     let mut pump = EncoderPump::new();
     let mut yield_frames = 0usize;
+    #[cfg(feature = "encoder-probe")]
+    log_probe_storage(
+        &raw,
+        &pump,
+        &worker,
+        crate::encoder_probe::Probe::default()
+            .next_sequence(worker.epoch.format == OutputFormat::Mp3),
+    );
     let mut metrics = EncoderMetrics::new(&listeners);
+    #[cfg(feature = "encoder-probe")]
+    metrics
+        .probe
+        .restart(worker.epoch.format == OutputFormat::Mp3);
     let origin = Instant::now();
     loop {
         let mut published = false;
         let mut log_due = false;
+        #[cfg(feature = "encoder-probe")]
+        let gate = metrics.probe.enabled();
+        #[cfg(feature = "encoder-probe")]
+        pump.set_probe(gate);
+        #[cfg(feature = "encoder-probe")]
+        let mut reset = false;
+        #[cfg(feature = "encoder-probe")]
+        let mut overrun = false;
         let step = pump.step(
             &raw,
             &mut worker,
@@ -523,6 +543,16 @@ fn encode(
                         elapsed.as_micros().min(u128::from(u32::MAX)) as u32,
                         Ordering::Relaxed,
                     );
+                    #[cfg(feature = "encoder-probe")]
+                    {
+                        metrics
+                            .probe
+                            .attempt(matches!(result, Ok(n) if n > 0), elapsed.as_micros() as u64);
+                        if matches!(result, Err(ReadError::Overrun)) {
+                            metrics.probe.invalidate();
+                            overrun = true;
+                        }
+                    }
                     metrics.raw_read.attempts += 1;
                     match result {
                         Ok(0) => metrics.raw_read.empty += 1,
@@ -539,6 +569,10 @@ fn encode(
                     metrics.raw_read.calls += 1;
                     metrics.raw_read.wait_total_us += us;
                     metrics.raw_read.wait_max_us = metrics.raw_read.wait_max_us.max(us);
+                }
+                #[cfg(feature = "encoder-probe")]
+                EncoderObservation::PcmPush(elapsed) => {
+                    metrics.probe.push(elapsed.as_micros() as u64)
                 }
                 EncoderObservation::Codec(elapsed) => {
                     let us = elapsed.as_micros() as u64;
@@ -557,6 +591,10 @@ fn encode(
                         "stream: encoder fell behind capture; disconnecting compressed listeners"
                     );
                     metrics.resets += 1;
+                    #[cfg(feature = "encoder-probe")]
+                    {
+                        reset = true;
+                    }
                     log_due = true;
                 }
                 EncoderObservation::CursorWaitExpired | EncoderObservation::Stalled => {
@@ -564,10 +602,32 @@ fn encode(
                 }
             },
         );
+        #[cfg(feature = "encoder-probe")]
+        if overrun || matches!(step, EncoderStep::Switched | EncoderStep::Stopped(_)) {
+            metrics.probe.invalidate();
+            log::warn!("encoder-probe: invalidated position={:?} frames={} resets={} raw_overruns={} raw_wait_us={} raw_attempts={} state={:?}",
+                metrics.probe.position(), metrics.frames, metrics.resets, metrics.raw_read.overruns, metrics.raw_read.wait_total_us,
+                metrics.raw_read.attempts, metrics.probe);
+        }
+        #[cfg(feature = "encoder-probe")]
+        if reset || matches!(step, EncoderStep::Switched) {
+            log_probe_storage(
+                &raw,
+                &pump,
+                &worker,
+                metrics
+                    .probe
+                    .next_sequence(worker.epoch.format == OutputFormat::Mp3),
+            );
+            metrics.fresh_probe_baseline(&listeners, worker.epoch.format == OutputFormat::Mp3);
+        }
         match step {
             EncoderStep::Switched => {
                 yield_frames = 0;
-                metrics = EncoderMetrics::new(&listeners);
+                #[cfg(not(feature = "encoder-probe"))]
+                {
+                    metrics = EncoderMetrics::new(&listeners);
+                }
                 // SAFETY: only this worker changes its own FreeRTOS priority at a block boundary.
                 unsafe {
                     sys::vTaskPrioritySet(
@@ -589,19 +649,31 @@ fn encode(
             }
             EncoderStep::Progress => {}
         }
-        if log_due {
-            metrics.log_if_due(&listeners);
-        }
-        if published && worker.epoch.format == OutputFormat::Mp3 {
-            yield_frames += 1;
-            if yield_frames == 8 {
+        crate::stream_pipeline::finish_encoder_turn(
+            published,
+            worker.epoch.format,
+            &mut yield_frames,
+            &mut metrics,
+            |metrics| {
+                if log_due {
+                    metrics.log_if_due(&listeners);
+                }
+            },
+            |metrics| {
+                #[cfg(not(feature = "encoder-probe"))]
+                let _ = metrics;
+                #[cfg(feature = "encoder-probe")]
+                let started = gate.then(Instant::now);
                 // Yield regularly even when capture already has more PCM.
                 // A one-tick RTOS delay yields; IDF sub-tick usleep can busy-wait.
                 // SAFETY: this code runs on the initialized encoder FreeRTOS task.
                 unsafe { sys::vTaskDelay(1) };
-                yield_frames = 0;
-            }
-        }
+                #[cfg(feature = "encoder-probe")]
+                if let Some(started) = started {
+                    metrics.probe.delay(started.elapsed().as_micros() as u64);
+                }
+            },
+        );
     }
 }
 
@@ -632,6 +704,8 @@ struct EncoderMetrics {
     encoded_lock_wait_wall_total_us: u64,
     encoded_push_held_wall_total_us: u64,
     raw_read: RawReadMetrics,
+    #[cfg(feature = "encoder-probe")]
+    probe: crate::encoder_probe::Probe,
 }
 
 impl EncoderMetrics {
@@ -648,7 +722,21 @@ impl EncoderMetrics {
             encoded_lock_wait_wall_total_us: 0,
             encoded_push_held_wall_total_us: 0,
             raw_read: RawReadMetrics::default(),
+            #[cfg(feature = "encoder-probe")]
+            probe: crate::encoder_probe::Probe::default(),
         }
+    }
+
+    #[cfg(feature = "encoder-probe")]
+    fn fresh_probe_baseline(&mut self, listeners: &AtomicUsize, mp3: bool) {
+        let frames = self.frames;
+        let resets = self.resets;
+        let probe = std::mem::take(&mut self.probe);
+        *self = Self::new(listeners);
+        self.frames = frames;
+        self.resets = resets;
+        self.probe = probe;
+        self.probe.restart(mp3);
     }
 
     fn snapshot() -> (u64, u32) {
@@ -666,11 +754,11 @@ impl EncoderMetrics {
         }
     }
 
-    fn log_if_due(&mut self, listeners: &AtomicUsize) {
+    fn log_if_due(&mut self, listeners: &AtomicUsize) -> bool {
         // SAFETY: IDF initializes the monotonic timer before the encoder task starts.
         let now = unsafe { sys::esp_timer_get_time() as u64 };
         if now - self.since_us < 10_000_000 {
-            return;
+            return false;
         }
         let (now, runtime) = Self::snapshot();
         let current = listeners.load(std::sync::atomic::Ordering::Acquire);
@@ -686,6 +774,20 @@ impl EncoderMetrics {
             self.raw_read.frames, self.raw_read.retries, self.raw_read.empty,
             self.raw_read.overruns, self.raw_read.wait_total_us, self.raw_read.wait_max_us,
             self.encode_wall_total_us, self.encoded_lock_wait_wall_total_us, self.encoded_push_held_wall_total_us);
+        #[cfg(feature = "encoder-probe")]
+        {
+            let report = self.probe.report(
+                now - self.since_us,
+                self.raw_read.wait_total_us,
+                self.encode_wall_total_us,
+                self.encoded_lock_wait_wall_total_us,
+                self.encoded_push_held_wall_total_us,
+            );
+            log::info!("encoder-probe: sequence={} phase={} interval={} retained={} completed={} valid={} success_attempt_us={} rejected_attempt_us={} pcm_push_us={} delay_us={} delay_calls={} raw_remainder_us={:?} residual_us={:?}",
+                report.sequence, report.phase, report.interval, report.retained, report.completed, report.valid,
+                report.success_us, report.rejected_us, report.push_us, report.delay_us,
+                report.delay_calls, report.raw_remainder_us, report.residual_us);
+        }
         self.since_us = now;
         self.runtime_us = runtime;
         self.listeners = current;
@@ -694,6 +796,7 @@ impl EncoderMetrics {
         self.encoded_lock_wait_wall_total_us = 0;
         self.encoded_push_held_wall_total_us = 0;
         self.raw_read = RawReadMetrics::default();
+        true
     }
 }
 
@@ -820,4 +923,13 @@ fn stream_compressed(
     metrics.payload_elapsed_us =
         payload_started.map_or(0, |started| started.elapsed().as_micros() as u64);
     end
+}
+
+#[cfg(feature = "encoder-probe")]
+fn log_probe_storage(raw: &SharedStreamRing, pump: &EncoderPump, worker: &Worker, sequence: u64) {
+    log::info!("encoder-probe-storage: sequence={} baseline_pending=true raw_payload={:?} raw_stamps={:?} chunk={:?} output_address={} output_len={} output_capacity={} output_required={} shine_policy=MALLOC_CAP_SPIRAM|MALLOC_CAP_8BIT mp3={:?}",
+        sequence, raw.payload_range(), raw.stamps_range(), pump.storage_receipt(),
+        worker.bytes.as_ptr() as usize, worker.bytes.len(), worker.bytes.capacity(),
+        worker.epoch.format.max_frame_bytes(), worker.encoder.mp3_storage_receipt());
+    assert!(worker.bytes.capacity() >= worker.epoch.format.max_frame_bytes());
 }

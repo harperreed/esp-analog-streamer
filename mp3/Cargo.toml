@@ -5,6 +5,9 @@ edition = "2021"
 license = "GPL-3.0-or-later"
 publish = false
 
+[features]
+encoder-probe = []
+
 [build-dependencies]
 cc = "=1.6.0"
 

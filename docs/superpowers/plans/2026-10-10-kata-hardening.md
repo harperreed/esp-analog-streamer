@@ -64,7 +64,7 @@ new consequential architectural choices get a concrete design before code.
 | n4jb | P0 | Add reproducible network fault injection on the actual board traffic path | Reconciling |
 | 1wny | P1 | Use cargo-mutants to check whether reliability tests detect wrong behavior | Closed, runner 823c0cc and pilot evidence 7b05adf |
 | m31k | P1 | Measure host recovery-path coverage with cargo-llvm-cov | Two local pilots passed; CI written/reviewed, hosted run pending |
-| t4ae | P1 | Add bounded host fuzzing for FLAC, HTTP and stream transitions | Local acceptance passed from f57aa3e; hosted execution remains in 97bk |
+| t4ae | P1 | Add bounded host fuzzing for FLAC, HTTP and stream transitions | Closed with f57aa3e/ba5b842; hosted execution remains in 97bk |
 | jq3a | P0 | Model listener admission and shutdown interleavings with Loom | Closed, b68318b |
 | 5yf3 | P0 | Add proptest state-machine tests for rings and listener lifecycles | Closed, 0d9d014 |
 | 21tp | P2 | Move encoder and listener logs off progress and cleanup paths | Reconciling |
@@ -236,3 +236,13 @@ A separate evidence search read all 16 files in docs-ignore/victrola-hacks.tgz
 without modification; it did not establish a LAN join-only command or stale-write
 rejection. The observed failed suspend targeted a replacement empty session,
 not the evicted board session. Automatic recovery writes remain gated by pqqq.
+
+The default-off encoder probe passed independent source review, feature/default
+host suites, all 27 canonical stages, target feature compilation and feature IRAM
+verification. The query symbol is absent from the saved default ELF and present
+in the saved diagnostic ELF. Build receipts are in October 10
+encoder-probe-build.md. No flash has occurred. A separate worker is implementing
+the bounded collector: settle input before reset, require enough source duration,
+preserve all UART/state/failure receipts, and derive phase totals from consecutive
+complete windows. A 300-second source is too short for its proposed 360-second
+collection allowance plus setup/final receipts; do not silently loop it.

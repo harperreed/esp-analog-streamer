@@ -87,3 +87,6 @@ pub fn run() -> Result<()> {
 
     net::supervise(wifi)
 }
+
+#[cfg(feature = "encoder-probe")]
+mod encoder_probe;

@@ -2,6 +2,9 @@
 // ABOUTME: Uses the target C toolchain without requiring ESP-IDF headers.
 fn main() {
     let mut build = cc::Build::new();
+    if std::env::var_os("CARGO_FEATURE_ENCODER_PROBE").is_some() {
+        build.define("SHAZAM_ENCODER_PROBE", None);
+    }
     if std::env::var("CARGO_CFG_TARGET_OS").as_deref() == Ok("espidf") {
         // Pinned esp-idf-sys exports its activated tool path as build metadata.
         // This build-script process is single-threaded; no machine PATH is changed.

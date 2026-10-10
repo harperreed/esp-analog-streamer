@@ -21,6 +21,17 @@ impl Encoder {
             OutputFormat::Mp3 => Mp3Encoder::new().map(Self::Mp3),
         }
     }
+    #[cfg(feature = "encoder-probe")]
+    pub fn mp3_storage_receipt(&self) -> Option<(usize, usize, esp_shazam_mp3::EncoderReceipt)> {
+        match self {
+            Self::Mp3(encoder) => Some((
+                encoder.pcm.as_ptr() as usize,
+                encoder.pcm.len() * std::mem::size_of::<i16>(),
+                encoder.codec.as_ref()?.allocation_receipt()?,
+            )),
+            Self::Flac(_) => None,
+        }
+    }
     pub fn frames_wanted(&self) -> usize {
         match self {
             Self::Flac(e) => e.frames_wanted(),
@@ -174,6 +185,26 @@ pub fn prepare_listener_frame(
 
 #[cfg(test)]
 mod tests {
+    #[cfg(feature = "encoder-probe")]
+    #[test]
+    fn real_mp3_storage_stays_stable_across_reserved_output_encoding() {
+        use esp_shazam_core::stream_buffer::OutputFormat;
+        let mut encoder = super::Encoder::new(OutputFormat::Mp3).unwrap();
+        let receipt = encoder.mp3_storage_receipt().unwrap();
+        assert_eq!(receipt.1, 4608);
+        let mut output = Vec::with_capacity(960);
+        let pointer = output.as_ptr();
+        encoder.push(&vec![12345; 2304]);
+        encoder.encode_block(0, &mut output).unwrap();
+        assert_eq!(output.len(), 960);
+        assert_eq!(output.as_ptr(), pointer);
+        assert_eq!(encoder.mp3_storage_receipt(), Some(receipt));
+        assert!(super::Encoder::new(OutputFormat::Flac)
+            .unwrap()
+            .mp3_storage_receipt()
+            .is_none());
+    }
+
     #[test]
     fn mp3_moves_do_not_carry_a_pcm_block_on_the_stack() {
         assert!(std::mem::size_of::<super::Mp3Encoder>() <= 8 * std::mem::size_of::<usize>());

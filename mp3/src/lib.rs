@@ -9,6 +9,22 @@ pub const SAMPLE_FRAMES: usize = 1152;
 pub const PCM_SAMPLES: usize = SAMPLE_FRAMES * CHANNELS;
 pub const FRAME_BYTES: usize = 960;
 
+/// Read-only address and requested size; expires when its encoder is reset or dropped.
+#[cfg(feature = "encoder-probe")]
+#[repr(C)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct AllocationReceipt {
+    pub address: usize,
+    pub bytes: usize,
+}
+#[cfg(feature = "encoder-probe")]
+#[repr(C)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct EncoderReceipt {
+    pub config: AllocationReceipt,
+    pub bitstream: AllocationReceipt,
+}
+
 /// Allocation callbacks and context, owned by the caller for the encoder lifetime.
 #[repr(C)]
 pub struct Allocator {
@@ -45,8 +61,17 @@ extern "C" {
     fn shazam_mp3_open(allocator: *const Allocator) -> *mut c_void;
     fn shazam_mp3_encode(encoder: *mut c_void, pcm: *mut i16, output: *mut u8) -> i32;
     fn shazam_mp3_close(encoder: *mut c_void);
+    #[cfg(feature = "encoder-probe")]
+    fn shazam_mp3_receipt(encoder: *const c_void, out: *mut EncoderReceipt) -> i32;
 }
 impl Encoder {
+    #[cfg(feature = "encoder-probe")]
+    pub fn allocation_receipt(&self) -> Option<EncoderReceipt> {
+        let mut receipt = EncoderReceipt::default();
+        // SAFETY: the live owned encoder is queried into matched caller-owned storage.
+        (unsafe { shazam_mp3_receipt(self.state.as_ptr(), &mut receipt) } == 0).then_some(receipt)
+    }
+
     pub fn new() -> Result<Self, Error> {
         // SAFETY: A null descriptor requests the C runtime allocator.
         Self::from_pointer(unsafe { shazam_mp3_open(std::ptr::null()) })
