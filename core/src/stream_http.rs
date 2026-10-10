@@ -113,15 +113,22 @@ impl<'a> DeadlineWriter<'a> {
         result
     }
 
-    fn write_nonblocking(&mut self, mut buf: &[u8], deadline: Instant) -> io::Result<()> {
-        while !buf.is_empty() {
-            let left = deadline.saturating_duration_since(Instant::now());
-            if left.is_zero() {
-                return Err(io::Error::new(
-                    io::ErrorKind::TimedOut,
-                    "write deadline passed",
-                ));
-            }
+    fn write_nonblocking(&mut self, bytes: &[u8], deadline: Instant) -> io::Result<()> {
+        use crate::stream_write::{Action, WriteProgress};
+        let origin = Instant::now();
+        let mut progress =
+            WriteProgress::new(bytes.len(), deadline.saturating_duration_since(origin));
+        loop {
+            let offset = match progress.next(origin.elapsed())? {
+                Action::Complete => return Ok(()),
+                Action::Poll { timeout_ms } => {
+                    let result = self.poll_writable(timeout_ms);
+                    progress.polled(result)?;
+                    continue;
+                }
+                Action::Send { offset } => offset,
+            };
+            let buf = &bytes[offset..];
             // SAFETY: the borrowed socket stays open, and buf is readable for its full length.
             // O_NONBLOCK prevents waiting for buffer space; MSG_NOSIGNAL suppresses SIGPIPE.
             let after_ready = self.ready_at.take();
@@ -150,95 +157,75 @@ impl<'a> DeadlineWriter<'a> {
                 metrics.send_over_10ms = metrics.send_over_10ms.saturating_add(1);
             }
             match sent {
-                0 => {
-                    metrics.send_errors = metrics.send_errors.saturating_add(1);
-                    return Err(io::Error::new(
-                        io::ErrorKind::WriteZero,
-                        "failed to write whole buffer",
-                    ));
-                }
+                0 => metrics.send_errors = metrics.send_errors.saturating_add(1),
                 n if n > 0 => {
                     metrics.accepted_bytes = metrics.accepted_bytes.saturating_add(n as u64);
                     if (n as usize) < buf.len() {
                         metrics.short_sends = metrics.short_sends.saturating_add(1);
                     }
-                    buf = &buf[n as usize..];
                 }
-                _ => {
-                    let error = error.expect("negative send has errno");
-                    match error.kind() {
-                        io::ErrorKind::Interrupted => {
-                            metrics.send_interrupted = metrics.send_interrupted.saturating_add(1);
-                            continue;
-                        }
-                        io::ErrorKind::WouldBlock => {
-                            metrics.send_would_block = metrics.send_would_block.saturating_add(1);
-                            if after_ready.is_some() {
-                                metrics.ready_then_would_block =
-                                    metrics.ready_then_would_block.saturating_add(1);
-                            }
-                            self.wait_writable(deadline)?;
-                        }
-                        _ => {
-                            metrics.send_errors = metrics.send_errors.saturating_add(1);
-                            return Err(error);
+                _ => match error.as_ref().expect("negative send has errno").kind() {
+                    io::ErrorKind::Interrupted => {
+                        metrics.send_interrupted = metrics.send_interrupted.saturating_add(1);
+                    }
+                    io::ErrorKind::WouldBlock => {
+                        metrics.send_would_block = metrics.send_would_block.saturating_add(1);
+                        if after_ready.is_some() {
+                            metrics.ready_then_would_block =
+                                metrics.ready_then_would_block.saturating_add(1);
                         }
                     }
-                }
+                    _ => metrics.send_errors = metrics.send_errors.saturating_add(1),
+                },
             }
+            progress.sent(match error {
+                Some(error) => Err(error),
+                None => Ok(sent as usize),
+            })?;
         }
-        Ok(())
     }
 
-    fn wait_writable(&mut self, deadline: Instant) -> io::Result<()> {
+    fn poll_writable(&mut self, timeout: i32) -> io::Result<bool> {
         let mut fd = libc::pollfd {
             fd: self.sock.as_raw_fd(),
             events: libc::POLLOUT,
             revents: 0,
         };
-        loop {
-            let left = deadline.saturating_duration_since(Instant::now());
-            if left.is_zero() {
-                return Err(io::Error::new(
-                    io::ErrorKind::TimedOut,
-                    "write deadline passed",
-                ));
-            }
-            let timeout = i32::try_from(left.as_nanos().div_ceil(1_000_000)).unwrap_or(i32::MAX);
-            // SAFETY: fd is one initialized pollfd, and the borrowed socket remains open.
-            let started = Instant::now();
-            let ready = unsafe { libc::poll(&mut fd, 1, timeout) };
-            let error = (ready < 0).then(io::Error::last_os_error);
-            let finished = Instant::now();
-            let elapsed = finished.duration_since(started).as_micros() as u64;
-            let metrics = &mut self.diagnostics;
-            metrics.poll_calls = metrics.poll_calls.saturating_add(1);
-            metrics.poll_wall_total_us = metrics.poll_wall_total_us.saturating_add(elapsed);
-            metrics.poll_wall_max_us = metrics.poll_wall_max_us.max(elapsed);
-            if elapsed > 10_000 {
-                metrics.poll_over_10ms = metrics.poll_over_10ms.saturating_add(1);
-            }
-            if ready > 0 {
-                if fd.revents & (libc::POLLERR | libc::POLLHUP | POLL_INVALID) != 0 {
-                    metrics.poll_error_ready = metrics.poll_error_ready.saturating_add(1);
-                } else if fd.revents & libc::POLLOUT != 0 {
-                    metrics.poll_ready = metrics.poll_ready.saturating_add(1);
-                    self.ready_at = Some(finished);
-                }
-                // Retry send to report a closed peer or socket error through its normal errno.
-                return Ok(());
-            }
-            if ready < 0 {
-                let error = error.expect("negative poll has errno");
-                if error.kind() != io::ErrorKind::Interrupted {
-                    metrics.poll_errors = metrics.poll_errors.saturating_add(1);
-                    return Err(error);
-                }
-                metrics.poll_interrupted = metrics.poll_interrupted.saturating_add(1);
-            } else {
-                metrics.poll_timeouts = metrics.poll_timeouts.saturating_add(1);
-            }
+        // SAFETY: fd is one initialized pollfd, and the borrowed socket remains open.
+        let started = Instant::now();
+        let ready = unsafe { libc::poll(&mut fd, 1, timeout) };
+        let error = (ready < 0).then(io::Error::last_os_error);
+        let finished = Instant::now();
+        let elapsed = finished.duration_since(started).as_micros() as u64;
+        let metrics = &mut self.diagnostics;
+        metrics.poll_calls = metrics.poll_calls.saturating_add(1);
+        metrics.poll_wall_total_us = metrics.poll_wall_total_us.saturating_add(elapsed);
+        metrics.poll_wall_max_us = metrics.poll_wall_max_us.max(elapsed);
+        if elapsed > 10_000 {
+            metrics.poll_over_10ms = metrics.poll_over_10ms.saturating_add(1);
         }
+        if ready > 0 {
+            if fd.revents & (libc::POLLERR | libc::POLLHUP | POLL_INVALID) != 0 {
+                metrics.poll_error_ready = metrics.poll_error_ready.saturating_add(1);
+            } else if fd.revents & libc::POLLOUT != 0 {
+                metrics.poll_ready = metrics.poll_ready.saturating_add(1);
+                self.ready_at = Some(finished);
+            }
+            // Retry send to report a closed peer or socket error through its normal errno.
+            return Ok(true);
+        }
+        if ready < 0 {
+            let error = error.expect("negative poll has errno");
+            if error.kind() != io::ErrorKind::Interrupted {
+                metrics.poll_errors = metrics.poll_errors.saturating_add(1);
+                return Err(error);
+            }
+            metrics.poll_interrupted = metrics.poll_interrupted.saturating_add(1);
+            return Err(error);
+        } else {
+            metrics.poll_timeouts = metrics.poll_timeouts.saturating_add(1);
+        }
+        Ok(false)
     }
 }
 
@@ -824,6 +811,23 @@ mod tests {
         let mut got = Vec::new();
         client.read_to_end(&mut got).unwrap();
         assert!(got.is_empty(), "sent {got:?}");
+    }
+
+    #[test]
+    fn an_empty_write_past_its_deadline_preserves_flags_and_sends_nothing() {
+        let (server, mut client) = connected_pair();
+        server.set_nonblocking(true).unwrap();
+        let flags = socket_flags(&server);
+        let mut writer = DeadlineWriter::new(&server);
+        writer
+            .write_all_before(&[], Instant::now() - Duration::from_secs(1))
+            .unwrap();
+        assert_eq!(writer.diagnostics().send_calls, 0);
+        assert_eq!(socket_flags(&server), flags);
+        drop(server);
+        let mut received = Vec::new();
+        client.read_to_end(&mut received).unwrap();
+        assert!(received.is_empty());
     }
 
     fn socket_flags(sock: &TcpStream) -> libc::c_int {

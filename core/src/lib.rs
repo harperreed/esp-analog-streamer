@@ -30,5 +30,6 @@ pub mod stream_buffer;
 pub mod stream_http;
 pub mod stream_ring;
 pub mod stream_wait;
+pub mod stream_write;
 pub mod time;
 pub mod wav;

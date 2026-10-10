@@ -28,6 +28,7 @@ stage capture-loom cargo test -p esp-shazam-core --features capture-loom models:
 stage listener-loom cargo test -p esp-shazam-core --features listener-loom --lib --test listener_runtime_loom models::
 stage sonos-web node --test test/sonos-web.test.cjs
 stage harnesses scripts/check-harnesses
+stage coverage-host scripts/test-coverage-host
 stage stream-format scripts/test-stream-format
 stage decoder-integrity scripts/test-decoder-integrity
 stage failure-observation scripts/test-failure-observation

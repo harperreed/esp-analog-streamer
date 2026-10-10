@@ -1,7 +1,8 @@
 # Toolchain for esp-shazam. `mise install` sets it up; scripts load it with `eval "$(mise env -s bash)"`.
 # Then `mise run esp-toolchain` installs the Xtensa Rust toolchain ("esp") the firmware builds with.
 [tools]
-rust = "1.93.0"  # host toolchain for core, tools and tests
+rust = { version = "1.93.0", components = ["llvm-tools"] } # canonical rustup component name; matching coverage LLVM
+"cargo:cargo-llvm-cov" = "0.9.1"
 node = "26.10.0" # built-in test runner for the self-contained web page
 cmake = "3.30.2" # the versions ESP-IDF v5.5.5's tools.json pins
 ninja = "1.12.1"

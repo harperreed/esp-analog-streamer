@@ -1,7 +1,7 @@
 # Finish the Kata hardening backlog
 
 Doctor Biz's active goal on October 10: finish all Kata work, then assess.
-Base c134069 on wip/kata-capture-protection. Compactions in this phase: 1.
+Base c134069 on wip/kata-capture-protection. Compactions in this phase: 2.
 Use GPT-6.1 Sol subagents with clean contexts. Parent owns review, integration,
 canonical checks, commits and every hardware action. Continue through batches;
 a phase checkpoint is not a reason to abandon the active goal.
@@ -56,16 +56,16 @@ new consequential architectural choices get a concrete design before code.
 | wmsy | P0 | Improve streaming recovery and validate independent failure handling | Reconciling |
 | hv4x | P1 | Apply and verify a reproducible Wi-Fi protocol baseline | Reconciling |
 | cxbw | P1 | Add pinned ESP-IDF heap, UART core-dump and selective timing diagnostics | Reconciling |
-| 7hr4 | P1 | Test importable Python harness implementations instead of AST fragments | Implementing |
+| 7hr4 | P1 | Test importable Python harness implementations instead of AST fragments | Closed, b68318b |
 | ee3q | P1 | Validate 24-hour two-listener continuity and controlled recovery | Reconciling |
 | 97bk | P1 | Make host, firmware and HIL evidence explicit streaming release gates | Reconciling |
-| 89g8 | P0 | Build deterministic host replay of streaming failures | Reconciling |
+| 89g8 | P0 | Build deterministic host replay of streaming failures | Shared writer slice reviewed and checked; orchestration remains |
 | amqe | P0 | Add a separate ESP32 streaming dashboard and bounded metrics export | Reconciling |
 | n4jb | P0 | Add reproducible network fault injection on the actual board traffic path | Reconciling |
 | 1wny | P1 | Use cargo-mutants to check whether reliability tests detect wrong behavior | Reconciling |
-| m31k | P1 | Measure host recovery-path coverage with cargo-llvm-cov | Reconciling |
+| m31k | P1 | Measure host recovery-path coverage with cargo-llvm-cov | Pilot passed; committed repeat and CI pending |
 | t4ae | P1 | Add bounded host fuzzing for FLAC, HTTP and stream transitions | Reconciling |
-| jq3a | P0 | Model listener admission and shutdown interleavings with Loom | Implementing; heavy tests held during device measurement |
+| jq3a | P0 | Model listener admission and shutdown interleavings with Loom | Closed, b68318b |
 | 5yf3 | P0 | Add proptest state-machine tests for rings and listener lifecycles | Closed, 0d9d014 |
 | 21tp | P2 | Move encoder and listener logs off progress and cleanup paths | Reconciling |
 | qm2a | P2 | Measure and define FLAC16 quantization policy | Reconciling |
@@ -73,13 +73,13 @@ new consequential architectural choices get a concrete design before code.
 | bf85 | P1 | Run a six-hour reconnect and playback recovery soak | Reconciling |
 | cv5a | P1 | Validate interruption recovery, ownership and sustained overload | Reconciling |
 | 6vct | P2 | Track pipeline progress and enforce an explicit media-age budget | Reconciling |
-| pqqq | P0 | Design ownership-safe Sonos playback recovery | Reconciling |
+| pqqq | P0 | Design ownership-safe Sonos playback recovery | Concrete design; LAN join and eviction proof pending |
 | 7vhq | P2 | Define bounded Sonos listener reservation or priority | Reconciling |
-| 6hjs | P2 | Validate poll error and hangup handling in deadline writes | Reconciling |
+| 6hjs | P2 | Validate poll error and hangup handling in deadline writes | Closed, b68318b |
 | 8s9m | P2 | Prevent slow request headers from serializing stream admission | Reconciling |
 | ewvq | P2 | Track Wi-Fi and IP generations across stream and control lifecycles | Reconciling |
 | 37k3 | P2 | Defer Shazam requests until capture has fresh usable samples | Closed, 0d9d014 |
-| wbz6 | P1 | Resolve diagnostic-image MP3 encoder throughput regression | Added from cold controls; investigating |
+| wbz6 | P1 | Resolve diagnostic-image MP3 encoder throughput regression | Repeated without listeners; root cause unresolved |
 
 ## Verification
 
@@ -108,6 +108,31 @@ Both images fail MP3 delivery, while diagnostic zero-listener encoding slows
 to about 0.95x and loses raw history. Full receipts are in October 10 sender
 analysis/control evidence. wbz6 blocks d2cb overhead acceptance; neither closes.
 The diagnostic image is deployed, stopped MP3/Medium with autoplay off.
+
+Third batch: the shared write-progress operation preserves real socket behavior
+and supports deterministic actual PCM/FLAC/ring replay. Seven replay tests and
+31 writer tests passed, followed by all 22 canonical stages. Review corrected
+one test's reuse after a terminal error. Full production orchestration and shared
+FFmpeg validation still remain for 89g8; see 2026-10-10-deterministic-replay.md.
+The isolated host coverage wrapper passed review and its lightweight tests;
+review added explicit host targets against inherited cross-compilation settings.
+Mise's llvm-tools-preview alias caused a new missing-tool warning despite an
+installed component. The canonical llvm-tools name resolves it without changing
+Rust 1.93.0 or LLVM 21.1.8; repeated activation is clean. The real coverage pilot
+passed 380 tests with two documented existing ignores, producing JSON and HTML.
+An inherited Xtensa target did not change its explicit host test/report target.
+A clean committed repeat and the separate CI job remain acceptance work.
+
+Paired no-listener controls old-1/diag-1 each contain 60 seconds of complete
+encoder windows. Archived image: 1.00010x, no raw loss; diagnostic: 0.96376x,
+one raw overrun/reset. Both have zero interval capture fault deltas, from nonzero
+startup baselines. Sanitized receipts are encoder-cold.md/.json in October 10
+evidence. This confirms the association, not a code/cache cause. Hardware is
+idle on the exact earlier diagnostic ELF, stopped MP3/Medium, autoplay off.
+
+Sonos recovery design is recorded in 2026-10-10-sonos-recovery.md. Before enabling
+automatic media actions, prove the local join-only wire contract and rejection
+of writes to evicted sessions. No resume API or ownership guarantee is invented.
 
 Each code task supplies targeted red/green evidence and independent review.
 Run scripts/check on a frozen integration state. Hardware comparisons keep

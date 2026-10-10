@@ -1,5 +1,10 @@
 # Gotchas
 
+Mise 2026.9.15 accepts Rust's llvm-tools-preview install alias but can keep
+reporting the toolchain missing afterward. Pin the canonical llvm-tools component
+name; it selects the same bundled LLVM. Verify clean activation and exact rustc,
+llvm-cov and llvm-profdata versions before trusting coverage tooling.
+
 October 10 cold MP3 controls reproduce delivery failure on both archived and
 diagnostic unified images. The diagnostic image also encodes at about 0.95x
 before listeners arrive and incurs raw overruns despite unchanged capture
