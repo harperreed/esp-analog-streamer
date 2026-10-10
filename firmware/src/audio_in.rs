@@ -1,6 +1,9 @@
 // ABOUTME: Captures LINE IN over I2S at 48 kHz, 24-bit stereo, on its own high-priority thread on core 0.
 // ABOUTME: Feeds the stream ring, the optional 12 s recognition ring, and the store's level.
 
+#[cfg(all(feature = "metrics-state-crossover", feature = "encoder-probe"))]
+compile_error!("metrics-state-crossover is incompatible with encoder-probe");
+
 use std::ffi::c_void;
 use std::sync::atomic::{AtomicBool, AtomicPtr, AtomicU32, Ordering};
 use std::sync::{Arc, Mutex, TryLockError};
@@ -28,6 +31,9 @@ use capture_timing::ReadServiceTiming;
 #[path = "recognition_feed.rs"]
 mod recognition_feed;
 use recognition_feed::RecognitionFeed;
+#[cfg(feature = "metrics-state-crossover")]
+#[path = "metrics_state_crossover.rs"]
+mod metrics_state_crossover;
 
 /// LINE IN's sample rate, and the stream's.
 pub const CAPTURE_RATE_HZ: u32 = 48_000;
@@ -79,6 +85,8 @@ static METRICS_TASK: AtomicPtr<c_void> = AtomicPtr::new(std::ptr::null_mut());
 static SUPERVISOR_TASK: AtomicPtr<c_void> = AtomicPtr::new(std::ptr::null_mut());
 static METRICS_PHASE: AtomicU32 = AtomicU32::new(Phase::Init as u32);
 static METRICS_OBSERVATIONS: Receipt = Receipt::new();
+#[cfg(feature = "metrics-state-crossover")]
+static CROSSOVER_PHASE: AtomicU32 = AtomicU32::new(0);
 static HEALTH_RESTART_REQUESTS: AtomicU32 = AtomicU32::new(0);
 static GAPS: AtomicU32 = AtomicU32::new(0);
 static RAW_WORK_US: AtomicU32 = AtomicU32::new(0);
@@ -358,7 +366,7 @@ fn supervise() -> ! {
                 unsafe { esp_idf_svc::sys::esp_restart() }
             }
         }
-        if sampling.due(micros(), 1_000_000) {
+        if sampling.due(micros(), 1_000_000) && metrics_observer_enabled() {
             observe_metrics(&mut observations, &mut metrics_task, &mut status);
             METRICS_OBSERVATIONS.publish(&observations);
         }
@@ -367,7 +375,7 @@ fn supervise() -> ! {
 }
 
 fn metrics() -> ! {
-    METRICS_PHASE.store(Phase::Init as u32, Ordering::Relaxed);
+    record_metrics_phase(metrics_observer_enabled(), Phase::Init);
     // SAFETY: this diverging task stays live for the boot; pinned ESP-IDF panics abort.
     let task = unsafe { esp_idf_svc::sys::xTaskGetCurrentTaskHandle() };
     METRICS_TASK.store(task.cast(), Ordering::Release);
@@ -383,7 +391,20 @@ fn metrics() -> ! {
     let mut runtime_sample = None;
     let mut failure_exports = ExportState::new();
     let mut diagnostic_exports = Gate::new(launched);
+    #[cfg(feature = "metrics-state-crossover")]
+    let mut crossover = metrics_state_crossover::Schedule::new();
     loop {
+        #[cfg(feature = "metrics-state-crossover")]
+        let observer_enabled = {
+            if let Some(transition) = crossover.advance(micros()) {
+                CROSSOVER_PHASE.store(transition.phase as u32, Ordering::Relaxed);
+                let changed_us = micros();
+                log_metrics_crossover(transition, changed_us);
+            }
+            crossover.enabled()
+        };
+        #[cfg(not(feature = "metrics-state-crossover"))]
+        let observer_enabled = true;
         let now = micros();
         let frames = FRAMES.load(Ordering::Relaxed);
         if epoch.is_none() && STARTED.load(Ordering::Acquire) {
@@ -397,41 +418,81 @@ fn metrics() -> ! {
         let requests = HEALTH_RESTART_REQUESTS.load(Ordering::Relaxed);
         if requests != requests_seen {
             requests_seen = requests;
-            METRICS_PHASE.store(Phase::HealthWarning as u32, Ordering::Relaxed);
+            record_metrics_phase(observer_enabled, Phase::HealthWarning);
             // Event delivery is asynchronous and may lag the capture owner's restart.
             log::warn!("audio: no captured-frame progress for {STALL_MS} ms; requesting restart (asynchronously observed; health_restart_requests={requests})");
-            METRICS_PHASE.store(Phase::Init as u32, Ordering::Relaxed);
+            record_metrics_phase(observer_enabled, Phase::Init);
         }
         if now >= next_log {
             if let Some(epoch) = epoch {
-                METRICS_PHASE.store(Phase::Capture as u32, Ordering::Relaxed);
+                record_metrics_phase(observer_enabled, Phase::Capture);
                 log_capture(
                     now - epoch,
                     observed,
                     &mut window_start_free,
                     &mut runtime_sample,
                 );
-                METRICS_PHASE.store(Phase::Init as u32, Ordering::Relaxed);
+                record_metrics_phase(observer_enabled, Phase::Init);
             }
-            METRICS_PHASE.store(Phase::RestartExport as u32, Ordering::Relaxed);
+            record_metrics_phase(observer_enabled, Phase::RestartExport);
             export_restart_failures(&mut failure_exports);
-            METRICS_PHASE.store(Phase::Init as u32, Ordering::Relaxed);
+            record_metrics_phase(observer_enabled, Phase::Init);
             next_log = now + 10_000_000;
         }
-        METRICS_PHASE.store(Phase::ListenerExport as u32, Ordering::Relaxed);
+        record_metrics_phase(observer_enabled, Phase::ListenerExport);
         crate::stream::export_listener_events();
-        METRICS_PHASE.store(Phase::Init as u32, Ordering::Relaxed);
-        METRICS_PHASE.store(Phase::EncoderExport as u32, Ordering::Relaxed);
+        record_metrics_phase(observer_enabled, Phase::Init);
+        record_metrics_phase(observer_enabled, Phase::EncoderExport);
         crate::stream::export_encoder_events();
-        METRICS_PHASE.store(Phase::Init as u32, Ordering::Relaxed);
-        if diagnostic_exports.due(micros(), 10_000_000) {
-            METRICS_PHASE.store(Phase::DiagnosticExport as u32, Ordering::Relaxed);
+        record_metrics_phase(observer_enabled, Phase::Init);
+        if diagnostic_exports.due(micros(), 10_000_000) && observer_enabled {
+            record_metrics_phase(observer_enabled, Phase::DiagnosticExport);
             export_metrics_observations();
-            METRICS_PHASE.store(Phase::Init as u32, Ordering::Relaxed);
+            record_metrics_phase(observer_enabled, Phase::Init);
         }
-        METRICS_PHASE.store(Phase::Sleep as u32, Ordering::Relaxed);
+        record_metrics_phase(observer_enabled, Phase::Sleep);
         std::thread::sleep(Duration::from_millis(100));
-        METRICS_PHASE.store(Phase::Init as u32, Ordering::Relaxed);
+        record_metrics_phase(observer_enabled, Phase::Init);
+    }
+}
+
+// Keep rare transition formatting off the persistent metrics/export stack frame.
+#[cfg(feature = "metrics-state-crossover")]
+#[inline(never)]
+fn log_metrics_crossover(transition: metrics_state_crossover::Transition, changed_us: u64) {
+    let seq = transition.phase as u32;
+    let phase = transition.phase.name();
+    log::info!(
+        "metrics-crossover: transition schema=1 seq={} phase={} planned_us={} changed_us={} skipped={}",
+        seq, phase, transition.planned_us, changed_us, transition.skipped
+    );
+    let ready_us = micros();
+    log::info!(
+        "metrics-crossover: ready schema=1 seq={} phase={} ready_us={}",
+        seq,
+        phase,
+        ready_us
+    );
+}
+
+// Both tasks stay on core 1, with supervisor above metrics: a query/publication
+// finishes before metrics can change the gate. Metrics keeps one selection per loop.
+#[inline(always)]
+fn metrics_observer_enabled() -> bool {
+    #[cfg(feature = "metrics-state-crossover")]
+    {
+        CROSSOVER_PHASE.load(Ordering::Relaxed) == metrics_state_crossover::Phase::On as u32
+    }
+    #[cfg(not(feature = "metrics-state-crossover"))]
+    {
+        true
+    }
+}
+
+#[inline(always)]
+fn record_metrics_phase(enabled: bool, phase: Phase) {
+    if enabled {
+        METRICS_PHASE.store(phase as u32, Ordering::Relaxed);
     }
 }
 

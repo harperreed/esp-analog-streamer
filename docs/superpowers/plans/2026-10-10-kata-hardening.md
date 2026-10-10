@@ -562,3 +562,14 @@ the run. All losses remain failures and missing phase evidence stays incomplete.
 Kata 21tp/wbz6 remain open. Root-session replacement is still unavailable; this
 durable checkpoint and fresh Sol 6.1 contexts preserve continuity without claiming
 a fresh root session.
+
+
+The same-image crossover now passes source/harness reviews, linked inspection,
+both target builds/IRAM and all 27 canonical checks on the final source. Four
+schedule tests and fifteen scratch harness tests pass, including negative controls
+for boundary-only loss and replaced provenance. Linked review moved transition
+formatting out of the persistent metrics frame: 432→304 bytes, compared with
+256 in the exact rebuilt default. Supervisor remains 272; runtime margin remains
+unverified. The frozen diagnostic SHA is 8ef23d4fae8ecd16013e3eace538b373e461f11e266a64ac9756d457a142922c.
+See metrics-state-crossover-build.md and the matching crossover implementation plan.
+Parent will run bounded raw-byte observation after this reviewed checkpoint.

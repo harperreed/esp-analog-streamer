@@ -27,6 +27,8 @@ debug = true
 opt-level = "z"
 
 [features]
+# Diagnostic-only fixed observer OFF / ON / OFF schedule.
+metrics-state-crossover = []
 encoder-probe = ["esp-shazam-core/encoder-probe", "esp-shazam-mp3/encoder-probe"]
 # Declared for shared host runtime models; core rejects this feature on ESP-IDF.
 listener-loom = ["esp-shazam-core/listener-loom"]
