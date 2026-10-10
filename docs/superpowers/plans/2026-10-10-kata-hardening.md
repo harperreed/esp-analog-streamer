@@ -595,3 +595,18 @@ Sol 6.1 implementation worker. Its scripts/tests are independent of the frozen
 firmware and scratch acquisition. Heavy checks wait until hardware measurement
 is idle. Root replacement remains unavailable; durable checkpoints and fresh
 worker contexts continue under the recorded exception.
+
+The 97bk local evidence unit passes independent review and all 27 canonical
+stages with complete per-stage receipts and stable boundary snapshots. Real
+negative controls cover command failures, evidence failures and interruption.
+Mac Bash 3.2 runtime remains unavailable; the reviewed code uses its supported
+descriptor syntax. The hosted and hardware gates stay open.
+
+The matched 90-second default observations both completed cleanly. Archived
+eb38c65 generates 0.961316x with one raw overrun; current bacdecb generates
+0.786533x with eight. Exact images, fixture, helper hashes and routing receipts
+remain preserved. Independent paired-evidence review is underway. Current
+unified default remains installed, stopped MP3/Medium, autoplay/recognition off;
+source and UART ownership cleaned up. Next compare representative real WAV
+input through a throwaway host Shine work-count experiment before changing
+target instrumentation. This cannot reproduce target cursor/reset history.
