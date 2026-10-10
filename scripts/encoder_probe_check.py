@@ -560,6 +560,29 @@ def load_uart(out):
     return lines
 
 
+def analyze_acquisition(out, reset_stamp):
+    """Anchor the owned acquisition at its first ROM reset, preserving raw offsets."""
+    rows = load_uart(out)
+    raw_lines = (out/'uart.log').read_bytes().split(b'\n')
+    arrivals = [json.loads(line) for line in (out/'uart-arrival.jsonl').read_text().splitlines()]
+    offset = 0
+    for index, ((stamp, line), raw) in enumerate(zip(rows, raw_lines)):
+        if reset_stamp is not None and stamp >= reset_stamp and 'rst:' in line:
+            if line.rstrip('\r') != 'rst:0x1 (POWERON_RESET),boot:0x1f (SPI_FAST_FLASH_BOOT)':
+                raise ValueError('unexpected first ROM reset after owned reset release')
+            arrival = next(row for row in arrivals if row['offset'] <= offset+len(raw) < row['offset']+row['bytes'])
+            selection = dict(byte_offset=offset, line=index+1, host_monotonic=stamp,
+                             reset_released=reset_stamp, arrival_offset=arrival['offset'],
+                             arrival_bytes=arrival['bytes'], rom_reset=line)
+            analysis = analyze(rows[index:])
+            if any('rst:' in later for _, later in rows[index+1:]):
+                analysis['valid_sequence'] = False
+                analysis['errors'].append('epoch interrupted by later ROM reset')
+            return analysis, selection
+        offset += len(raw)+1
+    raise ValueError('missing ROM reset after owned reset release')
+
+
 def require_source(player):
     if player.poll() is not None:
         raise RuntimeError(f'Analog source exited unexpectedly: {player.returncode}')
@@ -850,11 +873,10 @@ def main(argv=None):
                 # Reader owns writes; analyze only bytes covered by complete arrival records.
                 try:
                     with uart_lock:
-                        rows = load_uart(args.out)
+                        analysis, result['boot_selection'] = analyze_acquisition(args.out, reset_stamp)
                 except (ValueError, json.JSONDecodeError):
                     pause(.2)
                     continue
-                analysis = analyze([row for row in rows if row[0] >= reset_stamp])
                 if analysis['valid_sequence']:
                     result['analysis'] = analysis
                     result['acquisition_complete'] = True
@@ -913,8 +935,7 @@ def main(argv=None):
             failure(RuntimeError(error))
         if (args.out/'uart.log').exists():
             try:
-                rows = load_uart(args.out)
-                result['analysis'] = analyze([row for row in rows if reset_stamp is not None and row[0] >= reset_stamp])
+                result['analysis'], result['boot_selection'] = analyze_acquisition(args.out, reset_stamp)
             except BaseException as error:
                 failure(error)
         result['completed'] = result['completed'] and not result['errors'] and result.get('analysis', {}).get('valid_sequence', False)

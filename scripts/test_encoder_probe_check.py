@@ -291,6 +291,42 @@ import encoder_probe_check
         self.assertEqual(second['elapsed_us'], 10007713)
         self.assertFalse(probe.analyze([(1, lines[0]), (2, lines[1])])['valid_sequence'])
 
+    def test_acquisition_selects_first_owned_rom_boot_with_exact_offsets(self):
+        fragment = 'I (36568) esp_shazam_firmware::stream: encoder-probe: sequence=1 phase=OFF1 interval=3 retained=true completed=false valid=true success_attempt_us=0 rejected_attempt_us=0 pcm_push_us=0 delay_us=0 delay_calls=0 raw_remainder_us=Someets Jul 29 2019 12:21:46\r\n'
+        marker = b'rst:0x1 (POWERON_RESET),boot:0x1f (SPI_FAST_FLASH_BOOT)\r\n'
+        with tempfile.TemporaryDirectory() as directory:
+            out = Path(directory)
+            prefix = b'prior boot partial'
+            crossed = fragment.encode() + b'\r\n'
+            healthy = ''.join(line+'\n' for _, line in records()).encode()
+            raw = prefix + crossed + marker + healthy
+            arrivals = [dict(offset=0, bytes=len(prefix), host_monotonic=9),
+                        dict(offset=len(prefix), bytes=len(raw)-len(prefix), host_monotonic=11)]
+            (out/'uart.log').write_bytes(raw)
+            (out/'uart-arrival.jsonl').write_text(''.join(json.dumps(row)+'\n' for row in arrivals))
+            analysis, selection = probe.analyze_acquisition(out, 10)
+            self.assertTrue(analysis['valid_sequence'], analysis['errors'])
+            self.assertEqual(selection['byte_offset'], len(prefix)+len(crossed))
+            self.assertEqual(selection['arrival_offset'], len(prefix))
+            self.assertEqual(selection['host_monotonic'], 11)
+            self.assertEqual((out/'uart.log').read_bytes(), raw)
+            for data in (raw+marker, prefix+crossed+marker+marker+healthy,
+                         raw+b'rst:0x3 (SW_RESET),boot:0x1f (SPI_FAST_FLASH_BOOT)\r\n'):
+                (out/'uart.log').write_bytes(data)
+                arrivals[-1]['bytes'] = len(data)-len(prefix)
+                (out/'uart-arrival.jsonl').write_text(''.join(json.dumps(row)+'\n' for row in arrivals))
+                value, _ = probe.analyze_acquisition(out, 10)
+                self.assertFalse(value['valid_sequence'])
+                self.assertTrue(any('interrupted' in error for error in value['errors']))
+            for bad in (b'', b'rst:0x3 (SW_RESET),boot:0x1f (SPI_FAST_FLASH_BOOT)\r\n',
+                        b' rst:0x3 (SW_RESET),boot:0x1f (SPI_FAST_FLASH_BOOT)\r\n',
+                        b'partialrst:0x3 (SW_RESET),boot:0x1f (SPI_FAST_FLASH_BOOT)\r\n'):
+                data = bad + marker + healthy if bad else healthy
+                (out/'uart.log').write_bytes(data)
+                (out/'uart-arrival.jsonl').write_text(json.dumps(dict(offset=0, bytes=len(data), host_monotonic=11))+'\n')
+                with self.subTest(first_candidate=bad), self.assertRaisesRegex(ValueError, 'ROM reset'):
+                    probe.analyze_acquisition(out, 10)
+
     def test_saved_device_rejection_replays_actual_order_and_accounting(self):
         saved = Path(__file__).resolve().parent/'fixtures/encoder-probe/device-rejected'
         provenance = json.loads((saved/'provenance.json').read_text())
