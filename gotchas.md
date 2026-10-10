@@ -766,6 +766,11 @@ without a CRC error or frame-number gap, so a symmetric duration tolerance can
 hide loss. Keep exact sample counts for output-duration decoders; packet-copy
 captures may include a final whole packet, but must never accept underflow.
 
+Exported Bash functions run in a new `bash -c` without the parent's strict
+options. Pass `-euo pipefail` explicitly for diagnostic stages, or an early
+failure can end with a success receipt. Process-group supervisors also need
+nested timeout commands in foreground mode so cleanup reaches their children.
+
 A thread may start successfully before resetting the caller's pthread settings
 fails. Keep creation and cleanup outcomes distinct: returning a retryable launch
 error after success can create duplicate workers. Log cleanup failures separately

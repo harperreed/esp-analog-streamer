@@ -39,6 +39,8 @@ stage e2e-fixtures scripts/test-e2e-fixtures
 stage interface-relay scripts/test-interface-relay
 stage wifi-throughput scripts/test-wifi-throughput-check
 if [ "$(uname -s)" = Linux ]; then
+  stage fuzz-host scripts/test-fuzz-host
+  stage fuzz-helpers cargo test --manifest-path fuzz/Cargo.toml --locked --lib
   stage mutation-host scripts/test-mutation-host
   stage setup-linux scripts/test-setup-linux
   stage capture-stream-packets scripts/test-capture-stream-packets

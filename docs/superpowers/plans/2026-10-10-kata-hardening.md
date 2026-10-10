@@ -1,7 +1,7 @@
 # Finish the Kata hardening backlog
 
 Doctor Biz's active goal on October 10: finish all Kata work, then assess.
-Base c134069 on wip/kata-capture-protection. Compactions in this phase: 4; latest durable checkpoint is 7b05adf.
+Base c134069 on wip/kata-capture-protection. Compactions in this phase: 4; replay checkpoint is 32c2300.
 Use GPT-6.1 Sol subagents with clean contexts. Parent owns review, integration,
 canonical checks, commits and every hardware action. Continue through batches;
 a phase checkpoint is not a reason to abandon the active goal.
@@ -64,7 +64,7 @@ new consequential architectural choices get a concrete design before code.
 | n4jb | P0 | Add reproducible network fault injection on the actual board traffic path | Reconciling |
 | 1wny | P1 | Use cargo-mutants to check whether reliability tests detect wrong behavior | Closed, runner 823c0cc and pilot evidence 7b05adf |
 | m31k | P1 | Measure host recovery-path coverage with cargo-llvm-cov | Two local pilots passed; CI written/reviewed, hosted run pending |
-| t4ae | P1 | Add bounded host fuzzing for FLAC, HTTP and stream transitions | Scoped targets and runner implemented; review fixes and frozen-source acceptance pending |
+| t4ae | P1 | Add bounded host fuzzing for FLAC, HTTP and stream transitions | Targets and runner reviewed; all 27 canonical stages pass; committed-source ASan run next |
 | jq3a | P0 | Model listener admission and shutdown interleavings with Loom | Closed, b68318b |
 | 5yf3 | P0 | Add proptest state-machine tests for rings and listener lifecycles | Closed, 0d9d014 |
 | 21tp | P2 | Move encoder and listener logs off progress and cleanup paths | Reconciling |
@@ -204,3 +204,17 @@ the environment offers no replacement-root-session action. Preserve checkpoints
 and reports rather than imply a fresh session started. The next encoder probe
 brief has been adapted to the shared pump in target/kata-hardening/
 encoder-probe-adapted.md; it remains design-only, with no source or hardware work.
+
+Replay is committed as 32c2300 and its Kata comment points to the durable receipt.
+The fuzz fix reviews approved independent HTTP/write assertions, nested timeout
+cleanup and strict child-shell failure propagation. The latter caught another
+false-success path: exported functions do not inherit shell strict options.
+Real ordinary-process tests now reject that case and preserve evidence. Corpus
+attributes preserve exact binary inputs; seed bytes remain unchanged. Scoped
+Clippy, formatting and actionlint pass, as do all 27 canonical stages after adding
+lightweight supervisor/guard and stable helper tests. Log:
+target/kata-hardening/check-fuzz-batch.log. Full ASan acceptance must use the next
+clean committed snapshot; the earlier mixed-input run remains development-only.
+The adapted encoder diagnostic plan passed review after explicit per-phase
+settling, reset/replacement invalidation and diagnostic-only report ordering.
+Implementation waits until the fuzz input archive is immutable.
