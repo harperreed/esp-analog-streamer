@@ -114,6 +114,38 @@ class ModuleTests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, 'event_us'):
             encoder.listener_event_ms('stream: peer left after 1.0 s event_us=broken')
 
+    def test_listener_peer_from_retained_logger_lines(self):
+        import encoder_fault_check as encoder
+        # Retained WAV failure: UART arrival is later than the producer event.
+        left = ('I (34077) esp_shazam_firmware::stream: stream: 192.168.23.153:60800 '
+                'left after 2.1 s: fell a ring behind listener_stack_free_bytes=1672 event_us=32363015')
+        close = ('I (37827) esp_shazam_firmware::stream: stream: 192.168.23.153:60800 '
+                 'socket closed in 242 ms; releasing slot (1 held) event_us=32605374')
+        receipt = ('I (38067) esp_shazam_firmware::stream: listener-telemetry: dropped=0 '
+                   'loss_occurred=false observed_event_range_valid=true '
+                   'observed_event_min_us=32605374 observed_event_max_us=32605374 '
+                   'record_bytes=248 queue_bytes=2024 metrics_stack_free_bytes=1132 '
+                   'export_us=36839499 dropped_full=0 dropped_contended=0 dropped_poisoned=0')
+        rows = [left, close, receipt]
+        index, found = encoder.checked_listener_closes(rows)[0]
+        self.assertEqual(index, 1)
+        self.assertEqual(found.group(1), '192.168.23.153:60800')
+        self.assertEqual(encoder.listener_event_ms(rows[index]), 32605.374)
+        self.assertEqual(encoder.checked_listener_closes(rows, after_event_ms=32364), [])
+        self.assertEqual(encoder.checked_listener_closes(rows, departure_pattern='stopped reading'), [])
+        self.assertEqual(encoder.checked_listener_closes(rows[:-1]), [])
+        with self.assertRaisesRegex(RuntimeError, 'listener telemetry export loss'):
+            encoder.checked_listener_closes([left, close, receipt.replace('dropped=0', 'dropped=1')])
+        with self.assertRaisesRegex(RuntimeError, 'close precedes departure'):
+            encoder.checked_listener_closes([left, close.replace('32605374', '32363014'), receipt])
+        for peer in ('[2001:db8::1]:60800', 'unknown peer'):
+            with self.subTest(peer=peer):
+                peer_rows = [row.replace('192.168.23.153:60800', peer) for row in rows]
+                self.assertEqual(encoder.checked_listener_closes(peer_rows)[0][1].group(1), peer)
+        # Prefix variation must not change peer identity; another port must.
+        self.assertEqual(len(encoder.checked_listener_closes([left.replace('esp_shazam_firmware::stream: ', ''), close, receipt])), 1)
+        self.assertEqual(encoder.checked_listener_closes([left.replace(':60800 left', ':60801 left'), close, receipt]), [])
+
     def test_wait_revalidates_real_file_changed_by_success_callback(self):
         import fault_check as fault
         import encoder_fault_check as encoder

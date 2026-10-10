@@ -1,7 +1,7 @@
 # Finish the Kata hardening backlog
 
 Doctor Biz's active goal on October 10: finish all Kata work, then assess.
-Base c134069 on wip/kata-capture-protection. Compactions in this phase: 12; latest firmware implementation checkpoint is bacdecb (experimental crossover; audio acceptance failed).
+Base c134069 on wip/kata-capture-protection. Compactions in this phase: 13; latest firmware implementation checkpoint is bacdecb (experimental crossover; audio acceptance failed).
 Use GPT-6.1 Sol subagents with clean contexts. Parent owns review, integration,
 canonical checks, commits and every hardware action. Continue through batches;
 a phase checkpoint is not a reason to abandon the active goal.
@@ -610,3 +610,20 @@ unified default remains installed, stopped MP3/Medium, autoplay/recognition off;
 source and UART ownership cleaned up. Next compare representative real WAV
 input through a throwaway host Shine work-count experiment before changing
 target instrumentation. This cannot reproduce target cursor/reset history.
+
+Kata 2qez fixes actual listener peer extraction from the doubled firmware logger
+prefix. The retained-line regression failed before the two-expression fix;
+independent review and all 27 canonical stages pass. Actual stage receipts are
+target/check-logs/run.CNK4yPju, with complete status and equal boundary snapshots.
+The real WAV input trial still fails: current default delivered only 2,160 stereo
+frames (45 ms) before its listener fell behind. Acquisition and cleanup completed;
+this is not a valid eight-second host benchmark fixture. The corrected parser
+does not change that verdict. Archived default is now flashed, with the matched
+WAV trial next. Preserve the checker revision difference in that comparison.
+
+The host Shine work-count experiment is reviewed and ready for valid WAV inputs;
+no real capture comparison has run. Priority starvation remains a hypothesis:
+the encoder's periodic delay does not guarantee listener service, and current
+evidence lacks per-chunk wakeup timing. Do not change priorities on that basis.
+Root replacement remains unavailable; this checkpoint and fresh Sol 6.1 workers
+continue under the recorded session exception.

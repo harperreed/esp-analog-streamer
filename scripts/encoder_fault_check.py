@@ -128,10 +128,10 @@ def checked_listener_closes(lines, require_departure=True, after_event_ms=None,
                 if 'listener-telemetry:' in line]
     departures, closed = {}, []
     for index, line in enumerate(lines):
-        left = re.search(r'stream: (.*?) left after ', line)
+        left = re.search(r'stream: (unknown peer|\S+) left after ', line)
         if left:
             departures[left.group(1)] = line
-        close = re.search(r'stream: (.*?) socket closed in \d+ ms; releasing slot \(\d+ held\)', line)
+        close = re.search(r'stream: (unknown peer|\S+) socket closed in \d+ ms; releasing slot \(\d+ held\)', line)
         if close is None:
             continue
         departure = departures.get(close.group(1))

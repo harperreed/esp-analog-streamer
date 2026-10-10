@@ -888,3 +888,9 @@ The October 10 same-image observer OFF/ON/OFF repeat stayed near 0.724x with
 38 raw overruns. Switching the observer bundle off did not restore throughput
 in that image. This narrows runtime attribution but does not prove a code-layout
 or cache cause; compare exact default images before adding more instrumentation.
+
+Firmware UART lines can contain `esp_shazam_firmware::stream: stream:` before
+the peer. An arbitrary-text peer capture swallows the inner label, breaking
+exact endpoint matching while departure/close pairing still appears to work.
+Parse the socket-address token or the explicit `unknown peer` fallback and test
+the actual logger prefix. Correct peer parsing does not clear audio loss.
