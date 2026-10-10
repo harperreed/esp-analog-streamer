@@ -74,6 +74,14 @@ const _: () = assert!(
     std::mem::size_of::<WriterDiagnostics>() + std::mem::size_of::<Option<Instant>>() <= 160
 );
 
+/// Writes a response with one elapsed-time budget for all sends and writable waits.
+/// The caller retains ownership and must exclusively use the socket, including clones,
+/// while this operation temporarily changes its blocking mode.
+pub fn write_response(sock: &TcpStream, response: &[u8], timeout: Duration) -> io::Result<()> {
+    let deadline = Instant::now() + timeout;
+    DeadlineWriter::new(sock).write_all_before(response, deadline)
+}
+
 /// Writes to a socket with one deadline for each whole write, so a peer that reads a trickle can't
 /// hold a stream listener past it. Nonblocking sends and readiness waits share that deadline;
 /// socket timeouts can restart inside a blocking send when the peer makes progress.

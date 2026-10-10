@@ -111,7 +111,7 @@ pub(crate) fn report_timeout(
     }
 }
 pub(crate) fn send_admitted_refusal(
-    mut socket: &std::net::TcpStream,
+    socket: &std::net::TcpStream,
     queue: &Queue,
     peer: Option<SocketAddr>,
     reason: RefusalReason,
@@ -119,10 +119,7 @@ pub(crate) fn send_admitted_refusal(
     response: &str,
     now: impl FnOnce() -> u64,
 ) {
-    use std::io::Write;
-    let sent = socket
-        .set_write_timeout(Some(timeout))
-        .and_then(|()| socket.write_all(response.as_bytes()));
+    let sent = esp_shazam_core::stream_http::write_response(socket, response.as_bytes(), timeout);
     queue.publish(Record {
         event_us: now(),
         peer,

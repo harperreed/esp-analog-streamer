@@ -526,3 +526,167 @@ fn admitted_allocation_refusal_preserves_real_response_write_error() {
     drop(socket);
     drop(peer);
 }
+
+fn socket_flags(socket: &TcpStream) -> i32 {
+    use std::os::fd::AsRawFd;
+    // SAFETY: F_GETFL only reads flags from this live, borrowed descriptor.
+    unsafe { libc::fcntl(socket.as_raw_fd(), libc::F_GETFL) }
+}
+
+// Real peer progress keeps the legacy blocking write alive past a whole-response budget.
+fn with_bursty_refusal_peer(send: impl FnOnce(&TcpStream), response_len: usize) -> Duration {
+    use std::{net::Shutdown, sync::mpsc, thread, time::Instant};
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let client = socket2::Socket::new(socket2::Domain::IPV4, socket2::Type::STREAM, None).unwrap();
+    client.set_recv_buffer_size(64 << 10).unwrap();
+    client
+        .connect(&listener.local_addr().unwrap().into())
+        .unwrap();
+    let (server, _) = listener.accept().unwrap();
+    socket2::SockRef::from(&server)
+        .set_send_buffer_size(64 << 10)
+        .unwrap();
+    let mut client: TcpStream = client.into();
+    client
+        .set_read_timeout(Some(Duration::from_millis(100)))
+        .unwrap();
+    let flags = socket_flags(&server);
+    let (ready_tx, ready_rx) = mpsc::channel();
+    let (stop_tx, stop_rx) = mpsc::channel();
+    let reader = thread::spawn(move || {
+        let horizon = Instant::now() + Duration::from_secs(4);
+        let mut total = 0;
+        let mut buffer = [0; 64 << 10];
+        ready_tx.send(()).unwrap();
+        while Instant::now() < horizon {
+            if stop_rx.recv_timeout(Duration::from_millis(300)).is_ok() {
+                break;
+            }
+            let mut burst = 0;
+            while burst < buffer.len() && Instant::now() < horizon {
+                match client.read(&mut buffer[burst..]) {
+                    Ok(0) => return total + burst,
+                    Ok(n) => burst += n,
+                    Err(error)
+                        if matches!(
+                            error.kind(),
+                            std::io::ErrorKind::TimedOut | std::io::ErrorKind::WouldBlock
+                        ) =>
+                    {
+                        break
+                    }
+                    Err(_) => return total + burst,
+                }
+            }
+            total += burst;
+        }
+        // Leave the peer open without progress until the legacy send timeout expires.
+        let _ = stop_rx.recv_timeout(Duration::from_secs(1));
+        total
+    });
+    ready_rx.recv().unwrap();
+    let started = Instant::now();
+    send(&server);
+    let took = started.elapsed();
+    let restored_flags = socket_flags(&server);
+    let shutdown = server.shutdown(Shutdown::Both);
+    let _ = stop_tx.send(());
+    let received = reader.join().unwrap();
+    shutdown.unwrap();
+    assert!(flags >= 0);
+    assert_eq!(restored_flags, flags);
+    assert!(
+        received > 0 && received < response_len,
+        "peer received {received} bytes"
+    );
+    took
+}
+
+#[test]
+fn admitted_refusal_uses_one_budget_while_peer_keeps_reading() {
+    use listener_telemetry::RefusalReason;
+    let response = "x".repeat(8 << 20);
+    let queue = Queue::new();
+    let took = with_bursty_refusal_peer(
+        |socket| {
+            listener_telemetry::send_admitted_refusal(
+                socket,
+                &queue,
+                record(1).peer,
+                RefusalReason::BufferedStartup,
+                Duration::from_millis(400),
+                &response,
+                || 55,
+            );
+        },
+        response.len(),
+    );
+    let event = queue.take().unwrap();
+    assert_eq!(event.event_us, 55);
+    assert_eq!(event.peer, record(1).peer);
+    let Payload::Refusal {
+        reason,
+        status,
+        response_error: Some(error),
+    } = event.payload
+    else {
+        panic!("pressure must record the actual response-write failure");
+    };
+    assert!(matches!(reason, RefusalReason::BufferedStartup));
+    assert_eq!(status, 503);
+    assert!(
+        matches!(
+            error.kind,
+            std::io::ErrorKind::TimedOut | std::io::ErrorKind::WouldBlock
+        ),
+        "{error:?}"
+    );
+    assert!(queue.take().is_none());
+    assert!(
+        took >= Duration::from_millis(350) && took < Duration::from_millis(700),
+        "whole refusal write took {took:?}"
+    );
+    assert_eq!(error.kind, std::io::ErrorKind::TimedOut);
+    assert_eq!(error.raw_os_error, None);
+}
+
+#[test]
+fn shared_response_write_preserves_exact_bytes_and_socket_flags() {
+    use esp_shazam_core::stream_http::write_response;
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let mut peer = TcpStream::connect(listener.local_addr().unwrap()).unwrap();
+    peer.set_read_timeout(Some(Duration::from_secs(1))).unwrap();
+    let (socket, _) = listener.accept().unwrap();
+    let flags = socket_flags(&socket);
+    let response =
+        b"HTTP/1.1 503 Service Unavailable\r\nConnection: close\r\nContent-Length: 0\r\n\r\n";
+    let result = write_response(&socket, response, Duration::from_millis(400));
+    let restored_flags = socket_flags(&socket);
+    socket.shutdown(std::net::Shutdown::Write).unwrap();
+    let mut received = Vec::new();
+    peer.read_to_end(&mut received).unwrap();
+    result.unwrap();
+    assert!(flags >= 0);
+    assert_eq!(restored_flags, flags);
+    assert_eq!(received, response);
+}
+
+#[test]
+fn shared_response_write_times_out_with_original_socket_flags() {
+    use esp_shazam_core::stream_http::write_response;
+    let response = vec![b'x'; 8 << 20];
+    let mut result = Ok(());
+    let took = with_bursty_refusal_peer(
+        |socket| {
+            result = write_response(socket, &response, Duration::from_millis(400));
+        },
+        response.len(),
+    );
+    let error = result.expect_err("large response must exceed the write budget");
+    assert_eq!(error.kind(), std::io::ErrorKind::TimedOut);
+    assert_eq!(error.raw_os_error(), None);
+    assert!(
+        took >= Duration::from_millis(350) && took < Duration::from_millis(700),
+        "whole response write took {took:?}"
+    );
+}

@@ -627,3 +627,12 @@ the encoder's periodic delay does not guarantee listener service, and current
 evidence lacks per-chunk wakeup timing. Do not change priorities on that basis.
 Root replacement remains unavailable; this checkpoint and fresh Sol 6.1 workers
 continue under the recorded session exception.
+
+The 8s9m refusal-write prerequisite is verified: both paths now use one response
+deadline with the unchanged two-second allowance. Real-socket legacy RED and
+GREEN, independent review and all 27 canonical checks pass (run.jurAgEJG).
+This does not implement concurrent admission or prove target scheduling bounds;
+8s9m remains open. Parent will next extend the shared acquisition state validator
+for explicit FLAC input collection, with temporary saved format restoration and
+no Sonos Play. The earlier failed WAV inputs remain unusable as eight-second
+fixtures; no downstream host work comparison has run.

@@ -1,7 +1,7 @@
 // ABOUTME: The LINE IN stream on port 8000: serves the selected compressed codec and diagnostic 24-bit WAV at 48 kHz stereo.
 // ABOUTME: One core 1 encoder shares compressed frames; listeners copy out before socket work and drop if they fall behind.
 
-use std::io::{self, BufReader, Write};
+use std::io::{self, BufReader};
 use std::net::{SocketAddr, TcpListener, TcpStream};
 use std::sync::atomic::{AtomicU32, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex, OnceLock};
@@ -312,14 +312,12 @@ fn refuse(sock: TcpStream, peer: &str, request_line: &str, status: Status) {
 }
 
 /// Sends a refusal while the caller retains socket ownership and its close policy.
-fn send_refusal(mut sock: &TcpStream, peer: &str, request_line: &str, status: Status) {
+fn send_refusal(sock: &TcpStream, peer: &str, request_line: &str, status: Status) {
     let response = status.response();
     let status_line = response.lines().next().unwrap_or_default();
     log::info!("stream: {peer} {request_line:?}: {status_line}");
     // A client that never reads can't hold the accept thread for long.
-    let sent = sock
-        .set_write_timeout(Some(HEAD_TIMEOUT))
-        .and_then(|()| sock.write_all(response.as_bytes()));
+    let sent = stream_http::write_response(sock, response.as_bytes(), HEAD_TIMEOUT);
     if let Err(e) = sent {
         log::info!("stream: {peer}: response not sent ({e})");
     }
