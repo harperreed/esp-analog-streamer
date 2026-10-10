@@ -52,7 +52,7 @@ re-review. Fifteen scratch host tests pass, including real escaped-child cleanup
 Host tests do not replace the forthcoming real UART/source run.
 
 Final canonical check: all 27 stages pass on the revised source; log
-`target/kata-hardening/check-metrics-crossover-v2.log`. Hardware crossover has
-not yet run.
+`target/kata-hardening/check-metrics-crossover-v2.log`. Subsequent hardware results are recorded in
+[the device evidence](metrics-state-crossover-device.md); raw-loss acceptance remains failed.
 Evidence: target/kata-hardening/metrics-state/crossover-build-v2 and the source,
 harness and linked reviews in the crossover SDD ledger/metrics-state directory.

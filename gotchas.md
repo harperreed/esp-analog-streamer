@@ -878,3 +878,13 @@ not time accounting. New observer firmware measured slower MP3 generation than
 its archived control on October 10, but changed addresses confound runtime cost.
 Use one image with a runtime gate before attributing that difference to logging
 or queries; do not call a layout/cache mechanism proven from symbol shifts.
+
+Keep event identity separate from nested result identity. The crossover wrapper
+collected and cleaned up correctly but failed when both supplied a `kind` keyword.
+Test the actual serialized completion event, not only its result validator. The
+original failed acquisition remains failed after a later helper fix.
+
+The October 10 same-image observer OFF/ON/OFF repeat stayed near 0.724x with
+38 raw overruns. Switching the observer bundle off did not restore throughput
+in that image. This narrows runtime attribution but does not prove a code-layout
+or cache cause; compare exact default images before adding more instrumentation.

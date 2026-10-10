@@ -1,7 +1,7 @@
 # Finish the Kata hardening backlog
 
 Doctor Biz's active goal on October 10: finish all Kata work, then assess.
-Base c134069 on wip/kata-capture-protection. Compactions in this phase: 11; latest firmware implementation checkpoint is 55d5416 (experimental, hardware acceptance failed).
+Base c134069 on wip/kata-capture-protection. Compactions in this phase: 12; latest firmware implementation checkpoint is bacdecb (experimental crossover; audio acceptance failed).
 Use GPT-6.1 Sol subagents with clean contexts. Parent owns review, integration,
 canonical checks, commits and every hardware action. Continue through batches;
 a phase checkpoint is not a reason to abandon the active goal.
@@ -573,3 +573,25 @@ formatting out of the persistent metrics frame: 432→304 bytes, compared with
 unverified. The frozen diagnostic SHA is 8ef23d4fae8ecd16013e3eace538b373e461f11e266a64ac9756d457a142922c.
 See metrics-state-crossover-build.md and the matching crossover implementation plan.
 Parent will run bounded raw-byte observation after this reviewed checkpoint.
+
+The exact crossover image completed two 300-second acquisitions. Trial1 retained
+all raw bytes and cleanup but its wrapper raised a duplicate event-key TypeError;
+it remains a failed acquisition. A real-file red/green regression fixed that
+scratch logging bug. Trial2 completed naturally with clean ownership receipts,
+strict provenance and all phases. Six complete windows per phase measure about
+0.724x in OFF1, ON and OFF2, with 38 raw overruns. The observer runtime bundle
+alone does not explain this image’s deficit; layout and input/platform causes
+remain unlocated. Delivery was not exercised. Independent evidence review is
+underway; no Kata closes.
+
+Next use the same owned acquisition with a bounded 90-second duration for the
+archived eb38c65 default and current bacdecb default. Real default feature receipts
+remain separate from the strict 300-second crossover oracle. These are diagnostic
+comparisons, not new audio acceptance gates. No extra firmware instrumentation
+until that comparison establishes whether the image separation repeats.
+
+The independently reviewed 97bk canonical-stage evidence plan now has a clean
+Sol 6.1 implementation worker. Its scripts/tests are independent of the frozen
+firmware and scratch acquisition. Heavy checks wait until hardware measurement
+is idle. Root replacement remains unavailable; durable checkpoints and fresh
+worker contexts continue under the recorded exception.
