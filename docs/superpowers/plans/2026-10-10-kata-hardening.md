@@ -1,7 +1,7 @@
 # Finish the Kata hardening backlog
 
 Doctor Biz's active goal on October 10: finish all Kata work, then assess.
-Base c134069 on wip/kata-capture-protection. Compactions in this phase: 9; latest firmware implementation checkpoint is 05cf802.
+Base c134069 on wip/kata-capture-protection. Compactions in this phase: 10; latest firmware implementation checkpoint is eb38c65.
 Use GPT-6.1 Sol subagents with clean contexts. Parent owns review, integration,
 canonical checks, commits and every hardware action. Continue through batches;
 a phase checkpoint is not a reason to abandon the active goal.
@@ -503,3 +503,29 @@ before receipt formatting and Boundary returns before Storage. All output and
 queue/task policies remain unchanged. Build receipt: encoder-export-stack-build
 .md. Parent now commits and repeats exact-image hardware; no runtime margin or
 throughput acceptance from these static reductions.
+
+The eb38c65 device repeat exercises probe Storage/Window and measures 908 bytes
+minimum free metrics stack, versus 428 previously. Five actual raw overruns still
+invalidate the canceled partial probe; no completed OFF/ON/OFF is claimed.
+Default slow-reader delivery also fails, with one full encoder queue drop and
+missing window 6. Its metrics minimum remains 1148 bytes. Independent evidence
+reviews pass; see encoder-export-stack-device.md/.json. Default unified firmware
+remains installed, stopped MP3/Medium, autoplay and recognition off. Cleanup and
+read-only routing pass; original failed artifacts remain intact.
+
+Kata sjpm fixes a separate acquisition bug: an interrupted prior-boot UART line
+can complete after reset release. Live and final analysis now start at the first
+exact owned ROM reset marker and retain byte-offset provenance. Any malformed
+first reset candidate or later reset rejects. Independent review caught an
+initial skip-forward false pass for prefixed reset text; runtime negatives now
+cover it. The healthy crossed-reset fixture passes and actual saved device bytes
+still reject all five raw-loss boundaries. No decoder or probe grammar was relaxed.
+Committed as 7891c44 after independent review, parent fresh-eyes and all 27
+canonical checks. Replay uses the original reset_released event and unchanged
+trial bytes; it is integration evidence, not a fresh healthy hardware run.
+
+Next: independently verify the minimum metrics-delay design against pinned
+FreeRTOS critical sections and permanent-task lifetime before implementation.
+Only low-rate sampled Ready/Blocked counts are proposed; priorities, stacks,
+queues and stream policy remain unchanged. A missing final diagnostic receipt
+must remain incomplete evidence. Kata 21tp/wbz6 remain open.

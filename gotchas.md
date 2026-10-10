@@ -861,3 +861,13 @@ created a second 200/296-byte stack copy in the exporter. Borrowing that returne
 value removed the actual memcpy. Separating receipt formatting only helps when
 the record-owning helper returns first; an extra leaf alone leaves both frames
 live. Verify generated code and real watermarks rather than assuming either.
+
+A partial UART line can cross reset and receive its timestamp in the next boot.
+Probe acquisition must anchor to the first exact owned ROM reset marker, record
+original byte offsets, and reject malformed first or later reset candidates.
+Host arrival time alone cannot establish which boot produced a whole line.
+
+Do not name scratch Python helpers inspect.py: imports from dataclasses/argparse
+can load and execute that helper instead of the standard library. The October 10
+layout helper is inspect-layout.py; original images and trial hashes were checked
+after the collision and remained unchanged.
