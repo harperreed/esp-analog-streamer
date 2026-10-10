@@ -1,5 +1,10 @@
 # Gotchas
 
+ESP-IDF 5.5.5's newlib poll header defines POLLNVAL as bit 7 (128), but
+libc 0.2.190 omits that constant for ESP-IDF. The generic lwIP fallback uses
+a different value and is not this target's ABI. Check the platform header
+and generated IDF bindings; host compilation cannot catch missing target symbols.
+
 Doctor Biz corrected automatic FLAC restoration on October 9: this board is
 actively iterating on MP3. Leave the current experimental MP3 firmware deployed
 between tests. Preserve stopped playback and settings, but do not confuse

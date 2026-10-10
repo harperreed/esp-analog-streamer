@@ -14,7 +14,9 @@ use esp_idf_svc::hal::cpu::Core;
 use esp_idf_svc::mdns::EspMdns;
 use esp_idf_svc::sys;
 use esp_shazam_core::stream_buffer::{BufferPreset, OutputFormat};
-use esp_shazam_core::stream_http::{self, DeadlineReader, DeadlineWriter, Format, Route, Status};
+use esp_shazam_core::stream_http::{
+    self, DeadlineReader, DeadlineWriter, Format, Route, Status, WriterDiagnostics,
+};
 use esp_shazam_core::stream_ring::{Cursor, ReadError};
 use esp_shazam_core::stream_wait::{
     buffered_cursor_before, cursor_before, lock_before, read_atomic_fresh_with, read_locked_fresh,
@@ -738,6 +740,8 @@ struct ListenerMetrics {
     frame_write_wall_total_us: u64,
     frame_write_wall_max_us: u64,
     frame_read_wait_wall_total_us: u64,
+    payload_elapsed_us: u64,
+    socket: WriterDiagnostics,
 }
 
 impl ListenerMetrics {
@@ -752,6 +756,8 @@ impl ListenerMetrics {
             frame_write_wall_total_us: 0,
             frame_write_wall_max_us: 0,
             frame_read_wait_wall_total_us: 0,
+            payload_elapsed_us: 0,
+            socket: WriterDiagnostics::default(),
         }
     }
 
@@ -762,6 +768,15 @@ impl ListenerMetrics {
             now <= u64::from(u32::MAX), self.frames_sent, self.bytes_sent,
             self.frame_write_wall_total_us, self.frame_write_wall_max_us,
             self.frame_read_wait_wall_total_us, self.block_frames);
+        let d = &self.socket;
+        log::info!("stream-sender: peer={} payload_elapsed_us={} send_calls={} accepted_bytes={} short_sends={} send_would_block={} send_interrupted={} send_errors={} send_wall_total_us={} send_wall_max_us={} send_over_10ms={}",
+            peer, self.payload_elapsed_us, d.send_calls, d.accepted_bytes, d.short_sends,
+            d.send_would_block, d.send_interrupted, d.send_errors, d.send_wall_total_us,
+            d.send_wall_max_us, d.send_over_10ms);
+        log::info!("stream-sender-poll: peer={} poll_calls={} poll_ready={} poll_timeouts={} poll_interrupted={} poll_errors={} poll_error_ready={} poll_wall_total_us={} poll_wall_max_us={} poll_over_10ms={} ready_to_send_wall_max_us={} ready_then_would_block={}",
+            peer, d.poll_calls, d.poll_ready, d.poll_timeouts, d.poll_interrupted,
+            d.poll_errors, d.poll_error_ready, d.poll_wall_total_us, d.poll_wall_max_us,
+            d.poll_over_10ms, d.ready_to_send_wall_max_us, d.ready_then_would_block);
     }
 }
 
@@ -779,77 +794,88 @@ fn stream_compressed(
     let format = epoch.format;
     let write_limit = Duration::from_millis(format.write_limit_ms(CONFIG.shazam_enabled));
     let mut writer = DeadlineWriter::new(sock);
-    let mut header = format.format().response_head().as_bytes().to_vec();
-    header.extend_from_slice(&codec::stream_header(format));
-    let mut cursor = if let Some(preset) = preset {
-        match buffered_cursor_before(
-            ring,
-            sock,
-            preset.frames(format.block_frames()),
-            Instant::now() + Duration::from_secs(preset.seconds()) + FRESH_AUDIO_TIMEOUT,
-            FRESH_AUDIO_TIMEOUT,
-            CAUGHT_UP_SLEEP,
-        ) {
-            Ok(cursor) => cursor,
-            Err(error) => {
-                if error != BufferWaitError::Disconnected {
-                    send_refusal(
-                        sock,
-                        "buffered listener",
-                        "buffer startup",
-                        Status::ServiceUnavailable,
-                    );
+    let mut payload_started = None;
+    let end = (|| {
+        let mut header = format.format().response_head().as_bytes().to_vec();
+        header.extend_from_slice(&codec::stream_header(format));
+        let mut cursor = if let Some(preset) = preset {
+            match buffered_cursor_before(
+                ring,
+                sock,
+                preset.frames(format.block_frames()),
+                Instant::now() + Duration::from_secs(preset.seconds()) + FRESH_AUDIO_TIMEOUT,
+                FRESH_AUDIO_TIMEOUT,
+                CAUGHT_UP_SLEEP,
+            ) {
+                Ok(cursor) => cursor,
+                Err(error) => {
+                    if error != BufferWaitError::Disconnected {
+                        send_refusal(
+                            sock,
+                            "buffered listener",
+                            "buffer startup",
+                            Status::ServiceUnavailable,
+                        );
+                    }
+                    return End::CaptureStalled;
                 }
-                return End::CaptureStalled;
             }
-        }
-    } else {
-        let Some(ring) = lock_before(ring, Instant::now() + FRESH_AUDIO_TIMEOUT, CAUGHT_UP_SLEEP)
-        else {
-            return End::CaptureStalled;
+        } else {
+            let Some(ring) =
+                lock_before(ring, Instant::now() + FRESH_AUDIO_TIMEOUT, CAUGHT_UP_SLEEP)
+            else {
+                return End::CaptureStalled;
+            };
+            ring.cursor_now()
         };
-        ring.cursor_now()
-    };
-    if epoch.retired() {
-        return End::Retired;
-    }
-    if let Err(e) = write_frame(&mut writer, &header, write_limit) {
-        return End::from_write_error(e);
-    }
-    let mut block_number = 0;
-    loop {
         if epoch.retired() {
             return End::Retired;
         }
-        let read_started = Instant::now();
-        let read_result = read_locked_fresh(ring, FRESH_AUDIO_TIMEOUT, CAUGHT_UP_SLEEP, |ring| {
-            if epoch.retired() {
-                return Err(esp_shazam_core::flac_ring::Overrun);
-            }
-            ring.read(&mut cursor, bytes)
-        });
-        metrics.frame_read_wait_wall_total_us += read_started.elapsed().as_micros() as u64;
-        let n = match read_result {
-            Ok(n) => n,
-            Err(WaitError::Stalled) => return End::CaptureStalled,
-            Err(WaitError::Read(_)) => return End::FellBehind,
-        };
-        let n = match codec::prepare_listener_frame(format, bytes, n, block_number) {
-            Ok(n) => n,
-            Err(error) => return End::InvalidFrame(error),
-        };
-        let write_started = Instant::now();
-        let write_result = write_frame(&mut writer, &bytes[..n], write_limit);
-        let write_elapsed_us = write_started.elapsed().as_micros() as u64;
-        metrics.frame_write_wall_total_us += write_elapsed_us;
-        metrics.frame_write_wall_max_us = metrics.frame_write_wall_max_us.max(write_elapsed_us);
-        if let Err(e) = write_result {
+        if let Err(e) = write_frame(&mut writer, &header, write_limit) {
             return End::from_write_error(e);
         }
-        metrics.frames_sent += 1;
-        metrics.bytes_sent += n as u64;
-        // FLAC numbering advances after a whole write and rejects numbers at 2^31.
-        // MP3 ignores this counter, so wrap cannot alter its frame bytes.
-        block_number = block_number.wrapping_add(1);
-    }
+        writer.reset_diagnostics();
+        payload_started = Some(Instant::now());
+        let mut block_number = 0;
+        loop {
+            if epoch.retired() {
+                return End::Retired;
+            }
+            let read_started = Instant::now();
+            let read_result =
+                read_locked_fresh(ring, FRESH_AUDIO_TIMEOUT, CAUGHT_UP_SLEEP, |ring| {
+                    if epoch.retired() {
+                        return Err(esp_shazam_core::flac_ring::Overrun);
+                    }
+                    ring.read(&mut cursor, bytes)
+                });
+            metrics.frame_read_wait_wall_total_us += read_started.elapsed().as_micros() as u64;
+            let n = match read_result {
+                Ok(n) => n,
+                Err(WaitError::Stalled) => return End::CaptureStalled,
+                Err(WaitError::Read(_)) => return End::FellBehind,
+            };
+            let n = match codec::prepare_listener_frame(format, bytes, n, block_number) {
+                Ok(n) => n,
+                Err(error) => return End::InvalidFrame(error),
+            };
+            let write_started = Instant::now();
+            let write_result = write_frame(&mut writer, &bytes[..n], write_limit);
+            let write_elapsed_us = write_started.elapsed().as_micros() as u64;
+            metrics.frame_write_wall_total_us += write_elapsed_us;
+            metrics.frame_write_wall_max_us = metrics.frame_write_wall_max_us.max(write_elapsed_us);
+            if let Err(e) = write_result {
+                return End::from_write_error(e);
+            }
+            metrics.frames_sent += 1;
+            metrics.bytes_sent += n as u64;
+            // FLAC numbering advances after a whole write and rejects numbers at 2^31.
+            // MP3 ignores this counter, so wrap cannot alter its frame bytes.
+            block_number = block_number.wrapping_add(1);
+        }
+    })();
+    metrics.socket = writer.diagnostics();
+    metrics.payload_elapsed_us =
+        payload_started.map_or(0, |started| started.elapsed().as_micros() as u64);
+    end
 }

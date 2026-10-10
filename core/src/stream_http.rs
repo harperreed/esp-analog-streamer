@@ -6,6 +6,13 @@ use std::net::TcpStream;
 use std::os::fd::AsRawFd;
 use std::time::{Duration, Instant};
 
+#[cfg(not(target_os = "espidf"))]
+const POLL_INVALID: libc::c_short = libc::POLLNVAL;
+// IDF 5.5.5 components/newlib/platform_include/sys/poll.h defines this bit;
+// libc 0.2.190's ESP-IDF bindings omit it. The generated IDF bindings agree.
+#[cfg(target_os = "espidf")]
+const POLL_INVALID: libc::c_short = 1 << 7;
+
 /// Reads a socket with one deadline for all its reads, so a client that sends a request head a
 /// byte at a time can't hold the server past it. A plain read timeout restarts with every read.
 pub struct DeadlineReader<'a> {
@@ -37,16 +44,62 @@ impl Read for DeadlineReader<'_> {
     }
 }
 
+/// Actual socket-call outcomes and wall time; accepted bytes do not imply delivery.
+#[derive(Clone, Copy, Debug, Default)]
+pub struct WriterDiagnostics {
+    pub accepted_bytes: u64,
+    pub send_wall_total_us: u64,
+    pub send_wall_max_us: u64,
+    pub poll_wall_total_us: u64,
+    pub poll_wall_max_us: u64,
+    pub ready_to_send_wall_max_us: u64,
+    pub send_calls: u32,
+    pub short_sends: u32,
+    pub send_would_block: u32,
+    pub send_interrupted: u32,
+    pub send_errors: u32,
+    pub send_over_10ms: u32,
+    pub poll_calls: u32,
+    pub poll_ready: u32,
+    pub poll_timeouts: u32,
+    pub poll_interrupted: u32,
+    pub poll_errors: u32,
+    pub poll_error_ready: u32,
+    pub poll_over_10ms: u32,
+    pub ready_then_would_block: u32,
+}
+
+// Include the pending readiness timestamp in the per-writer diagnostic budget.
+const _: () = assert!(
+    std::mem::size_of::<WriterDiagnostics>() + std::mem::size_of::<Option<Instant>>() <= 160
+);
+
 /// Writes to a socket with one deadline for each whole write, so a peer that reads a trickle can't
 /// hold a stream listener past it. Nonblocking sends and readiness waits share that deadline;
 /// socket timeouts can restart inside a blocking send when the peer makes progress.
 pub struct DeadlineWriter<'a> {
     sock: &'a TcpStream,
+    diagnostics: WriterDiagnostics,
+    ready_at: Option<Instant>,
 }
 
 impl<'a> DeadlineWriter<'a> {
     pub fn new(sock: &'a TcpStream) -> Self {
-        Self { sock }
+        Self {
+            sock,
+            diagnostics: WriterDiagnostics::default(),
+            ready_at: None,
+        }
+    }
+
+    pub fn diagnostics(&self) -> WriterDiagnostics {
+        self.diagnostics
+    }
+
+    /// Starts a fresh payload interval after the media header succeeds.
+    pub fn reset_diagnostics(&mut self) {
+        self.diagnostics = WriterDiagnostics::default();
+        self.ready_at = None;
     }
 
     /// Writes all of `buf` before `deadline`, restoring the socket's original flags afterward.
@@ -60,7 +113,7 @@ impl<'a> DeadlineWriter<'a> {
         result
     }
 
-    fn write_nonblocking(&self, mut buf: &[u8], deadline: Instant) -> io::Result<()> {
+    fn write_nonblocking(&mut self, mut buf: &[u8], deadline: Instant) -> io::Result<()> {
         while !buf.is_empty() {
             let left = deadline.saturating_duration_since(Instant::now());
             if left.is_zero() {
@@ -71,6 +124,8 @@ impl<'a> DeadlineWriter<'a> {
             }
             // SAFETY: the borrowed socket stays open, and buf is readable for its full length.
             // O_NONBLOCK prevents waiting for buffer space; MSG_NOSIGNAL suppresses SIGPIPE.
+            let after_ready = self.ready_at.take();
+            let started = Instant::now();
             let sent = unsafe {
                 libc::send(
                     self.sock.as_raw_fd(),
@@ -79,20 +134,55 @@ impl<'a> DeadlineWriter<'a> {
                     libc::MSG_NOSIGNAL,
                 )
             };
+            // Capture errno before clock reads, which may themselves call platform APIs.
+            let error = (sent < 0).then(io::Error::last_os_error);
+            let elapsed = started.elapsed().as_micros() as u64;
+            let metrics = &mut self.diagnostics;
+            if let Some(ready_at) = after_ready {
+                metrics.ready_to_send_wall_max_us = metrics
+                    .ready_to_send_wall_max_us
+                    .max(started.duration_since(ready_at).as_micros() as u64);
+            }
+            metrics.send_calls = metrics.send_calls.saturating_add(1);
+            metrics.send_wall_total_us = metrics.send_wall_total_us.saturating_add(elapsed);
+            metrics.send_wall_max_us = metrics.send_wall_max_us.max(elapsed);
+            if elapsed > 10_000 {
+                metrics.send_over_10ms = metrics.send_over_10ms.saturating_add(1);
+            }
             match sent {
                 0 => {
+                    metrics.send_errors = metrics.send_errors.saturating_add(1);
                     return Err(io::Error::new(
                         io::ErrorKind::WriteZero,
                         "failed to write whole buffer",
-                    ))
+                    ));
                 }
-                n if n > 0 => buf = &buf[n as usize..],
+                n if n > 0 => {
+                    metrics.accepted_bytes = metrics.accepted_bytes.saturating_add(n as u64);
+                    if (n as usize) < buf.len() {
+                        metrics.short_sends = metrics.short_sends.saturating_add(1);
+                    }
+                    buf = &buf[n as usize..];
+                }
                 _ => {
-                    let error = io::Error::last_os_error();
+                    let error = error.expect("negative send has errno");
                     match error.kind() {
-                        io::ErrorKind::Interrupted => continue,
-                        io::ErrorKind::WouldBlock => self.wait_writable(deadline)?,
-                        _ => return Err(error),
+                        io::ErrorKind::Interrupted => {
+                            metrics.send_interrupted = metrics.send_interrupted.saturating_add(1);
+                            continue;
+                        }
+                        io::ErrorKind::WouldBlock => {
+                            metrics.send_would_block = metrics.send_would_block.saturating_add(1);
+                            if after_ready.is_some() {
+                                metrics.ready_then_would_block =
+                                    metrics.ready_then_would_block.saturating_add(1);
+                            }
+                            self.wait_writable(deadline)?;
+                        }
+                        _ => {
+                            metrics.send_errors = metrics.send_errors.saturating_add(1);
+                            return Err(error);
+                        }
                     }
                 }
             }
@@ -100,7 +190,7 @@ impl<'a> DeadlineWriter<'a> {
         Ok(())
     }
 
-    fn wait_writable(&self, deadline: Instant) -> io::Result<()> {
+    fn wait_writable(&mut self, deadline: Instant) -> io::Result<()> {
         let mut fd = libc::pollfd {
             fd: self.sock.as_raw_fd(),
             events: libc::POLLOUT,
@@ -116,16 +206,37 @@ impl<'a> DeadlineWriter<'a> {
             }
             let timeout = i32::try_from(left.as_nanos().div_ceil(1_000_000)).unwrap_or(i32::MAX);
             // SAFETY: fd is one initialized pollfd, and the borrowed socket remains open.
+            let started = Instant::now();
             let ready = unsafe { libc::poll(&mut fd, 1, timeout) };
+            let error = (ready < 0).then(io::Error::last_os_error);
+            let finished = Instant::now();
+            let elapsed = finished.duration_since(started).as_micros() as u64;
+            let metrics = &mut self.diagnostics;
+            metrics.poll_calls = metrics.poll_calls.saturating_add(1);
+            metrics.poll_wall_total_us = metrics.poll_wall_total_us.saturating_add(elapsed);
+            metrics.poll_wall_max_us = metrics.poll_wall_max_us.max(elapsed);
+            if elapsed > 10_000 {
+                metrics.poll_over_10ms = metrics.poll_over_10ms.saturating_add(1);
+            }
             if ready > 0 {
+                if fd.revents & (libc::POLLERR | libc::POLLHUP | POLL_INVALID) != 0 {
+                    metrics.poll_error_ready = metrics.poll_error_ready.saturating_add(1);
+                } else if fd.revents & libc::POLLOUT != 0 {
+                    metrics.poll_ready = metrics.poll_ready.saturating_add(1);
+                    self.ready_at = Some(finished);
+                }
                 // Retry send to report a closed peer or socket error through its normal errno.
                 return Ok(());
             }
             if ready < 0 {
-                let error = io::Error::last_os_error();
+                let error = error.expect("negative poll has errno");
                 if error.kind() != io::ErrorKind::Interrupted {
+                    metrics.poll_errors = metrics.poll_errors.saturating_add(1);
                     return Err(error);
                 }
+                metrics.poll_interrupted = metrics.poll_interrupted.saturating_add(1);
+            } else {
+                metrics.poll_timeouts = metrics.poll_timeouts.saturating_add(1);
             }
         }
     }
@@ -692,6 +803,10 @@ mod tests {
                 .write_all_before(half, Instant::now() + Duration::from_secs(5))
                 .unwrap();
         }
+        let metrics = writer.diagnostics();
+        assert_eq!(metrics.accepted_bytes, 1_000_000);
+        assert!(metrics.send_calls > 0);
+        assert_eq!(metrics.send_errors, 0);
         drop(server);
         assert_eq!(reader.join().unwrap(), data);
     }
@@ -737,17 +852,32 @@ mod tests {
     #[test]
     fn a_timed_out_write_preserves_blocking_and_nonblocking_socket_flags() {
         for nonblocking in [false, true] {
-            let (server, _client) = small_buffered_pair();
+            let (server, mut client) = small_buffered_pair();
             server.set_nonblocking(nonblocking).unwrap();
             let flags = socket_flags(&server);
-            let error = DeadlineWriter::new(&server)
+            let mut writer = DeadlineWriter::new(&server);
+            writer
+                .write_all_before(b"header", Instant::now() + Duration::from_secs(1))
+                .unwrap();
+            writer.reset_diagnostics();
+            let error = writer
                 .write_all_before(
                     &vec![0; 8 << 20],
                     Instant::now() + Duration::from_millis(50),
                 )
                 .unwrap_err();
             assert_eq!(error.kind(), io::ErrorKind::TimedOut);
+            let metrics = writer.diagnostics();
+            assert!(metrics.accepted_bytes > 0 && metrics.accepted_bytes < 8 << 20);
+            assert!(metrics.send_would_block > 0);
+            assert!(metrics.poll_calls > 0);
+            assert!(metrics.poll_timeouts > 0);
             assert_eq!(socket_flags(&server), flags);
+            drop(server);
+            let mut received = Vec::new();
+            client.read_to_end(&mut received).unwrap();
+            assert_eq!(&received[..6], b"header");
+            assert_eq!(received.len() as u64, metrics.accepted_bytes + 6);
         }
     }
 
@@ -758,10 +888,14 @@ mod tests {
             server.set_nonblocking(nonblocking).unwrap();
             server.shutdown(std::net::Shutdown::Write).unwrap();
             let flags = socket_flags(&server);
-            let error = DeadlineWriter::new(&server)
+            let mut writer = DeadlineWriter::new(&server);
+            let error = writer
                 .write_all_before(b"closed", Instant::now() + Duration::from_secs(1))
                 .unwrap_err();
             assert_eq!(error.kind(), io::ErrorKind::BrokenPipe);
+            assert_eq!(error.raw_os_error(), Some(libc::EPIPE));
+            assert_eq!(writer.diagnostics().send_errors, 1);
+            assert_eq!(writer.diagnostics().accepted_bytes, 0);
             assert_eq!(socket_flags(&server), flags);
         }
     }
@@ -770,23 +904,36 @@ mod tests {
     fn a_later_write_gets_its_own_deadline() {
         // The first write fills the socket against a peer that isn't reading and times out.
         // The second write must wait for the peer using its own, longer deadline.
-        let (server, mut client) = connected_pair();
+        let (server, mut client) = small_buffered_pair();
         let mut writer = DeadlineWriter::new(&server);
         let started = Instant::now();
         writer
             .write_all_before(&vec![0u8; 8 << 20], started + Duration::from_millis(200))
             .expect_err("nobody reads");
+        let accepted_prefix = writer.diagnostics().accepted_bytes;
+        writer.reset_diagnostics();
         let reader = thread::spawn(move || {
             thread::sleep(Duration::from_millis(500));
             let mut got = Vec::new();
             client.read_to_end(&mut got).unwrap();
-            got.len()
+            got
         });
         writer
-            .write_all_before(b"later", Instant::now() + Duration::from_secs(10))
+            .write_all_before(&vec![1; 1 << 20], Instant::now() + Duration::from_secs(10))
             .expect("the peer reads after 500 ms, inside the second deadline");
+        let metrics = writer.diagnostics();
         drop(server);
-        assert!(reader.join().unwrap() >= b"later".len());
+        assert_eq!(metrics.accepted_bytes, 1 << 20);
+        assert!(metrics.poll_ready > 0);
+        assert!(metrics.send_would_block > 0);
+        let received = reader.join().unwrap();
+        assert_eq!(received.len() as u64, accepted_prefix + (1 << 20));
+        assert!(received[..accepted_prefix as usize]
+            .iter()
+            .all(|&byte| byte == 0));
+        assert!(received[accepted_prefix as usize..]
+            .iter()
+            .all(|&byte| byte == 1));
     }
 
     #[test]

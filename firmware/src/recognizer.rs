@@ -16,6 +16,9 @@ use crate::audio_in::{SharedRing, WINDOW_SAMPLES};
 use crate::threads::ThreadSpec;
 use crate::{net, shazam_http};
 
+#[path = "recognition_admission.rs"]
+mod recognition_admission;
+
 pub type SharedStore = Arc<Mutex<SongStore>>;
 
 const TICK: Duration = Duration::from_millis(250);
@@ -67,35 +70,37 @@ fn run(ring: SharedRing, store: SharedStore, config: PolicyConfig, on_change: im
             }
             Decision::Ask => {
                 let snapshot_ms = snapshot(&ring, &mut window);
-                let (outcome, song) = ask_shazam(&window, snapshot_ms);
-                let current_key = store
-                    .lock()
-                    .expect("store lock")
-                    .now_key()
-                    .map(str::to_owned);
-                match (
-                    policy.on_outcome(now_ms(), &outcome, current_key.as_deref()),
-                    song,
-                ) {
-                    (Change::SetNow, Some(song)) => {
-                        let playing = format!("{} — {}", song.title, song.artist);
-                        let identified_at = rfc3339_utc(net::unix_secs());
-                        if store
-                            .lock()
-                            .expect("store lock")
-                            .set_now(song, identified_at)
-                        {
-                            log::info!("now playing: {playing}");
-                            on_change();
+                if recognition_admission::admit(&mut policy, config, window.len()) {
+                    let (outcome, song) = ask_shazam(&window, snapshot_ms);
+                    let current_key = store
+                        .lock()
+                        .expect("store lock")
+                        .now_key()
+                        .map(str::to_owned);
+                    match (
+                        policy.on_outcome(now_ms(), &outcome, current_key.as_deref()),
+                        song,
+                    ) {
+                        (Change::SetNow, Some(song)) => {
+                            let playing = format!("{} — {}", song.title, song.artist);
+                            let identified_at = rfc3339_utc(net::unix_secs());
+                            if store
+                                .lock()
+                                .expect("store lock")
+                                .set_now(song, identified_at)
+                            {
+                                log::info!("now playing: {playing}");
+                                on_change();
+                            }
                         }
-                    }
-                    (Change::ClearNow, _) => {
-                        if store.lock().expect("store lock").clear_now() {
-                            log::info!("now playing: cleared after misses");
-                            on_change();
+                        (Change::ClearNow, _) => {
+                            if store.lock().expect("store lock").clear_now() {
+                                log::info!("now playing: cleared after misses");
+                                on_change();
+                            }
                         }
+                        _ => {}
                     }
-                    _ => {}
                 }
             }
         }

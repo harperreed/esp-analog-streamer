@@ -131,6 +131,12 @@ impl Policy {
         }
     }
 
+    /// Releases an Ask whose audio snapshot was not ready, without counting an answer or
+    /// changing its deadline. The next tick can retry once enough fresh audio has arrived.
+    pub fn defer_ask(&mut self) {
+        self.in_flight = false;
+    }
+
     /// Report the answer to the last Ask. `current_key` is the key of the song the store shows.
     pub fn on_outcome(
         &mut self,
