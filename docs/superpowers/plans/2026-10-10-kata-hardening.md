@@ -666,3 +666,11 @@ incomplete evidence. Source provenance review must distinguish the frozen eb38c6
 and bacdecb contexts from current HEAD; rate separation must survive instrumentation
 before interpreting phase differences. No cause, delivery pass or broader Kata
 completion follows from these measurements.
+
+The reviewed phase plan is now 2026-10-10-mp3-phase-timing.md. Exact source
+attestation is missing for both saved images despite matching partial hashes.
+A Sol 6.1 worker is preparing copied git-archive reconstructions with secure local
+config copies and isolated outputs; no worktrees or original-image mutations.
+Parent must first build and measure these uninstrumented baselines. Timing code
+remains unimplemented until their rate gap reproduces. Hardware is idle, stopped
+MP3/Medium on the archived unified default, with no source/UART owner.
