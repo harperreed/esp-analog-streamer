@@ -80,3 +80,29 @@ canonical stages passing; its earlier mise alias warning was retained and then
 resolved by the canonical llvm-tools component spelling. Two subsequent mise
 activations had empty stderr with unchanged Rust/LLVM versions. A separate CI
 coverage job remains unimplemented pending design review; Kata m31k stays open.
+
+## Clean committed-tree repeat
+
+Ran `scripts/coverage-host` with the default environment at commit
+`9b7f363bbc4855ce16d670b2609357db154156ea`. Tracked diff was empty before and after
+execution; only local `.kata.toml` and `docs-ignore/` were untracked. The wrapper
+retained an empty diff.log and the exact commit. Test/report process completed
+successfully and exited; source remained frozen through execution.
+
+The repeat used new directory `target/coverage-host/run.3fGHOtuq`, with its own
+build/profile directory and 59 fresh profraw files. The first run has a separate
+59-profile directory; its JSON SHA-256 remained unchanged. No prior run directory
+was reused. Test and both report commands again explicitly selected the detected
+host. Detailed JSON and HTML indexes exist in the new run, using the same relative
+report paths as above. Short log: `target/kata-hardening/coverage-repeat.log`.
+
+Again 380 passed, zero failed, two explicitly ignored, with no test warnings or
+errors. The same 35 source file paths appear in both reports. Repeat line coverage
+was 7,324/7,719 (94.88%) and regions 12,754/13,493 (94.52%). The four additional
+covered lines are in core/src/stream_http.rs (693/735 versus 689/735); other file
+line counts agree. Host socket execution can vary between runs. This small
+variation is neither a new behavioral regression nor a reliability improvement.
+The named uncovered failure semantics and all scope exclusions still apply.
+
+This completes the local pinned-tool compatibility and isolated repeated-run
+pilot. The standalone CI job remains a separate acceptance gate; m31k stays open.
