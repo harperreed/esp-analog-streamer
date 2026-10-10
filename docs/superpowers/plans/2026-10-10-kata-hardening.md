@@ -1,7 +1,7 @@
 # Finish the Kata hardening backlog
 
 Doctor Biz's active goal on October 10: finish all Kata work, then assess.
-Base c134069 on wip/kata-capture-protection. Compactions in this phase: 2.
+Base c134069 on wip/kata-capture-protection. Compactions in this phase: 3; fourth-batch checkpoint committed as 823c0cc.
 Use GPT-6.1 Sol subagents with clean contexts. Parent owns review, integration,
 canonical checks, commits and every hardware action. Continue through batches;
 a phase checkpoint is not a reason to abandon the active goal.
@@ -62,7 +62,7 @@ new consequential architectural choices get a concrete design before code.
 | 89g8 | P0 | Build deterministic host replay of streaming failures | Shared writer slice reviewed and checked; orchestration remains |
 | amqe | P0 | Add a separate ESP32 streaming dashboard and bounded metrics export | Reconciling |
 | n4jb | P0 | Add reproducible network fault injection on the actual board traffic path | Reconciling |
-| 1wny | P1 | Use cargo-mutants to check whether reliability tests detect wrong behavior | Runner reviewed; baseline/inventory pass, committed pilot next |
+| 1wny | P1 | Use cargo-mutants to check whether reliability tests detect wrong behavior | Pilot verified: four caught, one unviable; evidence ready for closure |
 | m31k | P1 | Measure host recovery-path coverage with cargo-llvm-cov | Two local pilots passed; CI written/reviewed, hosted run pending |
 | t4ae | P1 | Add bounded host fuzzing for FLAC, HTTP and stream transitions | Reconciling |
 | jq3a | P0 | Model listener admission and shutdown interleavings with Loom | Closed, b68318b |
@@ -156,3 +156,21 @@ Each code task supplies targeted red/green evidence and independent review.
 Run scripts/check on a frozen integration state. Hardware comparisons keep
 source, radio policy, hashes, baseline counters and actual overlap intervals.
 Keep task reports in the plan SDD workspace and public sanitized evidence in docs.
+
+## Fifth-batch checkpoint
+
+Fourth batch is committed as 823c0cc. All 23 canonical checks and independent
+reviews passed before that commit. The mutation pilot completed from an immutable
+archive of that revision: five attempted, four caught, one unviable, no missed
+mutations or timeouts. Independent receipt review confirmed intended assertions
+and the separate compiler failure. This establishes only the capture-health
+pilot scope; see host-mutations.md/.json in October 10 evidence.
+The approved full replay contract now lives in 2026-10-10-deterministic-replay.md;
+one Sol 6.1 worker owns the coupled production extraction and characterization.
+A separate Sol 6.1 lane prepares a bounded fuzzing design without installing or
+changing tools. Parent owns integration, reviews, canonical checks and hardware.
+
+The third-compaction checkpoint is saved here rather than relying on conversation
+state. This environment cannot start a replacement root session; fresh-context
+workers continue from these durable plans under the active goal. No new hardware
+run has started; the earlier diagnostic ELF remains stopped MP3/Medium.
