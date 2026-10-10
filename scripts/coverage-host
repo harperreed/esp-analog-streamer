@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ABOUTME: Reports default-feature host Rust test coverage in a fresh isolated directory.
-# ABOUTME: Retains versions, commands and failure logs without installing tools or accessing a device.
+# ABOUTME: Retains versions, commands and failure logs without accessing a device.
 
 coverage_run_dir() {
     local root="$1" component current=''
@@ -45,7 +45,8 @@ coverage_main() {
 Usage: scripts/coverage-host [--help]
 
 Run default-feature host workspace Rust tests with pinned cargo-llvm-cov.
-Requires mise-installed tools and Rust 1.93.0's llvm-tools-preview; installs nothing.
+Requires pinned mise tools and Rust 1.93.0's llvm-tools component.
+Mise activation may install missing pinned host tools; preinstall with mise install.
 Each run keeps private logs, provenance, JSON and HTML below
  target/coverage-host/run.XXXXXXXX/; old runs are never reused or deleted.
 Firmware/device execution, C encoder FFI, Loom models, Python/JS, doctests,

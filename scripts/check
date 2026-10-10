@@ -37,6 +37,7 @@ stage e2e-fixtures scripts/test-e2e-fixtures
 stage interface-relay scripts/test-interface-relay
 stage wifi-throughput scripts/test-wifi-throughput-check
 if [ "$(uname -s)" = Linux ]; then
+  stage mutation-host scripts/test-mutation-host
   stage setup-linux scripts/test-setup-linux
   stage capture-stream-packets scripts/test-capture-stream-packets
 fi

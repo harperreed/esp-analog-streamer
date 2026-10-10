@@ -62,8 +62,8 @@ new consequential architectural choices get a concrete design before code.
 | 89g8 | P0 | Build deterministic host replay of streaming failures | Shared writer slice reviewed and checked; orchestration remains |
 | amqe | P0 | Add a separate ESP32 streaming dashboard and bounded metrics export | Reconciling |
 | n4jb | P0 | Add reproducible network fault injection on the actual board traffic path | Reconciling |
-| 1wny | P1 | Use cargo-mutants to check whether reliability tests detect wrong behavior | Reconciling |
-| m31k | P1 | Measure host recovery-path coverage with cargo-llvm-cov | Pilot passed; committed repeat and CI pending |
+| 1wny | P1 | Use cargo-mutants to check whether reliability tests detect wrong behavior | Runner reviewed; baseline/inventory pass, committed pilot next |
+| m31k | P1 | Measure host recovery-path coverage with cargo-llvm-cov | Two local pilots passed; CI written/reviewed, hosted run pending |
 | t4ae | P1 | Add bounded host fuzzing for FLAC, HTTP and stream transitions | Reconciling |
 | jq3a | P0 | Model listener admission and shutdown interleavings with Loom | Closed, b68318b |
 | 5yf3 | P0 | Add proptest state-machine tests for rings and listener lifecycles | Closed, 0d9d014 |
@@ -133,6 +133,24 @@ idle on the exact earlier diagnostic ELF, stopped MP3/Medium, autoplay off.
 Sonos recovery design is recorded in 2026-10-10-sonos-recovery.md. Before enabling
 automatic media actions, prove the local join-only wire contract and rejection
 of writes to evicted sessions. No resume API or ownership guarantee is invented.
+
+Third batch committed 9b7f363. Clean committed coverage repeat passed with fresh
+profiles and the same 380 passing tests; receipt committed as 5d43b1f. Fourth
+batch adds the separate GitHub-hosted coverage workflow and bounded Linux
+mutation runner. Both passed independent review; all 23 canonical stages passed
+without the earlier activation warning. Workflow action pins/inputs and mise
+bootstrap PATH were verified, and actionlint passed. No push or hosted job ran.
+The mutation tool's real unmodified baseline passed eight tests and generated
+five candidates. The full mutation run must follow a clean reviewed commit;
+inventory alone is not evidence that assertions catch mutations.
+
+The full replay orchestration brief passed two design reviews after correcting
+four contracts: blocking locks remain; virtual replay assumes uncontended steps;
+deadline/retirement observation boundaries remain exact; pending runtime results
+are consumed once; delayed close retains socket, Slot and Lease until completion.
+Implement that extraction only after the current mutation input is snapshotted.
+A separate diagnostic brief will define encoder timing and allocation receipts
+without changing priorities, codec quality or buffers during attribution.
 
 Each code task supplies targeted red/green evidence and independent review.
 Run scripts/check on a frozen integration state. Hardware comparisons keep

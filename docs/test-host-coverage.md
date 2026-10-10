@@ -2,9 +2,10 @@
 
 `scripts/coverage-host --help` describes the standalone diagnostic. Install the
 pinned tools through `mise install`, then run `scripts/coverage-host` when host
-builds and tests will not disturb hardware measurements. The wrapper installs
-nothing and fails if cargo-llvm-cov 0.9.1 or Rust 1.93.0's matching LLVM tools
-are absent. The tagged tool requires Rust >=1.87 and Cargo >=1.60. The October
+builds and tests will not disturb hardware measurements. The wrapper's mise
+activation may install missing repository-pinned host tools. It then checks
+cargo-llvm-cov 0.9.1 and Rust 1.93.0's matching LLVM tools and fails if they are
+unavailable. The tagged tool requires Rust >=1.87 and Cargo >=1.60. The October
 10 Linux pilot verified actual compatibility: 380 tests passed, zero failed and
 two explicitly ignored; detailed JSON and HTML reports were generated. See
 [pilot evidence](audit-evidence/2026-10-10/host-coverage.md) for scope and limits.
@@ -43,9 +44,17 @@ coverage into this production report or run `--all-features`.
 `scripts/test-coverage-host` checks the CLI, unique run paths, symlink/file
 rejection and fail-closed stage logging using real files and subprocesses. It
 needs neither coverage tools nor builds. This command runs in `scripts/check`;
-keep the instrumented run outside that fast check. A separate CI job remains
-pending design review. It should archive each run's JSON, HTML, logs, provenance
-and uncovered-path review, and fail on any test/report error. The full canonical
+keep the instrumented run outside that fast check. The separate
+[host coverage workflow](../.github/workflows/host-coverage.yml) runs on pull
+requests and manual dispatch using GitHub-hosted Ubuntu 24.04. It installs all
+repository-pinned host executables from mise.toml, then runs the wrapper tests
+and coverage command. It never invokes the separate ESP toolchain task.
+Checkout does not persist credentials; the job has contents-read permission.
+Reports and provenance/failure logs upload even after test/report failure and
+expire after seven days; instrumented build outputs are excluded. Bootstrap
+failures before a run directory exists remain in GitHub step logs. The hosted
+job has not yet run; inspect its first real artifacts before accepting CI.
+Keep the uncovered-path review with durable pilot evidence. The full canonical
 `scripts/check` also builds firmware; do not use it as the host-only coverage job.
 
 Mutation testing can probe assertion strength in covered recovery logic after

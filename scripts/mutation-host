@@ -1,0 +1,184 @@
+#!/usr/bin/env bash
+# ABOUTME: Runs a bounded capture-health mutation pilot from a clean committed host snapshot.
+# ABOUTME: Uses Linux process bounds and retains separate outcomes without touching firmware or source.
+
+mutation_run_dir() {
+    local root="$1" component current=''
+    local -a components
+    [[ "$root" == /* ]] || root="$PWD/$root"
+    IFS=/ read -r -a components <<< "$root"
+    for component in "${components[@]}"; do
+        [[ -n "$component" ]] || continue
+        [[ "$component" != .. ]] || { echo 'FAIL: parent path component' >&2; return 1; }
+        current="$current/$component"
+        [[ ! -L "$current" ]] || { echo "FAIL: symlink output path: $current" >&2; return 1; }
+    done
+    mkdir -p "$root" || return
+    mktemp -d "$root/run.XXXXXXXX"
+}
+
+mutation_stage() {
+    local run="$1" name="$2" seconds="$3" status=0
+    shift 3
+    printf '%q ' timeout --kill-after=5 "$seconds" "$@" >>"$run/commands.log"
+    printf '\n' >>"$run/commands.log"
+    timeout --kill-after=5 "$seconds" "$@" >"$run/$name.log" 2>&1 || status=$?
+    printf '%s\n' "$status" >"$run/$name.exit"
+    if [[ "$status" != 0 ]]; then
+        echo "FAIL  $name (exit $status; full log: $run/$name.log)" >&2
+        return "$status"
+    fi
+    echo "ok    $name"
+}
+
+mutation_version() {
+    [[ "$1" == 'cargo-mutants 27.1.0' ]] || {
+        echo 'FAIL: expected cargo-mutants 27.1.0; run mise install' >&2; return 1;
+    }
+}
+
+mutation_environment() {
+    local override
+    for override in RUSTFLAGS CARGO_ENCODED_RUSTFLAGS RUSTC RUSTC_WRAPPER RUSTC_WORKSPACE_WRAPPER CARGO_BUILD_TARGET; do
+        [[ -z "${!override:-}" ]] || { echo "FAIL: unset $override for a reproducible run" >&2; return 1; }
+    done
+    [[ -z "${RUSTUP_TOOLCHAIN:-}" || "$RUSTUP_TOOLCHAIN" == 1.93.0 ]] || {
+        echo 'FAIL: RUSTUP_TOOLCHAIN conflicts with host Rust 1.93.0' >&2; return 1;
+    }
+}
+
+mutation_snapshot() {
+    local repo="$1" run="$2"
+    [[ -z "$(git -C "$repo" status --porcelain --untracked-files=no)" ]] || {
+        echo 'FAIL: commit tracked changes before mutation testing' >&2; return 1;
+    }
+    git -C "$repo" rev-parse HEAD >"$run/revision.txt" || return
+    git -C "$repo" archive --format=tar "$(cat "$run/revision.txt")" >"$run/source.tar" || return
+    mkdir "$run/source" || return
+    tar -xf "$run/source.tar" -C "$run/source" || return
+    sha256sum "$run/source.tar" >"$run/archive.sha256"
+}
+
+mutation_candidate_count() {
+    node - "$1" <<'JS'
+const fs = require('node:fs');
+const mutants = JSON.parse(fs.readFileSync(process.argv[2], 'utf8'));
+if (!Array.isArray(mutants) || mutants.length < 1 || mutants.length > 60 ||
+    mutants.some(item => item.file !== 'core/src/capture_health.rs' || item.package !== 'esp-shazam-core')) {
+    console.error('FAIL: expected 1..60 capture_health candidates; inspect inventory before changing scope');
+    process.exit(1);
+}
+console.log(mutants.length);
+JS
+}
+
+mutation_summary() {
+    node - "$1" "$2" <<'JS'
+const fs = require('node:fs');
+const outcome = JSON.parse(fs.readFileSync(process.argv[2], 'utf8'));
+const generated = Number(process.argv[3]);
+const counts = {caught: 0, missed: 0, unviable: 0, timeout: 0};
+const classes = {CaughtMutant: 'caught', MissedMutant: 'missed', Unviable: 'unviable', Timeout: 'timeout'};
+const baselines = outcome.outcomes.filter(item => item.scenario === 'Baseline');
+let invalid = false;
+for (const item of outcome.outcomes) {
+    if (item.scenario === 'Baseline') continue;
+    if (!item.scenario?.Mutant || !classes[item.summary]) { invalid = true; continue; }
+    counts[classes[item.summary]]++;
+}
+const attempted = Object.values(counts).reduce((a, b) => a + b, 0);
+console.log(`generated=${generated} attempted=${attempted} caught=${counts.caught} missed=${counts.missed} unviable=${counts.unviable} timeout=${counts.timeout} unattempted=${generated - attempted}`);
+if (invalid || outcome.cargo_mutants_version !== '27.1.0' || !outcome.end_time ||
+    baselines.length !== 1 || baselines[0].summary !== 'Success' ||
+    !Number.isInteger(generated) || generated < 1 || generated > 60 ||
+    attempted !== generated || outcome.total_mutants !== attempted || outcome.success !== 0 ||
+    Object.entries(counts).some(([key, count]) => outcome[key] !== count)) {
+    console.error('FAIL: incomplete, inconsistent or failed-baseline mutation result');
+    process.exit(1);
+}
+JS
+}
+
+mutation_main() {
+    set -euo pipefail
+    case "${1:-}" in
+        --help|-h)
+            cat <<'HELP'
+Usage: scripts/mutation-host [--help]
+
+Run only core/src/capture_health.rs mutations with its real unit tests.
+Linux-only pilot: requires GNU timeout and sha256sum, a clean committed tracked
+tree and pinned cargo-mutants 27.1.0. Mise activation may install missing pinned
+host tools; preinstall with mise install. Archives HEAD; ignored and untracked
+files are not test inputs.
+Keeps private source, isolated builds, versions, commands and outcomes beneath
+ target/mutation-host/run.XXXXXXXX/. Maximum 60 candidates, one worker,
+60-second test and 180-second build limits; 30-minute overall process limit.
+Missing tools, failed baseline, incomplete outcomes, misses and timeouts fail.
+Unviable mutations stay separate and do not count as caught.
+No scope overrides, firmware builds, devices or flashing. See docs/test-host-mutations.md.
+HELP
+            [[ $# -eq 1 ]] || return 2
+            return ;;
+        '') ;;
+        *) echo 'FAIL: unknown argument (see --help)' >&2; return 2 ;;
+    esac
+    [[ $# -eq 0 ]] || return 2
+    cd "$(dirname "${BASH_SOURCE[0]}")/.."
+    local repo="$PWD" mise_env run host count status=0 summary_status=0
+    mutation_environment
+    for dependency in mise git tar sha256sum timeout node; do
+        command -v "$dependency" >/dev/null || { echo "FAIL: missing $dependency" >&2; return 1; }
+    done
+    mise_env="$(mise env -s bash)"
+    eval "$mise_env"
+    umask 077
+    run="$(mutation_run_dir target/mutation-host)"
+    echo "Mutation run: $run"
+    # A killed/incomplete run keeps this marker; only a reconciled result replaces it.
+    printf 'incomplete\n' >"$run/status.txt"
+    printf '%s\n' "${CARGO_HOME:-$HOME/.cargo}" >"$run/cargo-home.txt"
+    mutation_snapshot "$repo" "$run"
+    mutation_stage "$run" tool-version 30 cargo +1.93.0 mutants --version
+    mutation_version "$(cat "$run/tool-version.log")"
+    mutation_stage "$run" rust-version 30 rustc +1.93.0 -vV
+    mutation_stage "$run" cargo-version 30 cargo +1.93.0 --version
+    uname -a >"$run/platform.txt"
+    host="$(sed -n 's/^host: //p' "$run/rust-version.log")"
+    [[ -n "$host" ]] || { echo 'FAIL: missing host triple' >&2; return 1; }
+    mkdir "$run/build" "$run/tmp" "$run/results"
+    export CARGO_TARGET_DIR="$run/build" TMPDIR="$run/tmp"
+    unset CARGO_BUILD_BUILD_DIR CARGO_ENCODED_RUSTFLAGS RUSTFLAGS
+    cd "$run/source"
+    sha256sum Cargo.lock >"$run/lockfile.sha256"
+    mutation_stage "$run" baseline 300 cargo +1.93.0 test --locked -p esp-shazam-core --target "$host" --lib capture_health::
+    mutation_stage "$run" inventory 60 cargo +1.93.0 mutants --no-config -p esp-shazam-core --file core/src/capture_health.rs --list --json
+    count="$(mutation_candidate_count "$run/inventory.log")"
+    printf '%s\n' "$count" >"$run/generated.txt"
+    mutation_stage "$run" mutants 1500 cargo +1.93.0 mutants --no-config -p esp-shazam-core \
+        --file core/src/capture_health.rs --no-shuffle --jobs 1 --baseline run \
+        --timeout 60 --build-timeout 180 --cargo-arg=--locked \
+        --cargo-arg=--target --cargo-arg="$host" --cargo-test-arg=--lib \
+        --caught --unviable --output "$run/results" -- capture_health:: || status=$?
+    mutation_summary "$run/results/mutants.out/outcomes.json" "$count" >"$run/summary.txt" 2>"$run/summary-error.log" || summary_status=$?
+    cat "$run/summary.txt"
+    if [[ "$summary_status" != 0 ]]; then
+        echo "FAIL: incomplete mutation run; see $run/summary-error.log" >&2
+        [[ "$status" != 0 ]] && return "$status"
+        return "$summary_status"
+    fi
+    printf 'complete\n' >"$run/status.txt"
+    echo "Mutation artifacts: $run (review survivors before closing Kata 1wny)"
+    return "$status"
+}
+
+if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
+    if [[ $# -gt 0 ]]; then
+        mutation_main "$@"
+        exit $?
+    fi
+    [[ "$(uname -s)" == Linux ]] || { echo 'FAIL: mutation-host pilot requires Linux with GNU timeout and sha256sum (see --help)' >&2; exit 1; }
+    command -v timeout >/dev/null || { echo 'FAIL: mutation-host requires GNU timeout (see --help)' >&2; exit 1; }
+    # GNU timeout bounds setup, compilation, baseline and the complete mutation batch.
+    exec timeout --kill-after=5 1800 bash -c 'source "$1"; shift; mutation_main "$@"' _ "${BASH_SOURCE[0]}" "$@"
+fi
