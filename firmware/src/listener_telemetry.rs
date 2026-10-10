@@ -5,7 +5,7 @@ use std::{
     net::SocketAddr,
     sync::{
         atomic::{AtomicBool, AtomicU32, Ordering},
-        Mutex,
+        Mutex, TryLockError,
     },
     time::Duration,
 };
@@ -144,6 +144,9 @@ impl From<&std::io::Error> for ErrorCode {
 pub(crate) struct Queue {
     storage: Mutex<([Option<Record>; 8], usize, usize)>,
     dropped: AtomicU32,
+    dropped_full: AtomicU32,
+    dropped_contended: AtomicU32,
+    dropped_poisoned: AtomicU32,
     loss_occurred: AtomicBool,
 }
 impl Queue {
@@ -151,18 +154,27 @@ impl Queue {
         Self {
             storage: Mutex::new(([None; 8], 0, 0)),
             dropped: AtomicU32::new(0),
+            dropped_full: AtomicU32::new(0),
+            dropped_contended: AtomicU32::new(0),
+            dropped_poisoned: AtomicU32::new(0),
             loss_occurred: AtomicBool::new(false),
         }
     }
     pub fn publish(&self, record: Record) -> bool {
-        if let Ok(mut storage) = self.storage.try_lock() {
-            if storage.2 < 8 {
-                let tail = (storage.1 + storage.2) % 8;
-                storage.0[tail] = Some(record);
-                storage.2 += 1;
-                return true;
+        let reason = match self.storage.try_lock() {
+            Ok(mut storage) => {
+                if storage.2 < 8 {
+                    let tail = (storage.1 + storage.2) % 8;
+                    storage.0[tail] = Some(record);
+                    storage.2 += 1;
+                    return true;
+                }
+                &self.dropped_full
             }
-        }
+            Err(TryLockError::WouldBlock) => &self.dropped_contended,
+            Err(TryLockError::Poisoned(_)) => &self.dropped_poisoned,
+        };
+        reason.fetch_add(1, Ordering::Relaxed);
         self.loss_occurred.store(true, Ordering::Relaxed);
         self.dropped.fetch_add(1, Ordering::Relaxed);
         false
@@ -177,6 +189,15 @@ impl Queue {
         storage.1 = (head + 1) % 8;
         storage.2 -= 1;
         record
+    }
+    pub fn dropped_full(&self) -> u32 {
+        self.dropped_full.load(Ordering::Relaxed)
+    }
+    pub fn dropped_contended(&self) -> u32 {
+        self.dropped_contended.load(Ordering::Relaxed)
+    }
+    pub fn dropped_poisoned(&self) -> u32 {
+        self.dropped_poisoned.load(Ordering::Relaxed)
     }
     pub fn loss_occurred(&self) -> bool {
         self.loss_occurred.load(Ordering::Relaxed)
@@ -218,6 +239,79 @@ mod tests {
                 held: 1,
             },
         }
+    }
+    #[test]
+    fn publication_counts_exact_reasons_and_wraps_with_sticky_loss() {
+        let q = Queue::new();
+        for _ in 0..8 {
+            assert!(q.publish(record()));
+        }
+        assert_eq!(
+            (
+                q.dropped(),
+                q.dropped_full(),
+                q.dropped_contended(),
+                q.dropped_poisoned()
+            ),
+            (0, 0, 0, 0)
+        );
+        assert!(!q.loss_occurred());
+        assert!(!q.publish(record()));
+        assert_eq!(
+            (
+                q.dropped(),
+                q.dropped_full(),
+                q.dropped_contended(),
+                q.dropped_poisoned()
+            ),
+            (1, 1, 0, 0)
+        );
+        for _ in 0..8 {
+            assert!(q.take().is_some());
+        }
+        assert!(q.publish(record()));
+        assert_eq!(q.dropped_full(), 1);
+        let guard = q.storage.lock().unwrap();
+        q.dropped.store(u32::MAX, Ordering::Relaxed);
+        q.dropped_contended.store(u32::MAX, Ordering::Relaxed);
+        assert!(!q.publish(record()));
+        assert_eq!(
+            (
+                q.dropped(),
+                q.dropped_full(),
+                q.dropped_contended(),
+                q.dropped_poisoned()
+            ),
+            (0, 1, 0, 0)
+        );
+        assert!(q.loss_occurred());
+        drop(guard);
+        let _ = std::panic::catch_unwind(|| {
+            let _guard = q.storage.lock().unwrap();
+            panic!("poison storage");
+        });
+        q.dropped_poisoned.store(u32::MAX, Ordering::Relaxed);
+        assert!(!q.publish(record()));
+        assert_eq!(
+            (
+                q.dropped(),
+                q.dropped_full(),
+                q.dropped_contended(),
+                q.dropped_poisoned()
+            ),
+            (1, 1, 0, 0)
+        );
+        assert!(q.loss_occurred());
+        assert!(!q.publish(record()));
+        assert_eq!(q.dropped_poisoned(), 1);
+        let full = Queue::new();
+        for _ in 0..8 {
+            assert!(full.publish(record()));
+        }
+        full.dropped_full.store(u32::MAX, Ordering::Relaxed);
+        assert!(!full.publish(record()));
+        assert_eq!(full.dropped_full(), 0);
+        assert!(full.loss_occurred());
     }
     #[test]
     fn held_and_poisoned_storage_drop_without_waiting_and_loss_wraps() {

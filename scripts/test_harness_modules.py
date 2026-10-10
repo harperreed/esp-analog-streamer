@@ -18,6 +18,30 @@ LISTENER_RECEIPT = ('listener-telemetry: dropped=0 loss_occurred=false observed_
 
 
 class ModuleTests(unittest.TestCase):
+    def test_listener_reason_receipts_from_complete_real_files(self):
+        import encoder_fault_check as encoder
+        reasons = ' dropped_full=1 dropped_contended=2 dropped_poisoned=4294967295'
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'uart.log'
+            path.write_text(LISTENER_RECEIPT + reasons)
+            self.assertEqual(encoder.read_uart_lines(path), [])
+            with path.open('a') as stream:
+                stream.write('\n')
+            line = encoder.read_uart_lines(path)[0]
+            self.assertEqual(encoder.listener_export_reasons(line), dict(dropped_full=1, dropped_contended=2, dropped_poisoned=4294967295))
+            self.assertEqual(len(encoder.listener_export_receipt(line)), 9)
+            encoder.validate_listener_export([LISTENER_RECEIPT])
+            for key in ('dropped_full', 'dropped_contended', 'dropped_poisoned'):
+                for bad in ('', key+'=0 '+key+'=1', key+'=4294967296', key+'=-1', key+'=1x', key+'='):
+                    tokens = [token for token in reasons.split() if not token.startswith(key+'=')]
+                    path.write_text(LISTENER_RECEIPT+' '+' '.join(tokens)+' '+bad+'\n')
+                    with self.subTest(key=key, bad=bad), self.assertRaises(RuntimeError):
+                        encoder.listener_export_reasons(encoder.read_uart_lines(path)[0])
+            for total, sticky in ((1, 'false'), (0, 'true')):
+                path.write_text(LISTENER_RECEIPT.replace('dropped=0', 'dropped='+str(total)).replace('loss_occurred=false', 'loss_occurred='+sticky)+reasons+'\n')
+                with self.assertRaisesRegex(RuntimeError, 'export loss'):
+                    encoder.validate_listener_export(encoder.read_uart_lines(path))
+
     def test_imports_and_parsers(self):
         for name in ('fault_check', 'encoder_fault_check', 'stream_soak', 'stream_check'):
             module = importlib.import_module(name)

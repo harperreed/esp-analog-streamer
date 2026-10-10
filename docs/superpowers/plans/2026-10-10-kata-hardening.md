@@ -1,7 +1,7 @@
 # Finish the Kata hardening backlog
 
 Doctor Biz's active goal on October 10: finish all Kata work, then assess.
-Base c134069 on wip/kata-capture-protection. Compactions in this phase: 7; latest implementation checkpoint is 3aa5b5f.
+Base c134069 on wip/kata-capture-protection. Compactions in this phase: 7; latest implementation checkpoint is 3b3afdb.
 Use GPT-6.1 Sol subagents with clean contexts. Parent owns review, integration,
 canonical checks, commits and every hardware action. Continue through batches;
 a phase checkpoint is not a reason to abandon the active goal.
@@ -393,3 +393,12 @@ and loss rejection remain; attribution adds a strict three-counter reader.
 Implementation is in progress with a clean-context Sol 6.1 worker; parent still
 owns independent review, target builds, canonical checks and hardware. Encoder
 export and broader recovery/admission architecture remain separate.
+
+Stack repeat evidence and the reason-counter brief are committed as 644c9cb.
+The four-file loss-reason implementation passed independent review, all 27
+canonical stages, the probe build/IRAM check and feature allocation-query gating.
+Both target queue symbols grow 16 bytes to 2024; exporter frame grows 16 bytes to
+1008. Metrics/capture frames remain 208/528. Build checkpoint:
+docs/audit-evidence/2026-10-10/listener-loss-build.md. Next commit the reviewed
+diagnostic, then parent runs a bounded slow-reader measurement on its exact
+default unified image. Preserve the 3b3afdb images and original failed trials.

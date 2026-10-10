@@ -50,6 +50,26 @@ def listener_export_receipt(line):
     return values
 
 
+def listener_export_reasons(line):
+    """Require all reason counters when attributing loss in a complete receipt.
+
+    Atomic counters are sampled separately, so their sum need not equal dropped.
+    """
+    listener_export_receipt(line)
+    line = re.sub(r'\x1b\[[0-9;]*m', '', line)
+    values = {}
+    for key in ('dropped_full', 'dropped_contended', 'dropped_poisoned'):
+        tokens = re.findall(r'\b' + key + r'=([^\s]+)', line)
+        if len(tokens) != 1 or len(re.findall(r'\b' + key + '=', line)) != 1:
+            raise RuntimeError('listener telemetry missing or duplicate field: ' + key)
+        token = tokens[0]
+        if (not re.fullmatch(r'[0-9]+', token) or len(token) > 10
+                or int(token) > 2**32-1):
+            raise RuntimeError('listener telemetry invalid bounded number: ' + key)
+        values[key] = int(token)
+    return values
+
+
 def validate_listener_export(lines):
     """Loss makes listener-based acceptance unknown, even when the last count wraps."""
     for line in lines:

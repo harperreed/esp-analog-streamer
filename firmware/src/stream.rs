@@ -1020,7 +1020,7 @@ pub(crate) fn export_listener_events() {
     if first.is_some() || loss_changed || first_loss {
         // SAFETY: this call runs on the live audio-metrics owner, once per exported batch.
         let stack_free_bytes = unsafe { sys::uxTaskGetStackHighWaterMark(std::ptr::null_mut()) };
-        log::info!("listener-telemetry: dropped={} loss_occurred={} observed_event_range_valid={} observed_event_min_us={} observed_event_max_us={} record_bytes={} queue_bytes={} metrics_stack_free_bytes={} export_us={}",
-            dropped, EVENTS.loss_occurred(), first.is_some(), first.unwrap_or(0), last.unwrap_or(0), std::mem::size_of::<Record>(), std::mem::size_of::<listener_telemetry::Queue>(), stack_free_bytes, event_us());
+        log::info!("listener-telemetry: dropped={} loss_occurred={} observed_event_range_valid={} observed_event_min_us={} observed_event_max_us={} record_bytes={} queue_bytes={} metrics_stack_free_bytes={} export_us={} dropped_full={} dropped_contended={} dropped_poisoned={}",
+            dropped, EVENTS.loss_occurred(), first.is_some(), first.unwrap_or(0), last.unwrap_or(0), std::mem::size_of::<Record>(), std::mem::size_of::<listener_telemetry::Queue>(), stack_free_bytes, event_us(), EVENTS.dropped_full(), EVENTS.dropped_contended(), EVENTS.dropped_poisoned());
     }
 }
