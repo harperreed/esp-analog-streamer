@@ -18,6 +18,39 @@ LISTENER_RECEIPT = ('listener-telemetry: dropped=0 loss_occurred=false observed_
 
 
 class ModuleTests(unittest.TestCase):
+    def test_shared_observation_state_defaults_to_mp3_and_accepts_explicit_flac(self):
+        from encoder_probe_check import require_state
+        for output_format in ('mp3', 'flac'):
+            snapshot = json.loads(json.dumps(dict(state='stopped', active_format=output_format,
+                config=dict(output_format=output_format, buffer_preset='med', autoplay=False))))
+            app = json.loads('{"shazam_enabled":false}')
+            self.assertIsNone(require_state(snapshot, app, expected_format=output_format))
+            if output_format == 'mp3':
+                self.assertIsNone(require_state(snapshot, app))
+            else:
+                with self.assertRaises(ValueError):
+                    require_state(snapshot, app)
+            variants = [dict(snapshot, state='playing'),
+                        dict(snapshot, active_format='flac' if output_format == 'mp3' else 'mp3')]
+            for key, value in (('output_format', 'flac' if output_format == 'mp3' else 'mp3'),
+                               ('buffer_preset', 'low'), ('autoplay', True)):
+                variants.append(dict(snapshot, config=dict(snapshot['config'], **{key: value})))
+            for index, changed in enumerate(variants):
+                with self.subTest(output_format=output_format, gate=index), self.assertRaises(ValueError):
+                    require_state(changed, app, expected_format=output_format)
+                if output_format == 'mp3':
+                    with self.assertRaises(ValueError):
+                        require_state(changed, app)
+            for invalid_app in ({'shazam_enabled': True}, {}):
+                with self.assertRaises(ValueError):
+                    require_state(snapshot, invalid_app, expected_format=output_format)
+                if output_format == 'mp3':
+                    with self.assertRaises(ValueError):
+                        require_state(snapshot, invalid_app)
+        for unsupported in ('wav', 'FLAC', '', None):
+            with self.subTest(unsupported=unsupported), self.assertRaises(ValueError):
+                require_state(snapshot, app, expected_format=unsupported)
+
     def test_listener_reason_receipts_from_complete_real_files(self):
         import encoder_fault_check as encoder
         reasons = ' dropped_full=1 dropped_contended=2 dropped_poisoned=4294967295'

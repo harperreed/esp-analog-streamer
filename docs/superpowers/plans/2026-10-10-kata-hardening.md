@@ -643,3 +643,10 @@ so neither is a valid eight-second fixture. Weighted encoder rates remain
 0.785716x current versus 0.959784x archived, with eight versus one raw overruns.
 Both owned acquisitions completed naturally and cleaned up; the board remains
 archived unified default, stopped MP3/Medium. This closes no audio acceptance gate.
+
+The explicit expected-format acquisition extension passes focused tests,
+independent review, fresh-eyes and all 27 canonical stages (run.OAqOjceh).
+Shared require_state remains the source of truth; FLAC is limited to the strict
+90-second WAV acquisition. Next: parent selects saved and active FLAC while
+stopped on the archived image, collects the input, then explicitly restores MP3
+even after uncertain command delivery. If input fails, stop this collection route.

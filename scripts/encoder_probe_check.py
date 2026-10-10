@@ -46,12 +46,14 @@ def fields(line):
     return values
 
 
-def require_state(sonos, app):
+def require_state(sonos, app, expected_format='mp3'):
+    if expected_format not in ('mp3', 'flac'):
+        raise ValueError('Unsupported expected format: ' + str(expected_format))
     config = sonos['config']
-    if not (sonos['state'] == 'stopped' and sonos['active_format'] == 'mp3'
-            and config['output_format'] == 'mp3' and config['buffer_preset'] == 'med'
+    if not (sonos['state'] == 'stopped' and sonos['active_format'] == expected_format
+            and config['output_format'] == expected_format and config['buffer_preset'] == 'med'
             and config['autoplay'] is False and app.get('shazam_enabled') is False):
-        raise ValueError('Requires stopped MP3/med, autoplay false and shazam_enabled false')
+        raise ValueError(f'Requires stopped {expected_format.upper()}/med, autoplay false and shazam_enabled false')
 
 
 def storage_receipt(line, output_format='Mp3'):
