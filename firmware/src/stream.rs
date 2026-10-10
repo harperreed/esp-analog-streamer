@@ -1,9 +1,8 @@
 // ABOUTME: The LINE IN stream on port 8000: serves the selected compressed codec and diagnostic 24-bit WAV at 48 kHz stereo.
 // ABOUTME: One core 1 encoder shares compressed frames; listeners copy out before socket work and drop if they fall behind.
 
-use std::fmt;
 use std::io::{self, BufReader, Write};
-use std::net::{TcpListener, TcpStream};
+use std::net::{SocketAddr, TcpListener, TcpStream};
 use std::sync::atomic::{AtomicU32, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex, OnceLock};
 use std::time::{Duration, Instant};
@@ -27,6 +26,9 @@ use esp_shazam_core::wav;
 
 use crate::audio_in::{SharedStreamRing, CAPTURE_RATE_HZ};
 use crate::config::CONFIG;
+use crate::listener_telemetry::{
+    self, Departure, EndCode, ErrorCode, Payload, Record, RefusalReason, EVENTS,
+};
 use crate::psram::PsramBytes;
 use crate::socket_close;
 use crate::threads::ThreadSpec;
@@ -95,7 +97,7 @@ impl ListenerBuffer {
 /// Keeps the listener slot until its socket close succeeds, including spawn failure.
 struct ListenerConnection {
     resources: Option<ConnectionResources<TcpStream>>,
-    peer: String,
+    peer: Option<SocketAddr>,
 }
 
 impl ListenerConnection {
@@ -111,13 +113,14 @@ impl ListenerConnection {
 impl Drop for ListenerConnection {
     fn drop(&mut self) {
         if let Some(resources) = self.resources.take() {
-            match resources.close(socket_close::close) {
-                Ok((report, held)) => log::info!(
-                    "stream: {} socket closed in {} ms; releasing slot ({} held)",
-                    self.peer,
-                    report.elapsed.as_millis(),
-                    held
-                ),
+            match listener_telemetry::close_and_report(
+                resources,
+                &EVENTS,
+                self.peer,
+                event_us,
+                |socket| socket_close::close(socket).map(|report| report.elapsed),
+            ) {
+                Ok(()) => {}
                 Err(_failure) => {
                     // Keep the failure's owned socket and this slot alive through restart.
                     // Logging here could block recovery on a lock held by another task.
@@ -215,9 +218,8 @@ fn answer(
     runtime: &Arc<Runtime>,
     listeners: &Arc<AtomicUsize>,
 ) {
-    let peer = sock
-        .peer_addr()
-        .map_or_else(|_| "unknown peer".to_owned(), |addr| addr.to_string());
+    let peer_address = sock.peer_addr().ok();
+    let peer = peer_address.map_or_else(|| "unknown peer".to_owned(), |addr| addr.to_string());
     // One deadline for the whole head: a per-read timeout would let a client that sends a byte
     // every 1.9 s hold the accept thread for hours.
     let reader = DeadlineReader::new(&sock, Instant::now() + HEAD_TIMEOUT);
@@ -261,32 +263,33 @@ fn answer(
                 Some(slot) => {
                     let connection = ListenerConnection {
                         resources: Some(ConnectionResources::new(sock, slot, lease)),
-                        peer,
+                        peer: peer_address,
                     };
                     // Required frame storage is admitted before spawning or sending HTTP 200.
                     // A failed allocation cannot fall back to memory needed by DMA or stacks.
                     let buffer = match ListenerBuffer::try_new(format) {
                         Ok(buffer) => buffer,
                         Err(error) => {
-                            log::warn!(
-                                "stream: {}: listener buffer unavailable ({error})",
-                                connection.peer
-                            );
-                            send_refusal(
+                            listener_telemetry::send_admitted_refusal(
                                 connection.socket(),
-                                &connection.peer,
-                                &request_line,
-                                Status::ServiceUnavailable,
+                                &EVENTS,
+                                connection.peer,
+                                RefusalReason::BufferAllocation(ErrorCode::from(&error)),
+                                HEAD_TIMEOUT,
+                                &Status::ServiceUnavailable.response(),
+                                event_us,
                             );
                             return;
                         }
                     };
-                    log::info!(
-                        "stream: {} joined {} ({} of {MAX_LISTENERS})",
-                        connection.peer,
-                        format.path(),
-                        connection.resources.as_ref().unwrap().slot.taken()
-                    );
+                    EVENTS.publish(Record {
+                        event_us: event_us(),
+                        peer: connection.peer,
+                        payload: Payload::Joined {
+                            format,
+                            held: connection.resources.as_ref().unwrap().slot.taken(),
+                        },
+                    });
                     let ring = ring.clone();
                     // The owned connection's drop observes close even if no thread can be created.
                     if let Err(e) =
@@ -334,10 +337,11 @@ fn listen(
         .as_ref()
         .expect("listener owns resources")
         .lease;
-    let peer = &connection.peer;
+    let peer = connection.peer;
     let started = Instant::now();
+    let mut departure = None;
     let end = match buffer {
-        ListenerBuffer::Wav => stream_wav(sock, &ring),
+        ListenerBuffer::Wav => stream_wav(sock, &ring, peer),
         ListenerBuffer::Compressed(mut bytes) => {
             let mut metrics = ListenerMetrics::new(
                 lease
@@ -352,19 +356,27 @@ fn listen(
                 &lease.as_ref().expect("compressed lease").epoch,
                 bytes.as_mut_slice(),
                 preset,
+                peer,
                 &mut metrics,
             );
-            metrics.log_departure(peer);
+            departure = Some(metrics.departure());
             end
         }
     };
     // Integer tenths: formatting a float to a precision puts a 1 KB buffer on this small stack.
-    let tenths = started.elapsed().as_millis() / 100;
-    log::info!(
-        "stream: {peer} left after {}.{} s: {end}",
-        tenths / 10,
-        tenths % 10
-    );
+    let tenths = (started.elapsed().as_millis() / 100) as u64;
+    // SAFETY: NULL selects this live listener owner; IDF reports stack headroom in bytes.
+    let owner_stack_free_bytes = unsafe { sys::uxTaskGetStackHighWaterMark(std::ptr::null_mut()) };
+    EVENTS.publish(Record {
+        event_us: event_us(),
+        peer,
+        payload: Payload::Departure {
+            metrics: departure,
+            tenths,
+            end: EndCode::from(&end),
+            owner_stack_free_bytes,
+        },
+    });
     // The connection holds its slot through blocking close: queued payload gets two seconds to
     // drain, plus lwIP's 500 ms close poll and scheduling delay, before abort reclaims it. On this
     // routed path the final RST may never reach a stalled peer; board reclamation does not depend
@@ -372,21 +384,6 @@ fn listen(
     // cap bounds active/draining payloads rather than every TCP object. Failures retain the slot
     // until reboot instead of admitting another listener against uncertain resources.
     drop(connection);
-}
-
-impl fmt::Display for End {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            End::Retired => f.write_str("format epoch retired"),
-            End::FellBehind => f.write_str("fell a ring behind"),
-            End::StoppedReading => f.write_str("stopped reading"),
-            End::CaptureStalled => {
-                write!(f, "no fresh audio for {} s", FRESH_AUDIO_TIMEOUT.as_secs())
-            }
-            End::Failed(e) => write!(f, "{e}"),
-            End::InvalidFrame(e) => write!(f, "compressed frame invalid: {e}"),
-        }
-    }
 }
 
 /// How long writing one frame may take: as long as the ring holds. A listener that takes longer has
@@ -439,7 +436,7 @@ fn read_some(
 
 /// Sends the response head and the WAV header, then frames from the ring as they arrive, until the
 /// listener goes, stops reading, or falls a ring behind.
-fn stream_wav(sock: &TcpStream, ring: &SharedStreamRing) -> End {
+fn stream_wav(sock: &TcpStream, ring: &SharedStreamRing, peer: Option<SocketAddr>) -> End {
     let write_limit = frame_write_limit(ring.capacity());
     let Some(mut cursor) =
         cursor_before(ring, Instant::now() + FRESH_AUDIO_TIMEOUT, CAUGHT_UP_SLEEP)
@@ -452,7 +449,7 @@ fn stream_wav(sock: &TcpStream, ring: &SharedStreamRing) -> End {
     bytes.extend_from_slice(Format::Wav.response_head().as_bytes());
     bytes.extend_from_slice(&wav::endless_header_s24le(CAPTURE_RATE_HZ, 2));
     loop {
-        if let Err(e) = write_frame(&mut writer, &bytes, write_limit) {
+        if let Err(e) = write_frame(&mut writer, &bytes, write_limit, peer) {
             return End::from_write_error(e);
         }
         let frames_read = match read_some(ring, &mut cursor, &mut frames, None) {
@@ -467,22 +464,23 @@ fn stream_wav(sock: &TcpStream, ring: &SharedStreamRing) -> End {
 }
 
 /// Reports the real frame-write duration only when its existing absolute deadline times out.
-fn write_frame(writer: &mut DeadlineWriter<'_>, bytes: &[u8], limit: Duration) -> io::Result<()> {
+fn write_frame(
+    writer: &mut DeadlineWriter<'_>,
+    bytes: &[u8],
+    limit: Duration,
+    peer: Option<SocketAddr>,
+) -> io::Result<()> {
     let started = Instant::now();
     let result = writer.write_all_before(bytes, started + limit);
-    if let Err(error) = &result {
-        if matches!(
-            error.kind(),
-            io::ErrorKind::WouldBlock | io::ErrorKind::TimedOut
-        ) {
-            log::info!(
-                "stream: frame write timed out elapsed_ms={} limit_ms={} bytes={}",
-                started.elapsed().as_millis(),
-                limit.as_millis(),
-                bytes.len()
-            );
-        }
-    }
+    listener_telemetry::report_timeout(
+        &EVENTS,
+        peer,
+        &result,
+        started.elapsed().as_millis() as u64,
+        limit.as_millis() as u64,
+        bytes.len(),
+        event_us,
+    );
     result
 }
 
@@ -832,22 +830,21 @@ impl ListenerMetrics {
         }
     }
 
-    fn log_departure(&self, peer: &str) {
+    fn departure(&self) -> Departure {
         let (now, runtime) = EncoderMetrics::snapshot();
-        log::info!("stream-listener: peer={} elapsed_us={} task_runtime_us={} runtime_valid={} frames_sent={} bytes_sent={} frame_write_wall_total_us={} frame_write_wall_max_us={} frame_read_wait_wall_total_us={} block_samples={}",
-            peer, now - self.since_us, runtime.wrapping_sub(self.runtime_us),
-            now <= u64::from(u32::MAX), self.frames_sent, self.bytes_sent,
-            self.frame_write_wall_total_us, self.frame_write_wall_max_us,
-            self.frame_read_wait_wall_total_us, self.block_frames);
-        let d = &self.socket;
-        log::info!("stream-sender: peer={} payload_elapsed_us={} send_calls={} accepted_bytes={} short_sends={} send_would_block={} send_interrupted={} send_errors={} send_wall_total_us={} send_wall_max_us={} send_over_10ms={}",
-            peer, self.payload_elapsed_us, d.send_calls, d.accepted_bytes, d.short_sends,
-            d.send_would_block, d.send_interrupted, d.send_errors, d.send_wall_total_us,
-            d.send_wall_max_us, d.send_over_10ms);
-        log::info!("stream-sender-poll: peer={} poll_calls={} poll_ready={} poll_timeouts={} poll_interrupted={} poll_errors={} poll_error_ready={} poll_wall_total_us={} poll_wall_max_us={} poll_over_10ms={} ready_to_send_wall_max_us={} ready_then_would_block={}",
-            peer, d.poll_calls, d.poll_ready, d.poll_timeouts, d.poll_interrupted,
-            d.poll_errors, d.poll_error_ready, d.poll_wall_total_us, d.poll_wall_max_us,
-            d.poll_over_10ms, d.ready_to_send_wall_max_us, d.ready_then_would_block);
+        Departure {
+            elapsed_us: now - self.since_us,
+            task_runtime_us: runtime.wrapping_sub(self.runtime_us),
+            runtime_valid: now <= u64::from(u32::MAX),
+            frames_sent: self.frames_sent,
+            bytes_sent: self.bytes_sent,
+            frame_write_wall_total_us: self.frame_write_wall_total_us,
+            frame_write_wall_max_us: self.frame_write_wall_max_us,
+            frame_read_wait_wall_total_us: self.frame_read_wait_wall_total_us,
+            payload_elapsed_us: self.payload_elapsed_us,
+            block_samples: self.block_frames,
+            socket: self.socket,
+        }
     }
 }
 
@@ -859,6 +856,7 @@ fn stream_compressed(
     epoch: &Epoch,
     bytes: &mut [u8],
     preset: Option<BufferPreset>,
+    peer: Option<SocketAddr>,
     metrics: &mut ListenerMetrics,
 ) -> End {
     let origin = Instant::now();
@@ -883,15 +881,15 @@ fn stream_compressed(
                 let started = Instant::now();
                 let result =
                     writer.write_all_before(listener.write_bytes(bytes), origin + deadline);
-                if matches!(&result, Err(error) if matches!(error.kind(), io::ErrorKind::WouldBlock | io::ErrorKind::TimedOut))
-                {
-                    log::info!(
-                        "stream: frame write timed out elapsed_ms={} limit_ms={} bytes={}",
-                        started.elapsed().as_millis(),
-                        epoch.format.write_limit_ms(CONFIG.shazam_enabled),
-                        listener.write_bytes(bytes).len()
-                    );
-                }
+                listener_telemetry::report_timeout(
+                    &EVENTS,
+                    peer,
+                    &result,
+                    started.elapsed().as_millis() as u64,
+                    epoch.format.write_limit_ms(CONFIG.shazam_enabled),
+                    listener.write_bytes(bytes).len(),
+                    event_us,
+                );
                 if !header {
                     let us = started.elapsed().as_micros() as u64;
                     metrics.frame_write_wall_total_us += us;
@@ -909,11 +907,14 @@ fn stream_compressed(
         }
     };
     if listener.refuse_buffered {
-        send_refusal(
+        listener_telemetry::send_admitted_refusal(
             sock,
-            "buffered listener",
-            "buffer startup",
-            Status::ServiceUnavailable,
+            &EVENTS,
+            peer,
+            RefusalReason::BufferedStartup,
+            HEAD_TIMEOUT,
+            &Status::ServiceUnavailable.response(),
+            event_us,
         );
     }
     metrics.frame_read_wait_wall_total_us += listener.read_wait.as_micros() as u64;
@@ -932,4 +933,94 @@ fn log_probe_storage(raw: &SharedStreamRing, pump: &EncoderPump, worker: &Worker
         worker.bytes.as_ptr() as usize, worker.bytes.len(), worker.bytes.capacity(),
         worker.epoch.format.max_frame_bytes(), worker.encoder.mp3_storage_receipt());
     assert!(worker.bytes.capacity() >= worker.epoch.format.max_frame_bytes());
+}
+
+fn event_us() -> u64 {
+    // SAFETY: ESP-IDF is initialized and its monotonic timer is available to every task.
+    unsafe { sys::esp_timer_get_time() as u64 }
+}
+
+impl std::fmt::Display for EndCode {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Retired => f.write_str("format epoch retired"),
+            Self::FellBehind => f.write_str("fell a ring behind"),
+            Self::StoppedReading => f.write_str("stopped reading"),
+            Self::CaptureStalled => {
+                write!(f, "no fresh audio for {} s", FRESH_AUDIO_TIMEOUT.as_secs())
+            }
+            Self::Failed(error) => write!(
+                f,
+                "socket error kind={:?} raw_os_error={:?}",
+                error.kind, error.raw_os_error
+            ),
+            Self::InvalidFrame(error) => write!(
+                f,
+                "compressed frame invalid: kind={:?} raw_os_error={:?}",
+                error.kind, error.raw_os_error
+            ),
+        }
+    }
+}
+
+/// Called only by the existing metrics owner. Each record leaves the queue before output.
+pub(crate) fn export_listener_events() {
+    let mut first = None;
+    let mut last = None;
+    for _ in 0..2 {
+        let Some(record) = EVENTS.take() else {
+            break;
+        };
+        first = Some(first.map_or(record.event_us, |value: u64| value.min(record.event_us)));
+        last = Some(last.map_or(record.event_us, |value: u64| value.max(record.event_us)));
+        let peer = record
+            .peer
+            .map_or_else(|| "unknown peer".to_owned(), |peer| peer.to_string());
+        let event_us = record.event_us;
+        match record.payload {
+            Payload::Joined { format, held } => log::info!("stream: {peer} joined {} ({held} of {MAX_LISTENERS}) event_us={event_us}", format.path()),
+            Payload::Closed { elapsed_ms, held } => log::info!("stream: {peer} socket closed in {elapsed_ms} ms; releasing slot ({held} held) event_us={event_us}"),
+            Payload::Timeout { elapsed_ms, limit_ms, bytes } => log::info!("stream: frame write timed out elapsed_ms={elapsed_ms} limit_ms={limit_ms} bytes={bytes} peer={peer} event_us={event_us}"),
+            Payload::Refusal { reason, status, response_error } => {
+                let (reason, allocation_error) = match reason {
+                    RefusalReason::BufferedStartup => ("BufferedStartup", None),
+                    RefusalReason::BufferAllocation(error) => ("BufferAllocation", Some(error)),
+                };
+                log::info!("stream: {peer} admitted refusal reason={reason} status={status} allocation_error={allocation_error:?} event_us={event_us}");
+                if let Some(error) = response_error {
+                    log::info!("stream: {peer}: response not sent (kind={:?} raw_os_error={:?}) event_us={event_us}", error.kind, error.raw_os_error);
+                }
+            }
+            Payload::Departure { metrics, tenths, end, owner_stack_free_bytes } => {
+                if let Some(m) = metrics {
+                    log::info!("stream-listener: peer={} elapsed_us={} task_runtime_us={} runtime_valid={} frames_sent={} bytes_sent={} frame_write_wall_total_us={} frame_write_wall_max_us={} frame_read_wait_wall_total_us={} block_samples={} listener_stack_free_bytes={} event_us={}",
+                        peer, m.elapsed_us, m.task_runtime_us, m.runtime_valid, m.frames_sent, m.bytes_sent,
+                        m.frame_write_wall_total_us, m.frame_write_wall_max_us, m.frame_read_wait_wall_total_us,
+                        m.block_samples, owner_stack_free_bytes, event_us);
+                    let d = m.socket;
+                    log::info!("stream-sender: peer={} payload_elapsed_us={} send_calls={} accepted_bytes={} short_sends={} send_would_block={} send_interrupted={} send_errors={} send_wall_total_us={} send_wall_max_us={} send_over_10ms={} event_us={}",
+                        peer, m.payload_elapsed_us, d.send_calls, d.accepted_bytes, d.short_sends,
+                        d.send_would_block, d.send_interrupted, d.send_errors, d.send_wall_total_us,
+                        d.send_wall_max_us, d.send_over_10ms, event_us);
+                    log::info!("stream-sender-poll: peer={} poll_calls={} poll_ready={} poll_timeouts={} poll_interrupted={} poll_errors={} poll_error_ready={} poll_wall_total_us={} poll_wall_max_us={} poll_over_10ms={} ready_to_send_wall_max_us={} ready_then_would_block={} event_us={}",
+                        peer, d.poll_calls, d.poll_ready, d.poll_timeouts, d.poll_interrupted,
+                        d.poll_errors, d.poll_error_ready, d.poll_wall_total_us, d.poll_wall_max_us,
+                        d.poll_over_10ms, d.ready_to_send_wall_max_us, d.ready_then_would_block, event_us);
+                }
+                log::info!("stream: {peer} left after {}.{} s: {end} listener_stack_free_bytes={owner_stack_free_bytes} event_us={event_us}", tenths / 10, tenths % 10);
+            }
+        }
+    }
+    // Emit after each nonempty batch or whenever loss changed, including a poisoned queue.
+    static LAST_DROPPED: AtomicU32 = AtomicU32::new(0);
+    let dropped = EVENTS.dropped();
+    let loss_changed = LAST_DROPPED.swap(dropped, Ordering::Relaxed) != dropped;
+    static LOSS_REPORTED: AtomicU32 = AtomicU32::new(0);
+    let first_loss = EVENTS.loss_occurred() && LOSS_REPORTED.swap(1, Ordering::Relaxed) == 0;
+    if first.is_some() || loss_changed || first_loss {
+        // SAFETY: this call runs on the live audio-metrics owner, once per exported batch.
+        let stack_free_bytes = unsafe { sys::uxTaskGetStackHighWaterMark(std::ptr::null_mut()) };
+        log::info!("listener-telemetry: dropped={} loss_occurred={} observed_event_range_valid={} observed_event_min_us={} observed_event_max_us={} record_bytes={} queue_bytes={} metrics_stack_free_bytes={} export_us={}",
+            dropped, EVENTS.loss_occurred(), first.is_some(), first.unwrap_or(0), last.unwrap_or(0), std::mem::size_of::<Record>(), std::mem::size_of::<listener_telemetry::Queue>(), stack_free_bytes, event_us());
+    }
 }

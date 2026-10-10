@@ -16,6 +16,7 @@ from pathlib import Path
 
 from decoder_integrity import FrameHash, validate_decoder_log
 from stream_format import input_format_args
+from encoder_fault_check import completed_listener_closes, checked_listener_closes, validate_listener_export, listener_event_ms
 
 
 class Failure(Exception):
@@ -55,14 +56,54 @@ def wait_for(check, seconds, reason, read_lines):
     deadline = time.monotonic() + seconds
     while True:
         current = read_lines()
+        try:
+            validate_listener_export(current)
+        except RuntimeError as error:
+            raise Failure(str(error)) from error
         if any('marker=FAIL_' in line or 'PRESSURE_FAILED' in line or 'INTERNAL_FAILED' in line or 'wav-freshness: marker=FAIL ' in line for line in current):
             raise Failure('fixture reported failure; see private uart.log')
         result = check()
         if result is not None:
+            final = read_lines()
+            try:
+                validate_listener_export(final)
+            except RuntimeError as error:
+                raise Failure(str(error)) from error
+            if any('marker=FAIL_' in line or 'PRESSURE_FAILED' in line or 'INTERNAL_FAILED' in line or 'wav-freshness: marker=FAIL ' in line for line in final):
+                raise Failure('fixture reported failure; see private uart.log')
             return result
         if time.monotonic() >= deadline:
             raise Failure(reason)
         time.sleep(0.05)
+
+
+def wait_for_listener_close(read_lines, wait, after=0, seconds=4, require_departure=True,
+                            departure_pattern=None, held=None):
+    def find():
+        current = read_lines()
+        try:
+            closed = checked_listener_closes(current[after:], require_departure=require_departure,
+                                             departure_pattern=departure_pattern)
+        except RuntimeError as error:
+            raise Failure(str(error)) from error
+        for index, found in closed:
+            if held is None or re.search(rf'\({held} held\)', found.group(0)):
+                return after + index, found
+    return wait(find, seconds, 'missing listener departure/checked-close/batch evidence')
+
+
+def wait_for_internal_refusal_close(read_lines, wait, after):
+    return wait_for_listener_close(read_lines, wait, after=after, seconds=3,
+                                   require_departure=False, held=1)
+
+
+def wait_for_capture_baseline_close(read_lines, wait, after):
+    return wait_for_listener_close(read_lines, wait, after=after, seconds=4, held=1)
+
+
+def wait_for_capture_freshness_close(read_lines, wait, after):
+    return wait_for_listener_close(read_lines, wait, after=after, seconds=2,
+                                   departure_pattern='no fresh audio for 2 s')
 
 
 def duration(job):
@@ -427,7 +468,7 @@ def main(argv=None):
             for peer in (0, 1):
                 if not any(re.search(rf'wav-freshness: marker=DATA id={peer} bytes=\d+ ms=', line) for line in before_data):
                     raise Failure('both loopback WAV peers must establish byte progress before suspension')
-            resumed, _ = wav_marker('RESUME', after=suspended + 1, seconds=6)
+            resumed, resume_receipt = wav_marker('RESUME', after=suspended + 1, seconds=6)
             for peer in (0, 1):
                 matches = [line for line in lines()[suspended + 1:resumed]
                            if re.search(rf'wav-freshness: marker=EOF id={peer}\b', line)]
@@ -436,7 +477,7 @@ def main(argv=None):
                 at = re.search(r'\bms=(\d+)', matches[0])
                 if at is None or not 1_800 <= int(at.group(1)) - suspension['ms'] <= 3_400:
                     raise Failure(f'loopback WAV peer {peer} EOF outside 1.8–3.4 s freshness bound')
-            recovery, _ = wav_marker('RECOVERY_CONNECT', after=resumed + 1, seconds=4)
+            recovery, recovery_receipt = wav_marker('RECOVERY_CONNECT', after=resumed + 1, seconds=4)
             assertions = lines()[resumed + 1:recovery]
             for peer in (0, 1):
                 matching = [line for line in assertions if re.search(rf'EOF_ASSERT id={peer} elapsed_ms=\d+', line)]
@@ -447,14 +488,20 @@ def main(argv=None):
                 if not any(re.search(rf'wav-freshness: marker=DATA id={peer} bytes=\d+ ms=', line)
                            for line in lines()[recovery:completed_at]):
                     raise Failure('recovered loopback WAV header/data assertions missing')
-            freshness = lines()[suspended:recovery]
+            wait(lambda: True if len(completed_listener_closes(lines()[suspended:])) >= 2 else None,
+                 4, 'original WAV listeners lack departure/checked-close evidence')
+            prefix = re.search(r'\(\s*(\d+)\)', lines()[suspended])
+            if prefix is None or 'ms' not in resume_receipt:
+                raise Failure('missing WAV event-clock receipt')
+            clock_offset = int(prefix.group(1)) - suspension['ms']
+            freshness = [line for line in lines()[suspended:] if 'left after ' in line and
+                         suspension['ms'] <= listener_event_ms(line, clock_offset) <= resume_receipt['ms']]
             if sum('stream:' in line and 'no fresh audio for 2 s' in line for line in freshness) != 2:
                 raise Failure('both WAV peers require production no-fresh closures')
             request, _ = uart_match(r'audio: no captured-frame progress .*requesting restart', after=suspended + 1, seconds=1)
             if request >= resumed:
                 raise Failure('production restart request did not precede capture resume')
-            wait(lambda: True if sum('socket closed' in line and 'releasing slot' in line
-                                    for line in lines()[recovery:]) >= 2 else None,
+            wait(lambda: True if len(completed_listener_closes(lines()[suspended:], after_event_ms=recovery_receipt['ms'])) >= 2 else None,
                  6, 'recovered loopback listener server sockets did not close')
             first_after, _ = uart_match(r'audio: frames=', after=completed_at + 1, seconds=12)
             restored = telemetry(after=resumed, before=first_after + 1)[-1]
@@ -504,8 +551,7 @@ def main(argv=None):
             # newly admitted streams after production reconnect are required.
             for job in original:
                 stop_process(job['process'])
-            wait(lambda: True if sum('socket closed' in line and 'releasing slot' in line
-                                    for line in lines()[request:]) >= 2 else None,
+            wait(lambda: True if len(completed_listener_closes(lines()[request:])) >= 2 else None,
                  12, 'original network listener sockets did not close before fresh admissions')
             state_ready(5)
             pair(10, 'network-recovered')
@@ -541,8 +587,7 @@ def main(argv=None):
                 pthread_failed, _ = uart_match(r'pthread: Failed to create task!', after=request_start, seconds=3)
                 no_thread, _ = uart_match(r'stream: no thread for a listener: .*?(?:os error 12|ENOMEM)',
                                           after=request_start, seconds=3)
-                closed, _ = uart_match(r'stream: .*socket closed in \d+ ms; releasing slot \(1 held\)',
-                                       after=request_start, seconds=3)
+                closed, _ = wait_for_internal_refusal_close(lines, wait, request_start)
                 evidence[f'internal_refusal_{attempt}'] = dict(pthread_failure_line=pthread_failed, no_thread_line=no_thread, checked_close_line=closed)
             state_ready(3)
             ended, _ = uart_match(r'INTERNAL_END\b', after=ready, seconds=25)
@@ -617,7 +662,7 @@ def main(argv=None):
             if args.listeners == 1:
                 close_after = len(lines())
                 stop_process(baseline['process'])
-                uart_match(r'stream: .*socket closed .*releasing slot \(1 held\)', after=close_after, seconds=4)
+                wait_for_capture_baseline_close(lines, wait, close_after)
                 observer = drain_observer()
                 if any('marker=RECOVERY_SUSPEND' in line for line in lines()):
                     raise Failure('single EOF observer was not established before recovery suspension')
@@ -631,7 +676,7 @@ def main(argv=None):
             if observer['eof'] < suspended_at:
                 raise Failure('existing client ended before recovery suspension')
             record('freshness_eof', seconds_after_marker=round(observer['eof'] - suspended_at, 3), maximum_seconds=4.5)
-            uart_match(r'stream: .*no fresh audio for 2 s', after=recovery, seconds=2)
+            wait_for_capture_freshness_close(lines, wait, recovery)
             resumed = marker('RECOVERY_RESUME', after=recovery, seconds=3)
             recovery_restart, _ = uart_match(r'audio: no captured-frame progress .*requesting restart', after=recovery, seconds=1)
             if recovery_restart >= resumed:

@@ -311,3 +311,24 @@ must invalidate diagnostic acceptance. No new task, playback policy, socket
 ownership policy, per-frame allocation or firmware fallback is authorized by
 this unit. Existing audit authorization covers this routine implementation;
 the broader recovery and admission architecture decisions remain separate.
+
+Evidence checkpoint is 0ef0e3e. Listener-only 21tp implementation is uncommitted;
+its durable brief is 2026-10-10-listener-telemetry.md. The first full canonical
+run passed all 27 stages (check-listener-telemetry.log). Independent task review
+still requests three acceptance fixes: validating a different UART snapshot
+from the success predicate, malformed/missing receipt fields, and remaining
+raw-close waits without batch completion. Fix round 1 goes to the original
+Sol 6.1 implementer. No new firmware has been flashed. Hardware remains on the
+saved normal control image, stopped MP3/Medium with autoplay off.
+
+Fix round 1 addressed all three findings with real-file and production-helper
+regressions. Independent scoped review reports no new finding. The final
+canonical run passed all 27 stages (check-listener-telemetry-final.log); final
+harness coverage includes 25 probe, four noise and 18 module tests. Both target
+builds pass, feature IRAM checks pass and the allocation-query symbol remains
+feature-only. The target queue symbol occupies 2008 bytes; observed DRAM data
+plus BSS grows by 2008 bytes against the saved normal control. This is not a
+live heap or stack margin measurement. See listener-telemetry-build.md evidence.
+Next: parent-owned bounded MP3 soak/slow-reader validation, retaining separate
+scenario failures and measured cleanup/stack/heap results. No hardware run or
+full 21tp completion is claimed at this implementation checkpoint.

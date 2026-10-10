@@ -14,7 +14,7 @@ import threading
 import time
 import wave
 
-from encoder_fault_check import check_budget, read_uart_lines
+from encoder_fault_check import check_budget, read_uart_lines, validate_listener_export, listener_event_ms
 
 FAULTS = ('queue_overflows', 'software_dropped_frames', 'read_errors', 'restarts',
           'supervisor_restarts', 'overflow_restarts', 'discontinuities', 'health_restart_requests')
@@ -109,6 +109,17 @@ def analyze(lines):
         line = re.sub(r'\x1b\[[0-9;]*m', '', raw)
         row = dict(line=index + 1, host_monotonic=stamp, raw=raw)
         try:
+            if 'listener-telemetry:' in line:
+                try:
+                    validate_listener_export([line])
+                except RuntimeError as error:
+                    errors.append(f'line {index+1}: {error}')
+            if ('event_us=' in line and ('stream-listener:' in line or 'stream-sender:' in line
+                    or re.search(r'stream: .* (joined |left after |socket closed )', line))):
+                row['event_ms'] = listener_event_ms(line)
+                # No common clock receipt ties deferred listener events to probe windows.
+                # Reject the acquisition rather than place the event at its UART arrival.
+                errors.append(f'delayed listener activity has ambiguous probe window at line {index+1}')
             if 'audio: frames=' in line:
                 row['counters'] = fields(line)
                 captures.append(row)
@@ -207,7 +218,7 @@ def analyze(lines):
                 row['errors'] = problem
                 current['errors'].extend(f'line {index+1}: {item}' for item in problem)
                 previous = row
-        except (ValueError, KeyError, TypeError, IndexError) as error:
+        except (ValueError, KeyError, TypeError, IndexError, RuntimeError) as error:
             (current['errors'] if current else errors).append(f'line {index+1}: {error}')
             pending = previous = None
     if pending is not None:

@@ -798,3 +798,9 @@ The October 10 probe lost raw history while a matched normal-image control kept
 up over 320 capture-covered seconds. Keep failed sequences and image identities;
 that association does not identify timing, code placement or cache as the cause.
 See docs/audit-evidence/2026-10-10/encoder-default-control.md.
+
+Asynchronous close logs need a later complete batch receipt before tests accept
+them. Otherwise a lost-record warning can arrive after a false pass. Validate
+the same or a newer append-only UART snapshot after the success callback; require
+the sticky loss flag and unique, bounded receipt fields. Use producer event time
+for delayed records, and distinguish pre-listener close from playback departure.

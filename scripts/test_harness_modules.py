@@ -12,6 +12,11 @@ import unittest
 from pathlib import Path
 
 
+LISTENER_RECEIPT = ('listener-telemetry: dropped=0 loss_occurred=false observed_event_range_valid=true '
+                    'observed_event_min_us=1000 observed_event_max_us=2000 record_bytes=248 '
+                    'queue_bytes=2016 metrics_stack_free_bytes=512 export_us=3000')
+
+
 class ModuleTests(unittest.TestCase):
     def test_imports_and_parsers(self):
         for name in ('fault_check', 'encoder_fault_check', 'stream_soak', 'stream_check'):
@@ -52,6 +57,111 @@ class ModuleTests(unittest.TestCase):
                 path.write_text(failure_line+'\n')
                 with self.assertRaisesRegex(failure, 'fixture'):
                     wait(lambda: True, 0, 'never')
+
+    def test_listener_loss_rejects_success_before_wait_returns(self):
+        import fault_check as fault
+        import encoder_fault_check as encoder
+        for module, failure in [(fault, fault.Failure), (encoder, RuntimeError)]:
+            kwargs = dict(read_lines=lambda: ['listener-telemetry: dropped=0 loss_occurred=true observed_event_range_valid=false'])
+            if module is encoder:
+                kwargs['check_output_budget'] = lambda: None
+            with self.assertRaisesRegex(failure, 'listener telemetry'):
+                module.wait_for(lambda: True, 0, 'never', **kwargs)
+
+    def test_listener_export_rejects_malformed_and_duplicate_loss_fields(self):
+        import encoder_fault_check as encoder
+        for line in ['listener-telemetry: dropped=0 dropped=1',
+                     'listener-telemetry: dropped=0 loss_occurred=unknown',
+                     'listener-telemetry: dropped=-1',
+                     'listener-telemetry: dropped=0 loss_occurred=false loss_occurred=true']:
+            with self.subTest(line=line), self.assertRaises(RuntimeError):
+                encoder.validate_listener_export([line])
+
+    def test_sender_event_time_uses_producer_stamp_and_requires_departure_before_close(self):
+        import encoder_fault_check as encoder
+        self.assertEqual(encoder.listener_event_ms('I (9999) stream: peer left after 1.0 s: stopped reading event_us=1250000', 9000), 1250)
+        lines = ['I (9999) stream: 127.0.0.1:9 socket closed in 2 ms; releasing slot (1 held) event_us=1500000']
+        self.assertEqual(encoder.completed_listener_closes(lines), [])
+        lines.insert(0, 'I (9998) stream: 127.0.0.1:9 left after 1.0 s: stopped reading event_us=1250000')
+        self.assertEqual(encoder.completed_listener_closes(lines), [])
+        lines.append(LISTENER_RECEIPT.replace('observed_event_min_us=1000', 'observed_event_min_us=1250000').replace('observed_event_max_us=2000', 'observed_event_max_us=1500000').replace('export_us=3000', 'export_us=1600000'))
+        self.assertEqual(len(encoder.completed_listener_closes(lines)), 1)
+        self.assertEqual(encoder.completed_listener_closes(lines, after_event_ms=1600), [])
+        with self.assertRaisesRegex(RuntimeError, 'event_us'):
+            encoder.listener_event_ms('stream: peer left after 1.0 s event_us=broken')
+
+    def test_wait_revalidates_real_file_changed_by_success_callback(self):
+        import fault_check as fault
+        import encoder_fault_check as encoder
+        for module, failure in [(fault, fault.Failure), (encoder, RuntimeError)]:
+            with self.subTest(module=module.__name__), tempfile.TemporaryDirectory() as directory:
+                path=Path(directory)/'uart.log'
+                path.write_text('before callback\n')
+                def check():
+                    with path.open('a') as stream:
+                        stream.write(LISTENER_RECEIPT.replace('dropped=0', 'dropped=1').replace('loss_occurred=false', 'loss_occurred=true')+'\nmarker=READY\n')
+                    return True if 'marker=READY' in ''.join(module.read_uart_lines(path)) else None
+                kwargs=dict(read_lines=lambda: module.read_uart_lines(path))
+                if module is encoder:
+                    kwargs['check_output_budget']=lambda: None
+                with self.assertRaisesRegex(failure, 'listener telemetry'):
+                    module.wait_for(check, 0, 'not ready', **kwargs)
+
+    def test_receipts_require_unique_bounded_fields_and_ordered_event_range(self):
+        import encoder_fault_check as encoder
+        invalid = [LISTENER_RECEIPT.replace('loss_occurred=false ', ''),
+                   LISTENER_RECEIPT.replace('observed_event_range_valid=true', 'observed_event_range_valid=trueBAD'),
+                   LISTENER_RECEIPT.replace('observed_event_min_us=1000', 'observed_event_min_us=9999 observed_event_min_us=1000'),
+                   LISTENER_RECEIPT.replace('observed_event_min_us=1000', 'observed_event_min_us=2001'),
+                   LISTENER_RECEIPT.replace('observed_event_max_us=2000', 'observed_event_max_us=18446744073709551616'),
+                   LISTENER_RECEIPT.replace('dropped=0', 'dropped=4294967296'),
+                   LISTENER_RECEIPT.replace('observed_event_range_valid=true', 'observed_event_range_valid=false'),
+                   LISTENER_RECEIPT.replace('export_us=3000', 'export_us=1999')]
+        for key in ('dropped', 'loss_occurred', 'observed_event_range_valid', 'observed_event_min_us', 'observed_event_max_us', 'record_bytes', 'queue_bytes', 'metrics_stack_free_bytes', 'export_us'):
+            token=next(token for token in LISTENER_RECEIPT.split() if token.startswith(key+'='))
+            invalid.extend([LISTENER_RECEIPT.replace(token,''), LISTENER_RECEIPT+' '+token])
+        left='stream: p left after 1.0 s: stopped reading event_us=1000'
+        close='stream: p socket closed in 2 ms; releasing slot (1 held) event_us=2000'
+        for receipt in invalid:
+            with self.subTest(receipt=receipt), self.assertRaisesRegex(RuntimeError, 'listener telemetry'):
+                encoder.completed_listener_closes([left,close,receipt])
+        self.assertEqual(len(encoder.completed_listener_closes([left,close,LISTENER_RECEIPT])),1)
+
+    def test_fault_production_close_waits_require_batch_and_correct_departure(self):
+        import fault_check as fault
+        close='stream: p socket closed in 2 ms; releasing slot (1 held) event_us=2000'
+        left='stream: p left after 1.0 s: no fresh audio for 2 s event_us=1000'
+        with tempfile.TemporaryDirectory() as directory:
+            path=Path(directory)/'uart.log'
+            read=lambda: fault.read_uart_lines(path)
+            # Run the same three domain operations used by main, with the real
+            # wait/reader and a zero observation budget for these static files.
+            wait=lambda check, seconds, reason: fault.wait_for(check,0,reason,read)
+            for operation, departure_required in [(fault.wait_for_internal_refusal_close,False),
+                                                  (fault.wait_for_capture_baseline_close,True),
+                                                  (fault.wait_for_capture_freshness_close,True)]:
+                for rows in [[left,close],[left,LISTENER_RECEIPT],[close,LISTENER_RECEIPT]]:
+                    if not departure_required and rows == [close,LISTENER_RECEIPT]:
+                        continue
+                    path.write_text('\n'.join(rows)+'\n')
+                    with self.subTest(operation=operation.__name__,rows=rows), self.assertRaises(fault.Failure):
+                        operation(read,wait,0)
+                path.write_text('\n'.join(([left] if departure_required else [])+[close,LISTENER_RECEIPT])+'\n')
+                index,found=operation(read,wait,0)
+                self.assertIn('socket closed',found.group(0))
+                self.assertEqual(index,1 if departure_required else 0)
+            for rows in [[left.replace('p left','other left'),close,LISTENER_RECEIPT],
+                         [left.replace('no fresh audio for 2 s','stopped reading'),close,LISTENER_RECEIPT]]:
+                path.write_text('\n'.join(rows)+'\n')
+                with self.assertRaises(fault.Failure):
+                    fault.wait_for_capture_freshness_close(read,wait,0)
+
+    def test_close_without_producer_time_cannot_certify_a_batch(self):
+        import encoder_fault_check as encoder
+        rows=['stream: p left after 1.0 s: stopped reading',
+              'stream: p socket closed in 2 ms; releasing slot (1 held)',LISTENER_RECEIPT]
+        for departure_required in (False,True):
+            self.assertEqual(encoder.checked_listener_closes(rows,require_departure=departure_required),[])
 
     def test_imports_have_no_runtime_side_effects(self):
         scripts = Path(__file__).resolve().parent

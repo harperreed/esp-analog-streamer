@@ -7,6 +7,7 @@ mod capture_fixture;
 mod codec;
 mod config;
 mod i2s_capture;
+mod listener_telemetry;
 mod mqtt_out;
 mod net;
 mod psram;

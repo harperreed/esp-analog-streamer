@@ -383,6 +383,7 @@ fn metrics() {
             }
             next_log = now + 10_000_000;
         }
+        crate::stream::export_listener_events();
         std::thread::sleep(Duration::from_millis(100));
     }
 }

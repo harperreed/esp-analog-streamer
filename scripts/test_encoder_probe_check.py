@@ -279,6 +279,25 @@ import encoder_probe_check
         rows.insert(10, (40, 'stream-listener: peer=redacted elapsed_us=1'))
         self.assertFalse(probe.analyze(rows)['valid_sequence'])
 
+    def test_export_loss_and_delayed_listener_activity_reject_probe_acceptance(self):
+        for line in ['listener-telemetry: dropped=1 observed_event_range_valid=false',
+                     'stream: 127.0.0.1:9 left after 1.0 s: stopped reading event_us=1250000']:
+            rows = records() + [(1000, line)]
+            self.assertFalse(probe.analyze(rows)['valid_sequence'])
+
+    def test_probe_rejects_incomplete_or_ambiguous_listener_batch_receipts(self):
+        receipt=('listener-telemetry: dropped=0 loss_occurred=false observed_event_range_valid=true '
+                 'observed_event_min_us=1000 observed_event_max_us=2000 record_bytes=248 '
+                 'queue_bytes=2016 metrics_stack_free_bytes=512 export_us=3000')
+        self.assertTrue(probe.analyze(records()+[(1000,receipt)])['valid_sequence'])
+        for invalid in [receipt.replace('loss_occurred=false ', ''),
+                        receipt.replace('observed_event_range_valid=true','observed_event_range_valid=trueBAD'),
+                        receipt+' observed_event_min_us=0',
+                        receipt.replace('observed_event_min_us=1000','observed_event_min_us=2001'),
+                        receipt.replace('observed_event_max_us=2000','observed_event_max_us=18446744073709551616')]:
+            with self.subTest(receipt=invalid):
+                self.assertFalse(probe.analyze(records()+[(1000,invalid)])['valid_sequence'])
+
     def test_offline_arrivals_reconstruct_complete_records(self):
         with tempfile.TemporaryDirectory() as directory:
             out = Path(directory)

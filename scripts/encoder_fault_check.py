@@ -19,6 +19,107 @@ def read_uart_lines(uart):
     return [line.decode('utf-8', errors='replace') for line in uart.read_bytes().split(b'\n')[:-1]] if uart.exists() else []
 
 
+def listener_export_receipt(line):
+    """Parse the complete fixed exporter receipt; ambiguous evidence cannot certify close."""
+    line = re.sub(r'\x1b\[[0-9;]*m', '', line)
+    bounds = dict(dropped=2**32-1, observed_event_min_us=2**64-1,
+                  observed_event_max_us=2**64-1, record_bytes=2**32-1,
+                  queue_bytes=2**32-1, metrics_stack_free_bytes=2**32-1,
+                  export_us=2**64-1)
+    values = {}
+    for key in (*bounds, 'loss_occurred', 'observed_event_range_valid'):
+        tokens = re.findall(r'\b' + key + r'=([^\s]+)', line)
+        if len(tokens) != 1 or len(re.findall(r'\b' + key + '=', line)) != 1:
+            raise RuntimeError('listener telemetry missing or duplicate field: ' + key)
+        token = tokens[0]
+        if key in bounds:
+            maximum = bounds[key]
+            if (not re.fullmatch(r'[0-9]+', token) or len(token) > len(str(maximum))
+                    or int(token) > maximum):
+                raise RuntimeError('listener telemetry invalid bounded number: ' + key)
+            values[key] = int(token)
+        else:
+            if token not in ('true', 'false'):
+                raise RuntimeError('listener telemetry invalid boolean: ' + key)
+            values[key] = token == 'true'
+    low, high = values['observed_event_min_us'], values['observed_event_max_us']
+    if ((values['observed_event_range_valid'] and not low <= high <= values['export_us'])
+            or (not values['observed_event_range_valid'] and (low != 0 or high != 0))
+            or values['record_bytes'] == 0 or values['queue_bytes'] == 0):
+        raise RuntimeError('listener telemetry invalid event range or storage size')
+    return values
+
+
+def validate_listener_export(lines):
+    """Loss makes listener-based acceptance unknown, even when the last count wraps."""
+    for line in lines:
+        if 'listener-telemetry:' in line:
+            values = listener_export_receipt(line)
+            if values['dropped'] != 0 or values['loss_occurred']:
+                raise RuntimeError('listener telemetry export loss')
+
+
+def listener_event_us(line):
+    line = re.sub(r'\x1b\[[0-9;]*m', '', line)
+    found = re.findall(r'\bevent_us=([0-9]+)(?=\s|$)', line)
+    if (len(found) != 1 or len(re.findall(r'\bevent_us=', line)) != 1
+            or len(found[0]) > 20 or int(found[0]) > 2**64-1):
+        raise RuntimeError('missing or malformed listener event_us')
+    return int(found[0])
+
+
+def listener_event_ms(line, rtos_minus_esp_timer_ms=0):
+    """Use production event time; the UART prefix timestamps delayed output."""
+    if 'event_us=' in line:
+        return listener_event_us(line) / 1000
+    stamp = re.search(r'\(\s*(\d+)\)', line)
+    if stamp is None:
+        raise RuntimeError('missing listener event timestamp')
+    return int(stamp.group(1)) - rtos_minus_esp_timer_ms
+
+
+def checked_listener_closes(lines, require_departure=True, after_event_ms=None,
+                            departure_pattern=None):
+    """Return indexed checked-close evidence with its required departure and batch receipt."""
+    validate_listener_export(lines)
+    receipts = [(index, listener_export_receipt(line)) for index, line in enumerate(lines)
+                if 'listener-telemetry:' in line]
+    departures, closed = {}, []
+    for index, line in enumerate(lines):
+        left = re.search(r'stream: (.*?) left after ', line)
+        if left:
+            departures[left.group(1)] = line
+        close = re.search(r'stream: (.*?) socket closed in \d+ ms; releasing slot \(\d+ held\)', line)
+        if close is None:
+            continue
+        departure = departures.get(close.group(1))
+        if require_departure and departure is None:
+            continue
+        if departure_pattern is not None and (departure is None or not re.search(departure_pattern, departure)):
+            continue
+        # Every new checked-close record carries producer time. Missing provenance
+        # cannot be certified by an unrelated batch or by its UART arrival prefix.
+        if 'event_us=' not in line or (require_departure and 'event_us=' not in departure):
+            continue
+        at = listener_event_us(line)
+        left_at = listener_event_us(departure) if departure is not None else at
+        if at < left_at:
+            raise RuntimeError('listener close precedes departure')
+        if after_event_ms is not None and left_at / 1000 < after_event_ms:
+            continue
+        if not any(receipt_index > index and receipt['observed_event_range_valid'] and
+                   receipt['observed_event_min_us'] <= at <= receipt['observed_event_max_us']
+                   for receipt_index, receipt in receipts):
+            continue
+        closed.append((index, close))
+        departures.pop(close.group(1), None)
+    return closed
+
+
+def completed_listener_closes(lines, after_event_ms=None):
+    return [lines[index] for index, _ in checked_listener_closes(lines, after_event_ms=after_event_ms)]
+
+
 def check_budget(out, budget=128 * 1024 * 1024):
     total = sum(path.stat().st_size for path in out.iterdir() if path.is_file())
     if total > budget:
@@ -29,10 +130,16 @@ def wait_for(check, seconds, reason, read_lines, check_output_budget):
     deadline = time.monotonic() + seconds
     while True:
         check_output_budget()
-        if any('encoder-faults: marker=FAIL' in line for line in read_lines()):
+        current = read_lines()
+        validate_listener_export(current)
+        if any('encoder-faults: marker=FAIL' in line for line in current):
             raise RuntimeError('fixture failure; see private UART log')
         value = check()
         if value is not None:
+            final = read_lines()
+            validate_listener_export(final)
+            if any('encoder-faults: marker=FAIL' in line for line in final):
+                raise RuntimeError('fixture failure; see private UART log')
             return value
         if time.monotonic() >= deadline:
             raise RuntimeError(reason)
@@ -235,14 +342,14 @@ def main(argv=None):
         evidence['eof_seconds_after_estimated_suspend']=[value-estimated_suspend for value in eof]
         evidence['timing_note']='ARM receipt plus saved esp_timer delta; UART delivery uncertainty remains, 100ms early tolerance. RTOS log prefixes converted via paired ARM clock samples with tick quantization.'
         evidence['rtos_minus_esp_timer_ms']=arm_clock_offset
-        interval=[]
-        for line in lines()[armed:resumed+1]:
-            stamp=re.search(r'\(\s*(\d+)\)',line)
-            if stamp and suspend_ms<=int(stamp.group(1))-arm_clock_offset<=resume_ms:
-                interval.append(line)
+        wait(lambda: True if len(completed_listener_closes(lines()[armed:])) >= 2 else None,
+             4, 'original slots lack departure/checked-close evidence')
+        # Export may arrive after RESUME. Select original event times from all retained lines.
+        interval = [line for line in lines()[armed:] if
+                    ('left after ' in line or 'frame write timed out' in line) and
+                    suspend_ms <= listener_event_ms(line, arm_clock_offset) <= resume_ms]
         if sum('no fresh audio for 2 s' in line for line in interval)!=2 or any('frame write timed out' in line for line in interval):
             raise RuntimeError('both original closures must report freshness rather than write timeout')
-        wait(lambda: True if sum('socket closed' in line and 'releasing slot' in line for line in lines()[armed:])>=2 else None,4,'original slots did not close')
         during_suspend=[sample for sample in samples(after=armed) if suspend_ms<=sample['board_ms']<resume_ms]
         if not during_suspend:raise RuntimeError('capture telemetry missing during actual suspension')
         state()
