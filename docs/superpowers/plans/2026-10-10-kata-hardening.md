@@ -1,7 +1,7 @@
 # Finish the Kata hardening backlog
 
 Doctor Biz's active goal on October 10: finish all Kata work, then assess.
-Base c134069 on wip/kata-capture-protection. Compactions in this phase: 7; latest implementation checkpoint is 3b3afdb.
+Base c134069 on wip/kata-capture-protection. Compactions in this phase: 8; latest implementation checkpoint is bb56186.
 Use GPT-6.1 Sol subagents with clean contexts. Parent owns review, integration,
 canonical checks, commits and every hardware action. Continue through batches;
 a phase checkpoint is not a reason to abandon the active goal.
@@ -402,3 +402,25 @@ Both target queue symbols grow 16 bytes to 2024; exporter frame grows 16 bytes t
 docs/audit-evidence/2026-10-10/listener-loss-build.md. Next commit the reviewed
 diagnostic, then parent runs a bounded slow-reader measurement on its exact
 default unified image. Preserve the 3b3afdb images and original failed trials.
+
+Loss reasons committed as bb56186 and its exact default image tested. The slow
+trial reproduced one full-queue rejection (contended/poisoned zero), with failed
+fast delivery and a successful ten-frame third-connection probe. Strict acceptance
+correctly remains failed. Minimum metrics stack free is 1156 bytes; cleanup and
+final stopped MP3/Medium state passed. Sanitized evidence is under independent
+review before its checkpoint commit.
+
+Ruling: keep listener capacity eight for the next unit. At least ten
+publication attempts are evidenced, but final pending count is unknown and
+enlarging storage does not explain slow consumption.
+Proceed with already-scoped encoder logging isolation and measure again, keeping
+the failed gate explicit. Binding unit: 2026-10-10-encoder-telemetry.md. The small
+fixed encoder queue, producer identities and strict capture bounds preserve
+acceptance under delayed export; no scheduling, codec, stack or buffer changes.
+The prior audit authorization covers this extraction; no renewed permission gate.
+
+Independent reason-trial review verified 13 original hashes and caught the exact
+attempt-count overclaim; corrected to at least ten with pending count unknown.
+Evidence saved as listener-loss-device.md/.json under October 10 audit evidence.
+No delivery or complete 21tp pass is claimed. Encoder extraction is now underway
+with a clean Sol 6.1 worker; capture-failure reporting design is a read-only lane.

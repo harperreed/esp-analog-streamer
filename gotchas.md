@@ -822,3 +822,9 @@ The matching stack-boundary repeats measured 1188 bytes free versus 420/580 in
 the original soak/slow trials, without enlarging the task. Delivery still failed.
 The repeated slow test ended before its third admission, so zero export loss in
 that smaller event sequence cannot clear the earlier dropped record.
+
+The listener reason-counter trial directly measured one full-queue rejection,
+with no contended or poisoned drops. Nine exported records plus one dropped
+record establish at least ten attempts, not a complete census: no terminal
+queue-empty receipt exists. Preserve strict loss rejection and keep historical
+drops unattributed. See October 10 listener-loss-device evidence.
