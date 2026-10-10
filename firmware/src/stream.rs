@@ -7,6 +7,7 @@ use std::sync::atomic::{AtomicU32, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex, OnceLock};
 use std::time::{Duration, Instant};
 
+use crate::encoder_telemetry::{self, EncoderMetrics, RawReadMetrics, Reason, Sample};
 use crate::stream_codec as codec;
 use crate::stream_pipeline::{
     CompressedListener, ConnectionResources, EncoderObservation, EncoderPump, EncoderStep, End,
@@ -496,18 +497,17 @@ fn encode(
     let mut pump = EncoderPump::new();
     let mut yield_frames = 0usize;
     #[cfg(feature = "encoder-probe")]
-    log_probe_storage(
-        &raw,
-        &pump,
-        &worker,
-        crate::encoder_probe::Probe::default()
-            .next_sequence(worker.epoch.format == OutputFormat::Mp3),
+    let storage = encoder_telemetry::Storage::snapshot(&raw, &pump, &worker);
+    let initial_sample = owner_sample(&listeners, false);
+    let mut metrics = EncoderMetrics::new(initial_sample);
+    metrics.boundary(
+        &encoder_telemetry::EVENTS,
+        Reason::Startup,
+        initial_sample,
+        worker.epoch.format,
+        #[cfg(feature = "encoder-probe")]
+        Some(storage),
     );
-    let mut metrics = EncoderMetrics::new(&listeners);
-    #[cfg(feature = "encoder-probe")]
-    metrics
-        .probe
-        .restart(worker.epoch.format == OutputFormat::Mp3);
     let origin = Instant::now();
     loop {
         let mut published = false;
@@ -516,10 +516,7 @@ fn encode(
         let gate = metrics.probe.enabled();
         #[cfg(feature = "encoder-probe")]
         pump.set_probe(gate);
-        #[cfg(feature = "encoder-probe")]
         let mut reset = false;
-        #[cfg(feature = "encoder-probe")]
-        let mut overrun = false;
         let step = pump.step(
             &raw,
             &mut worker,
@@ -548,7 +545,6 @@ fn encode(
                             .attempt(matches!(result, Ok(n) if n > 0), elapsed.as_micros() as u64);
                         if matches!(result, Err(ReadError::Overrun)) {
                             metrics.probe.invalidate();
-                            overrun = true;
                         }
                     }
                     metrics.raw_read.attempts += 1;
@@ -585,14 +581,8 @@ fn encode(
                     log_due = true;
                 }
                 EncoderObservation::Reset => {
-                    log::warn!(
-                        "stream: encoder fell behind capture; disconnecting compressed listeners"
-                    );
-                    metrics.resets += 1;
-                    #[cfg(feature = "encoder-probe")]
-                    {
-                        reset = true;
-                    }
+                    metrics.observe_reset();
+                    reset = true;
                     log_due = true;
                 }
                 EncoderObservation::CursorWaitExpired | EncoderObservation::Stalled => {
@@ -600,32 +590,37 @@ fn encode(
                 }
             },
         );
-        #[cfg(feature = "encoder-probe")]
-        if overrun || matches!(step, EncoderStep::Switched | EncoderStep::Stopped(_)) {
-            metrics.probe.invalidate();
-            log::warn!("encoder-probe: invalidated position={:?} frames={} resets={} raw_overruns={} raw_wait_us={} raw_attempts={} state={:?}",
-                metrics.probe.position(), metrics.frames, metrics.resets, metrics.raw_read.overruns, metrics.raw_read.wait_total_us,
-                metrics.raw_read.attempts, metrics.probe);
-        }
-        #[cfg(feature = "encoder-probe")]
-        if reset || matches!(step, EncoderStep::Switched) {
-            log_probe_storage(
-                &raw,
-                &pump,
-                &worker,
-                metrics
-                    .probe
-                    .next_sequence(worker.epoch.format == OutputFormat::Mp3),
+        let boundary_reason = encoder_telemetry::boundary_reason(&step, reset);
+        if let Some(reason) = boundary_reason {
+            #[cfg(feature = "encoder-probe")]
+            let storage = (reset || reason == Reason::Switched)
+                .then(|| encoder_telemetry::Storage::snapshot(&raw, &pump, &worker));
+            // Receipt copies precede the fresh owner baseline. Queue publication follows it.
+            // Default reset and terminal turns never sampled task runtime before this extraction.
+            let sample = if reason == Reason::Stopped
+                || (!cfg!(feature = "encoder-probe") && reason == Reason::Overrun)
+            {
+                Sample {
+                    us: event_us(),
+                    runtime: 0,
+                    listeners: 0,
+                    stack_free_bytes: 0,
+                }
+            } else {
+                owner_sample(&listeners, false)
+            };
+            metrics.boundary(
+                &encoder_telemetry::EVENTS,
+                reason,
+                sample,
+                worker.epoch.format,
+                #[cfg(feature = "encoder-probe")]
+                storage,
             );
-            metrics.fresh_probe_baseline(&listeners, worker.epoch.format == OutputFormat::Mp3);
         }
         match step {
             EncoderStep::Switched => {
                 yield_frames = 0;
-                #[cfg(not(feature = "encoder-probe"))]
-                {
-                    metrics = EncoderMetrics::new(&listeners);
-                }
                 // SAFETY: only this worker changes its own FreeRTOS priority at a block boundary.
                 unsafe {
                     sys::vTaskPrioritySet(
@@ -633,7 +628,6 @@ fn encode(
                         u32::from(worker.epoch.format.priority()),
                     )
                 };
-                log::info!("stream: active format {:?}", worker.epoch.format);
             }
             EncoderStep::SleepUntil(at) => {
                 let _ = at;
@@ -642,7 +636,7 @@ fn encode(
             }
             EncoderStep::Spin => std::hint::spin_loop(),
             EncoderStep::Stopped(error) => {
-                log::error!("stream: encoder failed; output remains invalid ({error})");
+                metrics.failure(&encoder_telemetry::EVENTS, event_us(), &error);
                 return;
             }
             EncoderStep::Progress => {}
@@ -654,7 +648,13 @@ fn encode(
             &mut metrics,
             |metrics| {
                 if log_due {
-                    metrics.log_if_due(&listeners);
+                    if event_us() - metrics.since_us >= 10_000_000 {
+                        metrics.report(
+                            &encoder_telemetry::EVENTS,
+                            owner_sample(&listeners, true),
+                            worker.epoch.format,
+                        );
+                    }
                 }
             },
             |metrics| {
@@ -675,129 +675,6 @@ fn encode(
     }
 }
 
-/// Worker-local read observations reset after each report; WAV does not contribute.
-#[derive(Default)]
-struct RawReadMetrics {
-    calls: u64,
-    attempts: u64,
-    successes: u64,
-    frames: u64,
-    retries: u64,
-    empty: u64,
-    overruns: u64,
-    wait_total_us: u64,
-    wait_max_us: u64,
-}
-
-/// Task runtime accounting excludes its current scheduling slice and includes interrupt/logging
-/// overhead charged to this task. Compare stable listener windows, not encode-call wall latency.
-struct EncoderMetrics {
-    since_us: u64,
-    runtime_us: u32,
-    listeners: usize,
-    frames: u64,
-    resets: u64,
-    encode_max_us: u64,
-    encode_wall_total_us: u64,
-    encoded_lock_wait_wall_total_us: u64,
-    encoded_push_held_wall_total_us: u64,
-    raw_read: RawReadMetrics,
-    #[cfg(feature = "encoder-probe")]
-    probe: crate::encoder_probe::Probe,
-}
-
-impl EncoderMetrics {
-    fn new(listeners: &AtomicUsize) -> Self {
-        let (since_us, runtime_us) = Self::snapshot();
-        Self {
-            since_us,
-            runtime_us,
-            listeners: listeners.load(std::sync::atomic::Ordering::Acquire),
-            frames: 0,
-            resets: 0,
-            encode_max_us: 0,
-            encode_wall_total_us: 0,
-            encoded_lock_wait_wall_total_us: 0,
-            encoded_push_held_wall_total_us: 0,
-            raw_read: RawReadMetrics::default(),
-            #[cfg(feature = "encoder-probe")]
-            probe: crate::encoder_probe::Probe::default(),
-        }
-    }
-
-    #[cfg(feature = "encoder-probe")]
-    fn fresh_probe_baseline(&mut self, listeners: &AtomicUsize, mp3: bool) {
-        let frames = self.frames;
-        let resets = self.resets;
-        let probe = std::mem::take(&mut self.probe);
-        *self = Self::new(listeners);
-        self.frames = frames;
-        self.resets = resets;
-        self.probe = probe;
-        self.probe.restart(mp3);
-    }
-
-    fn snapshot() -> (u64, u32) {
-        let mut status = sys::TaskStatus_t::default();
-        // SAFETY: NULL selects this live calling task. IDF initializes the status; pdFALSE
-        // skips stack scanning, and eRunning avoids task-state lookup. No scheduler-wide scan.
-        unsafe {
-            sys::vTaskGetInfo(
-                std::ptr::null_mut(),
-                &mut status,
-                0,
-                sys::eTaskState_eRunning,
-            );
-            (sys::esp_timer_get_time() as u64, status.ulRunTimeCounter)
-        }
-    }
-
-    fn log_if_due(&mut self, listeners: &AtomicUsize) -> bool {
-        // SAFETY: IDF initializes the monotonic timer before the encoder task starts.
-        let now = unsafe { sys::esp_timer_get_time() as u64 };
-        if now - self.since_us < 10_000_000 {
-            return false;
-        }
-        let (now, runtime) = Self::snapshot();
-        let current = listeners.load(std::sync::atomic::Ordering::Acquire);
-        // SAFETY: NULL selects only this live task; IDF reports its lifetime minimum free stack
-        // in bytes. Scan at the ten-second reporting interval, never once per encoded frame.
-        let stack_free_bytes = unsafe { sys::uxTaskGetStackHighWaterMark(std::ptr::null_mut()) };
-        // U32 runtime stats lose accounting at the timer wrap (~71.6 min). Mark later
-        // windows invalid rather than presenting wrapping arithmetic as accurate CPU use.
-        log::info!("stream-encode: elapsed_us={} task_runtime_us={} runtime_valid={} encoded_frames={} resets={} listeners_start={} listeners_end={} (slots include WAV and closing listeners) encode_max_us={} stack_free_bytes={} block_samples={} raw_read_calls={} raw_read_attempts={} raw_read_successes={} raw_read_frames={} raw_read_retries={} raw_read_empty={} raw_read_overruns={} raw_wait_total_us={} raw_wait_max_us={} encode_wall_total_us={} encoded_lock_wait_wall_total_us={} encoded_push_held_wall_total_us={}",
-            now - self.since_us, runtime.wrapping_sub(self.runtime_us), now <= u64::from(u32::MAX),
-            self.frames, self.resets, self.listeners, current, self.encode_max_us, stack_free_bytes, active_format().block_frames(),
-            self.raw_read.calls, self.raw_read.attempts, self.raw_read.successes,
-            self.raw_read.frames, self.raw_read.retries, self.raw_read.empty,
-            self.raw_read.overruns, self.raw_read.wait_total_us, self.raw_read.wait_max_us,
-            self.encode_wall_total_us, self.encoded_lock_wait_wall_total_us, self.encoded_push_held_wall_total_us);
-        #[cfg(feature = "encoder-probe")]
-        {
-            let report = self.probe.report(
-                now - self.since_us,
-                self.raw_read.wait_total_us,
-                self.encode_wall_total_us,
-                self.encoded_lock_wait_wall_total_us,
-                self.encoded_push_held_wall_total_us,
-            );
-            log::info!("encoder-probe: sequence={} phase={} interval={} retained={} completed={} valid={} success_attempt_us={} rejected_attempt_us={} pcm_push_us={} delay_us={} delay_calls={} raw_remainder_us={:?} residual_us={:?}",
-                report.sequence, report.phase, report.interval, report.retained, report.completed, report.valid,
-                report.success_us, report.rejected_us, report.push_us, report.delay_us,
-                report.delay_calls, report.raw_remainder_us, report.residual_us);
-        }
-        self.since_us = now;
-        self.runtime_us = runtime;
-        self.listeners = current;
-        self.encode_max_us = 0;
-        self.encode_wall_total_us = 0;
-        self.encoded_lock_wait_wall_total_us = 0;
-        self.encoded_push_held_wall_total_us = 0;
-        self.raw_read = RawReadMetrics::default();
-        true
-    }
-}
-
 /// Local compressed-media observations; task runtime excludes its unfinished scheduling slice.
 /// Wall intervals include preemption. Frame counters exclude HTTP/media headers and startup fill.
 struct ListenerMetrics {
@@ -815,7 +692,7 @@ struct ListenerMetrics {
 
 impl ListenerMetrics {
     fn new(block_frames: usize) -> Self {
-        let (since_us, runtime_us) = EncoderMetrics::snapshot();
+        let (since_us, runtime_us) = owner_snapshot();
         Self {
             block_frames,
             since_us,
@@ -831,7 +708,7 @@ impl ListenerMetrics {
     }
 
     fn departure(&self) -> Departure {
-        let (now, runtime) = EncoderMetrics::snapshot();
+        let (now, runtime) = owner_snapshot();
         Departure {
             elapsed_us: now - self.since_us,
             task_runtime_us: runtime.wrapping_sub(self.runtime_us),
@@ -926,13 +803,34 @@ fn stream_compressed(
     end
 }
 
-#[cfg(feature = "encoder-probe")]
-fn log_probe_storage(raw: &SharedStreamRing, pump: &EncoderPump, worker: &Worker, sequence: u64) {
-    log::info!("encoder-probe-storage: sequence={} baseline_pending=true raw_payload={:?} raw_stamps={:?} chunk={:?} output_address={} output_len={} output_capacity={} output_required={} shine_policy=MALLOC_CAP_SPIRAM|MALLOC_CAP_8BIT mp3={:?}",
-        sequence, raw.payload_range(), raw.stamps_range(), pump.storage_receipt(),
-        worker.bytes.as_ptr() as usize, worker.bytes.len(), worker.bytes.capacity(),
-        worker.epoch.format.max_frame_bytes(), worker.encoder.mp3_storage_receipt());
-    assert!(worker.bytes.capacity() >= worker.epoch.format.max_frame_bytes());
+fn owner_snapshot() -> (u64, u32) {
+    let mut status = sys::TaskStatus_t::default();
+    // SAFETY: NULL selects this live calling task. Stack scanning and scheduler-wide lookup are disabled.
+    unsafe {
+        sys::vTaskGetInfo(
+            std::ptr::null_mut(),
+            &mut status,
+            0,
+            sys::eTaskState_eRunning,
+        );
+        (sys::esp_timer_get_time() as u64, status.ulRunTimeCounter)
+    }
+}
+fn owner_sample(listeners: &AtomicUsize, scan_stack: bool) -> Sample {
+    let (us, runtime) = owner_snapshot();
+    let listeners = listeners.load(Ordering::Acquire);
+    // SAFETY: only the encoder owner calls this; IDF reports its minimum free stack in bytes.
+    let stack_free_bytes = if scan_stack {
+        unsafe { sys::uxTaskGetStackHighWaterMark(std::ptr::null_mut()) }
+    } else {
+        0
+    };
+    Sample {
+        us,
+        runtime,
+        listeners,
+        stack_free_bytes,
+    }
 }
 
 fn event_us() -> u64 {
@@ -1023,4 +921,95 @@ pub(crate) fn export_listener_events() {
         log::info!("listener-telemetry: dropped={} loss_occurred={} observed_event_range_valid={} observed_event_min_us={} observed_event_max_us={} record_bytes={} queue_bytes={} metrics_stack_free_bytes={} export_us={} dropped_full={} dropped_contended={} dropped_poisoned={}",
             dropped, EVENTS.loss_occurred(), first.is_some(), first.unwrap_or(0), last.unwrap_or(0), std::mem::size_of::<Record>(), std::mem::size_of::<listener_telemetry::Queue>(), stack_free_bytes, event_us(), EVENTS.dropped_full(), EVENTS.dropped_contended(), EVENTS.dropped_poisoned());
     }
+}
+
+/// Dequeues before rendering; the metrics owner spends at most two records per iteration.
+#[inline(never)]
+pub(crate) fn export_encoder_events() {
+    use encoder_telemetry::EVENTS;
+    let mut first = None;
+    let mut last = None;
+    for _ in 0..2 {
+        let Some(record) = EVENTS.take() else {
+            break;
+        };
+        first = Some(first.map_or(record.event_us, |us: u64| us.min(record.event_us)));
+        last = Some(last.map_or(record.event_us, |us: u64| us.max(record.event_us)));
+        render_encoder_event(&record);
+    }
+    static LAST_DROPPED: AtomicU32 = AtomicU32::new(0);
+    static LOSS_REPORTED: AtomicU32 = AtomicU32::new(0);
+    let dropped = EVENTS.dropped();
+    let changed = LAST_DROPPED.swap(dropped, Ordering::Relaxed) != dropped;
+    let first_loss = EVENTS.loss_occurred() && LOSS_REPORTED.swap(1, Ordering::Relaxed) == 0;
+    if first.is_some() || changed || first_loss {
+        // SAFETY: this is the live metrics owner, and IDF reports its minimum free stack in bytes.
+        let stack_free_bytes = unsafe { sys::uxTaskGetStackHighWaterMark(std::ptr::null_mut()) };
+        log::info!("encoder-telemetry: dropped={} loss_occurred={} observed_event_range_valid={} observed_event_min_us={} observed_event_max_us={} record_bytes={} queue_bytes={} metrics_stack_free_bytes={} export_us={} dropped_full={} dropped_contended={} dropped_poisoned={}",
+            dropped, EVENTS.loss_occurred(), first.is_some(), first.unwrap_or(0), last.unwrap_or(0),
+            std::mem::size_of::<encoder_telemetry::Record>(), std::mem::size_of::<encoder_telemetry::Queue>(),
+            stack_free_bytes, event_us(), EVENTS.dropped_full(), EVENTS.dropped_contended(), EVENTS.dropped_poisoned());
+    }
+}
+#[inline(never)]
+fn render_encoder_event(record: &encoder_telemetry::Record) {
+    use encoder_telemetry::Payload;
+    match &record.payload {
+        Payload::Window(window) => {
+            render_encoder_window(window);
+            #[cfg(feature = "encoder-probe")]
+            render_probe_window(window);
+        }
+        Payload::Boundary(boundary) => render_encoder_boundary(record, boundary),
+        Payload::Failure(error) => log::error!("stream: encoder failed; output remains invalid (kind={:?} raw_os_error={:?}) telemetry_epoch={} telemetry_window={} event_us={}", error.kind, error.raw_os_error, record.epoch, record.window, record.event_us),
+    }
+}
+#[inline(never)]
+fn render_encoder_window(w: &encoder_telemetry::Window) {
+    #[cfg(feature = "encoder-probe")]
+    let sequence = w.probe.sequence;
+    #[cfg(not(feature = "encoder-probe"))]
+    let sequence = 0u64;
+    log::info!("stream-encode: elapsed_us={} task_runtime_us={} runtime_valid={} encoded_frames={} resets={} listeners_start={} listeners_end={} (slots include WAV and closing listeners) encode_max_us={} stack_free_bytes={} block_samples={} raw_read_calls={} raw_read_attempts={} raw_read_successes={} raw_read_frames={} raw_read_retries={} raw_read_empty={} raw_read_overruns={} raw_wait_total_us={} raw_wait_max_us={} encode_wall_total_us={} encoded_lock_wait_wall_total_us={} encoded_push_held_wall_total_us={} telemetry_epoch={} telemetry_window={} window_start_us={} window_end_us={} sequence={}",
+        w.end_us - w.start_us, w.task_runtime_us, w.runtime_valid, w.frames, w.resets, w.listeners_start, w.listeners_end, w.encode_max_us, w.stack_free_bytes, w.block_samples,
+        w.raw_read.calls, w.raw_read.attempts, w.raw_read.successes, w.raw_read.frames, w.raw_read.retries, w.raw_read.empty, w.raw_read.overruns, w.raw_read.wait_total_us, w.raw_read.wait_max_us,
+        w.encode_wall_total_us, w.encoded_lock_wait_wall_total_us, w.encoded_push_held_wall_total_us, w.epoch, w.window, w.start_us, w.end_us, sequence);
+}
+#[cfg(feature = "encoder-probe")]
+#[inline(never)]
+fn render_probe_window(w: &encoder_telemetry::Window) {
+    let r = &w.probe;
+    log::info!("encoder-probe: sequence={} phase={} interval={} retained={} completed={} valid={} success_attempt_us={} rejected_attempt_us={} pcm_push_us={} delay_us={} delay_calls={} raw_remainder_us={:?} residual_us={:?} telemetry_epoch={} telemetry_window={} window_start_us={} window_end_us={}",
+        r.sequence, r.phase, r.interval, r.retained, r.completed, r.valid, r.success_us, r.rejected_us, r.push_us, r.delay_us, r.delay_calls, r.raw_remainder_us, r.residual_us, w.epoch, w.window, w.start_us, w.end_us);
+}
+#[inline(never)]
+fn render_encoder_boundary(record: &encoder_telemetry::Record, b: &encoder_telemetry::Boundary) {
+    log::info!("encoder-boundary: prior_epoch={} reason={:?} frames={} resets={} raw_overruns={} raw_wait_us={} raw_attempts={} telemetry_epoch={} telemetry_window={} event_us={} baseline_us={} format={:?}",
+        b.prior_epoch, b.reason, b.frames, b.resets, b.raw_overruns, b.raw_wait_us, b.raw_attempts, record.epoch, record.window, record.event_us, b.baseline_us, b.format);
+    if b.reason == Reason::Overrun {
+        log::warn!("stream: encoder fell behind capture; disconnecting compressed listeners telemetry_epoch={} telemetry_window={} event_us={}", record.epoch, record.window, record.event_us);
+    }
+    #[cfg(feature = "encoder-probe")]
+    {
+        if b.reason != Reason::Startup {
+            log::warn!("encoder-probe: invalidated position={:?} frames={} resets={} raw_overruns={} raw_wait_us={} raw_attempts={} reason={:?} telemetry_epoch={} telemetry_window={} event_us={}",
+                b.position, b.frames, b.resets, b.raw_overruns, b.raw_wait_us, b.raw_attempts, b.reason, b.prior_epoch, record.window, record.event_us);
+        }
+        if let Some(storage) = &b.storage {
+            render_probe_storage(record, b, storage);
+        }
+    }
+    if b.reason == Reason::Switched {
+        log::info!("stream: active format {:?} telemetry_epoch={} telemetry_window={} event_us={} baseline_us={}", b.format, record.epoch, record.window, record.event_us, b.baseline_us);
+    }
+}
+#[cfg(feature = "encoder-probe")]
+#[inline(never)]
+fn render_probe_storage(
+    record: &encoder_telemetry::Record,
+    b: &encoder_telemetry::Boundary,
+    s: &encoder_telemetry::Storage,
+) {
+    log::info!("encoder-probe-storage: sequence={} baseline_pending=true raw_payload={:?} raw_stamps={:?} chunk={:?} output_address={} output_len={} output_capacity={} output_required={} shine_policy=MALLOC_CAP_SPIRAM|MALLOC_CAP_8BIT mp3={:?} telemetry_epoch={} telemetry_window={} event_us={} baseline_us={}",
+        b.sequence, s.raw_payload, s.raw_stamps, s.chunk, s.output_address, s.output_len, s.output_capacity, s.output_required, s.mp3, record.epoch, record.window, record.event_us, b.baseline_us);
 }

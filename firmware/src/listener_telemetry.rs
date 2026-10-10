@@ -150,6 +150,12 @@ pub(crate) struct Queue {
     loss_occurred: AtomicBool,
 }
 impl Queue {
+    /// Initialize the target's lazy pthread allocation before producer/exporter threads start.
+    /// Only setup calls this blocking operation; publication remains try-lock-only.
+    pub fn initialize(&self) {
+        drop(self.storage.lock().expect("listener telemetry setup mutex"));
+    }
+
     pub const fn new() -> Self {
         Self {
             storage: Mutex::new(([None; 8], 0, 0)),

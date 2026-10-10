@@ -1,7 +1,7 @@
 # Finish the Kata hardening backlog
 
 Doctor Biz's active goal on October 10: finish all Kata work, then assess.
-Base c134069 on wip/kata-capture-protection. Compactions in this phase: 8; latest implementation checkpoint is bb56186.
+Base c134069 on wip/kata-capture-protection. Compactions in this phase: 9; latest implementation checkpoint is bb56186.
 Use GPT-6.1 Sol subagents with clean contexts. Parent owns review, integration,
 canonical checks, commits and every hardware action. Continue through batches;
 a phase checkpoint is not a reason to abandon the active goal.
@@ -424,3 +424,34 @@ attempt-count overclaim; corrected to at least ten with pending count unknown.
 Evidence saved as listener-loss-device.md/.json under October 10 audit evidence.
 No delivery or complete 21tp pass is claimed. Encoder extraction is now underway
 with a clean Sol 6.1 worker; capture-failure reporting design is a read-only lane.
+
+Encoder source extraction and capture-failure handoff are under independent
+review. Parent wired the capture handoff only after explicit audio_in/lib release.
+Its five actual-module tests and scoped integration review pass; target stack and
+atomic lowering remain unmeasured. Binding capture follow-up plan is
+2026-10-10-capture-failure-telemetry.md.
+
+Parent target-source inspection found that ESP Rust std Mutex::try_lock can
+allocate on first access: the pthread backend initializes OnceBox/pthread storage,
+and pinned IDF mutex initialization allocates a semaphore. Both telemetry queues
+now initialize on main before spawn_capture starts metrics or capture threads.
+Real initialization-preservation tests cover state/counters; independent source
+review verifies backend and call ordering. Linux host tests cannot prove this
+ESP allocation behavior or target runtime cost. No queue capacity changed.
+
+Full-host lifecycle regression exposed an incorrect eight-turn test bound: the
+fixture publishes 16-frame raw blocks, requiring 72 reads for 1152-frame MP3 output.
+Production behavior is unchanged; preserve the failed host logs and derive a
+bounded test allowance from fixture dimensions before final verification.
+
+Encoder/capture telemetry integration is frozen and independently reviewed. All
+27 canonical stages pass; the final parser refinement also passed a fresh
+check-harnesses run. Host default443/probe465 tests pass, with two existing
+ignored tests in each. Both target builds and IRAM checks pass. Target encoder
+queue storage is 440/632 bytes, capture failure handoff16; listener stays2024.
+Metrics frame224 and nested application paths1232/default,1360/probe remain
+static measurements, not runtime headroom. Fresh-eyes review found no new code
+defect and corrected the capture plan's no-retry claim to match target CAS loops.
+Build receipt: docs/audit-evidence/2026-10-10/encoder-telemetry-build.md. Next:
+commit, then bounded exact-image default and probe trials, preserving failures.
+No queue, stack, codec, priority or buffering policy change accompanied this unit.

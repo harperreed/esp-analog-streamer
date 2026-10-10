@@ -40,6 +40,25 @@ fn record(n: u64) -> Record {
 }
 
 #[test]
+fn startup_initialization_preserves_records_and_loss_counters() {
+    let queue = Queue::new();
+    queue.initialize();
+    assert!(queue.take().is_none());
+    for n in 0..8 {
+        assert!(queue.publish(record(n)));
+    }
+    assert!(!queue.publish(record(8)));
+    queue.initialize();
+    assert_eq!(queue.dropped(), 1);
+    assert_eq!(queue.dropped_full(), 1);
+    assert!(queue.loss_occurred());
+    for n in 0..8 {
+        assert_eq!(queue.take().unwrap().event_us, n);
+    }
+    assert!(queue.take().is_none());
+}
+
+#[test]
 fn bounded_fifo_loses_excess_without_overwriting_retained_events() {
     let q = Queue::new();
     for n in 0..8 {

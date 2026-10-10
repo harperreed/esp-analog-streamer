@@ -2,6 +2,7 @@
 // ABOUTME: MQTT and the LINE IN stream on port 8000. The main thread ends up supervising Wi-Fi; everything else runs on its own thread.
 
 mod audio_in;
+mod capture_failure_telemetry;
 #[cfg(feature = "capture-fixture")]
 mod capture_fixture;
 mod codec;
@@ -58,6 +59,10 @@ pub fn run() -> Result<()> {
     codec::setup_line_in(&mut i2c, CONFIG.pga_gain)?;
     let store: recognizer::SharedStore =
         Arc::new(Mutex::new(SongStore::new(20, CONFIG.shazam_enabled)));
+    // ESP-IDF's first std mutex access allocates. Complete telemetry setup before either
+    // producers or the metrics exporter can become the first queue accessor.
+    listener_telemetry::EVENTS.initialize();
+    encoder_telemetry::EVENTS.initialize();
     // Raw frames feed WAV and one shared encoder; encoded frames hold the longer backlog.
     let (ring, stream_ring) = audio_in::spawn_capture(rx, store.clone())?;
     #[cfg(feature = "capture-fixture")]
@@ -91,3 +96,4 @@ pub fn run() -> Result<()> {
 
 #[cfg(feature = "encoder-probe")]
 mod encoder_probe;
+mod encoder_telemetry;

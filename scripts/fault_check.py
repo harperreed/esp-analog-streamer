@@ -16,7 +16,7 @@ from pathlib import Path
 
 from decoder_integrity import FrameHash, validate_decoder_log
 from stream_format import input_format_args
-from encoder_fault_check import completed_listener_closes, checked_listener_closes, validate_listener_export, listener_event_ms
+from encoder_fault_check import completed_listener_closes, checked_listener_closes, validate_listener_export, listener_event_ms, validate_encoder_export
 
 
 class Failure(Exception):
@@ -58,6 +58,7 @@ def wait_for(check, seconds, reason, read_lines):
         current = read_lines()
         try:
             validate_listener_export(current)
+            validate_encoder_export(current)
         except RuntimeError as error:
             raise Failure(str(error)) from error
         if any('marker=FAIL_' in line or 'PRESSURE_FAILED' in line or 'INTERNAL_FAILED' in line or 'wav-freshness: marker=FAIL ' in line for line in current):
@@ -67,6 +68,7 @@ def wait_for(check, seconds, reason, read_lines):
             final = read_lines()
             try:
                 validate_listener_export(final)
+                validate_encoder_export(final)
             except RuntimeError as error:
                 raise Failure(str(error)) from error
             if any('marker=FAIL_' in line or 'PRESSURE_FAILED' in line or 'INTERNAL_FAILED' in line or 'wav-freshness: marker=FAIL ' in line for line in final):

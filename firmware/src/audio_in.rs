@@ -15,6 +15,7 @@ use esp_shazam_core::capture_buffer::CaptureBuffer;
 use esp_shazam_core::capture_health::{Action, CaptureHealth};
 use esp_shazam_core::stream_ring::StreamRing;
 
+use crate::capture_failure_telemetry::{ExportState, FailureKind, Handoff, Summary};
 use crate::config::CONFIG;
 use crate::i2s_capture::{self, CaptureRx};
 use crate::recognizer::SharedStore;
@@ -60,6 +61,7 @@ const STALL_MS: u64 = 3_000;
 const RECOVERY_MS: u64 = 3_000;
 static STARTED: AtomicBool = AtomicBool::new(false);
 static RESTART: AtomicBool = AtomicBool::new(false);
+static RESTART_FAILURES: Handoff = Handoff::new();
 static FRAMES: AtomicU32 = AtomicU32::new(0);
 static DROPPED: AtomicU32 = AtomicU32::new(0);
 static READ_ERRORS: AtomicU32 = AtomicU32::new(0);
@@ -197,9 +199,10 @@ fn capture(
     let mut pending_attempts = 0u32;
     let mut read_timing = ReadServiceTiming::new(CAPTURE_RATE_HZ);
     // Clocks ran during codec setup; flush startup backlog before the overflow baseline.
-    if let Err(error) = rx.restart() {
-        log::warn!("audio: initial queue flush failed: {error}");
-    }
+    RESTART_FAILURES.observe_restart_result(
+        FailureKind::InitialFlush,
+        rx.restart().map_err(|error| error.code()),
+    );
     let mut overflow_seen = i2s_capture::counters().queue_overflows;
     let mut pending_level = None;
     // SAFETY: this is the live capture task, whose function never returns.
@@ -231,9 +234,10 @@ fn capture(
             pending_level = None;
             settle_frames = CAPTURE_RATE_HZ as usize / 2;
             RESTARTS.fetch_add(1, Ordering::Relaxed);
-            if let Err(error) = rx.restart() {
-                log::warn!("audio: restart failed: {error}");
-            }
+            RESTART_FAILURES.observe_restart_result(
+                FailureKind::RecoveryRestart,
+                rx.restart().map_err(|error| error.code()),
+            );
         }
         let n = match rx.read(&mut bytes, READ_TIMEOUT_MS) {
             Ok(n) => n - n % 8, // whole frames only
@@ -355,6 +359,7 @@ fn metrics() {
     let mut requests_seen = 0;
     let mut next_log = launched + 10_000_000;
     let mut runtime_sample = None;
+    let mut failure_exports = ExportState::new();
     loop {
         let now = micros();
         let frames = FRAMES.load(Ordering::Relaxed);
@@ -381,11 +386,35 @@ fn metrics() {
                     &mut runtime_sample,
                 );
             }
+            export_restart_failures(&mut failure_exports);
             next_log = now + 10_000_000;
         }
         crate::stream::export_listener_events();
+        crate::stream::export_encoder_events();
         std::thread::sleep(Duration::from_millis(100));
     }
+}
+
+// Aggregate rare driver failures after capture reporting returns, outside the owner path.
+#[inline(never)]
+fn export_restart_failures(state: &mut ExportState) {
+    for summary in state
+        .select(RESTART_FAILURES.snapshot())
+        .into_iter()
+        .flatten()
+    {
+        log_restart_failure(&summary);
+    }
+}
+
+#[inline(never)]
+fn log_restart_failure(summary: &Summary) {
+    let operation = match summary.kind {
+        FailureKind::InitialFlush => "initial queue flush",
+        FailureKind::RecoveryRestart => "restart",
+    };
+    log::warn!("audio: {operation} failed: failures_total={} failures_delta={} sampled_error_code={} export_us={} aggregate=true count_code_coherent=false",
+        summary.failures_total, summary.failures_delta, summary.sampled_error_code, micros());
 }
 
 fn start_heap_window() -> [usize; 2] {
@@ -429,7 +458,18 @@ fn log_capture(
     runtime_sample: &mut Option<(u64, u32)>,
 ) {
     use esp_idf_svc::sys;
+    let capture_begin_us = micros();
     let counters = i2s_capture::counters();
+    let frames = FRAMES.load(Ordering::Relaxed);
+    let dropped = DROPPED.load(Ordering::Relaxed);
+    let read_errors = READ_ERRORS.load(Ordering::Relaxed);
+    let restarts = RESTARTS.load(Ordering::Relaxed);
+    let supervisor_restarts = SUPERVISOR_RESTARTS.load(Ordering::Relaxed);
+    let overflow_restarts = OVERFLOW_RESTARTS.load(Ordering::Relaxed);
+    let settling_discarded_frames = SETTLING_DISCARDED_FRAMES.load(Ordering::Relaxed);
+    let gaps = GAPS.load(Ordering::Relaxed);
+    let health_restart_requests = HEALTH_RESTART_REQUESTS.load(Ordering::Relaxed);
+    let capture_end_us = micros();
     let internal = sys::MALLOC_CAP_INTERNAL | sys::MALLOC_CAP_8BIT;
     let external = sys::MALLOC_CAP_SPIRAM | sys::MALLOC_CAP_8BIT;
     // Minimum sums combine per-region lows that may occur at different times: a conservative
@@ -460,14 +500,14 @@ fn log_capture(
     // Logging overhead belongs to the next window. No stop/start allocation cycle.
     *window_start_free = start_heap_window();
     let deficit = (elapsed_us * u64::from(CAPTURE_RATE_HZ) / 1_000_000) as i64 - observed as i64;
-    log::info!("audio: frames={} callbacks={} queue_overflows={} software_dropped_frames={} read_errors={} restarts={} supervisor_restarts={} overflow_restarts={} settling_discarded_frames={} discontinuities={} health_restart_requests={} capture_runtime_window_us={} capture_task_runtime_us={} capture_runtime_valid={} read_service_delay_estimate_max_us={} raw_work_max_us={} meter_work_max_us={} store_work_max_us={} raw_read_max_us={} staged_frames={} staged_max_frames={} staging_pending_attempts={} staging_pending_max_attempts={} staging_pending_us={} staging_pending_max_us={} timing_deficit_estimate_frames={} (clock drift/scheduling; not proof of loss) internal_free={} internal_largest={} psram_free={} psram_largest={} internal_min_sum={} psram_min_sum={} internal_window_start_free={} psram_window_start_free={} (runtime includes charged interrupts and excludes unfinished slice; service delay includes work/preemption; minima sum per-region lows; largest is a snapshot; staging fields measure partial block assembly, sampled at publish/reset)",
-        FRAMES.load(Ordering::Relaxed), counters.callbacks, counters.queue_overflows,
-        DROPPED.load(Ordering::Relaxed), READ_ERRORS.load(Ordering::Relaxed),
-        RESTARTS.load(Ordering::Relaxed),
-        SUPERVISOR_RESTARTS.load(Ordering::Relaxed), OVERFLOW_RESTARTS.load(Ordering::Relaxed),
-        SETTLING_DISCARDED_FRAMES.load(Ordering::Relaxed),
-        GAPS.load(Ordering::Relaxed),
-        HEALTH_RESTART_REQUESTS.load(Ordering::Relaxed),
+    log::info!("audio: frames={} capture_begin_us={} capture_end_us={} callbacks={} queue_overflows={} software_dropped_frames={} read_errors={} restarts={} supervisor_restarts={} overflow_restarts={} settling_discarded_frames={} discontinuities={} health_restart_requests={} capture_runtime_window_us={} capture_task_runtime_us={} capture_runtime_valid={} read_service_delay_estimate_max_us={} raw_work_max_us={} meter_work_max_us={} store_work_max_us={} raw_read_max_us={} staged_frames={} staged_max_frames={} staging_pending_attempts={} staging_pending_max_attempts={} staging_pending_us={} staging_pending_max_us={} timing_deficit_estimate_frames={} (clock drift/scheduling; not proof of loss) internal_free={} internal_largest={} psram_free={} psram_largest={} internal_min_sum={} psram_min_sum={} internal_window_start_free={} psram_window_start_free={} (runtime includes charged interrupts and excludes unfinished slice; service delay includes work/preemption; minima sum per-region lows; largest is a snapshot; staging fields measure partial block assembly, sampled at publish/reset)",
+        frames, capture_begin_us, capture_end_us, counters.callbacks, counters.queue_overflows,
+        dropped, read_errors,
+        restarts,
+        supervisor_restarts, overflow_restarts,
+        settling_discarded_frames,
+        gaps,
+        health_restart_requests,
         runtime_window_us, task_runtime_us, runtime_valid,
         READ_SERVICE_DELAY_US.swap(0, Ordering::Relaxed),
         RAW_WORK_US.swap(0, Ordering::Relaxed), METER_WORK_US.swap(0, Ordering::Relaxed), STORE_WORK_US.swap(0, Ordering::Relaxed),

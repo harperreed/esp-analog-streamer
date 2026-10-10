@@ -18,6 +18,7 @@ from pathlib import Path
 from stream_format import input_format_args, validate_stream_decoder_log
 from decoder_integrity import FrameHash, validate_decoder_line
 from failure_observation import observation_seconds, observe_failure
+from encoder_fault_check import validate_encoder_export
 
 
 class Failure(Exception):
@@ -244,6 +245,10 @@ def main(argv=None):
         nonlocal latest, latest_at, samples, boots, captured, runtime_invalid_windows
         check_output_budget()
         for line in uart_tail.lines():
+            try:
+                validate_encoder_export([line])
+            except RuntimeError as error:
+                raise Failure(str(error)) from error
             if 'rst:0x' in line:
                 boots += 1
                 if boots > 1:

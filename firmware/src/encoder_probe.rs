@@ -13,7 +13,7 @@ pub(crate) struct Probe {
     delay_calls: u64,
     overflow: bool,
 }
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub(crate) struct Report {
     pub sequence: u64,
     pub phase: &'static str,
@@ -56,15 +56,17 @@ impl Probe {
         self.valid = false;
     }
     pub fn next_sequence(&self, mp3: bool) -> u64 {
-        self.sequence + u64::from(mp3)
+        self.sequence.saturating_add(u64::from(mp3))
     }
-    /// Caller must emit replacement receipts and establish a fresh baseline first.
+    /// Caller snapshots replacement receipts before establishing the fresh owner baseline.
+    /// Deferred publication preserves that relation through the baseline metadata.
     pub fn restart(&mut self, mp3: bool) {
+        let exhausted = mp3 && self.sequence.checked_add(1).is_none();
         let sequence = self.next_sequence(mp3);
         *self = Self {
             sequence,
             active: mp3,
-            valid: mp3,
+            valid: mp3 && !exhausted,
             ..Self::default()
         };
     }
@@ -132,5 +134,19 @@ impl Probe {
         self.delay_calls = 0;
         self.overflow = false;
         report
+    }
+}
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn exhausted_sequence_cannot_restart_valid_measurement() {
+        let mut probe = Probe {
+            sequence: u64::MAX,
+            ..Probe::default()
+        };
+        probe.restart(true);
+        assert_eq!(probe.position().0, u64::MAX);
+        assert!(!probe.report(10, 0, 0, 0, 0).valid);
     }
 }

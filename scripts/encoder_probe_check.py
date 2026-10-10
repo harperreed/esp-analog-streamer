@@ -14,10 +14,10 @@ import threading
 import time
 import wave
 
-from encoder_fault_check import check_budget, read_uart_lines, validate_listener_export, listener_event_ms
+from encoder_fault_check import check_budget, read_uart_lines, validate_listener_export, listener_event_ms, validate_encoder_export, encoder_export_receipt
 
 FAULTS = ('queue_overflows', 'software_dropped_frames', 'read_errors', 'restarts',
-          'supervisor_restarts', 'overflow_restarts', 'discontinuities', 'health_restart_requests')
+          'supervisor_restarts', 'overflow_restarts', 'settling_discarded_frames', 'discontinuities', 'health_restart_requests')
 PHASES = ('OFF1', 'ON', 'OFF2')
 METRICS = ('elapsed_us', 'task_runtime_us', 'runtime_valid', 'encoded_frames', 'resets',
            'listeners_start', 'listeners_end', 'block_samples', 'raw_read_overruns',
@@ -54,15 +54,27 @@ def require_state(sonos, app):
         raise ValueError('Requires stopped MP3/med, autoplay false and shazam_enabled false')
 
 
-def storage_receipt(line):
+def storage_receipt(line, output_format='Mp3'):
     """Read frozen Rust Debug receipt layout without inferring a memory class."""
     result = {}
+    for key in ('baseline_pending', 'raw_payload', 'raw_stamps', 'chunk', 'output_address',
+                'output_len', 'output_capacity', 'output_required', 'shine_policy', 'mp3'):
+        if len(re.findall(r'\b'+key+'=', line)) != 1:
+            raise ValueError('missing or duplicate storage field: '+key)
+    if strict_token(line, 'baseline_pending') != 'true':
+        raise ValueError('invalid storage baseline_pending')
+    if strict_token(line, 'shine_policy') != 'MALLOC_CAP_SPIRAM|MALLOC_CAP_8BIT':
+        raise ValueError('unexpected allocator policy receipt')
+    strict_numbers(line, ('output_address', 'output_len', 'output_capacity', 'output_required'))
     for name, count in [('raw_payload', 2), ('raw_stamps', 2), ('chunk', 3)]:
-        match = re.search(r'\b' + name + r'=\(([^)]+)\)', line)
+        match = re.search(r'\b' + name + r'=\(([^)]+)\)(?=\s|$)', line)
         if not match:
             raise ValueError('missing storage ' + name)
-        numbers = [int(value.strip(), 0) for value in match[1].split(',')]
-        if len(numbers) != count or any(value <= 0 for value in numbers):
+        tokens = [value.strip() for value in match[1].split(',')]
+        if any(not re.fullmatch(r'(?:0x[0-9a-fA-F]+|[0-9]+)', token) for token in tokens):
+            raise ValueError('invalid storage tuple '+name)
+        numbers = [int(token, 0) for token in tokens]
+        if len(numbers) != count or any(not 0 < value <= 2**64-1 for value in numbers):
             raise ValueError('invalid storage ' + name)
         result[name] = numbers
     numeric = fields(line)
@@ -70,14 +82,19 @@ def storage_receipt(line):
         result[key] = numeric[key]
     if (result['chunk'][1] != 1920 or result['chunk'][2] < result['chunk'][1]
             or result['output_address'] <= 0 or result['output_len'] < 0
-            or result['output_required'] != 960 or result['output_capacity'] < 960
+            or result['output_required'] != (960 if output_format == 'Mp3' else 16399)
+            or result['output_capacity'] < result['output_required']
             or result['output_len'] > result['output_capacity']):
         raise ValueError('invalid chunk/output reservation')
-    match = re.search(r'mp3=Some\(\((\d+),\s*(\d+),\s*EncoderReceipt\s*\{\s*config:\s*AllocationReceipt\s*\{\s*address:\s*(\d+),\s*bytes:\s*(\d+)\s*\},\s*bitstream:\s*AllocationReceipt\s*\{\s*address:\s*(\d+),\s*bytes:\s*(\d+)\s*\}\s*\}\)\)', line)
+    if output_format == 'Flac':
+        if strict_token(line, 'mp3') != 'None': raise ValueError('unexpected FLAC MP3 receipt')
+        return result
+    match = re.search(r'\bmp3=Some\(\((\d+),\s*(\d+),\s*EncoderReceipt\s*\{\s*config:\s*AllocationReceipt\s*\{\s*address:\s*(\d+),\s*bytes:\s*(\d+)\s*\},\s*bitstream:\s*AllocationReceipt\s*\{\s*address:\s*(\d+),\s*bytes:\s*(\d+)\s*\}\s*\}\)\)(?=\s|$)', line)
     if not match:
         raise ValueError('missing MP3 live allocation receipt')
     pcm, pcm_bytes, config, config_bytes, bitstream, bitstream_bytes = map(int, match.groups())
-    if min(pcm, config, config_bytes, bitstream) <= 0 or pcm_bytes != 4608 or bitstream_bytes != 4096:
+    if (any(not 0 < value <= 2**64-1 for value in (pcm, pcm_bytes, config, config_bytes, bitstream, bitstream_bytes))
+            or pcm_bytes != 4608 or bitstream_bytes != 4096):
         raise ValueError('invalid PCM/Shine receipt')
     result.update(pcm_address=pcm, pcm_bytes=pcm_bytes, config_address=config,
                   config_bytes=config_bytes, bitstream_address=bitstream, bitstream_bytes=bitstream_bytes)
@@ -101,11 +118,247 @@ def phase_summary(windows):
     return totals
 
 
+OWNER = ('telemetry_epoch', 'telemetry_window')
+WINDOW = (*OWNER, 'window_start_us', 'window_end_us', 'sequence')
+
+
+def strict_token(line, key):
+    tokens = re.findall(r'\b'+key+r'=([^\s]+)', line)
+    if len(tokens) != 1 or len(re.findall(r'\b'+key+'=', line)) != 1:
+        raise ValueError('missing or duplicate field: '+key)
+    return tokens[0]
+
+
+def strict_numbers(line, keys):
+    """Require each complete bounded token exactly once; partial regex matches are not fields."""
+    values = {}
+    for key in keys:
+        tokens = re.findall(r'\b' + key + r'=([^\s]+)', line)
+        if len(tokens) != 1 or len(re.findall(r'\b' + key + '=', line)) != 1:
+            raise ValueError('metadata missing or duplicate field: ' + key)
+        token = tokens[0]
+        if not re.fullmatch(r'[0-9]+', token) or len(token) > 20 or int(token) > 2**64-1:
+            raise ValueError('metadata invalid bounded number: ' + key)
+        values[key] = int(token)
+    return values
+
+
+def strict_report_fields(line, keys, booleans=(), optional=(), phases=()):
+    numeric = [key for key in keys if key not in (*booleans, *optional, *phases)]
+    strict_numbers(line, numeric)
+    for key in (*booleans, *optional, *phases):
+        tokens = re.findall(r'\b' + key + r'=([^\s]+)', line)
+        if len(tokens) != 1 or len(re.findall(r'\b' + key + '=', line)) != 1:
+            raise ValueError('missing or duplicate report field: ' + key)
+        token = tokens[0]
+        if key in booleans:
+            valid = token in ('true', 'false')
+        elif key in phases:
+            valid = token in (*PHASES, 'COMPLETE', 'INACTIVE')
+        else:
+            match = re.fullmatch(r'Some\(([0-9]+)\)', token)
+            valid = token == 'None' or (match and len(match[1]) <= 20 and int(match[1]) <= 2**64-1)
+        if not valid:
+            raise ValueError('invalid report field: ' + key)
+
+
 def analyze(lines):
-    """Analyze original encounter order; unknown first deltas stay unknown."""
+    """Pair current records by owner identity; retain original arrival and line provenance."""
+    ordered, errors, pairs, receipts = [], [], {}, []
+    boundaries, storages, announcements, invalidations = {}, {}, [], []
+    saw_owner = False
+    def event_key(value):
+        return tuple(value[key] for key in (*OWNER, 'event_us'))
+    def add_error(index, error):
+        errors.append(f'line {index+1}: {error}')
+    for index, (stamp, raw) in enumerate(lines):
+        line = re.sub(r'\x1b\[[0-9;]*m', '', raw)
+        try:
+            raw_fields = fields(line) if any(prefix in line for prefix in ('encoder-boundary:', 'encoder-probe:', 'stream-encode:')) else {}
+            if ('stream: encoder fell behind capture' in line
+                    or raw_fields.get('raw_read_overruns', 0) > 0
+                    or raw_fields.get('raw_overruns', 0) > 0
+                    or ('stream-encode:' in line and raw_fields.get('resets', 0) > 0)):
+                errors.append(f'raw-loss/reset/invalidation evidence at line {index+1}')
+            if ('stream-listener:' in line or 'stream-sender:' in line
+                    or re.search(r'stream: .* (joined |left after |socket closed )', line)):
+                errors.append(f'listener activity has ambiguous probe window at line {index+1}')
+            if ('rst:' in line and saw_owner) or 'stream: encoder failed' in line:
+                errors.append(f'epoch interrupted at line {index+1}')
+            if any(prefix in line for prefix in ('encoder-boundary:', 'encoder-telemetry:', 'encoder-probe-storage:', 'stream-encode:', 'encoder-probe: sequence=')):
+                saw_owner = True
+            if 'encoder-telemetry:' in line:
+                validate_encoder_export([line])
+                receipts.append((index+1, encoder_export_receipt(line)))
+                continue
+            if 'stream-encode:' in line or 'encoder-probe: sequence=' in line:
+                value = strict_numbers(line, WINDOW)
+                if 'stream-encode:' in line:
+                    strict_report_fields(line, METRICS, booleans=('runtime_valid',))
+                else:
+                    strict_report_fields(line, PROBE, booleans=('retained', 'completed', 'valid'),
+                        optional=('raw_remainder_us', 'residual_us'), phases=('phase',))
+                if value['window_end_us'] <= value['window_start_us']:
+                    raise ValueError('metadata reversed/empty encoder window')
+                identity = tuple(value[key] for key in WINDOW)
+                kind = 'metric' if 'stream-encode:' in line else 'probe'
+                pair = pairs.setdefault(identity, {})
+                if kind in pair:
+                    raise ValueError('duplicate window partner identity')
+                pair[kind] = (stamp, raw, index)
+                continue
+            if 'encoder-boundary:' in line:
+                value = strict_numbers(line, (*OWNER, 'event_us', 'baseline_us', 'prior_epoch',
+                    'frames', 'resets', 'raw_overruns', 'raw_wait_us', 'raw_attempts'))
+                value['reason'] = strict_token(line, 'reason')
+                value['format'] = strict_token(line, 'format')
+                if value['reason'] not in ('Startup', 'Overrun', 'Switched', 'Stopped') or value['format'] not in ('Flac', 'Mp3'):
+                    raise ValueError('invalid encoder boundary reason/format')
+                if value['baseline_us'] > value['event_us'] or (value['reason'] != 'Stopped' and value['baseline_us'] != value['event_us']):
+                    raise ValueError('metadata encoder boundary baseline differs from event')
+                if value['reason'] == 'Switched':
+                    if value['prior_epoch'] + 1 != value['telemetry_epoch']:
+                        raise ValueError('metadata encoder boundary switched epoch')
+                elif value['prior_epoch'] != value['telemetry_epoch']:
+                    raise ValueError('metadata encoder boundary prior epoch')
+                key = event_key(value)
+                if key in boundaries:
+                    raise ValueError('duplicate encoder boundary identity')
+                boundaries[key] = (value, stamp, raw, index)
+                if value['reason'] == 'Overrun' or value['resets'] or value['raw_overruns']:
+                    errors.append(f'raw-loss encoder boundary at line {index+1}')
+                if value['reason'] == 'Stopped':
+                    errors.append(f'encoder boundary stopped at line {index+1}')
+                continue
+            if 'encoder-probe-storage:' in line:
+                value = strict_numbers(line, (*OWNER, 'sequence', 'event_us', 'baseline_us'))
+                if value['baseline_us'] != value['event_us']:
+                    raise ValueError('metadata storage baseline differs from owner event')
+                key = event_key(value)
+                if key in storages:
+                    raise ValueError('duplicate storage lifecycle identity')
+                storages[key] = (value, stamp, raw, index)
+                continue
+            if 'encoder-probe: invalidated' in line:
+                value = strict_numbers(line, (*OWNER, 'event_us', 'frames', 'resets', 'raw_overruns', 'raw_wait_us', 'raw_attempts'))
+                value['reason'] = strict_token(line, 'reason')
+                if len(re.findall(r'\bposition=', line)) != 1:
+                    raise ValueError('missing or duplicate invalidation position')
+                position = re.search(r'\bposition=\(([0-9]+), "([A-Z0-9]+)", ([0-9]+)\)(?=\s|$)', line)
+                if not position or len(position[1]) > 20 or int(position[1]) > 2**64-1:
+                    raise ValueError('malformed invalidation position')
+                value['position'] = (int(position[1]), position[2], int(position[3]))
+                invalidations.append((value, index))
+                continue
+            if 'stream: active format ' in line:
+                value = strict_numbers(line, (*OWNER, 'event_us', 'baseline_us'))
+                match = re.search(r'stream: active format (Flac|Mp3)(?=\s|$)', line)
+                if not match or value['event_us'] != value['baseline_us']:
+                    raise ValueError('metadata malformed format announcement/baseline')
+                value['format'] = match[1]
+                announcements.append((value, stamp, raw, index))
+                continue
+            if 'audio: frames=' in line:
+                value = strict_numbers(line, ('capture_begin_us', 'capture_end_us', 'frames', *FAULTS))
+                if value['capture_end_us'] < value['capture_begin_us']:
+                    raise ValueError('metadata reversed capture bound')
+                at, rank = value['capture_begin_us'], 4
+            else:
+                at, rank = 0, 5
+            ordered.append((at, rank, index, stamp, raw))
+        except (ValueError, TypeError, RuntimeError) as error:
+            add_error(index, error)
+    def covered(event, index):
+        return any(receipt_index > index+1 and receipt['observed_event_range_valid']
+            and receipt['observed_event_min_us'] <= event <= receipt['observed_event_max_us']
+            for receipt_index, receipt in receipts)
+    for key, (value, stamp, raw, index) in storages.items():
+        boundary = boundaries.get(key)
+        if boundary is None:
+            add_error(index, 'missing encoder boundary for storage metadata')
+            continue
+        b = boundary[0]
+        try:
+            storage_receipt(raw, b['format'])
+            if b['reason'] == 'Stopped':
+                raise ValueError('stopped boundary cannot replace storage')
+            if b['reason'] == 'Startup' and (key[:2] != (0, 0) or value['sequence'] != (1 if b['format'] == 'Mp3' else 0)):
+                raise ValueError('metadata startup epoch/window/sequence')
+            if b['format'] == 'Flac' and value['sequence'] != 0:
+                raise ValueError('metadata initial FLAC sequence')
+        except (ValueError, KeyError, TypeError) as error:
+            add_error(index, error)
+        if b['format'] == 'Mp3':
+            ordered.append((value['baseline_us'], 1, index, stamp, raw))
+        if not covered(value['event_us'], index):
+            add_error(index, 'missing final encoder export receipt for storage')
+    startups = [(key, row) for key, row in boundaries.items() if row[0]['reason'] == 'Startup']
+    if len(startups) != 1:
+        errors.append('missing/duplicate encoder startup boundary')
+    for key, (b, stamp, raw, index) in boundaries.items():
+        if b['reason'] != 'Stopped' and key not in storages:
+            add_error(index, 'missing storage partner for encoder boundary')
+        if not covered(b['event_us'], index):
+            add_error(index, 'missing final encoder export receipt for boundary')
+        matching_announcements = [row for row in announcements if event_key(row[0]) == key and row[0]['baseline_us'] == b['baseline_us'] and row[0]['format'] == b['format']]
+        matching_invalidations = [row for row in invalidations if row[0]['telemetry_epoch'] == b['prior_epoch'] and row[0]['telemetry_window'] == b['telemetry_window'] and row[0]['event_us'] == b['event_us'] and row[0]['reason'] == b['reason']]
+        if b['reason'] == 'Startup':
+            if matching_announcements or matching_invalidations:
+                add_error(index, 'startup boundary has unexpected format/invalidation partner')
+        elif b['reason'] == 'Switched':
+            clean_initial = (len(startups) == 1 and startups[0][0][:2] == (0, 0)
+                and startups[0][1][0]['format'] == 'Flac' and startups[0][0] in storages
+                and startups[0][1][0]['event_us'] < b['event_us']
+                and key[:2] == (1, 0) and b['prior_epoch'] == 0 and b['format'] == 'Mp3'
+                and key in storages and storages[key][0]['sequence'] == 1
+                and len(matching_announcements) == 1 and len(matching_invalidations) == 1
+                and matching_invalidations[0][0]['position'] == (0, 'INACTIVE', 1)
+                and all(b[name] == matching_invalidations[0][0][name] for name in ('frames', 'resets', 'raw_overruns', 'raw_wait_us', 'raw_attempts'))
+                and b['resets'] == b['raw_overruns'] == 0)
+            if not clean_initial:
+                add_error(index, 'encoder boundary lacks clean initial inactive switch lifecycle')
+        elif len(matching_invalidations) != 1:
+            add_error(index, 'missing/duplicate invalidation partner for encoder boundary')
+    for value, stamp, raw, index in announcements:
+        key = event_key(value)
+        boundary = boundaries.get(key)
+        if not boundary or boundary[0]['reason'] != 'Switched' or boundary[0]['format'] != value['format'] or key not in storages or value['baseline_us'] != storages[key][0]['baseline_us']:
+            add_error(index, 'metadata format announcement lacks matching switch/storage boundary')
+        else:
+            ordered.append((value['event_us'], 2, index, stamp, raw))
+        if not covered(value['event_us'], index):
+            add_error(index, 'missing final encoder export receipt for format announcement')
+    for value, index in invalidations:
+        matches = [b for b, _, _, _ in boundaries.values() if b['reason'] == 'Switched' and b['prior_epoch'] == value['telemetry_epoch'] and b['telemetry_window'] == value['telemetry_window'] and b['event_us'] == value['event_us']]
+        if value['reason'] != 'Switched' or value['position'] != (0, 'INACTIVE', 1) or value['resets'] or value['raw_overruns'] or len(matches) != 1:
+            add_error(index, 'raw-loss/active invalidation lacks clean initial boundary')
+        if not covered(value['event_us'], index):
+            add_error(index, 'missing final encoder export receipt for invalidation')
+    for identity, pair in pairs.items():
+        if set(pair) != {'metric', 'probe'}:
+            errors.append('missing or conflicting encoder/probe pairing metadata: ' + str(identity))
+            continue
+        epoch, window, start, end, sequence = identity
+        metric = fields(pair['metric'][1])
+        if metric.get('elapsed_us') != end-start:
+            errors.append('metadata elapsed differs from producer window')
+        for rank, kind in ((3, 'metric'), (3.5, 'probe')):
+            stamp, raw, index = pair[kind]
+            ordered.append((end, rank, index, stamp, raw))
+        if not covered(end, max(pair['metric'][2], pair['probe'][2])):
+            errors.append(f'missing final encoder export receipt for epoch/window {epoch}/{window}')
+    ordered.sort(key=lambda row: row[:3])
+    result = analyze_owner_order([(stamp, raw, index) for _, _, index, stamp, raw in ordered])
+    result['errors'] = errors + result['errors']
+    result['valid_sequence'] &= not errors and all(row['valid'] for row in result['sequences'])
+    return result
+
+
+def analyze_owner_order(lines):
+    """Analyze validated owner order; unknown first deltas stay unknown."""
     sequences, captures, errors = [], [], []
     current = pending = previous = None
-    for index, (stamp, raw) in enumerate(lines):
+    for stamp, raw, index in lines:
         line = re.sub(r'\x1b\[[0-9;]*m', '', raw)
         row = dict(line=index + 1, host_monotonic=stamp, raw=raw)
         try:
@@ -136,6 +389,7 @@ def analyze(lines):
                     current['storage_errors'].append(str(error))
                 if any(item['sequence'] == sequence for item in sequences):
                     current['errors'].append('duplicate sequence storage')
+                current['metadata'] = value
                 if value.get('baseline_pending') is not True:
                     current['errors'].append('missing fresh baseline receipt')
                 sequences.append(current)
@@ -148,7 +402,7 @@ def analyze(lines):
                 expected_announcement = (current is not None and not current['windows']
                                          and pending is None and current['storage_valid']
                                          and not current.get('format_announcement')
-                                         and re.search(r'stream: active format Mp3\s*$', line))
+                                         and re.search(r'stream: active format Mp3(?:\s|$)', line))
                 if expected_announcement:
                     current['format_announcement'] = row
                 elif current:
@@ -181,6 +435,16 @@ def analyze(lines):
                 else:
                     current['windows'].append(row)
                 problem = []
+                if position == 0:
+                    baseline = current['metadata']
+                    if (metric['window_start_us'] != baseline['baseline_us']
+                            or metric['telemetry_epoch'] != baseline['telemetry_epoch']
+                            or metric['telemetry_window'] != baseline['telemetry_window'] + 1):
+                        problem.append('metadata first window differs from storage baseline')
+                elif previous and (metric['telemetry_epoch'] != previous['metrics']['telemetry_epoch']
+                        or metric['telemetry_window'] != previous['metrics']['telemetry_window'] + 1
+                        or metric['window_start_us'] != previous['metrics']['window_end_us']):
+                    problem.append('metadata discontinuous window identity or bounds')
                 if any(key not in metric for key in METRICS) or any(key not in probe for key in PROBE):
                     raise ValueError('missing report field')
                 if any(type(value) is int and not 0 <= value <= 2**64-1
@@ -231,17 +495,19 @@ def analyze(lines):
         capture_errors_start = len(sequence['errors'])
         retained = [row for row in windows if row['probe'].get('retained') is True]
         if retained:
-            # The preceding completed report bounds the first retained device interval.
-            first = next((row for row in windows if row['probe'].get('phase') == 'OFF1' and row['probe'].get('interval') == 2), None)
-            start = first['line'] if first else retained[0]['line']
-            end = retained[-1]['line']
-            before = [row for row in captures if row['line'] < start]
-            after = [row for row in captures if row['line'] > end]
+            start = retained[0]['metrics']['window_start_us']
+            end = retained[-1]['metrics']['window_end_us']
+            before = [row for row in captures if row['counters'].get('capture_end_us', end+1) <= start]
+            after = [row for row in captures if row['counters'].get('capture_begin_us', 0) >= end]
             if not before or not after:
-                sequence['errors'].append('capture reports do not bracket retained span')
+                sequence['errors'].append('capture reports do not bracket retained producer span')
             else:
-                left, right = before[-1], after[0]
-                covered = [row for row in captures if left['line'] <= row['line'] <= right['line']]
+                left = max(before, key=lambda row: row['counters']['capture_end_us'])
+                right = min(after, key=lambda row: row['counters']['capture_begin_us'])
+                covered = [row for row in captures if left['counters']['capture_begin_us'] <= row['counters']['capture_begin_us'] <= right['counters']['capture_begin_us']]
+                covered.sort(key=lambda row: row['counters']['capture_begin_us'])
+                if any(a['counters']['capture_end_us'] > b['counters']['capture_begin_us'] for a, b in zip(covered, covered[1:])):
+                    sequence['errors'].append('overlapping capture bounds')
                 sequence['capture_coverage'] = dict(start=left, end=right, fault_deltas={})
                 frames = [row['counters'].get('frames') for row in covered]
                 if (any(type(value) is not int or value < 0 for value in frames)

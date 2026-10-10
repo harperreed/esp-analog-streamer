@@ -79,6 +79,27 @@ def validate_listener_export(lines):
                 raise RuntimeError('listener telemetry export loss')
 
 
+def encoder_export_receipt(line):
+    """Encoder batches share the bounded numeric receipt contract, with every reason required."""
+    renamed = line.replace('encoder-telemetry:', 'listener-telemetry:', 1)
+    try:
+        values = listener_export_receipt(renamed)
+        values.update(listener_export_reasons(renamed))
+    except RuntimeError as error:
+        raise RuntimeError(str(error).replace('listener telemetry', 'encoder telemetry')) from error
+    return values
+
+
+def validate_encoder_export(lines):
+    """Sticky loss and any nonzero reason reject encoder evidence, including total wrap."""
+    for line in lines:
+        if 'encoder-telemetry:' in line:
+            values = encoder_export_receipt(line)
+            if values['loss_occurred'] or any(values[key] != 0 for key in (
+                    'dropped', 'dropped_full', 'dropped_contended', 'dropped_poisoned')):
+                raise RuntimeError('encoder telemetry export loss')
+
+
 def listener_event_us(line):
     line = re.sub(r'\x1b\[[0-9;]*m', '', line)
     found = re.findall(r'\bevent_us=([0-9]+)(?=\s|$)', line)
@@ -102,6 +123,7 @@ def checked_listener_closes(lines, require_departure=True, after_event_ms=None,
                             departure_pattern=None):
     """Return indexed checked-close evidence with its required departure and batch receipt."""
     validate_listener_export(lines)
+    validate_encoder_export(lines)
     receipts = [(index, listener_export_receipt(line)) for index, line in enumerate(lines)
                 if 'listener-telemetry:' in line]
     departures, closed = {}, []
@@ -152,12 +174,14 @@ def wait_for(check, seconds, reason, read_lines, check_output_budget):
         check_output_budget()
         current = read_lines()
         validate_listener_export(current)
+        validate_encoder_export(current)
         if any('encoder-faults: marker=FAIL' in line for line in current):
             raise RuntimeError('fixture failure; see private UART log')
         value = check()
         if value is not None:
             final = read_lines()
             validate_listener_export(final)
+            validate_encoder_export(final)
             if any('encoder-faults: marker=FAIL' in line for line in final):
                 raise RuntimeError('fixture failure; see private UART log')
             return value

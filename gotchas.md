@@ -828,3 +828,14 @@ with no contended or poisoned drops. Nine exported records plus one dropped
 record establish at least ten attempts, not a complete census: no terminal
 queue-empty receipt exists. Preserve strict loss rejection and keep historical
 drops unattributed. See October 10 listener-loss-device evidence.
+
+The ESP Rust std pthread mutex allocates its OnceBox/native mutex on first
+access, including try_lock; IDF then allocates mutex/semaphore storage. Initialize
+telemetry queues before spawning capture/metrics or stream workers. Linux futex
+host tests cannot prove target first-use allocation behavior. Keep setup separate
+from the try-lock-only producer path; see the October 10 encoder telemetry plan.
+
+The real stream boot starts FLAC before Sonos applies saved MP3. Probe acceptance
+must validate the complete inactive startup replacement, not reject every switch
+or alter firmware startup to suit a synthetic fixture. Active invalidation and
+raw loss still reject; preserve archived negative evidence unchanged.
