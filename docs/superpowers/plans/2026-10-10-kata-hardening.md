@@ -64,7 +64,7 @@ new consequential architectural choices get a concrete design before code.
 | n4jb | P0 | Add reproducible network fault injection on the actual board traffic path | Reconciling |
 | 1wny | P1 | Use cargo-mutants to check whether reliability tests detect wrong behavior | Closed, runner 823c0cc and pilot evidence 7b05adf |
 | m31k | P1 | Measure host recovery-path coverage with cargo-llvm-cov | Two local pilots passed; CI written/reviewed, hosted run pending |
-| t4ae | P1 | Add bounded host fuzzing for FLAC, HTTP and stream transitions | Targets and runner reviewed; all 27 canonical stages pass; committed-source ASan run next |
+| t4ae | P1 | Add bounded host fuzzing for FLAC, HTTP and stream transitions | Local acceptance passed from f57aa3e; hosted execution remains in 97bk |
 | jq3a | P0 | Model listener admission and shutdown interleavings with Loom | Closed, b68318b |
 | 5yf3 | P0 | Add proptest state-machine tests for rings and listener lifecycles | Closed, 0d9d014 |
 | 21tp | P2 | Move encoder and listener logs off progress and cleanup paths | Reconciling |
@@ -218,3 +218,21 @@ clean committed snapshot; the earlier mixed-input run remains development-only.
 The adapted encoder diagnostic plan passed review after explicit per-phase
 settling, reset/replacement invalidation and diagnostic-only report ordering.
 Implementation waits until the fuzz input archive is immutable.
+
+Fuzz implementation is committed as f57aa3e. The actual ASan pilot passed from
+its immutable archive: 20,788 FLAC cases, one million HTTP cases and one million
+stream-operation cases, status 0. Independent receipt review verified tool,
+source and lock hashes, all 40 original seeds, all three instrumented builds,
+and byte-exact preservation of all 489 archived files. No finding artifacts were
+produced. Durable receipts: October 10 host-fuzz.md/.json. Hosted workflow and
+upload execution remain explicitly pending in release-gate Kata 97bk.
+
+The next worker implements the reviewed default-off encoder diagnostic in
+2026-10-10-encoder-boundary-probe.md. Fuzz inputs are already frozen, so this does
+not alter acceptance. The first phase requires 80 seconds; earlier MP3 raw loss
+may prevent a full valid sequence. Retain invalid phase/window receipts and bound
+the device experiment instead of restarting indefinitely or tuning away faults.
+A separate evidence search read all 16 files in docs-ignore/victrola-hacks.tgz
+without modification; it did not establish a LAN join-only command or stale-write
+rejection. The observed failed suspend targeted a replacement empty session,
+not the evicted board session. Automatic recovery writes remain gated by pqqq.
