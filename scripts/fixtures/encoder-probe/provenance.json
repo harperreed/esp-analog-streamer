@@ -1,0 +1,7 @@
+{
+  "origin": "target/kata-hardening/cold-series/old-1",
+  "source_result_sha256": "617ce4ea9b06057f2759fd991d84d00894aa221daf724d58de94b2dcea7c5d77",
+  "source_uart_sha256": "25d8c8992ebae4592ec5764fd19b5dba4534120b4a3333ef328bb32aa569f25a",
+  "source_elf_sha256": "c3bf69b149b9386b27346cfe26e023c191054a490374a7d5f480c9b8d40159d9",
+  "selection": "First before_reset state; config.player_id omitted. First two complete production stream-encode lines, unchanged bytes. No probe rows; not probe HIL evidence."
+}

@@ -782,3 +782,13 @@ signal at the ADC. Those quiet soft-reinit trials included a transient through
 about 420 ms. Later connected-input trials verified driven tones and measured
 soft-reinit anomalies through 490 ms; retain the 500 ms policy. Neither set proves
 physical cold-start behavior or calibrates gain.
+
+UART arrival timestamps identify read chunks, not individual device events.
+Several encoder and capture reports can share one timestamp; use original line
+order to pair reports and bracket capture coverage. A format announcement may
+follow the fresh encoder storage receipt, so validate the actual emitted order.
+
+Diagnostic cleanup must tolerate a thread object whose start failed. Joining
+an unstarted thread raises and can skip source termination. Establish deadlines
+before starting helpers, record the real source PID, and keep cleanup failures
+separate from the initiating failure.

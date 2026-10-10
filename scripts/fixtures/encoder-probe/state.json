@@ -1,0 +1,23 @@
+{
+  "sonos": {
+    "config": {
+      "autoplay": false,
+      "buffer_preset": "med",
+      "output_format": "mp3"
+    },
+    "buffer_available": true,
+    "active_format": "mp3",
+    "groups": [],
+    "active_player_id": null,
+    "state": "stopped",
+    "last_error": null
+  },
+  "app_state": {
+    "state": "quiet",
+    "shazam_enabled": false,
+    "level_dbfs": -66.0,
+    "rate_limited_until": null,
+    "now": null,
+    "history": []
+  }
+}

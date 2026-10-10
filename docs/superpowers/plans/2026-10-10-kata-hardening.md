@@ -1,7 +1,7 @@
 # Finish the Kata hardening backlog
 
 Doctor Biz's active goal on October 10: finish all Kata work, then assess.
-Base c134069 on wip/kata-capture-protection. Compactions in this phase: 4; replay checkpoint is 32c2300.
+Base c134069 on wip/kata-capture-protection. Compactions in this phase: 5; replay checkpoint is 32c2300.
 Use GPT-6.1 Sol subagents with clean contexts. Parent owns review, integration,
 canonical checks, commits and every hardware action. Continue through batches;
 a phase checkpoint is not a reason to abandon the active goal.
@@ -246,3 +246,33 @@ the bounded collector: settle input before reset, require enough source duration
 preserve all UART/state/failure receipts, and derive phase totals from consecutive
 complete windows. A 300-second source is too short for its proposed 360-second
 collection allowance plus setup/final receipts; do not silently loop it.
+
+Probe implementation is committed as 5460cac. The fifth-compaction checkpoint
+continues with clean-context Sol 6.1 workers; no replacement root-session action
+exists. Collector review found missing final receipts on timeout, incomplete
+storage validation, same-chunk UART ordering ambiguity and unrecognized WAV
+listener churn. Correct those before hardware. The separate offline noise
+generator passed four actual-WAV tests. Its explicit 420-second run produced
+20,160,000 stereo frames; SHA256
+9311d9ca5dfe1a5f9269631afe22647834207f2b3239571474acc8ac15f3228d.
+This is a new PCG64 recipe, not the historical noise fixture. Hardware preflight
+still shows stopped MP3/Medium, autoplay and recognition off, front Headphone
+enabled and rear Line Out muted. No probe flash or source playback has occurred.
+
+A read-only 8s9m design is saved at target/kata-hardening/admission-design.md.
+It proposes two persistent header workers without increasing the two-listener
+cap. Extra stack headroom and pre-admission close ownership need resolution;
+there is no implemented admission change or measured latency result yet.
+
+Collector review fixes are complete, including actual startup log order and
+post-completion validation. Final cleanup also handles unstarted helper threads
+and receipt-writing failure without skipping real source termination. Tests
+reproduced those failures with ordinary child processes. Independent review
+reports no unresolved source findings; all 22 collector, four noise and 11
+existing harness module tests pass alongside the existing parser checks. The
+first and final canonical runs both passed all 27 stages; the latter includes
+the cleanup fixes (target/kata-hardening/check-probe-collector-final.log).
+Before claiming device acceptance, retain actual probe UART/arrival/state data
+and add a real replay regression. The synthetic host records do not prove that
+integration. Parent alone will flash the saved probe ELF and run one bounded
+trial, preserving failure if a full sequence cannot survive.

@@ -11,4 +11,6 @@ esac
 cd "$(dirname "$0")/.."
 repo="$PWD"
 uv run --quiet --project "$repo" --locked python3 scripts/test_harness_parsers.py
+uv run --quiet --project "$repo" --locked python3 -m unittest discover -s scripts -p test_encoder_probe_check.py
+uv run --quiet --project "$repo" --locked python3 -m unittest discover -s scripts -p test_noise_fixture.py
 exec uv run --quiet --project "$repo" --locked python3 -m unittest discover -s scripts -p test_harness_modules.py
