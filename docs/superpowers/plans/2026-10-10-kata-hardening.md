@@ -636,3 +636,10 @@ This does not implement concurrent admission or prove target scheduling bounds;
 for explicit FLAC input collection, with temporary saved format restoration and
 no Sonos Play. The earlier failed WAV inputs remain unusable as eight-second
 fixtures; no downstream host work comparison has run.
+
+Both MP3-selected WAV attempts now have independent evidence review and durable
+reports in metrics-state-wav-input.md/.json. Archived also truncated (275 ms),
+so neither is a valid eight-second fixture. Weighted encoder rates remain
+0.785716x current versus 0.959784x archived, with eight versus one raw overruns.
+Both owned acquisitions completed naturally and cleaned up; the board remains
+archived unified default, stopped MP3/Medium. This closes no audio acceptance gate.
