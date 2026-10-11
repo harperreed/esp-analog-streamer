@@ -6,7 +6,8 @@ from pathlib import Path
 
 def validate_decoder_line(line):
     if (re.search(r'\[(error|fatal|panic)\]', line)
-            or 'sample/frame number mismatch' in line.lower()):
+            or 'sample/frame number mismatch' in line.lower()
+            or 'crc error at pts' in line.lower()):
         raise ValueError(f'ffmpeg integrity failure: {line.strip()}')
 
 

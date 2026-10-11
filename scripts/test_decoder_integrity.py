@@ -15,13 +15,24 @@ from types import SimpleNamespace
 import numpy as np
 
 sys.path.insert(0, str(Path('scripts').resolve()))
-from decoder_integrity import FrameHash
+from decoder_integrity import FrameHash, validate_decoder_line
 
 OUT = Path('target/task1-validation').resolve()
 OUT.mkdir(parents=True, exist_ok=True)
 
 
 class IntegrityTests(unittest.TestCase):
+    def test_interleaved_crc_error_rejected_without_error_prefix(self):
+        line = '[info]       encoder         : Lavc62.11.100 pcm_s32leCRC error at PTS -9223372036854775808'
+        with self.assertRaisesRegex(ValueError, 'ffmpeg integrity failure'):
+            validate_decoder_line(line)
+
+    def test_benign_decoder_metadata_and_zero_error_count_accepted(self):
+        for line in ('[info]       encoder         : Lavc62.11.100 pcm_s32le',
+                     '[info] 144000 samples decoded; 0 errors'):
+            with self.subTest(line=line):
+                validate_decoder_line(line)
+
     @classmethod
     def setUpClass(cls):
         # Distinct channel signals catch channel swaps; exact PCM is the digital reference.
