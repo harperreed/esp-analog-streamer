@@ -127,14 +127,25 @@ class ReplayTests(unittest.TestCase):
         header, blocks = self.fixture()
         complete = header + b''.join(blocks[:-1])
         self.manifest.update(complete_audio_bytes=len(complete), expected_frames=13824,
-                             terminal_reason='write_timeout', pending_write='pending.bin')
+                             pending_write='pending.bin')
         pcm = self.root / 'expected.pcm'; pcm.write_bytes(pcm.read_bytes()[:13824 * 8])
         (self.root / 'pending.bin').write_bytes(blocks[-1])
-        (self.root / 'tail.bin').write_bytes(blocks[-1][:13])
-        (self.root / 'transport.bin').write_bytes(self.http + complete + blocks[-1][:13])
-        self.assertEqual(self.run_manifest()['decoded_audio_frames'], 13824)
-        (self.root / 'tail.bin').write_bytes(b'wrong')
-        with self.assertRaises(ValueError):
+        for reason in ['write_timeout', 'media_age']:
+            with self.subTest(reason=reason):
+                self.manifest['terminal_reason'] = reason
+                (self.root / 'tail.bin').write_bytes(blocks[-1][:13])
+                (self.root / 'transport.bin').write_bytes(self.http + complete + blocks[-1][:13])
+                self.assertEqual(self.run_manifest()['decoded_audio_frames'], 13824)
+                (self.root / 'tail.bin').write_bytes(b'wrong')
+                with self.assertRaisesRegex(ValueError, 'strict pending-write prefix'):
+                    self.run_manifest()
+
+    def test_media_age_never_applies_to_initial_headers(self):
+        (self.root / 'initial.bin').write_bytes(self.http + b'fLaC')
+        (self.root / 'tail.bin').write_bytes(self.http[:12])
+        (self.root / 'transport.bin').write_bytes(self.http[:12])
+        self.manifest.update(terminal_reason='media_age', pending_write='initial.bin', phase='header')
+        with self.assertRaisesRegex(ValueError, 'no allowed terminal reason'):
             self.run_manifest()
 
     def test_declared_complete_bytes_cannot_exceed_transport(self):

@@ -24,7 +24,7 @@ fn absent_capture_retains_partial_input_and_generation_reset_discards_it() {
         pump.step(&raw, &mut worker, &runtime, &mut || time, &mut |_| {}),
         EncoderStep::Progress
     ));
-    publisher.publish(&vec![17; 480]).unwrap();
+    publisher.publish(&vec![17; 480], 0, || 0).unwrap();
     pump.step(&raw, &mut worker, &runtime, &mut || time, &mut |_| {});
     assert_eq!(worker.encoder.frames_wanted(), 3856);
     pump.step(&raw, &mut worker, &runtime, &mut || time, &mut |_| {});
@@ -120,7 +120,7 @@ fn pending_header_cannot_be_preempted_and_payload_accounting_requires_complete_w
         matches!(listener.step(&old, &mut bytes, &mut || time, &mut || panic!("pending write must not probe")), ListenerStep::Write { deadline: d, header: true } if d == deadline)
     );
     assert!(matches!(
-        listener.write_finished(Ok(())),
+        listener.write_finished(Ok(()), &mut || Duration::ZERO),
         ListenerStep::Progress
     ));
     assert!(matches!(
@@ -149,7 +149,7 @@ fn retirement_during_fresh_wait_is_retired_and_empty_expiry_is_stalled() {
             let mut bytes = vec![0; OutputFormat::Flac.max_frame_bytes()];
             listener.step(&epoch, &mut bytes, &mut || Duration::ZERO, &mut || true);
             listener.step(&epoch, &mut bytes, &mut || Duration::ZERO, &mut || true);
-            listener.write_finished(Ok(()));
+            listener.write_finished(Ok(()), &mut || Duration::ZERO);
             assert!(matches!(
                 listener.step(&epoch, &mut bytes, &mut || Duration::ZERO, &mut || true),
                 ListenerStep::SleepUntil(at) if at == Duration::from_millis(10)
@@ -231,7 +231,7 @@ fn reset_inside_actual_atomic_copy_never_pushes_rejected_scratch() {
         &mut || Duration::ZERO,
         &mut |_| {},
     );
-    publisher.publish(&vec![41; 480]).unwrap();
+    publisher.publish(&vec![41; 480], 0, || 0).unwrap();
     let mut accepted = Vec::new();
     let mut observe = |observation| {
         if let EncoderObservation::AcceptedInput {
@@ -271,16 +271,33 @@ fn payload_counters_advance_only_after_a_whole_successful_write() {
             listener.step(&epoch, &mut scratch, &mut || Duration::ZERO, &mut || true),
             ListenerStep::Write { header: true, .. }
         ));
-        listener.write_finished(Ok(()));
+        listener.write_finished(Ok(()), &mut || Duration::ZERO);
         worker.encoder.push(&vec![0; 8192]);
         worker.encoder.encode_block(0, &mut worker.bytes).unwrap();
         let payload_len = worker.bytes.len() as u64;
-        epoch.ring.lock().unwrap().push(&worker.bytes).unwrap();
+        epoch
+            .ring
+            .lock()
+            .unwrap()
+            .push(
+                &worker.bytes,
+                esp_shazam_core::flac_ring::SourceMetadata {
+                    raw_generation: 0,
+                    source_start: 0,
+                    source_end: 1,
+                    oldest_accepted_us: 0,
+                    raw_publication_us: 0,
+                },
+                || 0,
+            )
+            .unwrap();
         assert!(matches!(
             listener.step(&epoch, &mut scratch, &mut || Duration::ZERO, &mut || true),
             ListenerStep::Write { header: false, .. }
         ));
         assert_eq!(listener.frames_sent, 0);
+        assert_eq!(listener.first_sent, None);
+        assert_eq!(listener.last_sent, None);
         assert_eq!(listener.bytes_sent, 0);
         assert_eq!(listener.write_bytes(&scratch), worker.bytes);
         // Reobserving a pending Write neither sends nor accounts any bytes.
@@ -293,7 +310,7 @@ fn payload_counters_advance_only_after_a_whole_successful_write() {
         assert_eq!((listener.frames_sent, listener.bytes_sent), (0, 0));
         if successful {
             assert!(matches!(
-                listener.write_finished(Ok(())),
+                listener.write_finished(Ok(()), &mut || Duration::ZERO),
                 ListenerStep::Progress
             ));
             assert_eq!(
@@ -302,13 +319,22 @@ fn payload_counters_advance_only_after_a_whole_successful_write() {
             );
         } else {
             assert!(matches!(
-                listener.write_finished(Err(std::io::Error::new(
-                    std::io::ErrorKind::TimedOut,
-                    "partial payload expired"
-                ))),
+                listener.write_finished(
+                    Err(std::io::Error::new(
+                        std::io::ErrorKind::TimedOut,
+                        "partial payload expired"
+                    )),
+                    &mut || Duration::ZERO
+                ),
                 ListenerStep::End(End::StoppedReading)
             ));
             assert_eq!((listener.frames_sent, listener.bytes_sent), (0, 0));
+            assert_eq!(listener.first_sent, None);
+            assert_eq!(listener.last_sent, None);
+        }
+        if successful {
+            assert!(listener.first_sent.is_some());
+            assert!(listener.last_sent.is_some());
         }
     }
 }
@@ -342,7 +368,7 @@ fn cursor_acquisition_reports_the_actual_join_position_before_any_input() {
     use stream_pipeline::EncoderObservation;
     let (runtime, mut worker) = Runtime::new(OutputFormat::Flac, false).unwrap();
     let (mut publisher, raw) = CaptureBuffer::new(3840, 240);
-    publisher.publish(&vec![31; 480]).unwrap();
+    publisher.publish(&vec![31; 480], 0, || 0).unwrap();
     let mut pump = EncoderPump::new();
     let mut acquired = Vec::new();
     let mut accepted = 0;
@@ -388,7 +414,7 @@ fn probe_push_clocks_only_when_enabled_and_storage_is_real() {
             &mut || Duration::ZERO,
             &mut |_| {},
         );
-        publisher.publish(&vec![12345; 480]).unwrap();
+        publisher.publish(&vec![12345; 480], 0, || 0).unwrap();
         let mut clocks = 0;
         let mut pushes = Vec::new();
         pump.step(
@@ -522,7 +548,7 @@ fn encoded_failures_keep_identity_and_wait_accounting_at_freshness_boundaries() 
             let mut bytes = vec![0; OutputFormat::Flac.max_frame_bytes()];
             listener.step(&epoch, &mut bytes, &mut || Duration::ZERO, &mut || true);
             listener.step(&epoch, &mut bytes, &mut || Duration::ZERO, &mut || true);
-            listener.write_finished(Ok(()));
+            listener.write_finished(Ok(()), &mut || Duration::ZERO);
             assert!(matches!(
                 listener.step(&epoch, &mut bytes, &mut || Duration::ZERO, &mut || true),
                 ListenerStep::SleepUntil(_)
@@ -530,10 +556,21 @@ fn encoded_failures_keep_identity_and_wait_accounting_at_freshness_boundaries() 
             {
                 let mut ring = epoch.ring.lock().unwrap();
                 if reset {
-                    ring.reset();
+                    ring.reset().unwrap();
                 } else {
                     for _ in 0..=ring.capacity() {
-                        ring.push(b"frame").unwrap();
+                        ring.push(
+                            b"frame",
+                            esp_shazam_core::flac_ring::SourceMetadata {
+                                raw_generation: 0,
+                                source_start: 0,
+                                source_end: 1,
+                                oldest_accepted_us: 0,
+                                raw_publication_us: 0,
+                            },
+                            || 0,
+                        )
+                        .unwrap();
                     }
                 }
             }
@@ -564,14 +601,43 @@ fn foreign_cursor_error_maps_to_invalid_cursor_without_poisoning_ring() {
     use stream_pipeline::End;
     let mut source = FlacRing::try_new(2, 8).unwrap();
     let mut cursor = source.cursor_now();
-    source.push(b"abcdef").unwrap();
-    source.read(&mut cursor, &mut [0; 4]).unwrap();
+    source
+        .push(
+            b"abcdef",
+            esp_shazam_core::flac_ring::SourceMetadata {
+                raw_generation: 0,
+                source_start: 0,
+                source_end: 1,
+                oldest_accepted_us: 0,
+                raw_publication_us: 0,
+            },
+            || 0,
+        )
+        .unwrap();
+    source
+        .read(&mut cursor, &mut [0; 4])
+        .map(|read| read.bytes)
+        .unwrap();
     let destination = std::sync::Mutex::new(FlacRing::try_new(2, 8).unwrap());
     let mut ring = destination.lock().unwrap();
-    ring.push(b"ab").unwrap();
+    ring.push(
+        b"ab",
+        esp_shazam_core::flac_ring::SourceMetadata {
+            raw_generation: 0,
+            source_start: 0,
+            source_end: 1,
+            oldest_accepted_us: 0,
+            raw_publication_us: 0,
+        },
+        || 0,
+    )
+    .unwrap();
     let before = cursor;
     let mut sentinel = [99; 8];
-    let error = ring.read(&mut cursor, &mut sentinel).unwrap_err();
+    let error = ring
+        .read(&mut cursor, &mut sentinel)
+        .map(|read| read.bytes)
+        .unwrap_err();
     assert_eq!(error, ReadError::InvalidOffset);
     assert!(matches!(
         End::from_encoded_read_error(error),
@@ -621,4 +687,217 @@ fn network_retirement_precedes_buffered_admission_and_http_header() {
             ListenerStep::End(End::NetworkChanged)
         ));
     }
+}
+
+#[test]
+fn encoded_metadata_accumulates_oldest_source_and_late_complete_counts_bytes() {
+    use stream_pipeline::{CompressedListener, End, ListenerStep};
+    let (runtime, mut worker) = Runtime::new(OutputFormat::Mp3, false).unwrap();
+    let (mut publisher, raw) = CaptureBuffer::new(4800, 240);
+    let mut pump = EncoderPump::new();
+    let mut time = Duration::from_micros(100);
+    pump.step(&raw, &mut worker, &runtime, &mut || time, &mut |_| {});
+    let mut listener = CompressedListener::new(&worker.epoch, None, false, &mut || time);
+    let mut scratch = vec![0; OutputFormat::Mp3.max_frame_bytes()];
+    listener.step(&worker.epoch, &mut scratch, &mut || time, &mut || true);
+    listener.step(&worker.epoch, &mut scratch, &mut || time, &mut || true);
+    listener.write_finished(Ok(()), &mut || time);
+    let mut cursor = worker.epoch.ring.lock().unwrap().cursor_now();
+    for block in 0..5 {
+        publisher
+            .publish(&vec![17; 480], 100 + block, || 200 + block)
+            .unwrap();
+        time = Duration::from_micros(300 + block);
+        pump.step(&raw, &mut worker, &runtime, &mut || time, &mut |_| {});
+    }
+    let read = worker
+        .epoch
+        .ring
+        .lock()
+        .unwrap()
+        .read(&mut cursor, &mut scratch)
+        .unwrap();
+    let metadata = read.receipt.unwrap().metadata;
+    assert_eq!(metadata.source.oldest_accepted_us, 100);
+    assert_eq!(
+        (metadata.source.source_start, metadata.source.source_end),
+        (0, 1152)
+    );
+    assert_eq!(metadata.source.raw_publication_us, 204);
+    assert_eq!(metadata.encoded_production_us, 304);
+    assert!(matches!(
+        listener.step(&worker.epoch, &mut scratch, &mut || time, &mut || true),
+        ListenerStep::Write { header: false, .. }
+    ));
+    let len = listener.write_bytes(&scratch).len();
+    time = Duration::from_micros(4_000_100);
+    assert!(matches!(
+        listener.write_finished(Ok(()), &mut || time),
+        ListenerStep::End(End::MediaAge)
+    ));
+    assert_eq!(listener.bytes_sent, len as u64);
+    assert_eq!(listener.frames_sent, 1);
+}
+
+#[test]
+fn supervisor_requests_encoder_owned_reset_and_gate_survives_ring_reset() {
+    use stream_runtime::health::{State, Supervisor};
+    let (runtime, mut worker) = Runtime::new(OutputFormat::Mp3, false).unwrap();
+    let (mut publisher, raw) = CaptureBuffer::new(12000, 240);
+    let mut supervisor = Supervisor::new();
+    supervisor.observe(&runtime, &raw, 0);
+    publisher.publish(&vec![0; 2400], 1, || 1).unwrap();
+    supervisor.observe(&runtime, &raw, 1);
+    publisher.publish(&vec![0; 480], 2, || 2).unwrap();
+    supervisor.observe(&runtime, &raw, 1_999_999);
+    publisher.publish(&vec![0; 480], 3, || 3).unwrap();
+    supervisor.observe(&runtime, &raw, 2_000_001);
+    assert_eq!(runtime.health.state(), State::ResetRequested);
+    assert!(runtime.admit("GET /stream.mp3 HTTP/1.1").1.is_none());
+    worker.epoch.ring.lock().unwrap().reset().unwrap();
+    supervisor.observe(&runtime, &raw, 4_000_001);
+    assert_eq!(runtime.health.state(), State::Terminal);
+    let mut pump = EncoderPump::new();
+    pump.step(
+        &raw,
+        &mut worker,
+        &runtime,
+        &mut || Duration::from_secs(5),
+        &mut |_| {},
+    );
+    assert_eq!(runtime.health.state(), State::Terminal);
+}
+
+#[test]
+fn terminal_transition_is_reported_once_and_same_format_operator_replaces_it() {
+    use std::sync::{Arc, Mutex};
+    use stream_runtime::{
+        health::{State, Supervisor},
+        SwitchPoll, SwitchStart,
+    };
+    let (runtime, mut worker) = Runtime::new(OutputFormat::Mp3, false).unwrap();
+    let (mut publisher, raw) = CaptureBuffer::new(12000, 240);
+    let mut supervisor = Supervisor::new();
+    supervisor.observe(&runtime, &raw, 0);
+    publisher.publish(&vec![0; 2400], 1, || 1).unwrap();
+    supervisor.observe(&runtime, &raw, 1);
+    publisher.publish(&vec![0; 480], 2, || 2).unwrap();
+    supervisor.observe(&runtime, &raw, 1_999_999);
+    publisher.publish(&vec![0; 480], 3, || 3).unwrap();
+    supervisor.observe(&runtime, &raw, 2_000_001);
+    assert!(supervisor.observe(&runtime, &raw, 4_000_001).is_some());
+    assert!(supervisor.observe(&runtime, &raw, 4_000_002).is_none());
+    let stale = runtime.health.token();
+    let gate = runtime.health.clone();
+    let (resume, resumed) = std::sync::mpsc::channel();
+    let old_observer = std::thread::spawn(move || {
+        resumed.recv_timeout(Duration::from_secs(2)).unwrap();
+        gate.transition(stale, State::Terminal)
+    });
+    let pending = match runtime.begin_switch(
+        OutputFormat::Mp3,
+        true,
+        Arc::new(Mutex::new(true)),
+        Duration::from_secs(1),
+    ) {
+        SwitchStart::Pending(pending) => pending,
+        _ => panic!("failed same-format encoder must be prepared again"),
+    };
+    assert!(worker.service(&runtime));
+    assert!(matches!(pending.poll(), SwitchPoll::Finished(Ok(true))));
+    assert_eq!(runtime.health.state(), State::Healthy);
+    resume.send(()).unwrap();
+    assert!(!old_observer.join().unwrap());
+    assert!(!runtime.health.transition(stale, State::Terminal));
+    assert!(!runtime.health.transition(stale, State::ResetRequested));
+}
+
+#[test]
+fn cooperative_reset_ack_requires_actual_new_output_to_recover() {
+    use stream_runtime::health::{State, Supervisor};
+    let (runtime, mut worker) = Runtime::new(OutputFormat::Mp3, false).unwrap();
+    let (mut publisher, raw) = CaptureBuffer::new(12000, 240);
+    let mut supervisor = Supervisor::new();
+    supervisor.observe(&runtime, &raw, 0);
+    publisher.publish(&vec![0; 2400], 1, || 1).unwrap();
+    supervisor.observe(&runtime, &raw, 1);
+    publisher.publish(&vec![0; 480], 2, || 2).unwrap();
+    supervisor.observe(&runtime, &raw, 1_999_999);
+    publisher.publish(&vec![0; 480], 3, || 3).unwrap();
+    supervisor.observe(&runtime, &raw, 2_000_001);
+    let mut pump = EncoderPump::new();
+    let mut time = Duration::from_micros(2_100_000);
+    let mut acks = 0;
+    pump.step(&raw, &mut worker, &runtime, &mut || time, &mut |event| {
+        if matches!(event, stream_pipeline::EncoderObservation::HealthAck { .. }) {
+            acks += 1;
+        }
+    });
+    assert_eq!(acks, 1);
+    assert_eq!(runtime.health.state(), State::Recovering);
+    supervisor.observe(&runtime, &raw, 2_100_001);
+    assert_eq!(runtime.health.state(), State::Recovering);
+    assert!(runtime.health.progress().is_none());
+    pump.step(&raw, &mut worker, &runtime, &mut || time, &mut |_| {});
+    for _ in 0..5 {
+        time += Duration::from_micros(5000);
+        let us = time.as_micros() as u64;
+        publisher.publish(&vec![0; 480], us, || us).unwrap();
+        pump.step(&raw, &mut worker, &runtime, &mut || time, &mut |_| {});
+    }
+    let output = runtime.health.progress().unwrap();
+    assert_eq!(output.receipt.generation, 1);
+    assert_eq!(output.receipt.sequence, 1);
+    assert!(output.receipt.metadata.source.source_start >= 1680);
+    let transition = supervisor.observe(&runtime, &raw, 2_200_000).unwrap();
+    assert_eq!(transition.state, State::Healthy);
+    assert_eq!(transition.output.unwrap().receipt, output.receipt);
+    assert_eq!(runtime.health.state(), State::Healthy);
+}
+
+#[test]
+fn accepted_input_remains_distinct_while_raw_publication_is_busy() {
+    use std::sync::mpsc;
+    use stream_runtime::health::{State, Supervisor};
+    let (runtime, _worker) = Runtime::new(OutputFormat::Mp3, false).unwrap();
+    let (mut publisher, raw) = CaptureBuffer::new(4800, 240);
+    let mut supervisor = Supervisor::new();
+    supervisor.observe(&runtime, &raw, 0);
+    let (ready, started) = mpsc::channel();
+    let (resume, resumed) = mpsc::channel();
+    let producer = std::thread::spawn(move || {
+        publisher.publish(&vec![0; 480], 1, || {
+            ready.send(()).unwrap();
+            resumed.recv_timeout(Duration::from_secs(2)).unwrap();
+            2
+        })
+    });
+    started.recv_timeout(Duration::from_secs(2)).unwrap();
+    assert!(raw.progress().is_err());
+    assert!(raw.accepted_progress().unwrap().frames > 0);
+    assert!(supervisor.observe(&runtime, &raw, 10_000_000).is_none());
+    assert_eq!(runtime.health.state(), State::Healthy);
+    resume.send(()).unwrap();
+    producer.join().unwrap().unwrap();
+}
+
+#[test]
+fn unhealthy_listener_gate_does_not_acquire_encoded_ring_mutex() {
+    use stream_pipeline::{CompressedListener, End, ListenerStep};
+    use stream_runtime::health::State;
+    let (runtime, worker) = Runtime::new(OutputFormat::Mp3, false).unwrap();
+    let mut listener = CompressedListener::new(&worker.epoch, None, false, &mut || Duration::ZERO);
+    let _held = worker.epoch.ring.lock().unwrap();
+    assert!(runtime
+        .health
+        .transition(runtime.health.token(), State::Terminal));
+    assert!(matches!(
+        listener.step(
+            &worker.epoch,
+            &mut [0; 960],
+            &mut || Duration::ZERO,
+            &mut || true
+        ),
+        ListenerStep::End(End::EncoderUnhealthy)
+    ));
 }

@@ -316,7 +316,7 @@ fn actual_pump_reset_switch_and_terminal_codec_failure_reach_owner_boundary() {
         &mut |_| {},
     );
     stream_codec::release_mp3_codec(&mut worker.encoder);
-    publisher.publish(&vec![1234; 2 * 1152]).unwrap();
+    publisher.publish(&vec![1234; 2 * 1152], 0, || 0).unwrap();
     // The fixture commits sixteen-frame capture blocks: one MP3 block needs 72 reads.
     let step = (0..96)
         .find_map(|_| {

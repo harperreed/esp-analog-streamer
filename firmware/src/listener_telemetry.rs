@@ -15,6 +15,21 @@ pub(crate) struct Record {
     pub peer: Option<SocketAddr>,
     pub payload: Payload,
 }
+#[derive(Clone, Copy, Debug, Default)]
+pub(crate) struct ListenerMedia {
+    pub valid: bool,
+    pub first_raw_generation: u64,
+    pub last_raw_generation: u64,
+    pub source_start: u64,
+    pub source_end: u64,
+    pub first_encoded_generation: u64,
+    pub last_encoded_generation: u64,
+    pub first_encoded_sequence: u64,
+    pub last_encoded_sequence: u64,
+    pub last_age_us: u64,
+    pub max_age_us: u64,
+    pub queue_frames_max: u64,
+}
 #[derive(Clone, Copy, Debug)]
 pub(crate) struct Departure {
     pub elapsed_us: u64,
@@ -28,6 +43,7 @@ pub(crate) struct Departure {
     pub payload_elapsed_us: u64,
     pub block_samples: usize,
     pub socket: esp_shazam_core::stream_http::WriterDiagnostics,
+    pub media: ListenerMedia,
 }
 #[derive(Clone, Copy, Debug)]
 pub(crate) enum EndCode {
@@ -40,6 +56,8 @@ pub(crate) enum EndCode {
     InvalidFrame(ErrorCode),
     EncodedReset,
     InvalidCursor,
+    MediaAge,
+    EncoderUnhealthy,
 }
 impl From<&crate::stream_pipeline::End> for EndCode {
     fn from(end: &crate::stream_pipeline::End) -> Self {
@@ -49,6 +67,8 @@ impl From<&crate::stream_pipeline::End> for EndCode {
             End::NetworkChanged => Self::NetworkChanged,
             End::EncodedReset => Self::EncodedReset,
             End::InvalidCursor => Self::InvalidCursor,
+            End::MediaAge => Self::MediaAge,
+            End::EncoderUnhealthy => Self::EncoderUnhealthy,
             End::FellBehind => Self::FellBehind,
             End::StoppedReading => Self::StoppedReading,
             End::CaptureStalled => Self::CaptureStalled,
@@ -57,6 +77,9 @@ impl From<&crate::stream_pipeline::End> for EndCode {
         }
     }
 }
+// The fixed queue reserves its largest record at setup. Boxing departures would
+// allocate on the nonblocking producer path and undermine bounded diagnostics.
+#[allow(clippy::large_enum_variant)]
 #[derive(Clone, Copy, Debug)]
 pub(crate) enum Payload {
     Joined {

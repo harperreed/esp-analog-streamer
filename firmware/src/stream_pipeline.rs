@@ -3,9 +3,10 @@
 use crate::stream_codec as codec;
 use crate::stream_runtime::{Epoch, Runtime, Worker};
 use esp_shazam_core::{
-    flac_ring,
+    flac_ring::{self, SourceMetadata},
+    media_age::MediaAge,
     stream_buffer::BufferPreset,
-    stream_ring::{Cursor, ReadError, StreamRing},
+    stream_ring::{Cursor, RawRead, ReadError, StreamRing},
     stream_wait::{BufferedWait, FreshWait, RawWait, SnapshotWait, WaitStep},
 };
 use std::{io, sync::TryLockError, time::Duration};
@@ -52,6 +53,9 @@ pub(crate) enum EncoderObservation {
         held: Duration,
     },
     Reset,
+    HealthAck {
+        operator_epoch: u32,
+    },
 }
 pub(crate) struct EncoderPump {
     cursor: Option<Cursor>,
@@ -59,6 +63,7 @@ pub(crate) struct EncoderPump {
     read_wait: Option<(Duration, RawWait)>,
     chunk: Vec<i32>,
     block_number: u32,
+    source: Option<SourceMetadata>,
     #[cfg(feature = "encoder-probe")]
     probe_enabled: bool,
 }
@@ -70,6 +75,7 @@ impl EncoderPump {
             read_wait: None,
             chunk: vec![0; 2 * CHUNK_FRAMES],
             block_number: 0,
+            source: None,
             #[cfg(feature = "encoder-probe")]
             probe_enabled: false,
         }
@@ -123,8 +129,50 @@ impl EncoderPump {
         runtime: &Runtime,
         now: &mut impl FnMut() -> Duration,
         observe: &mut impl FnMut(EncoderObservation),
-        read: impl FnOnce(&mut Cursor, &mut [i32]) -> Result<usize, ReadError>,
+        read: impl FnOnce(&mut Cursor, &mut [i32]) -> Result<RawRead, ReadError>,
     ) -> EncoderStep {
+        let health_token = runtime.health.token();
+        if health_token & 3 == 3 {
+            if worker.service(runtime) {
+                self.cursor = None;
+                self.cursor_wait = None;
+                self.read_wait = None;
+                self.source = None;
+                self.block_number = 0;
+                return EncoderStep::Switched;
+            }
+            return EncoderStep::SleepUntil(now() + CAUGHT_UP_SLEEP);
+        }
+        if health_token & 3 == 1 {
+            if let Err(error) = worker.encoder.reset() {
+                return EncoderStep::Stopped(error);
+            }
+            if worker
+                .epoch
+                .ring
+                .lock()
+                .expect("encoded ring lock")
+                .reset()
+                .is_err()
+            {
+                return EncoderStep::Stopped(io::Error::other("encoded generation exhausted"));
+            }
+            self.cursor = None;
+            self.cursor_wait = None;
+            self.read_wait = None;
+            self.source = None;
+            self.block_number = 0;
+            if runtime.health.transition(
+                health_token,
+                crate::stream_runtime::health::State::Recovering,
+            ) {
+                observe(EncoderObservation::HealthAck {
+                    operator_epoch: health_token >> 2,
+                });
+            }
+            observe(EncoderObservation::Reset);
+            return EncoderStep::Progress;
+        }
         // Cursor acquisition precedes service, including the initial cursor and reset cursor.
         if self.cursor.is_none() {
             let wait = self.cursor_wait.get_or_insert_with(|| {
@@ -154,6 +202,7 @@ impl EncoderPump {
         // Service only at an outer read boundary, never inside a FreshWait retry turn.
         if self.read_wait.is_none() && self.block_boundary(worker) && worker.service(runtime) {
             self.block_number = 0;
+            self.source = None;
             self.cursor = None;
             return EncoderStep::Switched;
         }
@@ -168,7 +217,9 @@ impl EncoderPump {
         let frames = CHUNK_FRAMES.min(worker.encoder.frames_wanted());
         let attempt_started = now();
         let (start, generation) = self.cursor.unwrap().position();
-        let result = read(self.cursor.as_mut().unwrap(), &mut self.chunk[..2 * frames]);
+        let copied = read(self.cursor.as_mut().unwrap(), &mut self.chunk[..2 * frames]);
+        let receipt = copied.ok().and_then(|read| read.receipt);
+        let result = copied.map(|read| read.frames);
         observe(EncoderObservation::RawAttempt {
             result,
             elapsed: now().saturating_sub(attempt_started),
@@ -188,16 +239,45 @@ impl EncoderPump {
                 return EncoderStep::Progress;
             }
             WaitStep::Failed(ReadError::Overrun) => {
-                worker.epoch.ring.lock().expect("encoded ring lock").reset();
+                if worker
+                    .epoch
+                    .ring
+                    .lock()
+                    .expect("encoded ring lock")
+                    .reset()
+                    .is_err()
+                {
+                    return EncoderStep::Stopped(io::Error::other("encoded generation exhausted"));
+                }
                 if let Err(error) = worker.encoder.reset() {
                     return EncoderStep::Stopped(error);
                 }
                 self.cursor = None;
                 self.block_number = 0;
+                self.source = None;
                 observe(EncoderObservation::Reset);
                 return EncoderStep::Progress;
             }
             WaitStep::Ready(n) => {
+                let receipt = receipt.expect("nonempty raw read carries metadata");
+                self.source = Some(match self.source {
+                    Some(mut source) => {
+                        assert_eq!(source.raw_generation, receipt.generation);
+                        assert_eq!(source.source_end, receipt.source_start);
+                        source.source_end = receipt.source_end;
+                        source.oldest_accepted_us =
+                            source.oldest_accepted_us.min(receipt.oldest_accepted_us);
+                        source.raw_publication_us = receipt.committed_at_us;
+                        source
+                    }
+                    None => SourceMetadata {
+                        raw_generation: receipt.generation,
+                        source_start: receipt.source_start,
+                        source_end: receipt.source_end,
+                        oldest_accepted_us: receipt.oldest_accepted_us,
+                        raw_publication_us: receipt.committed_at_us,
+                    },
+                });
                 observe(EncoderObservation::AcceptedInput {
                     generation,
                     start,
@@ -221,15 +301,46 @@ impl EncoderPump {
                 .encode_block(self.block_number, &mut worker.bytes);
             observe(EncoderObservation::Codec(now().saturating_sub(started)));
             if let Err(error) = result {
-                worker.epoch.ring.lock().expect("encoded ring lock").reset();
+                if worker
+                    .epoch
+                    .ring
+                    .lock()
+                    .expect("encoded ring lock")
+                    .reset()
+                    .is_err()
+                {
+                    return EncoderStep::Stopped(io::Error::other("encoded generation exhausted"));
+                }
                 return EncoderStep::Stopped(error);
             }
             let started = now();
             let mut output = worker.epoch.ring.lock().expect("encoded ring lock");
             let acquired = now();
-            output
-                .push(&worker.bytes)
-                .expect("encoder frame fits encoded ring");
+            if !runtime.health.publication_available() {
+                return EncoderStep::Stopped(io::Error::other("output receipt identity exhausted"));
+            }
+            let receipt = match output.push(
+                &worker.bytes,
+                self.source
+                    .take()
+                    .expect("complete codec block has source metadata"),
+                || now().as_micros() as u64,
+            ) {
+                Ok(receipt) => receipt,
+                Err(_) => {
+                    return EncoderStep::Stopped(io::Error::other(
+                        "encoded frame or publication identity invalid",
+                    ))
+                }
+            };
+            runtime.health.publish(
+                worker
+                    .epoch
+                    .operator_epoch
+                    .load(std::sync::atomic::Ordering::Acquire),
+                worker.epoch.format,
+                receipt,
+            );
             let finished = now();
             drop(output);
             self.block_number = self.block_number.wrapping_add(1);
@@ -260,6 +371,8 @@ pub(crate) enum End {
     Failed(io::Error),
     EncodedReset,
     InvalidCursor,
+    MediaAge,
+    EncoderUnhealthy,
 }
 impl End {
     pub(crate) fn from_encoded_read_error(error: flac_ring::ReadError) -> Self {
@@ -312,6 +425,14 @@ pub(crate) struct CompressedListener {
     pub(crate) read_wait: Duration,
     pub(crate) frames_sent: u64,
     pub(crate) bytes_sent: u64,
+    age: MediaAge,
+    pending_source: Option<SourceMetadata>,
+    pending_receipt: Option<flac_ring::FrameReceipt>,
+    pub(crate) first_sent: Option<flac_ring::FrameReceipt>,
+    pub(crate) last_sent: Option<flac_ring::FrameReceipt>,
+    pub(crate) last_age_us: u64,
+    pub(crate) max_age_us: u64,
+    pub(crate) queue_frames_max: u64,
 }
 impl CompressedListener {
     pub(crate) fn new(
@@ -349,6 +470,14 @@ impl CompressedListener {
             read_wait: Duration::ZERO,
             frames_sent: 0,
             bytes_sent: 0,
+            age: MediaAge::for_stream(preset, epoch.format),
+            pending_source: None,
+            pending_receipt: None,
+            first_sent: None,
+            last_sent: None,
+            last_age_us: 0,
+            max_age_us: 0,
+            queue_frames_max: 0,
         }
     }
     fn end(&mut self, end: End) -> ListenerStep {
@@ -376,6 +505,9 @@ impl CompressedListener {
         now: &mut impl FnMut() -> Duration,
         peer_connected: &mut impl FnMut() -> bool,
     ) -> ListenerStep {
+        if !epoch.retired() && !epoch.healthy() {
+            return self.end(End::EncoderUnhealthy);
+        }
         match &mut self.phase {
             Phase::Admission(admission) => {
                 let at = now();
@@ -449,6 +581,17 @@ impl CompressedListener {
                             Err(End::Retired)
                         } else {
                             ring.read(self.cursor.as_mut().unwrap(), scratch)
+                                .map(|read| {
+                                    if let Some(receipt) = read.receipt {
+                                        self.queue_frames_max = self.queue_frames_max.max(
+                                            ring.progress().1.saturating_sub(receipt.sequence),
+                                        );
+                                    }
+                                    self.pending_receipt = read.receipt;
+                                    self.pending_source =
+                                        read.receipt.map(|receipt| receipt.metadata.source);
+                                    read.bytes
+                                })
                                 .map_err(End::from_encoded_read_error)
                         }
                     }
@@ -478,7 +621,26 @@ impl CompressedListener {
                     Ok(n) => n,
                     Err(error) => return self.end(End::InvalidFrame(error)),
                 };
-                let deadline = now() + self.write_limit;
+                let at = now();
+                let source = self
+                    .pending_source
+                    .expect("encoded frame carries source metadata");
+                let produced = self.pending_receipt.unwrap().metadata.encoded_production_us;
+                if source.source_start >= source.source_end
+                    || source.oldest_accepted_us > source.raw_publication_us
+                    || source.raw_publication_us > produced
+                    || produced > at.as_micros() as u64
+                {
+                    return self.end(End::MediaAge);
+                }
+                let deadline = match self.age.deadline(
+                    at.as_micros() as u64,
+                    source.oldest_accepted_us,
+                    (at + self.write_limit).as_micros() as u64,
+                ) {
+                    Ok(deadline) => Duration::from_micros(deadline),
+                    Err(_) => return self.end(End::MediaAge),
+                };
                 self.phase = Phase::Write {
                     deadline,
                     header: false,
@@ -505,19 +667,51 @@ impl CompressedListener {
             _ => panic!("listener has no pending write"),
         }
     }
-    pub(crate) fn write_finished(&mut self, result: io::Result<()>) -> ListenerStep {
+    pub(crate) fn write_finished(
+        &mut self,
+        result: io::Result<()>,
+        now: &mut impl FnMut() -> Duration,
+    ) -> ListenerStep {
         let Phase::Write { header, len, .. } = self.phase else {
             panic!("listener has no pending write")
         };
         if let Err(error) = result {
+            if !header
+                && self
+                    .age
+                    .check(
+                        now().as_micros() as u64,
+                        self.pending_source.unwrap().oldest_accepted_us,
+                    )
+                    .is_err()
+            {
+                return self.end(End::MediaAge);
+            }
             return self.end(End::from_write_error(error));
         }
         if !header {
             self.frames_sent += 1;
             self.bytes_sent += len as u64;
+            if self.first_sent.is_none() {
+                self.first_sent = self.pending_receipt;
+            }
+            self.last_sent = self.pending_receipt;
+            self.last_age_us = (now().as_micros() as u64)
+                .saturating_sub(self.pending_source.unwrap().oldest_accepted_us);
+            self.max_age_us = self.max_age_us.max(self.last_age_us);
             // FLAC numbering advances after a whole write and rejects numbers at 2^31.
             // MP3 ignores this counter, so wrap cannot alter its frame bytes.
             self.block_number = self.block_number.wrapping_add(1);
+            if self
+                .age
+                .check(
+                    now().as_micros() as u64,
+                    self.pending_source.unwrap().oldest_accepted_us,
+                )
+                .is_err()
+            {
+                return self.end(End::MediaAge);
+            }
         }
         self.phase = Phase::Frame;
         ListenerStep::Progress

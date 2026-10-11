@@ -149,7 +149,7 @@
           4096
         ]
       ],
-      "terminal": "write_timeout",
+      "terminal": "media_age",
       "pending_source": [
         0,
         4096,

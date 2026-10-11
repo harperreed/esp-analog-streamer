@@ -107,10 +107,24 @@ pub(crate) struct Boundary {
     pub storage: Option<Storage>,
 }
 #[derive(Clone, Copy, Debug)]
+pub(crate) struct HealthTransition {
+    pub transition: crate::stream_runtime::health::State,
+    pub operator_epoch: u32,
+    pub raw_valid: bool,
+    pub encoded_valid: bool,
+    pub raw_generation: u64,
+    pub raw_committed: u64,
+    pub encoded_generation: u64,
+    pub encoded_sequence: u64,
+    pub source_end: u64,
+    pub encoded_production_us: u64,
+}
+#[derive(Clone, Copy, Debug)]
 pub(crate) enum Payload {
     Window(Window),
     Boundary(Boundary),
     Failure(ErrorCode),
+    Health(HealthTransition),
 }
 #[derive(Clone, Copy, Debug)]
 pub(crate) struct Record {

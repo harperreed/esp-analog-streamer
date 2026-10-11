@@ -1,0 +1,404 @@
+{
+  "baseline": {
+    "passed": true,
+    "completed": true,
+    "error": null,
+    "cleanup_errors": [],
+    "stack_minima": {
+      "metrics_stack_free_bytes": 1084,
+      "supervisor_stack_min_bytes": 3060,
+      "listener_stack_free_bytes": 1512
+    },
+    "trials": [
+      {
+        "format": "mp3",
+        "passed": true,
+        "windows": 8,
+        "generation_ratio_median": 0.9999750360951354,
+        "encode_wall_us_per_frame_median": 19297.709832134293,
+        "encoded_push_us_per_frame_median": 82.14148681055156,
+        "encoder_runtime_fraction_median": 0.8531616968836708,
+        "capture_runtime_fraction_median": 0.09794630538529392,
+        "encoder_stack_min_bytes": 5188,
+        "internal_window_min_bytes": 31183,
+        "psram_window_min_bytes": 2685340,
+        "capture_fault_deltas": {
+          "queue_overflows": 0,
+          "software_dropped_frames": 0,
+          "read_errors": 0,
+          "restarts": 0,
+          "supervisor_restarts": 0,
+          "overflow_restarts": 0,
+          "settling_discarded_frames": 0,
+          "discontinuities": 0,
+          "health_restart_requests": 0
+        },
+        "capture_brackets_complete": true,
+        "telemetry_loss_count": 0,
+        "boundary_losses": [],
+        "decoded": [
+          {
+            "frames": 4317696,
+            "discontinuities": 0,
+            "excluded_tail_bytes": 0
+          },
+          {
+            "frames": 2866176,
+            "discontinuities": 0,
+            "excluded_tail_bytes": 0
+          }
+        ],
+        "receiver_rates": [
+          {
+            "listener": "listener-1",
+            "ratio": 0.9994418926951086
+          },
+          {
+            "listener": "listener-2",
+            "ratio": 0.9994418926951086
+          }
+        ]
+      },
+      {
+        "format": "flac",
+        "passed": true,
+        "windows": 8,
+        "generation_ratio_median": 0.999932704483757,
+        "encode_wall_us_per_frame_median": 8006.326271186441,
+        "encoded_push_us_per_frame_median": 1184.207627118644,
+        "encoder_runtime_fraction_median": 0.20947604006798487,
+        "capture_runtime_fraction_median": 0.09967268880496191,
+        "encoder_stack_min_bytes": 5188,
+        "internal_window_min_bytes": 34763,
+        "psram_window_min_bytes": 354604,
+        "capture_fault_deltas": {
+          "queue_overflows": 0,
+          "software_dropped_frames": 0,
+          "read_errors": 0,
+          "restarts": 0,
+          "supervisor_restarts": 0,
+          "overflow_restarts": 0,
+          "settling_discarded_frames": 0,
+          "discontinuities": 0,
+          "health_restart_requests": 0
+        },
+        "capture_brackets_complete": true,
+        "telemetry_loss_count": 0,
+        "boundary_losses": [],
+        "decoded": [
+          {
+            "frames": 4313088,
+            "discontinuities": 0,
+            "excluded_tail_bytes": 12960
+          },
+          {
+            "frames": 2732032,
+            "discontinuities": 0,
+            "excluded_tail_bytes": 5851
+          }
+        ],
+        "receiver_rates": [
+          {
+            "listener": "listener-1",
+            "ratio": 0.9993711763390078
+          },
+          {
+            "listener": "listener-2",
+            "ratio": 0.9508995358318377
+          }
+        ]
+      },
+      {
+        "format": "mp3",
+        "passed": true,
+        "windows": 8,
+        "generation_ratio_median": 1.0000062534875553,
+        "encode_wall_us_per_frame_median": 19241.25659472422,
+        "encoded_push_us_per_frame_median": 81.68824940047962,
+        "encoder_runtime_fraction_median": 0.8516103945989997,
+        "capture_runtime_fraction_median": 0.09727417945953248,
+        "encoder_stack_min_bytes": 5188,
+        "internal_window_min_bytes": 29995,
+        "psram_window_min_bytes": 356116,
+        "capture_fault_deltas": {
+          "queue_overflows": 0,
+          "software_dropped_frames": 0,
+          "read_errors": 0,
+          "restarts": 0,
+          "supervisor_restarts": 0,
+          "overflow_restarts": 0,
+          "settling_discarded_frames": 0,
+          "discontinuities": 0,
+          "health_restart_requests": 0
+        },
+        "capture_brackets_complete": true,
+        "telemetry_loss_count": 0,
+        "boundary_losses": [],
+        "decoded": [
+          {
+            "frames": 4315392,
+            "discontinuities": 0,
+            "excluded_tail_bytes": 0
+          },
+          {
+            "frames": 2847744,
+            "discontinuities": 0,
+            "excluded_tail_bytes": 0
+          }
+        ],
+        "receiver_rates": [
+          {
+            "listener": "listener-1",
+            "ratio": 0.9991125507761732
+          },
+          {
+            "listener": "listener-2",
+            "ratio": 0.9983048607593777
+          }
+        ]
+      }
+    ]
+  },
+  "instrumented": {
+    "passed": false,
+    "completed": true,
+    "error": null,
+    "cleanup_errors": [],
+    "stack_minima": {
+      "metrics_stack_free_bytes": 840,
+      "supervisor_stack_min_bytes": 2448,
+      "listener_stack_free_bytes": 1192
+    },
+    "trials": [
+      {
+        "format": "mp3",
+        "passed": true,
+        "windows": 8,
+        "generation_ratio_median": 0.999798844898403,
+        "encode_wall_us_per_frame_median": 18587.037462852684,
+        "encoded_push_us_per_frame_median": 185.17625899280574,
+        "encoder_runtime_fraction_median": 0.8170459334093838,
+        "capture_runtime_fraction_median": 0.10774237653677725,
+        "encoder_stack_min_bytes": 4996,
+        "internal_window_min_bytes": 29523,
+        "psram_window_min_bytes": 2621236,
+        "capture_fault_deltas": {
+          "queue_overflows": 0,
+          "software_dropped_frames": 0,
+          "read_errors": 0,
+          "restarts": 0,
+          "supervisor_restarts": 0,
+          "overflow_restarts": 0,
+          "settling_discarded_frames": 0,
+          "discontinuities": 0,
+          "health_restart_requests": 0
+        },
+        "capture_brackets_complete": true,
+        "telemetry_loss_count": 0,
+        "boundary_losses": [],
+        "decoded": [
+          {
+            "frames": 4300416,
+            "discontinuities": 0,
+            "excluded_tail_bytes": 0
+          },
+          {
+            "frames": 2851200,
+            "discontinuities": 0,
+            "excluded_tail_bytes": 0
+          }
+        ],
+        "receiver_rates": [
+          {
+            "listener": "listener-1",
+            "ratio": 0.9942722687257065
+          },
+          {
+            "listener": "listener-2",
+            "ratio": 0.9950763708435599
+          }
+        ]
+      },
+      {
+        "format": "flac",
+        "passed": false,
+        "windows": 8,
+        "generation_ratio_median": 0.9999203421570313,
+        "encode_wall_us_per_frame_median": 7186.661016949152,
+        "encoded_push_us_per_frame_median": 1247.8559322033898,
+        "encoder_runtime_fraction_median": 0.1948524763755283,
+        "capture_runtime_fraction_median": 0.10758560445994753,
+        "encoder_stack_min_bytes": 4996,
+        "internal_window_min_bytes": 34019,
+        "psram_window_min_bytes": 315732,
+        "capture_fault_deltas": {
+          "queue_overflows": 0,
+          "software_dropped_frames": 0,
+          "read_errors": 0,
+          "restarts": 0,
+          "supervisor_restarts": 0,
+          "overflow_restarts": 0,
+          "settling_discarded_frames": 0,
+          "discontinuities": 0,
+          "health_restart_requests": 0
+        },
+        "capture_brackets_complete": true,
+        "telemetry_loss_count": 0,
+        "boundary_losses": [],
+        "decoded": [
+          {
+            "frames": 2818048,
+            "discontinuities": 0,
+            "excluded_tail_bytes": 11026
+          },
+          {
+            "frames": 2863104,
+            "discontinuities": 0,
+            "excluded_tail_bytes": 12960
+          }
+        ],
+        "receiver_rates": [
+          {
+            "listener": "listener-1",
+            "ratio": 0.8739152977412311
+          },
+          {
+            "listener": "listener-2",
+            "ratio": 0.9779528331866156
+          }
+        ]
+      },
+      {
+        "format": "mp3",
+        "passed": true,
+        "windows": 8,
+        "generation_ratio_median": 1.0001498274962641,
+        "encode_wall_us_per_frame_median": 18589.745803357313,
+        "encoded_push_us_per_frame_median": 181.41681582963292,
+        "encoder_runtime_fraction_median": 0.8174145043499674,
+        "capture_runtime_fraction_median": 0.107247653421391,
+        "encoder_stack_min_bytes": 4996,
+        "internal_window_min_bytes": 29123,
+        "psram_window_min_bytes": 318392,
+        "capture_fault_deltas": {
+          "queue_overflows": 0,
+          "software_dropped_frames": 0,
+          "read_errors": 0,
+          "restarts": 0,
+          "supervisor_restarts": 0,
+          "overflow_restarts": 0,
+          "settling_discarded_frames": 0,
+          "discontinuities": 0,
+          "health_restart_requests": 0
+        },
+        "capture_brackets_complete": true,
+        "telemetry_loss_count": 0,
+        "boundary_losses": [],
+        "decoded": [
+          {
+            "frames": 4314240,
+            "discontinuities": 0,
+            "excluded_tail_bytes": 0
+          },
+          {
+            "frames": 2865024,
+            "discontinuities": 0,
+            "excluded_tail_bytes": 0
+          }
+        ],
+        "receiver_rates": [
+          {
+            "listener": "listener-1",
+            "ratio": 0.9986521593589672
+          },
+          {
+            "listener": "listener-2",
+            "ratio": 0.9982507718351091
+          }
+        ]
+      }
+    ]
+  },
+  "limitations": [
+    "Matched workload across two images; code placement and timing differ. This does not isolate each instrumentation operation.",
+    "Task runtime includes charged interrupts; wall timing includes preemption. Stack and heap values are observed minima, not exhaustive bounds.",
+    "Timed receiver captures certify complete decoded prefixes, not all source audio generated by the stop time or speaker playback.",
+    "The separate ten-second WAV terminal-state trial remains failed on its socket deadline. These compressed trials do not clear it."
+  ],
+  "artifacts": {
+    "target/kata-hardening/media-progress/images/production.elf": {
+      "bytes": 2836864,
+      "sha256": "8fb4228ff4abff83cc39b5a63eea2a301865f83947f3ec6181989cdd857ac81a"
+    },
+    "target/kata-hardening/media-progress/images/fault.elf": {
+      "bytes": 2840980,
+      "sha256": "3116e8c519b08022dff71a076ab1b3f94610cc345d8c44947ab3007648ea4e29"
+    },
+    "target/kata-hardening/media-progress/controlled-baseline/result.json": {
+      "bytes": 798523,
+      "sha256": "7fc4700f355464a68ed8d2bb9140b69b7de196239a0a022a65b2389d95d07834"
+    },
+    "target/kata-hardening/media-progress/controlled-instrumented/result.json": {
+      "bytes": 816090,
+      "sha256": "ce651a7ed7e0d6f9ae67e95d9b03e785f28d780079ea62cbbb9a9db5a649dc3e"
+    },
+    "target/kata-hardening/media-progress/controlled-instrumented/uart.log": {
+      "bytes": 185850,
+      "sha256": "a8d4ee1641ef1c5cd4a9a432cd8648ba6b89931de6fd03afa3cf837395bee724"
+    },
+    "target/kata-hardening/media-progress/device-fault/20261011T065216.651426Z/summary.json": {
+      "bytes": 19510,
+      "sha256": "8efeca318c83ecc593104f2bc72fcc1cc052782d1fcf5a77db110269088c6624"
+    },
+    "target/kata-hardening/media-progress/device-fault/20261011T070109.797223Z/summary.json": {
+      "bytes": 5993,
+      "sha256": "f97985063be673eba7dac48f02bcb9a2ba98f5bdd89788f847a71334f633ad43"
+    }
+  },
+  "canonical": {
+    "command": "scripts/check",
+    "run": "target/check-logs/run.ECoUgIPy",
+    "exit_code": 0
+  },
+  "fault_gates": {
+    "run": "20261011T065216.651426Z",
+    "passed": true,
+    "cooperative_hold_seconds": 2.503,
+    "recovery_publication_seconds_after_request": 0.63598,
+    "fresh_decoded_frames": [
+      480000,
+      480000
+    ],
+    "terminal_hold_seconds": 17.002,
+    "terminal_observation_seconds_after_request": 2.09,
+    "post_baseline_capture_fault_deltas": 0,
+    "startup_faults": {
+      "queue_overflows": 17,
+      "software_dropped_frames": 480,
+      "restarts": 2,
+      "discontinuities": 2
+    }
+  },
+  "extended_wav": {
+    "run": "20261011T070109.797223Z",
+    "passed": false,
+    "decoded_frames": 73728,
+    "body_bytes": 466604,
+    "reason": "stopped reading: socket deadline",
+    "tracking": "pd6c",
+    "scope": "Terminal compressed state permits WAV admission and PCM; ten-second continuity failed."
+  },
+  "flac_departure": {
+    "peer_port": 35174,
+    "event_us": 218675363,
+    "reason": "media age exceeded",
+    "lifetime_us": 62674978,
+    "frames_sent": 688,
+    "completed_source_frames": 2818048,
+    "completed_frame_max_age_us": 3788191,
+    "accepted_payload_bytes": 9390865,
+    "partial_tail_bytes": 11026,
+    "checked_close_us": 219120636,
+    "scope": "Direct unbuffered endpoint has four-second age policy. Ninety-second transport verdict remains failed."
+  }
+}

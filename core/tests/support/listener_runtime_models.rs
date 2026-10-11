@@ -4,10 +4,10 @@ use super::*;
 use crate::models::check;
 use loom::thread;
 
-fn request(force: bool, token: Arc<Mutex<bool>>) -> Request {
+fn request(runtime: &Runtime, force: bool, token: Arc<Mutex<bool>>) -> Request {
     let (notify, _) = mpsc::sync_channel(1);
     Request {
-        prepared: Prepared::new(OutputFormat::Flac, false).unwrap(),
+        prepared: Prepared::new(OutputFormat::Flac, false, runtime.health.clone()).unwrap(),
         force,
         token,
         deadline: Duration::from_secs(86400),
@@ -23,7 +23,7 @@ fn token_revocation_races_actual_commit() {
         let old = worker.epoch.clone();
         let token: loom::sync::Arc<loom::sync::Mutex<bool>> = Arc::new(Mutex::new(true));
         let _: &loom::sync::Mutex<loom::sync::Arc<Epoch>> = &runtime.active;
-        let pending = request(true, token.clone());
+        let pending = request(&runtime, true, token.clone());
         let replacement = pending.prepared.epoch.clone();
         let outcome = pending.outcome.clone();
         let revoke = thread::spawn({
@@ -49,7 +49,7 @@ fn token_revocation_races_actual_commit() {
             committed
         );
         let active = runtime.active.lock().unwrap().clone();
-        assert!(!worker.commit(&runtime, request(true, token)));
+        assert!(!worker.commit(&runtime, request(&runtime, true, token)));
         assert!(Arc::ptr_eq(&runtime.active.lock().unwrap(), &active));
         assert_eq!(runtime.listeners.load(Ordering::Acquire), 0);
         drop((worker, runtime, outcome, replacement, active));
@@ -61,7 +61,7 @@ fn admission_commit(force: bool) {
     check(move || {
         let (runtime, mut worker) = Runtime::new(OutputFormat::Flac, false).unwrap();
         let old = worker.epoch.clone();
-        let pending = request(force, Arc::new(Mutex::new(true)));
+        let pending = request(&runtime, force, Arc::new(Mutex::new(true)));
         let replacement = pending.prepared.epoch.clone();
         let outcome = pending.outcome.clone();
         let admit = thread::spawn({
@@ -114,7 +114,7 @@ fn expired_request_cannot_commit() {
     check(|| {
         let (runtime, mut worker) = Runtime::new(OutputFormat::Flac, false).unwrap();
         let old = worker.epoch.clone();
-        let mut pending = request(true, Arc::new(Mutex::new(true)));
+        let mut pending = request(&runtime, true, Arc::new(Mutex::new(true)));
         pending.deadline = Duration::ZERO;
         let outcome = pending.outcome.clone();
         assert!(!worker.commit(&runtime, pending));
@@ -131,7 +131,7 @@ fn completed_outcome_cannot_commit() {
     check(|| {
         let (runtime, mut worker) = Runtime::new(OutputFormat::Flac, false).unwrap();
         let old = worker.epoch.clone();
-        let pending = request(true, Arc::new(Mutex::new(true)));
+        let pending = request(&runtime, true, Arc::new(Mutex::new(true)));
         *pending.outcome.lock().unwrap() = Some(Ok(false));
         assert!(!worker.commit(&runtime, pending));
         assert!(Arc::ptr_eq(&runtime.active.lock().unwrap(), &old));
@@ -144,7 +144,7 @@ fn outcome_revocation_races_actual_commit() {
     check(|| {
         let (runtime, mut worker) = Runtime::new(OutputFormat::Flac, false).unwrap();
         let old = worker.epoch.clone();
-        let pending = request(true, Arc::new(Mutex::new(true)));
+        let pending = request(&runtime, true, Arc::new(Mutex::new(true)));
         let outcome = pending.outcome.clone();
         let revoked_outcome = outcome.clone();
         let revoke = thread::spawn(move || {

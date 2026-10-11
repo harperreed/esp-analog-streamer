@@ -96,7 +96,7 @@ fn runtime_requests_obey_tokens_expiry_block_boundaries_and_draining_leases() {
     let mut pump = EncoderPump::new();
     let mut now = || Duration::from_micros(clock.load(Ordering::Acquire));
     pump.step(&raw, &mut worker, &runtime, &mut now, &mut |_| {});
-    publisher.publish(&[12345; 32]).unwrap();
+    publisher.publish(&[12345; 32], 0, || 0).unwrap();
     pump.step(&raw, &mut worker, &runtime, &mut now, &mut |_| {});
     assert!(!pump.block_boundary(&worker));
     let revoked = Arc::new(Mutex::new(false));
@@ -110,7 +110,7 @@ fn runtime_requests_obey_tokens_expiry_block_boundaries_and_draining_leases() {
         panic!("partial block must defer service")
     };
     // Complete the real partial FLAC block. Service remains deferred until its next outer boundary.
-    publisher.publish(&vec![23456; 8160]).unwrap();
+    publisher.publish(&vec![23456; 8160], 0, || 0).unwrap();
     for _ in 0..260 {
         pump.step(&raw, &mut worker, &runtime, &mut now, &mut |_| {});
     }
@@ -147,7 +147,7 @@ fn runtime_requests_obey_tokens_expiry_block_boundaries_and_draining_leases() {
     assert_eq!(runtime.active_format(), OutputFormat::Flac);
     draining.close(|_| Ok::<_, ()>(())).ok().unwrap();
     let old = worker.epoch.clone();
-    publisher.publish(&[22222; 32]).unwrap();
+    publisher.publish(&[22222; 32], 0, || 0).unwrap();
     clock.store(20000, Ordering::Release);
     pump.step(&raw, &mut worker, &runtime, &mut now, &mut |_| {});
     assert!(!pump.block_boundary(&worker));
@@ -162,7 +162,7 @@ fn runtime_requests_obey_tokens_expiry_block_boundaries_and_draining_leases() {
     let SwitchPoll::Pending(force) = force.poll() else {
         panic!("valid request must remain pending during partial assembly")
     };
-    publisher.publish(&vec![33333; 8160]).unwrap();
+    publisher.publish(&vec![33333; 8160], 0, || 0).unwrap();
     for _ in 0..255 {
         pump.step(&raw, &mut worker, &runtime, &mut now, &mut |_| {});
     }
@@ -213,8 +213,8 @@ fn atomic_copy_reset_rejects_scratch_and_new_generation_reconnect_is_exact() {
         &mut || Duration::ZERO,
         &mut || true,
     );
-    old_listener.write_finished(Ok(()));
-    publisher.publish(&[76543; 32]).unwrap();
+    old_listener.write_finished(Ok(()), &mut || Duration::ZERO);
+    publisher.publish(&[76543; 32], 0, || 0).unwrap();
     let mut accepted = 0;
     let mut resets = 0;
     pump.step_with_copy_hook(
@@ -250,7 +250,7 @@ fn atomic_copy_reset_rejects_scratch_and_new_generation_reconnect_is_exact() {
     let mut scratch = vec![0; OutputFormat::Flac.max_frame_bytes()];
     new_listener.step(epoch, &mut scratch, &mut || Duration::ZERO, &mut || true);
     new_listener.step(epoch, &mut scratch, &mut || Duration::ZERO, &mut || true);
-    new_listener.write_finished(Ok(()));
+    new_listener.write_finished(Ok(()), &mut || Duration::ZERO);
     pump.step(
         &raw,
         &mut worker,
@@ -259,7 +259,7 @@ fn atomic_copy_reset_rejects_scratch_and_new_generation_reconnect_is_exact() {
         &mut |_| {},
     );
     let pcm: Vec<i32> = (0..8192).map(|i| ((i * 23 % 60001) - 30000) << 8).collect();
-    publisher.publish(&pcm).unwrap();
+    publisher.publish(&pcm, 0, || 0).unwrap();
     let mut next = 0;
     for _ in 0..256 {
         pump.step(
@@ -295,7 +295,7 @@ fn atomic_copy_reset_rejects_scratch_and_new_generation_reconnect_is_exact() {
     assert_eq!(frame[4], 0);
     let mut flac = stream_codec::stream_header(OutputFormat::Flac);
     flac.extend_from_slice(frame);
-    new_listener.write_finished(Ok(()));
+    new_listener.write_finished(Ok(()), &mut || Duration::ZERO);
     let decoded: Vec<_> = claxon::FlacReader::new(std::io::Cursor::new(flac))
         .unwrap()
         .samples()

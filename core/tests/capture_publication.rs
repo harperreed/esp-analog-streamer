@@ -20,7 +20,7 @@ proptest! {
             match operation {
                 0 | 1 => {
                     let samples: Vec<_> = (0..count).flat_map(|_| { let i=next; next+=1; [i,-i]}).collect();
-                    publisher.publish(&samples).unwrap();
+                    publisher.publish(&samples, 0, || 0).unwrap();
                     pending.extend(samples);
                     let complete = pending.len()/6*6;
                     history.extend(pending.drain(..complete));
@@ -30,7 +30,7 @@ proptest! {
                     let reader = (operation-2) as usize;
                     let old = cursors[reader];
                     let mut out = vec![0;count*2+1];
-                    let result = ring.read(&mut cursors[reader],&mut out);
+                    let result = ring.read(&mut cursors[reader],&mut out).map(|read| read.frames);
                     if generations[reader]!=generation || history.len()/2-positions[reader]>12 {
                         prop_assert_eq!(result,Err(ReadError::Overrun));
                         prop_assert_eq!(cursors[reader],old);
@@ -63,11 +63,14 @@ fn wav_and_flac_reconstruct_stereo_across_4096_frame_boundary() {
     let (mut publisher, ring) = CaptureBuffer::new(frames as usize, 240);
     let mut wav_cursor = ring.cursor_now().unwrap();
     let mut flac_cursor = wav_cursor;
-    publisher.publish(&samples).unwrap();
+    publisher.publish(&samples, 0, || 0).unwrap();
     let mut bytes = Vec::new();
     let mut scratch = [0; 480];
     loop {
-        let n = ring.read(&mut wav_cursor, &mut scratch).unwrap();
+        let n = ring
+            .read(&mut wav_cursor, &mut scratch)
+            .map(|read| read.frames)
+            .unwrap();
         if n == 0 {
             break;
         }
@@ -88,6 +91,7 @@ fn wav_and_flac_reconstruct_stereo_across_4096_frame_boundary() {
             let wanted = (flac::BLOCK_FRAMES - filled).min(240);
             let n = ring
                 .read(&mut flac_cursor, &mut scratch[..wanted * 2])
+                .map(|read| read.frames)
                 .unwrap();
             assert!(n > 0);
             encoder.push(&scratch[..n * 2]);
@@ -98,7 +102,11 @@ fn wav_and_flac_reconstruct_stereo_across_4096_frame_boundary() {
         stream.extend(frame);
     }
     // The encoder's last partial raw block remains available after two complete FLAC blocks.
-    assert_eq!(ring.read(&mut flac_cursor, &mut scratch), Ok(208));
+    assert_eq!(
+        ring.read(&mut flac_cursor, &mut scratch)
+            .map(|read| read.frames),
+        Ok(208)
+    );
     assert_eq!(&scratch[..416], &samples[8192 * 2..]);
     let mut decoder = claxon::FlacReader::new(stream.as_slice()).unwrap();
     let decoded: Vec<_> = decoder.samples().map(Result::unwrap).collect();
@@ -132,11 +140,14 @@ fn real_socket_pressure_does_not_hold_capture_publication() {
         .unwrap();
     let (mut publisher, ring) = CaptureBuffer::new(96000, 240);
     let mut cursor = ring.cursor_now().unwrap();
-    publisher.publish(&[5; 480]).unwrap();
+    publisher.publish(&[5; 480], 0, || 0).unwrap();
     let (started, ready) = mpsc::channel();
     let writer = thread::spawn(move || {
         let mut out = [0; 480];
-        assert_eq!(ring.read(&mut cursor, &mut out), Ok(240));
+        assert_eq!(
+            ring.read(&mut cursor, &mut out).map(|read| read.frames),
+            Ok(240)
+        );
         let mut packed = Vec::new();
         wav::pack_s24le(&out, &mut packed);
         let pressure = packed.repeat(8192);
@@ -146,7 +157,7 @@ fn real_socket_pressure_does_not_hold_capture_publication() {
     });
     ready.recv().unwrap();
     for _ in 0..450 {
-        publisher.publish(&[6; 480]).unwrap();
+        publisher.publish(&[6; 480], 0, || 0).unwrap();
     }
     assert_eq!(publisher.staged_frames(), 0);
     assert!(writer.join().unwrap().is_err());

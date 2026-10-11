@@ -94,43 +94,87 @@ fn real_mp3_history_retains_whole_ordered_frames_across_wrap_and_reset() {
             encoder.push(chunk);
         }
         encoder.encode_block(number, &mut bytes).unwrap();
-        ring.push(&bytes).unwrap();
-        assert_eq!(ring.read(&mut fast, &mut output).unwrap(), MAX_FRAME_BYTES);
+        ring.push(
+            &bytes,
+            esp_shazam_core::flac_ring::SourceMetadata {
+                raw_generation: 0,
+                source_start: 0,
+                source_end: 1,
+                oldest_accepted_us: 0,
+                raw_publication_us: 0,
+            },
+            || 0,
+        )
+        .unwrap();
+        assert_eq!(
+            ring.read(&mut fast, &mut output)
+                .map(|read| read.bytes)
+                .unwrap(),
+            MAX_FRAME_BYTES
+        );
         assert_eq!(output.as_slice(), bytes);
         expected.push(bytes.clone());
     }
-    assert!(ring.read(&mut stale, &mut output).is_err());
+    assert!(ring
+        .read(&mut stale, &mut output)
+        .map(|read| read.bytes)
+        .is_err());
     for preset in [BufferPreset::Low, BufferPreset::Medium, BufferPreset::High] {
         let count = preset.frames(BLOCK_FRAMES);
         let mut cursor = ring.cursor_retained(count).unwrap().unwrap();
         for frame in &expected[550 - count..] {
             assert_eq!(
-                ring.read(&mut cursor, &mut output).unwrap(),
+                ring.read(&mut cursor, &mut output)
+                    .map(|read| read.bytes)
+                    .unwrap(),
                 MAX_FRAME_BYTES
             );
             assert_eq!(output.as_slice(), frame);
         }
-        assert_eq!(ring.read(&mut cursor, &mut output).unwrap(), 0);
+        assert_eq!(
+            ring.read(&mut cursor, &mut output)
+                .map(|read| read.bytes)
+                .unwrap(),
+            0
+        );
     }
     let mut retained = ring.cursor_retained(500).unwrap().unwrap();
     for frame in &expected[50..] {
         assert_eq!(
-            ring.read(&mut retained, &mut output).unwrap(),
+            ring.read(&mut retained, &mut output)
+                .map(|read| read.bytes)
+                .unwrap(),
             MAX_FRAME_BYTES
         );
         assert_eq!(output.as_slice(), frame);
     }
     let mut before_reset = ring.cursor_now();
-    ring.reset();
+    ring.reset().unwrap();
     encoder.reset().unwrap();
-    assert!(ring.read(&mut before_reset, &mut output).is_err());
+    assert!(ring
+        .read(&mut before_reset, &mut output)
+        .map(|read| read.bytes)
+        .is_err());
     assert!(ring.cursor_retained(42).unwrap().is_none());
     encoder.push(&vec![0; 2 * BLOCK_FRAMES]);
     encoder.encode_block(0, &mut bytes).unwrap();
     let mut restarted = ring.cursor_now();
-    ring.push(&bytes).unwrap();
+    ring.push(
+        &bytes,
+        esp_shazam_core::flac_ring::SourceMetadata {
+            raw_generation: 0,
+            source_start: 0,
+            source_end: 1,
+            oldest_accepted_us: 0,
+            raw_publication_us: 0,
+        },
+        || 0,
+    )
+    .unwrap();
     assert_eq!(
-        ring.read(&mut restarted, &mut output).unwrap(),
+        ring.read(&mut restarted, &mut output)
+            .map(|read| read.bytes)
+            .unwrap(),
         MAX_FRAME_BYTES
     );
     assert_eq!(output.as_slice(), bytes);

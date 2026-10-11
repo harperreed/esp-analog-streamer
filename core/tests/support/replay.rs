@@ -231,6 +231,7 @@ fn number(bytes: &[u8]) -> u32 {
 fn terminal(step: ListenerStep) -> Option<String> {
     match step {
         ListenerStep::End(End::StoppedReading) => Some("write_timeout".into()),
+        ListenerStep::End(End::MediaAge) => Some("media_age".into()),
         ListenerStep::End(End::Failed(_)) => Some("write_error".into()),
         ListenerStep::End(end) => Some(format!("{end:?}")),
         _ => None,
@@ -297,7 +298,7 @@ pub fn run(fixture: &Fixture) -> Replay {
                     global_source - fixture.seed as usize <= MAX_BYTES / 8,
                     "source limit"
                 );
-                publisher.publish(&samples).unwrap();
+                publisher.publish(&samples, event.at, || event.at).unwrap();
                 input.extend(samples);
                 let ledger = &mut capture[generation];
                 ledger.captured += frames;
@@ -637,7 +638,8 @@ pub fn run(fixture: &Fixture) -> Replay {
                             }
                             a.receipt.pending.clear();
                         }
-                        if let Some(reason) = terminal(a.listener.write_finished(outcome)) {
+                        if let Some(reason) = terminal(a.listener.write_finished(outcome, &mut now))
+                        {
                             a.receipt.terminal = reason;
                             a.ended = true;
                         }
@@ -704,9 +706,11 @@ pub fn run(fixture: &Fixture) -> Replay {
 }
 impl Replay {
     pub fn has_partial_timeout(&self) -> bool {
-        self.listeners
-            .values()
-            .any(|r| r.terminal == "write_timeout" && !r.tail.is_empty() && r.completed_frames > 0)
+        self.listeners.values().any(|r| {
+            matches!(r.terminal.as_str(), "write_timeout" | "media_age")
+                && !r.tail.is_empty()
+                && r.completed_frames > 0
+        })
     }
     pub fn source_partition(&self) -> bool {
         let mut covered: Vec<Vec<bool>> = self

@@ -224,7 +224,9 @@ pub fn read_atomic_fresh(
     limit: Duration,
     interval: Duration,
 ) -> Result<usize, WaitError<crate::stream_ring::ReadError>> {
-    read_atomic_fresh_with(limit, interval, || ring.read(cursor, out))
+    read_atomic_fresh_with(limit, interval, || {
+        ring.read(cursor, out).map(|read| read.frames)
+    })
 }
 
 /// Takes bounded header snapshots until an absolute deadline.
@@ -418,7 +420,8 @@ mod tests {
                         let mut out = [0; 16];
                         matches!(
                             read_locked_fresh(&encoded, LIMIT, INTERVAL, |ring| ring
-                                .read(&mut cursor, &mut out)),
+                                .read(&mut cursor, &mut out)
+                                .map(|read| read.bytes)),
                             Err(WaitError::Stalled)
                         )
                     }
@@ -455,7 +458,7 @@ mod tests {
         let mut cursor = ring.cursor_now().unwrap();
         let thread = thread::spawn(move || {
             thread::sleep(Duration::from_millis(10));
-            publisher.publish(&[0, 0, 0, 0]).unwrap();
+            publisher.publish(&[0, 0, 0, 0], 0, || 0).unwrap();
         });
         let mut out = [1; 4];
         assert_eq!(
@@ -486,12 +489,27 @@ mod tests {
         let producer = ring.clone();
         let thread = thread::spawn(move || {
             thread::sleep(Duration::from_millis(10));
-            producer.lock().unwrap().push(&frame).unwrap();
+            producer
+                .lock()
+                .unwrap()
+                .push(
+                    &frame,
+                    crate::flac_ring::SourceMetadata {
+                        raw_generation: 0,
+                        source_start: 0,
+                        source_end: 1,
+                        oldest_accepted_us: 0,
+                        raw_publication_us: 0,
+                    },
+                    || 0,
+                )
+                .unwrap();
         });
         let mut out = vec![0; crate::flac::MAX_FRAME_BYTES];
         assert_eq!(
             read_locked_fresh(&ring, Duration::from_secs(1), INTERVAL, |ring| ring
-                .read(&mut cursor, &mut out)),
+                .read(&mut cursor, &mut out)
+                .map(|read| read.bytes)),
             Ok(expected.len())
         );
         assert_eq!(&out[..expected.len()], &expected);
@@ -509,9 +527,11 @@ mod tests {
         );
         let mut encoded = FlacRing::try_new(2, 16).unwrap();
         let mut cursor = encoded.cursor_now();
-        encoded.reset();
+        encoded.reset().unwrap();
         assert_eq!(
-            read_fresh(LIMIT, INTERVAL, || encoded.read(&mut cursor, &mut [0; 16])),
+            read_fresh(LIMIT, INTERVAL, || encoded
+                .read(&mut cursor, &mut [0; 16])
+                .map(|read| read.bytes)),
             Err(WaitError::Read(
                 crate::flac_ring::ReadError::GenerationChanged
             ))
@@ -561,10 +581,24 @@ mod tests {
     fn a_held_encoded_ring_cannot_block_the_fresh_deadline() {
         let mut encoded = FlacRing::try_new(2, 16).unwrap();
         let mut cursor = encoded.cursor_now();
-        encoded.push(&[1, 2, 3]).unwrap();
+        encoded
+            .push(
+                &[1, 2, 3],
+                crate::flac_ring::SourceMetadata {
+                    raw_generation: 0,
+                    source_start: 0,
+                    source_end: 1,
+                    oldest_accepted_us: 0,
+                    raw_publication_us: 0,
+                },
+                || 0,
+            )
+            .unwrap();
         held_ring_timeout(encoded, move |ring| {
             read_locked_fresh(&ring, LIMIT, INTERVAL, |encoded| {
-                encoded.read(&mut cursor, &mut [0; 16])
+                encoded
+                    .read(&mut cursor, &mut [0; 16])
+                    .map(|read| read.bytes)
             }) == Err(WaitError::Stalled)
         });
     }
@@ -579,7 +613,7 @@ mod tests {
     fn a_real_ring_retry_revalidates_without_sleeping_a_full_interval() {
         let (mut publisher, ring) = CaptureBuffer::new(8, 2);
         let mut cursor = ring.cursor_now().unwrap();
-        publisher.publish(&[17, -17, 23, -23]).unwrap();
+        publisher.publish(&[17, -17, 23, -23], 0, || 0).unwrap();
         let before = cursor;
         let mut out = [0; 4];
         let mut attempts = 0;
@@ -588,12 +622,14 @@ mod tests {
         let result = read_atomic_fresh_with(Duration::from_secs(1), interval, || {
             attempts += 1;
             if attempts == 1 {
-                let result = ring.read_with_copy_hook(&mut cursor, &mut out, || {
-                    // Deterministic protocol fixture: cross an era during the real copy,
-                    // keeping its published slot, head and generation unchanged.
-                    // Ordinary publication into another retained slot need not reject a copy.
-                    ring.commit(2, 1, 2, 0, 1, None);
-                });
+                let result = ring
+                    .read_with_copy_hook(&mut cursor, &mut out, || {
+                        // Deterministic protocol fixture: cross an era during the real copy,
+                        // keeping its published slot, head and generation unchanged.
+                        // Ordinary publication into another retained slot need not reject a copy.
+                        ring.commit((2, 1), (2, 0), 1, None, None, || 0);
+                    })
+                    .map(|read| read.frames);
                 assert_eq!(result, Err(crate::stream_ring::ReadError::Retry));
                 assert_eq!(
                     cursor, before,
@@ -602,7 +638,7 @@ mod tests {
                 out.fill(i32::MIN);
                 result
             } else {
-                ring.read(&mut cursor, &mut out)
+                ring.read(&mut cursor, &mut out).map(|read| read.frames)
             }
         });
         assert_eq!(result, Ok(2));
@@ -648,10 +684,10 @@ mod tests {
         let mut attempts = 0;
         let result = read_atomic_fresh_with(Duration::from_secs(1), interval, || {
             attempts += 1;
-            let result = ring.read(&mut cursor, &mut out);
+            let result = ring.read(&mut cursor, &mut out).map(|read| read.frames);
             if attempts == 1 {
                 assert_eq!(result, Ok(0));
-                publisher.publish(&[31, -31, 37, -37]).unwrap();
+                publisher.publish(&[31, -31, 37, -37], 0, || 0).unwrap();
             }
             result
         });

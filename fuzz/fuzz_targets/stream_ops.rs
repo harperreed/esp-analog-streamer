@@ -28,14 +28,18 @@ fuzz_target!(|input: &[u8]| {
         now = now.saturating_add(Duration::from_millis(u64::from(op[0] % 8)));
         match op[0] % 4 {
             0 => {
-                producer.publish(&[i32::from(op[0]); 4]).unwrap();
+                producer
+                    .publish(&[i32::from(op[0]); 4], now.as_micros() as u64, || {
+                        now.as_micros() as u64
+                    })
+                    .unwrap();
             }
             1 => {
                 producer.invalidate().unwrap();
             }
             2 => {
                 let before = cursor;
-                match ring.read(&mut cursor, &mut scratch) {
+                match ring.read(&mut cursor, &mut scratch).map(|read| read.frames) {
                     Ok(n) => assert!(n <= 2),
                     Err(_) => assert_eq!(before, cursor),
                 }
@@ -46,15 +50,34 @@ fuzz_target!(|input: &[u8]| {
         }
         match op.get(3).copied().unwrap_or(0) % 4 {
             0 => {
-                encoded.push(op).unwrap();
+                encoded
+                    .push(
+                        op,
+                        esp_shazam_core::flac_ring::SourceMetadata {
+                            raw_generation: 0,
+                            source_start: 0,
+                            source_end: 1,
+                            oldest_accepted_us: now.as_micros() as u64,
+                            raw_publication_us: now.as_micros() as u64,
+                        },
+                        || now.as_micros() as u64,
+                    )
+                    .unwrap();
             }
             1 => {
-                encoded.reset();
+                encoded.reset().unwrap();
             }
             2 => {
                 let before = encoded_cursor;
                 match encoded.read(&mut encoded_cursor, &mut bytes) {
-                    Ok(n) => assert!(n <= bytes.len()),
+                    Ok(read) => {
+                        assert!(read.bytes <= bytes.len());
+                        if let Some(receipt) = read.receipt {
+                            assert!(
+                                receipt.metadata.encoded_production_us <= now.as_micros() as u64
+                            );
+                        }
+                    }
                     Err(_) => assert_eq!(before, encoded_cursor),
                 }
             }

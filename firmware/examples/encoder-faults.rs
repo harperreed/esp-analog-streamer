@@ -1,5 +1,5 @@
 // ABOUTME: Suspends the production shared encoder while capture and networking keep running.
-// ABOUTME: The host verifies freshness closures, unchanged capture counters and new playback.
+// ABOUTME: The host verifies recovery, terminal admission failure and capture continuity.
 
 // Run scripts/encoder-fault-check after flashing this example with Shazam off.
 // Encoder and observer are pinned to core1. A brief scheduler suspension makes
@@ -7,7 +7,7 @@
 // under priority inheritance. No logs, allocation or waits occur in that section.
 // This depends on the production task name, affinity, priority and perpetual lifetime.
 // Host counters still reject any capture loss; markers alone do not establish success.
-// Seventeen seconds exceeds 12.032s history, 2s freshness and 2.5s close slack.
+// A 2.5 s hold allows cooperative reset; a later 17 s hold must latch failure.
 // Always restore production after this separate hardware fixture.
 
 use esp_idf_svc::{hal::cpu::Core, sys};
@@ -27,10 +27,15 @@ fn observe() -> anyhow::Result<()> {
     // SAFETY: static task name; production's shared encoder is perpetual.
     let encoder = unsafe { sys::xTaskGetHandle(c"stream-encode".as_ptr()) };
     anyhow::ensure!(!encoder.is_null(), "encoder task missing");
+    suspend_case(encoder, "cooperative", 2500)?;
+    std::thread::sleep(Duration::from_secs(30));
+    suspend_case(encoder, "terminal", 17000)
+}
+fn suspend_case(encoder: sys::TaskHandle_t, case: &str, hold_ms: u64) -> anyhow::Result<()> {
     let arm_ms = millis();
     // SAFETY: logger uses this same RTOS timestamp source in the pinned config.
     let arm_rtos_ms = unsafe { sys::esp_log_timestamp() };
-    log::info!("encoder-faults: marker=ARM ms={arm_ms} rtos_ms={arm_rtos_ms}");
+    log::info!("encoder-faults: marker=ARM case={case} ms={arm_ms} rtos_ms={arm_rtos_ms}");
     let deadline = Instant::now() + Duration::from_secs(10);
     loop {
         // SAFETY: pinned IDF tasks.c suspends this core's scheduler. The target is
@@ -57,13 +62,14 @@ fn observe() -> anyhow::Result<()> {
     }
     let suspended = Suspended(encoder);
     let at = millis();
-    std::thread::sleep(Duration::from_secs(17));
-    drop(suspended);
+    std::thread::sleep(Duration::from_millis(hold_ms));
+    // Save the release boundary before resume can preempt this observer with the encoder.
     let resumed = millis();
+    drop(suspended);
     // Logging can block on a FILE/UART lock owned by the target. Never log while it
     // is suspended: these saved event times intentionally arrive after resumption.
-    log::info!("encoder-faults: marker=SUSPEND ms={at} hold_ms=17000 deferred=true");
-    log::info!("encoder-faults: marker=RESUME ms={resumed} deferred=true");
+    log::info!("encoder-faults: marker=SUSPEND case={case} ms={at} hold_ms={hold_ms} deferred=true");
+    log::info!("encoder-faults: marker=RESUME case={case} ms={resumed} deferred=true");
     Ok(())
 }
 fn main() -> anyhow::Result<()> {

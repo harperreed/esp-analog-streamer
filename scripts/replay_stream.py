@@ -58,7 +58,8 @@ def validate(manifest_path):
     if not codec.startswith(b'fLaC'):
         raise ValueError('missing FLAC codec header')
     if phase == 'header' or tail:
-        if manifest['terminal_reason'] not in ('write_timeout', 'write_error', 'peer_closed'):
+        if (manifest['terminal_reason'] not in ('write_timeout', 'write_error', 'peer_closed')
+                and not (phase == 'payload' and manifest['terminal_reason'] == 'media_age')):
             raise ValueError('incomplete write has no allowed terminal reason')
         pending = read('pending_write')
         if not len(tail) < len(pending) or not pending.startswith(tail):

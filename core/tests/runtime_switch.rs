@@ -17,7 +17,22 @@ fn switching_retires_old_ring_and_never_reuses_its_bytes() {
     let (runtime, mut worker) = Runtime::new(OutputFormat::Mp3, false).unwrap();
     let (_, old) = runtime.admit("GET /stream.mp3 HTTP/1.1");
     let old = old.unwrap();
-    old.epoch.ring.lock().unwrap().push(&[1, 2, 3]).unwrap();
+    old.epoch
+        .ring
+        .lock()
+        .unwrap()
+        .push(
+            &[1, 2, 3],
+            esp_shazam_core::flac_ring::SourceMetadata {
+                raw_generation: 0,
+                source_start: 0,
+                source_end: 1,
+                oldest_accepted_us: 0,
+                raw_publication_us: 0,
+            },
+            || 0,
+        )
+        .unwrap();
     let caller = runtime.clone();
     let join = std::thread::spawn(move || {
         caller.switch(
@@ -169,8 +184,22 @@ fn repeated_switches_decode_independently_and_release_unheld_epochs() {
                 .encode_block(number as u32, &mut worker.bytes)
                 .unwrap();
             let mut ring = worker.epoch.ring.lock().unwrap();
-            ring.push(&worker.bytes).unwrap();
-            let len = ring.read(&mut cursor, &mut copied).unwrap();
+            ring.push(
+                &worker.bytes,
+                esp_shazam_core::flac_ring::SourceMetadata {
+                    raw_generation: 0,
+                    source_start: 0,
+                    source_end: 1,
+                    oldest_accepted_us: 0,
+                    raw_publication_us: 0,
+                },
+                || 0,
+            )
+            .unwrap();
+            let len = ring
+                .read(&mut cursor, &mut copied)
+                .map(|read| read.bytes)
+                .unwrap();
             drop(ring);
             let len = stream_codec::prepare_listener_frame(format, &mut copied, len, number as u32)
                 .unwrap();

@@ -16,20 +16,45 @@ fn joined_frames_decode_bit_exact_with_both_decoders() {
         let mut ring = FlacRing::try_new(2, MAX_FRAME_BYTES).unwrap();
         encoder.push(&vec![0; BLOCK_FRAMES * CHANNELS]);
         encoder.encode_block(first - 1, &mut encoded);
-        ring.push(&encoded).unwrap();
+        ring.push(
+            &encoded,
+            esp_shazam_core::flac_ring::SourceMetadata {
+                raw_generation: 0,
+                source_start: 0,
+                source_end: 1,
+                oldest_accepted_us: 0,
+                raw_publication_us: 0,
+            },
+            || 0,
+        )
+        .unwrap();
         let mut cursor = ring.cursor_now();
         let mut expected = chord_and_chirp_stereo_48k(BLOCK_FRAMES);
         expected.extend(full_scale_noise_stereo(BLOCK_FRAMES));
         for (i, block) in expected.chunks_exact(BLOCK_FRAMES * CHANNELS).enumerate() {
             encoder.push(block);
             encoder.encode_block(first + i as u32, &mut encoded);
-            ring.push(&encoded).unwrap();
+            ring.push(
+                &encoded,
+                esp_shazam_core::flac_ring::SourceMetadata {
+                    raw_generation: 0,
+                    source_start: 0,
+                    source_end: 1,
+                    oldest_accepted_us: 0,
+                    raw_publication_us: 0,
+                },
+                || 0,
+            )
+            .unwrap();
         }
         // Exactly two frames behind, with the old frame's slot already overwritten.
         let mut stream = flac::stream_header().to_vec();
         let mut out = [0; 113];
         loop {
-            let n = ring.read(&mut cursor, &mut out).unwrap();
+            let n = ring
+                .read(&mut cursor, &mut out)
+                .map(|read| read.bytes)
+                .unwrap();
             if n == 0 {
                 break;
             }

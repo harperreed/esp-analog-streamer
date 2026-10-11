@@ -53,17 +53,34 @@ fn retained_cursor_selects_exact_whole_frames_and_invalidates_on_reset() {
     assert!(ring.cursor_retained(3).unwrap().is_none());
     assert!(ring.cursor_retained(5).is_err());
     for i in 0..7 {
-        ring.push(&[i]).unwrap();
+        ring.push(
+            &[i],
+            esp_shazam_core::flac_ring::SourceMetadata {
+                raw_generation: 0,
+                source_start: 0,
+                source_end: 1,
+                oldest_accepted_us: 0,
+                raw_publication_us: 0,
+            },
+            || 0,
+        )
+        .unwrap();
     }
     let mut cursor = ring.cursor_retained(3).unwrap().unwrap();
     let mut out = [0; 8];
     for i in 4..7 {
-        assert_eq!(ring.read(&mut cursor, &mut out), Ok(1));
+        assert_eq!(
+            ring.read(&mut cursor, &mut out).map(|read| read.bytes),
+            Ok(1)
+        );
         assert_eq!(out[0], i);
     }
     let mut cursor = ring.cursor_retained(3).unwrap().unwrap();
-    ring.reset();
-    assert!(ring.read(&mut cursor, &mut out).is_err());
+    ring.reset().unwrap();
+    assert!(ring
+        .read(&mut cursor, &mut out)
+        .map(|read| read.bytes)
+        .is_err());
     assert!(ring.cursor_retained(3).unwrap().is_none());
 }
 fn pair() -> (std::net::TcpStream, std::net::TcpStream) {
@@ -88,7 +105,18 @@ fn buffered_start_waits_for_history_and_detects_disconnected_peers() {
         std::thread::sleep(Duration::from_millis(10));
         let mut ring = producer.lock().unwrap();
         for i in 0..3 {
-            ring.push(&[i]).unwrap();
+            ring.push(
+                &[i],
+                esp_shazam_core::flac_ring::SourceMetadata {
+                    raw_generation: 0,
+                    source_start: 0,
+                    source_end: 1,
+                    oldest_accepted_us: 0,
+                    raw_publication_us: 0,
+                },
+                || 0,
+            )
+            .unwrap();
         }
     });
     let mut cursor = buffered_cursor_before(
@@ -101,10 +129,16 @@ fn buffered_start_waits_for_history_and_detects_disconnected_peers() {
     )
     .unwrap();
     let mut out = [0; 8];
-    assert_eq!(ring.lock().unwrap().read(&mut cursor, &mut out), Ok(1));
+    assert_eq!(
+        ring.lock()
+            .unwrap()
+            .read(&mut cursor, &mut out)
+            .map(|read| read.bytes),
+        Ok(1)
+    );
     assert_eq!(out[0], 0);
     worker.join().unwrap();
-    ring.lock().unwrap().reset();
+    ring.lock().unwrap().reset().unwrap();
     socket2::SockRef::from(&client)
         .set_linger(Some(Duration::ZERO))
         .unwrap();
@@ -195,18 +229,35 @@ fn each_preset_decodes_exact_retained_pcm_after_ring_wrap_and_renumbering() {
                 .collect();
             encoder.push(&pcm);
             encoder.encode_block(n, &mut frame);
-            ring.push(&frame).unwrap();
+            ring.push(
+                &frame,
+                esp_shazam_core::flac_ring::SourceMetadata {
+                    raw_generation: 0,
+                    source_start: 0,
+                    source_end: 1,
+                    oldest_accepted_us: 0,
+                    raw_publication_us: 0,
+                },
+                || 0,
+            )
+            .unwrap();
         }
         let mut cursor = ring.cursor_retained(preset.frames(4096)).unwrap().unwrap();
         let mut stream = flac::stream_header().to_vec();
         let mut out = vec![0; flac::MAX_FRAME_BYTES];
         for n in 0..preset.frames(4096) {
-            let len = ring.read(&mut cursor, &mut out).unwrap();
+            let len = ring
+                .read(&mut cursor, &mut out)
+                .map(|read| read.bytes)
+                .unwrap();
             assert!(len > 0);
             let len = flac::renumber_frame(&mut out, len, n as u32).unwrap();
             stream.extend_from_slice(&out[..len]);
         }
-        assert_eq!(ring.read(&mut cursor, &mut out), Ok(0));
+        assert_eq!(
+            ring.read(&mut cursor, &mut out).map(|read| read.bytes),
+            Ok(0)
+        );
         let expected: Vec<i32> = ((150 - preset.frames(4096))..150)
             .flat_map(|n| {
                 (0..flac::BLOCK_FRAMES).flat_map(move |_| [n as i32 + 1, -(n as i32 + 1)])
@@ -259,9 +310,20 @@ fn repeated_resets_do_not_extend_absolute_fill_budget_or_refresh_a_stalled_produ
             for _ in 0..15 {
                 std::thread::sleep(Duration::from_millis(10));
                 let mut ring = producer.lock().unwrap();
-                ring.reset();
+                ring.reset().unwrap();
                 if push {
-                    ring.push(&[1]).unwrap();
+                    ring.push(
+                        &[1],
+                        esp_shazam_core::flac_ring::SourceMetadata {
+                            raw_generation: 0,
+                            source_start: 0,
+                            source_end: 1,
+                            oldest_accepted_us: 0,
+                            raw_publication_us: 0,
+                        },
+                        || 0,
+                    )
+                    .unwrap();
                 }
             }
         });
@@ -361,7 +423,20 @@ fn complete_request_half_close_can_receive_buffered_response() {
         read_request_line(BufReader::new(&server), 4096).unwrap(),
         "GET /stream.flac?buffer=low HTTP/1.1"
     );
-    ring.lock().unwrap().push(&[1]).unwrap();
+    ring.lock()
+        .unwrap()
+        .push(
+            &[1],
+            esp_shazam_core::flac_ring::SourceMetadata {
+                raw_generation: 0,
+                source_start: 0,
+                source_end: 1,
+                oldest_accepted_us: 0,
+                raw_publication_us: 0,
+            },
+            || 0,
+        )
+        .unwrap();
     buffered_cursor_before(
         &ring,
         &server,
@@ -408,14 +483,38 @@ fn reset_during_fill_selects_only_restarted_history() {
         time::{Duration, Instant},
     };
     let ring = Arc::new(Mutex::new(FlacRing::try_new(4, 8).unwrap()));
-    ring.lock().unwrap().push(b"old").unwrap();
+    ring.lock()
+        .unwrap()
+        .push(
+            b"old",
+            esp_shazam_core::flac_ring::SourceMetadata {
+                raw_generation: 0,
+                source_start: 0,
+                source_end: 1,
+                oldest_accepted_us: 0,
+                raw_publication_us: 0,
+            },
+            || 0,
+        )
+        .unwrap();
     let producer = ring.clone();
     let worker = std::thread::spawn(move || {
         std::thread::sleep(Duration::from_millis(10));
         let mut ring = producer.lock().unwrap();
-        ring.reset();
+        ring.reset().unwrap();
         for frame in [b"one", b"two", b"end"] {
-            ring.push(frame).unwrap();
+            ring.push(
+                frame,
+                esp_shazam_core::flac_ring::SourceMetadata {
+                    raw_generation: 0,
+                    source_start: 0,
+                    source_end: 1,
+                    oldest_accepted_us: 0,
+                    raw_publication_us: 0,
+                },
+                || 0,
+            )
+            .unwrap();
         }
     });
     let (server, _client) = pair();
@@ -431,13 +530,37 @@ fn reset_during_fill_selects_only_restarted_history() {
     worker.join().unwrap();
     let mut out = [0; 8];
     for frame in [b"one", b"two", b"end"] {
-        assert_eq!(ring.lock().unwrap().read(&mut cursor, &mut out), Ok(3));
+        assert_eq!(
+            ring.lock()
+                .unwrap()
+                .read(&mut cursor, &mut out)
+                .map(|read| read.bytes),
+            Ok(3)
+        );
         assert_eq!(&out[..3], frame);
     }
     for _ in 0..5 {
-        ring.lock().unwrap().push(b"lap").unwrap();
+        ring.lock()
+            .unwrap()
+            .push(
+                b"lap",
+                esp_shazam_core::flac_ring::SourceMetadata {
+                    raw_generation: 0,
+                    source_start: 0,
+                    source_end: 1,
+                    oldest_accepted_us: 0,
+                    raw_publication_us: 0,
+                },
+                || 0,
+            )
+            .unwrap();
     }
-    assert!(ring.lock().unwrap().read(&mut cursor, &mut out).is_err());
+    assert!(ring
+        .lock()
+        .unwrap()
+        .read(&mut cursor, &mut out)
+        .map(|read| read.bytes)
+        .is_err());
 }
 #[cfg(not(feature = "listener-loom"))]
 #[test]

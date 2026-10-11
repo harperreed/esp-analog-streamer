@@ -3,11 +3,11 @@
 # ABOUTME: Flash encoder-faults first; this resets UART, requires Shazam off, and never flashes.
 set -euo pipefail
 if [[ "${1:-}" = --help ]]; then
-    echo 'Usage: caffeinate -is scripts/encoder-fault-check [HOST] [--stream-port PORT] [--state-port PORT] [--out DIR]'
+    echo 'Usage: caffeinate -is scripts/encoder-fault-check [HOST] [--stream-port PORT] [--state-port PORT] [--path /stream.mp3|/stream.flac] [--out DIR]'
     echo 'Stream/state ports default to 8000/80; each must be 1..65535.'
-    echo 'Two draining FLAC peers precede suspension; fresh playback checks admission after resume.'
-    echo 'EOF allowance: 12.032 s backlog + 2 s freshness + 2.5 s close/network slack.'
-    echo 'Requires ffmpeg, uv and the encoder-faults image. Restore production afterward.'
+    echo 'Two peers precede 2.5 s cooperative suspension; two fresh 10 s decoders follow.'
+    echo 'After a 30 s recovery window, 17 s suspension must latch compressed admission failure.'
+    echo 'Requires ffmpeg, ffprobe, uv and the encoder-faults image. Restore production afterward.'
     echo 'Private logs have a checked 128 MiB budget; polling may overshoot it.'
     exit 0
 fi

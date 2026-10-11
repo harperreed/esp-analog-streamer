@@ -135,13 +135,15 @@ pub fn spawn_capture(
     let ring = recognition.shared_ring();
     let (publisher, stream) = CaptureBuffer::new(STREAM_FRAMES, DMA_FRAMES);
     verify_stream_placement(&stream)?;
+    let supervisor_raw = stream.clone();
     ThreadSpec {
         name: c"audio-supervise",
         core: Core::Core1,
         priority: 11,
         stack_bytes: 4 * 1024,
     }
-    .spawn(|| supervise())?;
+    .spawn(move || supervise(supervisor_raw))?;
+    let metrics_raw = stream.clone();
     // Keep ordinary UART and heap work below the shared encoder's priority.
     ThreadSpec {
         name: c"audio-metrics",
@@ -149,7 +151,7 @@ pub fn spawn_capture(
         priority: 3,
         stack_bytes: 4 * 1024,
     }
-    .spawn(|| metrics())?;
+    .spawn(move || metrics(metrics_raw))?;
     ThreadSpec {
         name: c"audio",
         core: Core::Core0,
@@ -279,7 +281,7 @@ fn capture(
         }
         let started = micros();
         publisher
-            .publish(&interleaved)
+            .publish(&interleaved, started, micros)
             .unwrap_or_else(|_| publication_exhausted());
         RAW_WORK_US.fetch_max((micros() - started) as u32, Ordering::Relaxed);
         record_staging(
@@ -337,7 +339,8 @@ fn record_staging(frames: usize, now: u64, since: &mut Option<u64>, attempts: &m
     STAGED_MAX_FRAMES.fetch_max(frames as u32, Ordering::Relaxed);
 }
 
-fn supervise() -> ! {
+fn supervise(raw: SharedStreamRing) -> ! {
+    let mut encoder_health = crate::stream_runtime::health::Supervisor::new();
     // SAFETY: this diverging task stays live for the boot; pinned ESP-IDF panics abort.
     let task = unsafe { esp_idf_svc::sys::xTaskGetCurrentTaskHandle() };
     SUPERVISOR_TASK.store(task.cast(), Ordering::Release);
@@ -356,6 +359,7 @@ fn supervise() -> ! {
         FRAMES.load(Ordering::Relaxed),
     );
     loop {
+        crate::stream::supervise_encoder(&mut encoder_health, &raw, micros());
         match health.observe(micros() / 1_000, FRAMES.load(Ordering::Relaxed)) {
             Action::None => {}
             Action::Restart => {
@@ -378,7 +382,7 @@ fn supervise() -> ! {
     }
 }
 
-fn metrics() -> ! {
+fn metrics(raw: SharedStreamRing) -> ! {
     #[cfg(feature = "listener-frame-state")]
     let mut frame_exported = false;
     record_metrics_phase(metrics_observer_enabled(), Phase::Init);
@@ -447,6 +451,7 @@ fn metrics() -> ! {
             record_metrics_phase(observer_enabled, Phase::RestartExport);
             export_restart_failures(&mut failure_exports);
             record_metrics_phase(observer_enabled, Phase::Init);
+            crate::stream::export_media_progress(&raw);
             next_log = now + 10_000_000;
         }
         #[cfg(feature = "listener-frame-state")]

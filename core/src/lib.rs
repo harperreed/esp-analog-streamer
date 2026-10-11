@@ -5,8 +5,10 @@ pub mod audio;
 pub mod capture_buffer;
 pub mod capture_health;
 pub mod decimate;
+pub mod encoder_health;
 pub mod flac;
 pub mod flac_ring;
+pub mod media_age;
 
 /// Shazam signature generation, copied from songrec-lib 0.5.4 (GPL-3.0-or-later, by marin-m).
 /// Kept as close to upstream as possible so the golden tests can demand identical bytes,

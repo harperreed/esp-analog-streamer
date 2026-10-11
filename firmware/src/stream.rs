@@ -513,12 +513,16 @@ fn read_some(
     cursor: &mut Cursor,
     out: &mut [i32],
     mut metrics: Option<&mut RawReadMetrics>,
-) -> Result<usize, WaitError<ReadError>> {
+) -> Result<esp_shazam_core::stream_ring::RawRead, WaitError<ReadError>> {
+    let mut receipt = None;
     let wait_started = metrics.as_ref().map(|_| Instant::now());
     let result = read_atomic_fresh_with(FRESH_AUDIO_TIMEOUT, CAUGHT_UP_SLEEP, || {
         // Single-read wall time includes preemption, excludes retry sleeps and socket/encoder work.
         let started = Instant::now();
-        let result = ring.read(cursor, out);
+        let result = ring.read(cursor, out).map(|read| {
+            receipt = read.receipt;
+            read.frames
+        });
         RAW_READ_MAX_US.fetch_max(
             started.elapsed().as_micros().min(u128::from(u32::MAX)) as u32,
             Ordering::Relaxed,
@@ -543,7 +547,7 @@ fn read_some(
         metrics.wait_total_us += elapsed_us;
         metrics.wait_max_us = metrics.wait_max_us.max(elapsed_us);
     }
-    result
+    result.map(|frames| esp_shazam_core::stream_ring::RawRead { frames, receipt })
 }
 
 /// Sends the response head and the WAV header, then frames from the ring as they arrive, until the
@@ -573,11 +577,29 @@ fn stream_wav(
     let mut bytes = Vec::with_capacity(3 * frames.len());
     bytes.extend_from_slice(Format::Wav.response_head().as_bytes());
     bytes.extend_from_slice(&wav::endless_header_s24le(CAPTURE_RATE_HZ, 2));
+    let age = esp_shazam_core::media_age::MediaAge::for_stream(None, OutputFormat::Flac);
+    let mut oldest = None;
     loop {
         if !network.is_current(lease) {
             return End::NetworkChanged;
         }
-        let result = write_frame(&mut writer, &bytes, write_limit, peer);
+        let at = event_us();
+        let result = if let Some(oldest) = oldest {
+            let deadline = match age.deadline(
+                at,
+                oldest,
+                at.saturating_add(write_limit.as_micros() as u64),
+            ) {
+                Ok(deadline) => deadline,
+                Err(_) => return End::MediaAge,
+            };
+            writer.write_all_before(&bytes, socket_deadline(Duration::from_micros(deadline)))
+        } else {
+            write_frame(&mut writer, &bytes, write_limit, peer)
+        };
+        if oldest.is_some_and(|oldest| age.check(event_us(), oldest).is_err()) {
+            return End::MediaAge;
+        }
         if !network.is_current(lease) {
             return End::NetworkChanged;
         }
@@ -589,7 +611,14 @@ fn stream_wav(
             return End::NetworkChanged;
         }
         let frames_read = match result {
-            Ok(n) => n,
+            Ok(read) => {
+                oldest = Some(
+                    read.receipt
+                        .expect("nonempty raw read carries metadata")
+                        .oldest_accepted_us,
+                );
+                read.frames
+            }
             Err(WaitError::Stalled | WaitError::Read(ReadError::Retry)) => {
                 return End::CaptureStalled
             }
@@ -643,7 +672,6 @@ fn encode(
         #[cfg(feature = "encoder-probe")]
         Some(storage),
     );
-    let origin = Instant::now();
     loop {
         let mut published = false;
         let mut log_due = false;
@@ -656,8 +684,18 @@ fn encode(
             &raw,
             &mut worker,
             &runtime,
-            &mut || origin.elapsed(),
+            &mut || Duration::from_micros(event_us()),
             &mut |observation| match observation {
+                EncoderObservation::HealthAck { operator_epoch } => {
+                    publish_health_event(
+                        crate::stream_runtime::health::State::Recovering,
+                        operator_epoch,
+                        &runtime,
+                        &raw,
+                        event_us(),
+                        None,
+                    );
+                }
                 EncoderObservation::AcceptedInput {
                     generation,
                     start,
@@ -823,6 +861,7 @@ struct ListenerMetrics {
     frame_read_wait_wall_total_us: u64,
     payload_elapsed_us: u64,
     socket: WriterDiagnostics,
+    media: listener_telemetry::ListenerMedia,
 }
 
 impl ListenerMetrics {
@@ -839,6 +878,7 @@ impl ListenerMetrics {
             frame_read_wait_wall_total_us: 0,
             payload_elapsed_us: 0,
             socket: WriterDiagnostics::default(),
+            media: listener_telemetry::ListenerMedia::default(),
         }
     }
 
@@ -856,6 +896,7 @@ impl ListenerMetrics {
             payload_elapsed_us: self.payload_elapsed_us,
             block_samples: self.block_frames,
             socket: self.socket,
+            media: self.media,
         }
     }
 }
@@ -876,9 +917,8 @@ fn stream_compressed(
         &mut crate::listener_frame_state::Owner<'_>,
     >,
 ) -> End {
-    let origin = Instant::now();
     let mut listener = CompressedListener::new(epoch, preset, CONFIG.shazam_enabled, &mut || {
-        origin.elapsed()
+        Duration::from_micros(event_us())
     });
     let mut writer = DeadlineWriter::new(sock);
     let mut payload_started = None;
@@ -889,7 +929,7 @@ fn stream_compressed(
         let action = listener.step_network(
             epoch,
             bytes,
-            &mut || origin.elapsed(),
+            &mut || Duration::from_micros(event_us()),
             &mut || stream_http::peer_connected(sock).unwrap_or(false),
             network,
             network_lease,
@@ -914,7 +954,7 @@ fn stream_compressed(
                     }
                 }
                 let result =
-                    writer.write_all_before(listener.write_bytes(bytes), origin + deadline);
+                    writer.write_all_before(listener.write_bytes(bytes), socket_deadline(deadline));
                 #[cfg(feature = "listener-frame-state")]
                 if !header {
                     if let Some(owner) = frame_state.as_deref_mut() {
@@ -939,7 +979,9 @@ fn stream_compressed(
                     break End::NetworkChanged;
                 }
                 let succeeded = result.is_ok();
-                if let ListenerStep::End(end) = listener.write_finished(result) {
+                if let ListenerStep::End(end) =
+                    listener.write_finished(result, &mut || Duration::from_micros(event_us()))
+                {
                     break end;
                 }
                 if header && succeeded {
@@ -963,6 +1005,22 @@ fn stream_compressed(
     metrics.frame_read_wait_wall_total_us += listener.read_wait.as_micros() as u64;
     metrics.frames_sent += listener.frames_sent;
     metrics.bytes_sent += listener.bytes_sent;
+    if let (Some(first), Some(last)) = (listener.first_sent, listener.last_sent) {
+        metrics.media = listener_telemetry::ListenerMedia {
+            valid: true,
+            first_raw_generation: first.metadata.source.raw_generation,
+            last_raw_generation: last.metadata.source.raw_generation,
+            source_start: first.metadata.source.source_start,
+            source_end: last.metadata.source.source_end,
+            first_encoded_generation: first.generation,
+            last_encoded_generation: last.generation,
+            first_encoded_sequence: first.sequence,
+            last_encoded_sequence: last.sequence,
+            last_age_us: listener.last_age_us,
+            max_age_us: listener.max_age_us,
+            queue_frames_max: listener.queue_frames_max,
+        };
+    }
     metrics.socket = writer.diagnostics();
     metrics.payload_elapsed_us =
         payload_started.map_or(0, |started| started.elapsed().as_micros() as u64);
@@ -999,6 +1057,96 @@ fn owner_sample(listeners: &AtomicUsize, scan_stack: bool) -> Sample {
     }
 }
 
+#[inline(never)]
+pub(crate) fn export_media_progress(raw: &esp_shazam_core::stream_ring::StreamRing) {
+    let Some(runtime) = RUNTIME.get() else {
+        return;
+    };
+    let accepted = raw.accepted_progress().ok();
+    let committed = raw.progress().ok();
+    let output = runtime.health.progress();
+    let at = event_us();
+    let source = output.map(|output| output.receipt.metadata.source);
+    let backlog = committed
+        .zip(source)
+        .filter(|(raw, source)| {
+            raw.generation == source.raw_generation && source.source_end <= raw.committed_frames
+        })
+        .map(|(raw, source)| raw.committed_frames.saturating_sub(source.source_end));
+    log::info!("media-progress: event_us={} operator_epoch={} health={:?} accepted_valid={} accepted_generation={} accepted_frames={} accepted_us={} raw_valid={} raw_generation={} raw_committed={} raw_publication_us={} encoded_valid={} encoded_operator_epoch={} encoded_generation={} encoded_sequence={} source_start={} source_end={} oldest_accepted_us={} source_raw_publication_us={} encoded_production_us={} source_age_us={} backlog_valid={} backlog_frames={}",
+        at,runtime.health.token()>>2,runtime.health.state(),accepted.is_some(),accepted.map_or(0,|a|a.generation),accepted.map_or(0,|a|a.frames),accepted.and_then(|a|a.at_us).unwrap_or(0),committed.is_some(),committed.map_or(0,|r|r.generation),committed.map_or(0,|r|r.committed_frames),committed.and_then(|r|r.committed_at_us).unwrap_or(0),output.is_some(),output.map_or(0,|o|o.operator_epoch),output.map_or(0,|o|o.receipt.generation),output.map_or(0,|o|o.receipt.sequence),source.map_or(0,|s|s.source_start),source.map_or(0,|s|s.source_end),source.map_or(0,|s|s.oldest_accepted_us),source.map_or(0,|s|s.raw_publication_us),output.map_or(0,|o|o.receipt.metadata.encoded_production_us),source.map_or(0,|s|at.saturating_sub(s.oldest_accepted_us)),backlog.is_some(),backlog.unwrap_or(0));
+}
+
+pub(crate) fn supervise_encoder(
+    supervisor: &mut crate::stream_runtime::health::Supervisor,
+    raw: &esp_shazam_core::stream_ring::StreamRing,
+    now_us: u64,
+) {
+    let Some(runtime) = RUNTIME.get() else {
+        return;
+    };
+    if let Some(transition) = supervisor.observe(runtime, raw, now_us) {
+        publish_health_event(
+            transition.state,
+            transition.operator_epoch,
+            runtime,
+            raw,
+            now_us,
+            Some(transition),
+        );
+    }
+}
+fn publish_health_event(
+    state: crate::stream_runtime::health::State,
+    operator_epoch: u32,
+    runtime: &Runtime,
+    raw: &esp_shazam_core::stream_ring::StreamRing,
+    now_us: u64,
+    observed: Option<crate::stream_runtime::health::Transition>,
+) {
+    let (raw_snapshot, output) = match observed {
+        Some(transition) => (
+            transition
+                .observation
+                .map(|raw| (raw.raw_generation, raw.raw_committed)),
+            transition.output,
+        ),
+        None => (
+            raw.progress()
+                .ok()
+                .map(|raw| (raw.generation, raw.committed_frames)),
+            runtime.health.progress(),
+        ),
+    };
+    let (raw_generation, raw_committed) = raw_snapshot.unwrap_or((0, 0));
+    let receipt = encoder_telemetry::HealthTransition {
+        transition: state,
+        operator_epoch,
+        raw_valid: raw_snapshot.is_some(),
+        encoded_valid: output.is_some(),
+        raw_generation,
+        raw_committed,
+        encoded_generation: output.map_or(0, |output| output.receipt.generation),
+        encoded_sequence: output.map_or(0, |output| output.receipt.sequence),
+        source_end: output.map_or(0, |output| output.receipt.metadata.source.source_end),
+        encoded_production_us: output
+            .map_or(0, |output| output.receipt.metadata.encoded_production_us),
+    };
+    encoder_telemetry::EVENTS.publish(encoder_telemetry::Record {
+        event_us: now_us,
+        epoch: u64::from(operator_epoch),
+        window: 0,
+        payload: encoder_telemetry::Payload::Health(receipt),
+    });
+}
+
+/// Anchor before reading the boot clock so preemption cannot extend an absolute deadline.
+fn socket_deadline(deadline: Duration) -> Instant {
+    let anchor = Instant::now();
+    let now = Duration::from_micros(event_us());
+    anchor + deadline.saturating_sub(now)
+}
+
 fn event_us() -> u64 {
     // SAFETY: ESP-IDF is initialized and its monotonic timer is available to every task.
     unsafe { sys::esp_timer_get_time() as u64 }
@@ -1011,6 +1159,8 @@ impl std::fmt::Display for EndCode {
             Self::NetworkChanged => f.write_str("network generation changed"),
             Self::EncodedReset => f.write_str("encoded ring generation changed"),
             Self::InvalidCursor => f.write_str("encoded ring cursor invalid"),
+            Self::MediaAge => f.write_str("media age exceeded"),
+            Self::EncoderUnhealthy => f.write_str("encoder unhealthy"),
             Self::FellBehind => f.write_str("fell a ring behind"),
             Self::StoppedReading => f.write_str("stopped reading"),
             Self::CaptureStalled => {
@@ -1064,6 +1214,8 @@ pub(crate) fn export_listener_events() {
                         peer, m.elapsed_us, m.task_runtime_us, m.runtime_valid, m.frames_sent, m.bytes_sent,
                         m.frame_write_wall_total_us, m.frame_write_wall_max_us, m.frame_read_wait_wall_total_us,
                         m.block_samples, owner_stack_free_bytes, event_us);
+                    let media=&m.media;
+                    log::info!("stream-media: peer={} valid={} first_raw_generation={} last_raw_generation={} source_start={} source_end={} first_encoded_generation={} last_encoded_generation={} first_encoded_sequence={} last_encoded_sequence={} last_age_us={} max_age_us={} queue_frames_max={} event_us={}",peer,media.valid,media.first_raw_generation,media.last_raw_generation,media.source_start,media.source_end,media.first_encoded_generation,media.last_encoded_generation,media.first_encoded_sequence,media.last_encoded_sequence,media.last_age_us,media.max_age_us,media.queue_frames_max,event_us);
                     let d = m.socket;
                     log::info!("stream-sender: peer={} payload_elapsed_us={} send_calls={} accepted_bytes={} short_sends={} send_would_block={} send_interrupted={} send_errors={} send_wall_total_us={} send_wall_max_us={} send_over_10ms={} event_us={}",
                         peer, m.payload_elapsed_us, d.send_calls, d.accepted_bytes, d.short_sends,
@@ -1154,6 +1306,16 @@ fn render_encoder_event(record: &encoder_telemetry::Record) {
             }
         }
         Payload::Failure(error) => render_encoder_failure(record, error),
+        Payload::Health(health) => {
+            use crate::stream_runtime::health::State;
+            let transition = match health.transition {
+                State::Healthy => "recovered",
+                State::ResetRequested => "reset_requested",
+                State::Recovering => "reset_ack",
+                State::Terminal => "terminal",
+            };
+            log::info!("media-health: transition={} event_us={} operator_epoch={} raw_valid={} encoded_valid={} raw_generation={} raw_committed={} encoded_generation={} encoded_sequence={} source_end={} encoded_production_us={}",transition,record.event_us,health.operator_epoch,u8::from(health.raw_valid),u8::from(health.encoded_valid),health.raw_generation,health.raw_committed,health.encoded_generation,health.encoded_sequence,health.source_end,health.encoded_production_us);
+        }
     }
 }
 #[inline(never)]

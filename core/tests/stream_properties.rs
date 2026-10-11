@@ -43,15 +43,17 @@ proptest! {
         let mut generations = [0usize; 2];
         let mut generation = 0;
         let mut log = Vec::<[i32; 2]>::new();
+        let mut accepted_times = Vec::<u64>::new();
         let mut committed = 0;
         let mut next = 1;
-        for (op, count) in operations {
+        for (tick, (op, count)) in operations.into_iter().enumerate() {
             match op {
                 0 | 1 => {
                     let frames: Vec<_> = (0..count).map(|_| {let n = next; next += 1; [n, -n - 17]}).collect();
                     let mut samples: Vec<_> = frames.iter().flatten().copied().collect();
                     samples.push(i32::MIN); // Half a stereo frame must never enter staging.
-                    publisher.publish(&samples).unwrap();
+                    publisher.publish(&samples, tick as u64, || tick as u64 + 1000).unwrap();
+                    accepted_times.extend(std::iter::repeat_n(tick as u64, count));
                     log.extend(frames);
                     committed = log.len() / block * block;
                     prop_assert_eq!(publisher.staged_frames(), log.len() - committed);
@@ -61,6 +63,17 @@ proptest! {
                     let old = cursors[reader];
                     let mut out = vec![i32::MIN; count * 2 + 1];
                     let result = ring.read(&mut cursors[reader], &mut out);
+                    if let Ok(read) = &result {
+                        if read.frames > 0 {
+                            let receipt = read.receipt.unwrap();
+                            prop_assert_eq!(receipt.generation, generation as u64);
+                            prop_assert_eq!(receipt.source_start, positions[reader] as u64);
+                            prop_assert_eq!(receipt.source_end, (positions[reader] + read.frames) as u64);
+                            prop_assert_eq!(receipt.oldest_accepted_us, accepted_times[positions[reader] / block * block]);
+                            prop_assert_eq!(receipt.committed_at_us, accepted_times[(positions[reader] / block + 1) * block - 1] + 1000);
+                        } else { prop_assert_eq!(read.receipt, None); }
+                    }
+                    let result = result.map(|read| read.frames);
                     if generations[reader] != generation || committed.saturating_sub(positions[reader]) > capacity {
                         prop_assert_eq!(result, Err(ReadError::Overrun));
                         prop_assert_eq!(cursors[reader], old);
@@ -75,7 +88,7 @@ proptest! {
                 }
                 4 => {
                     prop_assert_eq!(publisher.invalidate().unwrap(), log.len() - committed);
-                    log.clear(); committed = 0; generation += 1;
+                    log.clear(); accepted_times.clear(); committed = 0; generation += 1;
                 }
                 _ => {
                     let reader = (op - 5) as usize;
@@ -83,6 +96,10 @@ proptest! {
                     positions[reader] = committed; generations[reader] = generation;
                 }
             }
+            let progress = ring.progress().unwrap();
+            prop_assert_eq!(progress.generation, generation as u64);
+            prop_assert_eq!(progress.accepted_frames, log.len() as u64);
+            prop_assert_eq!(progress.committed_frames, committed as u64);
             prop_assert_eq!(ring.capacity(), capacity);
             prop_assert!(publisher.staged_frames() < block);
         }
@@ -103,16 +120,16 @@ proptest! {
                     let frame: Vec<_> = (0..count).map(|i| value.wrapping_add(i as u8)).collect();
                     let before = ring.progress();
                     if count == 0 || count > max_bytes {
-                        prop_assert_eq!(ring.push(&frame), Err(InvalidFrame));
+                        prop_assert_eq!(ring.push(&frame, esp_shazam_core::flac_ring::SourceMetadata { raw_generation: 0, source_start: 0, source_end: 1, oldest_accepted_us: 0, raw_publication_us: 0 }, || 0), Err(InvalidFrame));
                         prop_assert_eq!(ring.progress(), before);
-                    } else { ring.push(&frame).unwrap(); log.push(frame); }
+                    } else { ring.push(&frame, esp_shazam_core::flac_ring::SourceMetadata { raw_generation: 0, source_start: 0, source_end: 1, oldest_accepted_us: 0, raw_publication_us: 0 }, || 0).unwrap(); log.push(frame); }
                 }
                 2 | 3 => {
                     let reader = (op - 2) as usize;
                     let (epoch, index, offset) = positions[reader];
                     let old = cursors[reader];
                     let mut out = vec![99; count];
-                    let result = ring.read(&mut cursors[reader], &mut out);
+                    let result = ring.read(&mut cursors[reader], &mut out).map(|read| read.bytes);
                     if epoch != generation {
                         prop_assert_eq!(result, Err(EncodedReadError::GenerationChanged));
                         prop_assert_eq!(cursors[reader], old);
@@ -131,7 +148,7 @@ proptest! {
                         positions[reader] = if n == remaining.len() {(epoch, index + 1, 0)} else {(epoch, index, offset + n)};
                     }
                 }
-                4 => { ring.reset(); generation += 1; log.clear(); }
+                4 => { ring.reset().unwrap(); generation += 1; log.clear(); }
                 5 | 6 => {
                     let reader = (op - 5) as usize;
                     cursors[reader] = ring.cursor_now(); positions[reader] = (generation, log.len(), 0);

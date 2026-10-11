@@ -977,3 +977,14 @@ Wi-Fi loss can abort local TCP state without delivering FIN/RST to the remote
 host. Test stale socket cleanup through checked local close, released admission
 capacity and fresh streams; record remote EOF separately. Keep old host sockets
 open through the fresh admissions so host cleanup cannot explain board recovery.
+
+Doctor Biz has repeatedly flagged long runs with too few Kata closures. Keep one
+primary implementation moving through its original acceptance; parallel workers
+should resolve named blockers or finish independent tickets. Report the actual
+open count and exact remaining gate. Supporting tools, plans and partial tests
+are progress, but do not count as closures or justify expanding acceptance.
+
+Encoder reset acknowledgement retains the last actual output receipt. A ring
+reset alone publishes no audio, so recovered output can have a higher generation
+and a smaller positive sequence. Validate the pair and production timestamp;
+never invent a new-generation zero-sequence publication in harness fixtures.

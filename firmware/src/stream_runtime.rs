@@ -1,16 +1,21 @@
 // ABOUTME: Coordinates one encoder worker with immutable compressed stream epochs.
 // ABOUTME: Prepares replacements before a bounded, cancellable commit and retires old readers.
 use crate::stream_codec::Encoder;
+#[cfg_attr(not(target_os = "espidf"), allow(dead_code))] // Host binaries import different runtime subsets.
+#[path = "stream_health.rs"]
+pub(crate) mod health;
 use esp_shazam_core::{
     flac_ring::FlacRing,
     stream_buffer::OutputFormat,
     stream_http::{self, Route},
 };
+use health::HealthGate;
 #[cfg(feature = "listener-loom")]
 use loom::sync::{
     atomic::{AtomicBool, AtomicUsize, Ordering},
     Arc, Mutex,
 };
+use std::sync::atomic::AtomicU32;
 #[cfg(not(feature = "listener-loom"))]
 use std::sync::{
     atomic::{AtomicBool, AtomicUsize, Ordering},
@@ -26,8 +31,15 @@ pub struct Epoch {
     pub format: OutputFormat,
     pub ring: Mutex<FlacRing>,
     retired: AtomicBool,
+    #[cfg_attr(not(target_os = "espidf"), allow(dead_code))]
+    pub(crate) health: std::sync::Arc<HealthGate>,
+    pub(crate) operator_epoch: AtomicU32,
 }
 impl Epoch {
+    #[cfg_attr(not(target_os = "espidf"), allow(dead_code))]
+    pub(crate) fn healthy(&self) -> bool {
+        self.health.healthy()
+    }
     pub fn retired(&self) -> bool {
         self.retired.load(Ordering::Acquire)
     }
@@ -47,7 +59,11 @@ struct Prepared {
     bytes: Vec<u8>,
 }
 impl Prepared {
-    fn new(format: OutputFormat, recognition: bool) -> io::Result<Self> {
+    fn new(
+        format: OutputFormat,
+        recognition: bool,
+        health: std::sync::Arc<HealthGate>,
+    ) -> io::Result<Self> {
         let ring = FlacRing::try_new(format.history_frames(recognition), format.max_frame_bytes())
             .map_err(|e| io::Error::other(format!("compressed ring allocation failed: {e:?}")))?;
         let encoder = Encoder::new(format)?;
@@ -60,6 +76,8 @@ impl Prepared {
                 format,
                 ring: Mutex::new(ring),
                 retired: AtomicBool::new(false),
+                health,
+                operator_epoch: AtomicU32::new(1),
             }),
             encoder,
             bytes,
@@ -76,6 +94,8 @@ struct Request {
 }
 pub struct Runtime {
     active: Mutex<Arc<Epoch>>,
+    pub(crate) health: std::sync::Arc<HealthGate>,
+    pub(crate) block_frames: AtomicU32,
     sender: SyncSender<Request>,
     recognition: bool,
     listeners: Arc<AtomicUsize>,
@@ -102,10 +122,13 @@ impl Runtime {
         clock: std::sync::Arc<dyn Fn() -> Duration + Send + Sync>,
     ) -> io::Result<(Arc<Self>, Worker)> {
         format.validate(recognition).map_err(io::Error::other)?;
-        let prepared = Prepared::new(format, recognition)?;
+        let health = std::sync::Arc::new(HealthGate::new());
+        let prepared = Prepared::new(format, recognition, health.clone())?;
         let (sender, receiver) = mpsc::sync_channel(1);
         let runtime = Arc::new(Self {
             active: Mutex::new(prepared.epoch.clone()),
+            health,
+            block_frames: AtomicU32::new(format.block_frames() as u32),
             sender,
             recognition,
             clock,
@@ -126,6 +149,21 @@ impl Runtime {
     }
     /// Admission and the idle commit predicate share this lock. The lease survives socket close.
     pub fn admit(&self, line: &str) -> (Route, Option<Lease>) {
+        if !self.health.healthy() {
+            let format = if self.block_frames.load(std::sync::atomic::Ordering::Acquire) == 1152 {
+                OutputFormat::Mp3
+            } else {
+                OutputFormat::Flac
+            };
+            let route = stream_http::route_for(line, format);
+            if matches!(
+                route,
+                Route::Buffered(_)
+                    | Route::Stream(stream_http::Format::Flac | stream_http::Format::Mp3)
+            ) {
+                return (Route::Refuse(stream_http::Status::ServiceUnavailable), None);
+            }
+        }
         let active = self.active.lock().unwrap();
         let route =
             stream_http::route_for(line, active.format).with_buffer_availability(!self.recognition);
@@ -165,11 +203,11 @@ impl Runtime {
         if let Err(error) = format.validate(self.recognition) {
             return SwitchStart::Finished(Err(io::Error::other(error)));
         }
-        if self.active_format() == format {
+        if self.active_format() == format && self.health.healthy() {
             return SwitchStart::Finished(Ok(true));
         }
         self.begin_prepared(force, token, timeout, || {
-            Prepared::new(format, self.recognition)
+            Prepared::new(format, self.recognition, self.health.clone())
         })
     }
     /// Every deliberate Play waits for capacity, including a retry of the already active codec.
@@ -326,6 +364,23 @@ impl Worker {
         } else if !request.force && runtime.listeners.load(Ordering::Acquire) != 0 {
             Ok(false)
         } else {
+            let operator_epoch = match runtime.health.replace() {
+                Ok(epoch) => epoch,
+                Err(()) => {
+                    *outcome = Some(Err(io::Error::other("encoder operator identity exhausted")));
+                    let _ = request.notify.try_send(());
+                    return false;
+                }
+            };
+            request
+                .prepared
+                .epoch
+                .operator_epoch
+                .store(operator_epoch, std::sync::atomic::Ordering::Release);
+            runtime.block_frames.store(
+                request.prepared.epoch.format.block_frames() as u32,
+                std::sync::atomic::Ordering::Release,
+            );
             active.retired.store(true, Ordering::Release);
             *active = request.prepared.epoch.clone();
             self.epoch = request.prepared.epoch;
@@ -344,6 +399,27 @@ impl Worker {
 mod tests {
     use super::*;
     #[test]
+    fn unhealthy_compressed_admission_does_not_wait_for_active_mutex() {
+        let (runtime, _worker) = Runtime::new(OutputFormat::Mp3, false).unwrap();
+        let active = runtime.active.lock().unwrap();
+        assert!(runtime
+            .health
+            .transition(runtime.health.token(), health::State::Terminal));
+        let caller = runtime.clone();
+        let (sent, received) = mpsc::channel();
+        let client = std::thread::spawn(move || {
+            sent.send(caller.admit("GET /stream.mp3 HTTP/1.1").0)
+                .unwrap()
+        });
+        assert_eq!(
+            received.recv_timeout(Duration::from_secs(1)).unwrap(),
+            Route::Refuse(stream_http::Status::ServiceUnavailable)
+        );
+        drop(active);
+        client.join().unwrap();
+    }
+
+    #[test]
     fn idle_commit_rechecks_listener_admitted_during_preparation() {
         let (runtime, mut worker) = Runtime::new(OutputFormat::Flac, false).unwrap();
         let caller = runtime.clone();
@@ -356,7 +432,8 @@ mod tests {
                 Arc::new(Mutex::new(true)),
                 Duration::from_secs(1),
                 || {
-                    let replacement = Prepared::new(OutputFormat::Mp3, false)?;
+                    let replacement =
+                        Prepared::new(OutputFormat::Mp3, false, caller.health.clone())?;
                     ready.send(()).unwrap();
                     resumed.recv().unwrap();
                     Ok(replacement)
@@ -398,7 +475,17 @@ mod tests {
             .ring
             .lock()
             .unwrap()
-            .push(&worker.bytes)
+            .push(
+                &worker.bytes,
+                esp_shazam_core::flac_ring::SourceMetadata {
+                    raw_generation: 0,
+                    source_start: 0,
+                    source_end: 1,
+                    oldest_accepted_us: 0,
+                    raw_publication_us: 0,
+                },
+                || 0,
+            )
             .unwrap();
         assert_eq!(worker.epoch.ring.lock().unwrap().progress(), (0, 1));
         assert!(!worker.service(&runtime));

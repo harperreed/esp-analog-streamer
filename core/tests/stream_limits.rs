@@ -28,16 +28,36 @@ fn eleven_seconds_of_delayed_audio_remain_exact_and_ordered() {
                 2 * flac::BLOCK_FRAMES
             ]);
             encoder.encode_block(round * 129 + index, &mut encoded);
-            ring.push(&encoded).unwrap();
-            assert_eq!(ring.read(&mut fast, &mut output), Ok(encoded.len()));
+            ring.push(
+                &encoded,
+                esp_shazam_core::flac_ring::SourceMetadata {
+                    raw_generation: 0,
+                    source_start: 0,
+                    source_end: 1,
+                    oldest_accepted_us: 0,
+                    raw_publication_us: 0,
+                },
+                || 0,
+            )
+            .unwrap();
+            assert_eq!(
+                ring.read(&mut fast, &mut output).map(|read| read.bytes),
+                Ok(encoded.len())
+            );
             assert_eq!(&output[..encoded.len()], encoded);
             expected.push(encoded.clone());
         }
         for frame in expected {
-            assert_eq!(ring.read(&mut slow, &mut output), Ok(frame.len()));
+            assert_eq!(
+                ring.read(&mut slow, &mut output).map(|read| read.bytes),
+                Ok(frame.len())
+            );
             assert_eq!(&output[..frame.len()], frame);
         }
-        assert_eq!(ring.read(&mut slow, &mut output), Ok(0));
+        assert_eq!(
+            ring.read(&mut slow, &mut output).map(|read| read.bytes),
+            Ok(0)
+        );
     }
 }
 
@@ -49,15 +69,40 @@ fn profiles_retain_exact_capacity_then_reject_overwritten_audio() {
         let mut reader = ring.cursor_now();
         let mut stale = ring.cursor_now();
         for index in 0..expected_capacity {
-            ring.push(&[index as u8]).unwrap();
+            ring.push(
+                &[index as u8],
+                esp_shazam_core::flac_ring::SourceMetadata {
+                    raw_generation: 0,
+                    source_start: 0,
+                    source_end: 1,
+                    oldest_accepted_us: 0,
+                    raw_publication_us: 0,
+                },
+                || 0,
+            )
+            .unwrap();
         }
         let mut output = [0];
-        assert_eq!(ring.read(&mut reader, &mut output), Ok(1));
+        assert_eq!(
+            ring.read(&mut reader, &mut output).map(|read| read.bytes),
+            Ok(1)
+        );
         assert_eq!(output, [0]);
-        ring.push(&[255]).unwrap();
+        ring.push(
+            &[255],
+            esp_shazam_core::flac_ring::SourceMetadata {
+                raw_generation: 0,
+                source_start: 0,
+                source_end: 1,
+                oldest_accepted_us: 0,
+                raw_publication_us: 0,
+            },
+            || 0,
+        )
+        .unwrap();
         let before = stale;
         assert_eq!(
-            ring.read(&mut stale, &mut output),
+            ring.read(&mut stale, &mut output).map(|read| read.bytes),
             Err(ReadError::Overwritten)
         );
         assert_eq!(stale, before);

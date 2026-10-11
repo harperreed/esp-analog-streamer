@@ -184,12 +184,28 @@ fn replay_pcm(mut seed: u64) -> Replay {
             samples[0] = -(index % 32768) * 256 + 127;
             samples[1] = ((index * 7) % 32768) * 256 + 63;
         }
-        publisher.publish(&chunk).unwrap();
-        assert_eq!(raw.read(&mut raw_cursor, &mut chunk), Ok(256));
+        publisher.publish(&chunk, 0, || 0).unwrap();
+        assert_eq!(
+            raw.read(&mut raw_cursor, &mut chunk)
+                .map(|read| read.frames),
+            Ok(256)
+        );
         encoder.push(&chunk);
         if encoder.frames_wanted() == 0 {
             encoder.encode_block(127 + (first / BLOCK_FRAMES) as u32, &mut frame);
-            encoded.push(&frame).unwrap();
+            encoded
+                .push(
+                    &frame,
+                    esp_shazam_core::flac_ring::SourceMetadata {
+                        raw_generation: 0,
+                        source_start: 0,
+                        source_end: 1,
+                        oldest_accepted_us: 0,
+                        raw_publication_us: 0,
+                    },
+                    || 0,
+                )
+                .unwrap();
         }
     }
     let mut replay = Replay {
@@ -199,12 +215,20 @@ fn replay_pcm(mut seed: u64) -> Replay {
     write_virtual(&flac::stream_header(), &mut seed, &mut replay);
     let mut bytes = vec![0; MAX_FRAME_BYTES];
     for number in 0..2 {
-        let n = encoded.read(&mut listener, &mut bytes).unwrap();
+        let n = encoded
+            .read(&mut listener, &mut bytes)
+            .map(|read| read.bytes)
+            .unwrap();
         assert!(n > 0);
         let n = flac::renumber_frame(&mut bytes, n, number).unwrap();
         write_virtual(&bytes[..n], &mut seed, &mut replay);
     }
-    assert_eq!(encoded.read(&mut listener, &mut bytes), Ok(0));
+    assert_eq!(
+        encoded
+            .read(&mut listener, &mut bytes)
+            .map(|read| read.bytes),
+        Ok(0)
+    );
     assert!(replay.bytes.len() <= flac::STREAM_HEADER_LEN + 2 * MAX_FRAME_BYTES);
     replay
 }

@@ -334,7 +334,7 @@ fn real_socket_timeout_and_refusal_reach_close_with_full_queue_and_blocked_expor
                 || 30,
             );
             assert!(matches!(
-                actor.write_finished(result),
+                actor.write_finished(result, &mut || Duration::ZERO),
                 stream_pipeline::ListenerStep::End(stream_pipeline::End::StoppedReading)
             ));
         }
@@ -374,6 +374,7 @@ fn fixed_departure_keeps_sender_counters_and_error_identity_without_heap_message
         peer: None,
         payload: Payload::Departure {
             metrics: Some(Departure {
+                media: Default::default(),
                 elapsed_us: 20,
                 task_runtime_us: 7,
                 runtime_valid: true,
