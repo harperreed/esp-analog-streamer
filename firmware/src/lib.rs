@@ -17,6 +17,7 @@ mod shazam_http;
 mod socket_close;
 mod sonos;
 mod stream;
+mod stream_admission;
 mod stream_codec;
 mod stream_pipeline;
 mod stream_runtime;

@@ -10,7 +10,7 @@
 
 **Spec:** `target/kata-hardening/admission-resume.md`, with ownership details in `target/kata-hardening/admission-policy-decisions.md`. This tracked plan includes the binding decisions because those supporting audit artifacts are ignored.
 
-**State:** Planned; parent owns review and execution after the independent hardware check. Existing finish-all authorization covers implementation; no additional architecture permission gate. Compaction count: 0.
+**State:** Task 1 host extraction/regression complete; Task 2 and target acceptance pending. Existing finish-all authorization covers implementation; no additional architecture permission gate. Compaction count: 0.
 
 ## Global Constraints
 
@@ -47,14 +47,14 @@
 
 **Interfaces:** Create `accept_one(listener: &Mutex<TcpListener>) -> io::Result<(TcpStream, SocketAddr)>` and `read_head(socket: &TcpStream, deadline: Instant, max_bytes: u64) -> io::Result<String>` in stream_admission. `accept_one` releases its lock before returning either result. `read_head` uses the existing DeadlineReader, 256-byte BufReader and read_request_line; caller retains socket ownership and creates the deadline at the existing point after peer formatting. Mutex poisoning becomes an io error rather than an unwrap panic.
 
-- [ ] Write `complete_second_request_progresses_before_first_head_deadline` using actual blocking accept_one and read_head on real loopback sockets. Coordinate with channels after accept; worker one holds an incomplete head. Worker two reads a complete request and writes the actual Status response via existing write_response. Assert exact response bytes before the first two-second deadline. The fixture handler only observes the extracted operation; it does not claim to test firmware route/allocation handling.
-- [ ] Run `cargo test -p esp-shazam-core --test stream_admission complete_second_request_progresses_before_first_head_deadline -- --nocapture` against a one-worker fixture. Record actual RED from response timing, not a missing symbol. First extract current operations without concurrency if needed to obtain this behavioral RED. Use bounded client reads, close clients on failure, wake blocked accepts with loopback connections, and join every host thread even when assertions fail.
-- [ ] Implement the two-worker fixture using the same blocking production operations. Each worker performs a finite known number of accept/handle iterations; teardown supplies wake connections for remaining accepts and drops all clients so head reads finish. There is no application stop flag or host-only socket mode.
-- [ ] Wire production stream::accept to accept_one and answer's existing head-read site to read_head. Keep accept-error logging/sleep outside the mutex. Keep all peer lookup, parsing, routing, allocation, refusal and close outside the lock. Do not restructure the rest of answer.
-- [ ] Add real socket cases for silent and byte-trickled heads reaching the absolute deadline, fragmented valid head, valid write-half-close, malformed UTF-8, over-cap head and peer disconnect. Reuse existing exact-cap/parser unit coverage; add an integration exact-cap case only if the extracted path reveals a gap. Every thread has bounded reads and a teardown owner.
-- [ ] Add `two_slow_heads_delay_third_until_worker_available`: synchronize both accepted states, send a complete third request, then release one slow peer and verify complete correct response. Record connect-to-response separately from accept-to-response. Do not infer a six-second bound or arbitrary-burst fairness.
-- [ ] Run `cargo test -p esp-shazam-core --test stream_admission` and existing stream_http unit tests through `cargo test -p esp-shazam-core stream_http`. Inspect all output; no new warnings or errors.
-- [ ] Review the small shared module and diff, then commit the independently testable extraction/regression with explicit file staging and a conventional commit. Production still has one worker until Task 2; do not claim 8s9m fixed yet.
+- [x] Write `complete_second_request_progresses_before_first_head_deadline` using actual blocking accept_one and read_head on real loopback sockets. Coordinate with channels after accept; worker one holds an incomplete head. Worker two reads a complete request and writes the actual Status response via existing write_response. Assert exact response bytes before the first two-second deadline. The fixture handler only observes the extracted operation; it does not claim to test firmware route/allocation handling.
+- [x] Run `cargo test -p esp-shazam-core --test stream_admission complete_second_request_progresses_before_first_head_deadline -- --nocapture` against a one-worker fixture. Record actual RED from response timing, not a missing symbol. First extract current operations without concurrency if needed to obtain this behavioral RED. Use bounded client reads, close clients on failure, wake blocked accepts with loopback connections, and join every host thread even when assertions fail.
+- [x] Implement the two-worker fixture using the same blocking production operations. Each worker performs a finite known number of accept/handle iterations; teardown supplies wake connections for remaining accepts and drops all clients so head reads finish. There is no application stop flag or host-only socket mode.
+- [x] Wire production stream::accept to accept_one and answer's existing head-read site to read_head. Keep accept-error logging/sleep outside the mutex. Keep all peer lookup, parsing, routing, allocation, refusal and close outside the lock. Do not restructure the rest of answer.
+- [x] Add real socket cases for silent and byte-trickled heads reaching the absolute deadline, fragmented valid head, valid write-half-close, malformed UTF-8, over-cap head and peer disconnect. Reuse existing exact-cap/parser unit coverage; add an integration exact-cap case only if the extracted path reveals a gap. Every thread has bounded reads and a teardown owner.
+- [x] Add `two_slow_heads_delay_third_until_worker_available`: synchronize both accepted states, send a complete third request, then release one slow peer and verify complete correct response. Record connect-to-response separately from accept-to-response. Do not infer a six-second bound or arbitrary-burst fairness.
+- [x] Run `cargo test -p esp-shazam-core --test stream_admission` and existing stream_http unit tests through `cargo test -p esp-shazam-core stream_http`. Inspect all output; no new warnings or errors.
+- [x] Review the small shared module and diff, then commit the independently testable extraction/regression with explicit file staging and a conventional commit. Production still has one worker until Task 2; do not claim 8s9m fixed yet.
 
 ### Task 2: Two gated workers with unchanged admission ownership
 
@@ -83,3 +83,9 @@
 Proceed with Tasks 1–2 after the separate audio acquisition completes. The accept-only mutex is the smallest supported path: pinned lwIP documentation requires locking shared control blocks even though full-duplex implementation contains protected socket references and mailbox waiters. Do not rely on two simultaneous accepts.
 
 The material remaining risk is target memory/scheduling pressure from the added persistent worker; Task 3 measures it before acceptance. Both workers can still be occupied by slow heads, and current logging/implicit close paths prevent a hard response-latency promise. Encoder/runtime survival after startup failure and panic-abort behavior remain existing limitations, explicitly unchanged by this scope.
+
+Task 1 receipt: behavioral one-worker RED, ten real-socket admission tests and
+31 existing HTTP tests pass without warnings. Independent spec and quality review
+passes with no findings. Production still has one worker; canonical combined
+implementation and actual device acceptance remain Tasks 2–3. Detailed logs and
+review live in .superpowers/sdd/2026-10-10-concurrent-admission/.

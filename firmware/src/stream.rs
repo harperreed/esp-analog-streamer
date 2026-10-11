@@ -1,7 +1,7 @@
 // ABOUTME: The LINE IN stream on port 8000: serves the selected compressed codec and diagnostic 24-bit WAV at 48 kHz stereo.
 // ABOUTME: One core 1 encoder shares compressed frames; listeners copy out before socket work and drop if they fall behind.
 
-use std::io::{self, BufReader};
+use std::io;
 use std::net::{SocketAddr, TcpListener, TcpStream};
 use std::sync::atomic::{AtomicU32, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex, OnceLock};
@@ -19,7 +19,7 @@ use esp_idf_svc::mdns::EspMdns;
 use esp_idf_svc::sys;
 use esp_shazam_core::stream_buffer::{BufferPreset, OutputFormat};
 use esp_shazam_core::stream_http::{
-    self, DeadlineReader, DeadlineWriter, Format, Route, Status, WriterDiagnostics,
+    self, DeadlineWriter, Format, Route, Status, WriterDiagnostics,
 };
 use esp_shazam_core::stream_ring::{Cursor, ReadError};
 use esp_shazam_core::stream_wait::{cursor_before, read_atomic_fresh_with, Slot, WaitError};
@@ -200,9 +200,10 @@ fn accept(
     runtime: Arc<Runtime>,
     listeners: Arc<AtomicUsize>,
 ) {
-    for conn in listener.incoming() {
-        match conn {
-            Ok(sock) => answer(sock, &ring, &runtime, &listeners),
+    let listener = Mutex::new(listener);
+    loop {
+        match crate::stream_admission::accept_one(&listener) {
+            Ok((sock, _)) => answer(sock, &ring, &runtime, &listeners),
             Err(e) => {
                 log::warn!("stream: accept failed: {e}");
                 // lwIP drops a connection it has no socket for. Pause in case an error repeats at once.
@@ -223,9 +224,8 @@ fn answer(
     let peer = peer_address.map_or_else(|| "unknown peer".to_owned(), |addr| addr.to_string());
     // One deadline for the whole head: a per-read timeout would let a client that sends a byte
     // every 1.9 s hold the accept thread for hours.
-    let reader = DeadlineReader::new(&sock, Instant::now() + HEAD_TIMEOUT);
     let head =
-        stream_http::read_request_line(BufReader::with_capacity(256, reader), MAX_HEAD_BYTES);
+        crate::stream_admission::read_head(&sock, Instant::now() + HEAD_TIMEOUT, MAX_HEAD_BYTES);
     let request_line = match head {
         Ok(line) => line,
         Err(e) if e.kind() == io::ErrorKind::InvalidData => {
