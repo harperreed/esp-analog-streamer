@@ -7,44 +7,6 @@
 pub mod sonos;
 
 #[test]
-fn http_ownership_requires_exact_uri_and_observed_playing() {
-    let mut owned_uri = Some("http://board/stream.mp3?intent=1".into());
-    assert_eq!(
-        sonos::HttpOwnership::observe_owned_uri(
-            &mut owned_uri,
-            "http://board/stream.mp3?intent=1",
-            false
-        ),
-        Some(sonos::State::Buffering)
-    );
-    assert_eq!(
-        sonos::HttpOwnership::observe_owned_uri(
-            &mut owned_uri,
-            "http://board/stream.mp3?intent=1",
-            true
-        ),
-        Some(sonos::State::Playing)
-    );
-    assert_eq!(
-        sonos::HttpOwnership::observe_owned_uri(
-            &mut owned_uri,
-            "http://board/stream.mp3?intent=2",
-            true
-        ),
-        None
-    );
-    assert_eq!(owned_uri, None);
-    assert_eq!(
-        sonos::HttpOwnership::observe_owned_uri(
-            &mut owned_uri,
-            "http://board/stream.mp3?intent=1",
-            true
-        ),
-        None
-    );
-}
-
-#[test]
 fn stopped_transport_ends_stream_intent() {
     assert_eq!(
         sonos::http_transport_state(esp_shazam_core::sonos_upnp::TransportState::Stopped),

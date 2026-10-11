@@ -1,5 +1,12 @@
 # Ownership-safe Sonos recovery: pqqq
 
+Historical native-session design. Doctor Biz selected HTTP control on October
+11. The bounded retained-delivery implementation is described in
+[Sonos control recovery](2026-10-11-sonos-control-recovery.md); it uses read-only
+observations and does not establish authority for automatic media commands.
+The session-join proposal below remains unimplemented and is not the next TLS
+experiment. Pqqq's full recovery acceptance remains open.
+
 Doctor Biz, retain a bounded recovery candidate after transient loss, then prove that the same session still belongs to this controller before any media command. Never call `play_current()` from reconnect: it calls Stop and unconditionally creates a session. This is a concrete design for review, not implemented behavior or permission to run speaker tests.
 
 Initial design scope: exact `kata show pqqq`, current firmware/core Sonos code, queue code, approved Sonos design, gotchas, archived Victrola `sonos-integration.md`, and public Sonos references. The archive was listed/read, never modified or executed. No production edits, builds, hardware requests or extra agents ran during that initial design. The linked protocol research records the later Sol 6.1 investigation.

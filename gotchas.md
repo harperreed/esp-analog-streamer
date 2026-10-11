@@ -1,5 +1,17 @@
 # Gotchas
 
+Report wmsy as the parent audit, with child progress and the central outcome
+separately. Doctor Biz flagged that an open epic looked unstarted: on October
+11 it had 21 closed children and 17 open children; the project-wide 18 open
+count included the parent. These are historical counts, not a live dashboard.
+Supporting closures do not establish automatic ownership-safe playback recovery.
+
+A Sonos control-read timeout must not revoke healthy audio before classifying
+the failure. Retain the original queue during bounded read-only recovery; this
+grants no authority for Play or SetURI and cannot cross a network generation.
+The production timeout-cleanup negative control must fail the retention test.
+See the October 11 sonos-control-recovery plan and evidence.
+
 The later TLS diagnostic resolves one hidden failure: RSA returned -0x4290
 (RSA_PUBLIC_FAILED + MPI_ALLOC_FAILED), then X.509 mapped it to NOT_TRUSTED.
 Heap reported after unwinding is not allocation-time headroom. Lowering the

@@ -301,6 +301,15 @@ fn response(mut reader: impl Read) -> io::Result<Vec<u8>> {
     }
     Ok(body)
 }
+fn checked_io<T>(
+    validate: &mut impl FnMut() -> io::Result<()>,
+    operation: impl FnOnce() -> io::Result<T>,
+) -> io::Result<T> {
+    validate()?;
+    let result = operation();
+    validate()?;
+    result
+}
 impl Client {
     pub fn connect(group: &DiscoveryGroup, deadline: Instant) -> io::Result<Self> {
         remaining(deadline)?;
@@ -415,11 +424,20 @@ impl Client {
             .collect())
     }
     pub fn verify(&self, deadline: Instant) -> io::Result<()> {
-        let (av, topology) = self.description(deadline)?;
+        self.verify_checked(deadline, &mut || Ok(()))
+    }
+    fn verify_checked(
+        &self,
+        deadline: Instant,
+        validate: &mut impl FnMut() -> io::Result<()>,
+    ) -> io::Result<()> {
+        let (av, topology) = checked_io(validate, || self.description(deadline))?;
         if av != self.av || topology != self.topology {
             return Err(invalid());
         }
-        let outer = self.soap(TOPO, &self.topology, "GetZoneGroupState", "", deadline)?;
+        let outer = checked_io(validate, || {
+            self.soap(TOPO, &self.topology, "GetZoneGroupState", "", deadline)
+        })?;
         let nodes = xml(value(&outer, 0, "ZoneGroupState")?.as_bytes())?;
         if nodes[0].name != "ZoneGroupState" || !nodes[0].ns.is_empty() {
             return Err(invalid());
@@ -476,6 +494,21 @@ impl Client {
             return Err(invalid());
         }
         Ok(())
+    }
+    /// Observe retained identity and URI before reading transport, without media writes.
+    /// Validation surrounds every request so late replies cannot restore canceled work.
+    pub fn observe(
+        &self,
+        expected_uri: &str,
+        deadline: Instant,
+        mut validate: impl FnMut() -> io::Result<()>,
+    ) -> io::Result<Option<TransportState>> {
+        self.verify_checked(deadline, &mut validate)?;
+        let uri = checked_io(&mut validate, || self.media_uri(deadline))?;
+        if uri != expected_uri {
+            return Ok(None);
+        }
+        checked_io(&mut validate, || self.transport_state(deadline)).map(Some)
     }
     pub fn media_uri(&self, deadline: Instant) -> io::Result<String> {
         value(
@@ -562,14 +595,36 @@ mod tests {
         }
     }
     fn serve(bodies: Vec<String>) -> (SocketAddr, thread::JoinHandle<Vec<String>>) {
+        serve_replies(bodies, Duration::ZERO, false)
+    }
+    fn serve_replies(
+        bodies: Vec<String>,
+        delay: Duration,
+        truncate_last: bool,
+    ) -> (SocketAddr, thread::JoinHandle<Vec<String>>) {
+        let last = bodies.len() - 1;
         let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).unwrap();
+        listener.set_nonblocking(true).unwrap();
         let peer = listener.local_addr().unwrap();
         let h = thread::spawn(move || {
             bodies
                 .into_iter()
-                .map(|body| {
+                .enumerate()
+                .filter_map(|(index, body)| {
                     let body = body.replace("$PEER", &peer.to_string());
-                    let (mut sock, _) = listener.accept().unwrap();
+                    let accept_deadline = Instant::now() + Duration::from_secs(2);
+                    let (mut sock, _) = loop {
+                        match listener.accept() {
+                            Ok(connection) => break connection,
+                            Err(error) if error.kind() == io::ErrorKind::WouldBlock => {
+                                if Instant::now() >= accept_deadline {
+                                    return None;
+                                }
+                                thread::sleep(Duration::from_millis(1));
+                            }
+                            Err(error) => panic!("loopback accept failed: {error}"),
+                        }
+                    };
                     sock.set_read_timeout(Some(Duration::from_secs(2))).unwrap();
                     let mut bytes = Vec::new();
                     let mut b = [0];
@@ -591,14 +646,190 @@ mod tests {
                         "HTTP/1.1 200 OK\r\nContent-Length: {}\r\n\r\n{body}",
                         body.len()
                     );
-                    for chunk in response.as_bytes().chunks(17) {
-                        sock.write_all(chunk).unwrap()
+                    thread::sleep(delay);
+                    let response = if truncate_last && index == last {
+                        &response.as_bytes()[..response.len() - 8]
+                    } else {
+                        response.as_bytes()
+                    };
+                    for chunk in response.chunks(17) {
+                        if sock.write_all(chunk).is_err() {
+                            break;
+                        }
                     }
-                    String::from_utf8(bytes).unwrap()
+                    Some(String::from_utf8(bytes).unwrap())
                 })
                 .collect()
         });
         (peer, h)
+    }
+    fn observation_bodies(media: String) -> Vec<String> {
+        vec![
+            DESCRIPTION.into(),
+            include_str!("../tests/fixtures/sonos/topology.xml").replace("127.0.0.1:1400", "$PEER"),
+            media,
+        ]
+    }
+    const EXPECTED_URI: &str = "http://127.0.0.1/stream.mp3?network=1&intent=2";
+    #[test]
+    fn observation_is_ordered_read_only_and_checks_each_io() {
+        let mut bodies = observation_bodies(MEDIA.into());
+        bodies.push(include_str!("../tests/fixtures/sonos/transport.xml").into());
+        let (peer, handle) = serve(bodies);
+        let mut checks = 0;
+        let state = client(peer)
+            .observe(
+                EXPECTED_URI,
+                Instant::now() + Duration::from_secs(2),
+                || {
+                    checks += 1;
+                    Ok(())
+                },
+            )
+            .unwrap();
+        assert_eq!(state, Some(TransportState::Transitioning));
+        assert_eq!(checks, 8);
+        let requests = handle.join().unwrap();
+        assert!(requests[0].starts_with("GET /xml/device_description.xml HTTP/1.1"));
+        for (request, action) in
+            requests[1..]
+                .iter()
+                .zip(["GetZoneGroupState", "GetMediaInfo", "GetTransportInfo"])
+        {
+            assert!(request.starts_with("POST "));
+            assert!(request.contains(&format!("#{action}\"")));
+            for mutation in ["#Play\"", "#Stop\"", "#SetAVTransportURI\""] {
+                assert!(!request.contains(mutation));
+            }
+        }
+    }
+    #[test]
+    fn observation_foreign_uri_stops_before_transport() {
+        let (peer, handle) = serve(observation_bodies(MEDIA.into()));
+        assert_eq!(
+            client(peer)
+                .observe(
+                    "foreign",
+                    Instant::now() + Duration::from_secs(2),
+                    || Ok(())
+                )
+                .unwrap(),
+            None
+        );
+        assert_eq!(handle.join().unwrap().len(), 3);
+    }
+    #[test]
+    fn observation_cancellation_after_description_prevents_topology() {
+        let (peer, handle) = serve(vec![DESCRIPTION.into()]);
+        let mut checks = 0;
+        let error = client(peer)
+            .observe(
+                EXPECTED_URI,
+                Instant::now() + Duration::from_secs(2),
+                || {
+                    checks += 1;
+                    if checks == 2 {
+                        Err(io::Error::from(io::ErrorKind::Interrupted))
+                    } else {
+                        Ok(())
+                    }
+                },
+            )
+            .unwrap_err();
+        assert_eq!(error.kind(), io::ErrorKind::Interrupted);
+        assert_eq!(handle.join().unwrap().len(), 1);
+    }
+    #[test]
+    fn observation_rejects_malformed_media_before_transport() {
+        let (peer, handle) = serve(observation_bodies("<broken>".into()));
+        assert_eq!(
+            client(peer)
+                .observe(
+                    EXPECTED_URI,
+                    Instant::now() + Duration::from_secs(2),
+                    || Ok(())
+                )
+                .unwrap_err()
+                .kind(),
+            io::ErrorKind::InvalidData
+        );
+        assert_eq!(handle.join().unwrap().len(), 3);
+    }
+    #[test]
+    fn observation_rejects_changed_identity_before_media() {
+        let mut bodies = observation_bodies(MEDIA.into());
+        bodies.truncate(2);
+        bodies[1] = bodies[1].replace("Coordinator=\"RINCON_TEST\"", "Coordinator=\"FOREIGN\"");
+        let (peer, handle) = serve(bodies);
+        assert_eq!(
+            client(peer)
+                .observe(
+                    EXPECTED_URI,
+                    Instant::now() + Duration::from_secs(2),
+                    || Ok(())
+                )
+                .unwrap_err()
+                .kind(),
+            io::ErrorKind::InvalidData
+        );
+        assert_eq!(handle.join().unwrap().len(), 2);
+    }
+    #[test]
+    fn observation_rejects_unknown_transport_state() {
+        let mut bodies = observation_bodies(MEDIA.into());
+        bodies.push(
+            include_str!("../tests/fixtures/sonos/transport.xml")
+                .replace("TRANSITIONING", "UNKNOWN"),
+        );
+        let (peer, handle) = serve(bodies);
+        assert_eq!(
+            client(peer)
+                .observe(
+                    EXPECTED_URI,
+                    Instant::now() + Duration::from_secs(2),
+                    || Ok(())
+                )
+                .unwrap_err()
+                .kind(),
+            io::ErrorKind::InvalidData
+        );
+        assert_eq!(handle.join().unwrap().len(), 4);
+    }
+    #[test]
+    fn observation_rejects_truncated_http_body() {
+        let (peer, handle) = serve_replies(observation_bodies(MEDIA.into()), Duration::ZERO, true);
+        let mut checks = 0;
+        let error = client(peer)
+            .observe(
+                EXPECTED_URI,
+                Instant::now() + Duration::from_secs(2),
+                || {
+                    checks += 1;
+                    Ok(())
+                },
+            )
+            .unwrap_err();
+        assert_eq!(error.kind(), io::ErrorKind::UnexpectedEof);
+        assert_eq!(checks, 6);
+        assert_eq!(handle.join().unwrap().len(), 3);
+    }
+    #[test]
+    fn observation_shares_one_deadline_across_requests() {
+        let (peer, handle) = serve_replies(
+            observation_bodies(MEDIA.into()),
+            Duration::from_millis(100),
+            false,
+        );
+        let start = Instant::now();
+        let error = client(peer)
+            .observe(EXPECTED_URI, start + Duration::from_millis(250), || Ok(()))
+            .unwrap_err();
+        assert!(matches!(
+            error.kind(),
+            io::ErrorKind::TimedOut | io::ErrorKind::WouldBlock
+        ));
+        assert!(start.elapsed() < Duration::from_millis(700));
+        handle.join().unwrap();
     }
     #[test]
     fn fixture_media_and_escaped_uri_use_real_socket() {

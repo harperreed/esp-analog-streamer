@@ -205,6 +205,8 @@ pub enum State {
     Connecting,
     Buffering,
     Playing,
+    Degraded,
+    Recovering,
     Error,
 }
 
@@ -226,7 +228,9 @@ fn save_config<E>(
 ) -> Result<(), E> {
     persist(&config)?;
     let mut status = status.lock().unwrap();
-    status.last_error = None;
+    if !matches!(status.state, State::Degraded | State::Recovering) {
+        status.last_error = None;
+    }
     status.config = config;
     Ok(())
 }
@@ -273,39 +277,16 @@ pub fn http_transport_state(state: esp_shazam_core::sonos_upnp::TransportState) 
     }
 }
 
-/// Exact URI observations revoke the stored intent on a source change.
+/// Exact URI evidence gates the existing explicit Stop path.
 pub struct HttpOwnership {
-    uri: Option<String>,
+    uri: String,
 }
 impl HttpOwnership {
     pub fn new(uri: String) -> Self {
-        Self { uri: Some(uri) }
-    }
-    pub fn observe_owned_uri(
-        owned_uri: &mut Option<String>,
-        uri: &str,
-        playing: bool,
-    ) -> Option<State> {
-        let mut ownership = Self {
-            uri: owned_uri.take(),
-        };
-        let state = ownership.observe(uri, playing);
-        *owned_uri = ownership.uri;
-        state
+        Self { uri }
     }
     pub fn matches(&self, uri: &str) -> bool {
-        self.uri.as_deref() == Some(uri)
-    }
-    pub fn observe(&mut self, uri: &str, playing: bool) -> Option<State> {
-        if self.uri.as_deref() != Some(uri) {
-            self.uri = None;
-            return None;
-        }
-        Some(if playing {
-            State::Playing
-        } else {
-            State::Buffering
-        })
+        self.uri == uri
     }
 }
 
@@ -601,7 +582,7 @@ impl Queue {
     }
     fn intent_valid(&self) -> bool {
         let id = self.snapshot.lock().unwrap().intent;
-        id.is_none_or(|id| self.capacity.valid(id))
+        id.is_some_and(|id| self.capacity.valid(id))
     }
     fn revoke_cancelled(&self, commands: &Commands, generation: u64) -> bool {
         if commands.is_current(generation) {
@@ -619,6 +600,218 @@ impl Queue {
     fn intent_current(&self) -> bool {
         let id = self.snapshot.lock().unwrap().intent;
         id.is_some_and(|id| self.capacity.current(id))
+    }
+}
+
+/// Three read-only retries retain the original delivery, never its own copy of an intent.
+struct ControlRecovery {
+    deadline: std::time::Instant,
+    next: std::time::Instant,
+    attempts: u8,
+    random: u32,
+}
+
+impl ControlRecovery {
+    fn new(now: std::time::Instant, seed: u32) -> Self {
+        let mut recovery = Self {
+            deadline: now + std::time::Duration::from_secs(30),
+            next: now,
+            attempts: 0,
+            random: seed,
+        };
+        recovery.backoff(now).expect("Initial recovery budget");
+        recovery
+    }
+
+    fn backoff(&mut self, now: std::time::Instant) -> std::io::Result<()> {
+        if self.attempts >= 3 || now >= self.deadline {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::TimedOut,
+                "Sonos recovery exhausted",
+            ));
+        }
+        self.random = self.random.wrapping_mul(1664525).wrapping_add(1013904223);
+        let base = 1000u64 << self.attempts;
+        let delay = base * 800 / 1000 + u64::from(self.random) % (base * 400 / 1000 + 1);
+        self.next = now + std::time::Duration::from_millis(delay);
+        Ok(())
+    }
+
+    fn begin(&mut self, now: std::time::Instant) -> std::io::Result<std::time::Instant> {
+        if now < self.next || now >= self.deadline || self.attempts >= 3 {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::TimedOut,
+                "Sonos recovery exhausted",
+            ));
+        }
+        self.attempts += 1;
+        Ok(self.deadline.min(now + std::time::Duration::from_secs(5)))
+    }
+}
+
+fn recoverable_observation_error(error: &std::io::Error) -> bool {
+    use std::io::ErrorKind;
+    matches!(
+        error.kind(),
+        ErrorKind::TimedOut
+            | ErrorKind::WouldBlock
+            | ErrorKind::ConnectionReset
+            | ErrorKind::ConnectionAborted
+            | ErrorKind::ConnectionRefused
+            | ErrorKind::NotConnected
+            | ErrorKind::BrokenPipe
+    )
+}
+
+fn observation_checkpoint(
+    queue: &Queue,
+    commands: &Commands,
+    generation: u64,
+    network: &Network,
+    lease: Lease,
+) -> std::io::Result<()> {
+    if !commands.is_current(generation) || !network.is_current(lease) {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::Interrupted,
+            "Sonos observation cancelled or network changed",
+        ));
+    }
+    if !queue.intent_valid() {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::Interrupted,
+            "Sonos reservation expired or cancelled",
+        ));
+    }
+    Ok(())
+}
+
+/// Final status publication shares the command cancellation gate, with no I/O under it.
+fn commit_observation<T>(
+    queue: &Queue,
+    commands: &Commands,
+    generation: u64,
+    network: &Network,
+    lease: Lease,
+    commit: impl FnOnce() -> T,
+) -> std::io::Result<T> {
+    observation_checkpoint(queue, commands, generation, network, lease)?;
+    commands
+        .run_if_current(generation, || {
+            let intent = queue.snapshot.lock().unwrap().intent;
+            if !network.is_current(lease) || !intent.is_some_and(|id| queue.play_current(id)) {
+                return Err(std::io::Error::new(
+                    std::io::ErrorKind::Interrupted,
+                    "Sonos observation no longer current",
+                ));
+            }
+            Ok(commit())
+        })
+        .map_err(|error| std::io::Error::new(std::io::ErrorKind::Interrupted, error))?
+}
+
+/// Applies read-only control results to the sole live delivery and public state.
+struct ControlObservation<'a> {
+    queue: &'a Queue,
+    commands: &'a Commands,
+    generation: u64,
+    lease: Lease,
+    status: &'a std::sync::Mutex<Snapshot>,
+}
+
+impl ControlObservation<'_> {
+    fn finish(
+        &self,
+        recovery: &mut Option<ControlRecovery>,
+        observed: std::io::Result<Option<esp_shazam_core::sonos_upnp::TransportState>>,
+        now: std::time::Instant,
+        seed: u32,
+    ) -> std::io::Result<State> {
+        observation_checkpoint(
+            self.queue,
+            self.commands,
+            self.generation,
+            &self.queue.network,
+            self.lease,
+        )?;
+        let error_message = observed.as_ref().err().map(ToString::to_string);
+        let result = (|| {
+            if recovery.as_ref().is_some_and(|retry| now >= retry.deadline) {
+                return Err(std::io::Error::new(
+                    std::io::ErrorKind::TimedOut,
+                    "Sonos recovery exhausted",
+                ));
+            }
+            match observed {
+                Ok(None) => Err(std::io::Error::new(
+                    std::io::ErrorKind::InvalidData,
+                    "Playback source changed",
+                )),
+                Ok(Some(transport)) => {
+                    let state = http_transport_state(transport);
+                    if state == State::Buffering {
+                        if let Some(retry) = recovery.as_mut() {
+                            retry.backoff(now)?;
+                            return Ok(State::Degraded);
+                        }
+                    }
+                    Ok(state)
+                }
+                Err(error) => {
+                    if !recoverable_observation_error(&error) {
+                        return Err(error);
+                    }
+                    if let Some(retry) = recovery.as_mut() {
+                        retry.backoff(now)?;
+                    } else {
+                        if !matches!(
+                            self.status.lock().unwrap().state,
+                            State::Playing | State::Buffering
+                        ) {
+                            return Err(error);
+                        }
+                        *recovery = Some(ControlRecovery::new(now, seed));
+                    }
+                    Ok(State::Degraded)
+                }
+            }
+        })();
+        let state = match result {
+            Ok(state) => state,
+            Err(error) => {
+                self.queue.clear();
+                *recovery = None;
+                return Err(error);
+            }
+        };
+        commit_observation(
+            self.queue,
+            self.commands,
+            self.generation,
+            &self.queue.network,
+            self.lease,
+            || {
+                let mut status = self.status.lock().unwrap();
+                status.state = state;
+                if state == State::Playing {
+                    status.last_error = None;
+                }
+                if state == State::Degraded {
+                    if let Some(error) = error_message {
+                        status.last_error = Some(error);
+                    }
+                }
+                if state == State::Stopped {
+                    status.active_player_id = None;
+                }
+            },
+        )?;
+        if matches!(state, State::Playing | State::Stopped) {
+            *recovery = None;
+        }
+        if state == State::Stopped {
+            self.queue.clear();
+        }
+        Ok(state)
     }
 }
 
@@ -668,7 +861,7 @@ mod device {
         nvs::{EspDefaultNvsPartition, EspNvs, NvsDefault},
         sys,
     };
-    use esp_shazam_core::sonos_upnp::{Client, TransportState};
+    use esp_shazam_core::sonos_upnp::Client;
     use std::{
         net::{Ipv4Addr, SocketAddr, UdpSocket},
         sync::{
@@ -770,6 +963,7 @@ mod device {
                         socket: None,
                         group: None,
                         owned_uri: None,
+                        recovery: None,
                         queue,
                         poll_at: Instant::now(),
                         sequence: 0,
@@ -1484,6 +1678,7 @@ mod device {
         socket: Option<Client>,
         group: Option<DiscoveryGroup>,
         owned_uri: Option<String>,
+        recovery: Option<ControlRecovery>,
         queue: Queue,
         poll_at: Instant,
         policy: protocol::Autoplay,
@@ -1531,9 +1726,13 @@ mod device {
                 self.check_network();
                 let sample = self.store.lock().unwrap().level_sample();
                 let level = sample_level(sample, Instant::now());
-                let action =
+                // Keep autoplay ownership and quiet timers intact while control is unavailable.
+                let action = if self.recovery.is_none() {
                     self.samples
-                        .update(&mut self.policy, self.epoch, sample, Instant::now());
+                        .update(&mut self.policy, self.epoch, sample, Instant::now())
+                } else {
+                    protocol::Action::None
+                };
                 let result = match action {
                     protocol::Action::Start => self.play(self.network.lease()),
                     protocol::Action::Stop => self.stop(),
@@ -1604,6 +1803,7 @@ mod device {
         }
 
         fn fail(&mut self, error: anyhow::Error) {
+            self.recovery = None;
             self.queue.clear();
             self.policy
                 .update(self.now(), protocol::AutoplayEvent::OwnershipLost);
@@ -1651,7 +1851,9 @@ mod device {
                     let groups = result?;
                     let mut status = self.status.lock().unwrap();
                     status.groups = groups.into_iter().filter(|g| g.is_leader).collect();
-                    status.last_error = None;
+                    if self.recovery.is_none() {
+                        status.last_error = None;
+                    }
                 }
                 Command::Select(player) => {
                     self.stop()?;
@@ -1888,6 +2090,7 @@ mod device {
         }
 
         fn stop(&mut self) -> Result<()> {
+            self.recovery = None;
             self.queue.clear();
             self.policy
                 .update(self.now(), protocol::AutoplayEvent::ManualStop);
@@ -1946,6 +2149,7 @@ mod device {
                 self.policy
                     .update(self.now(), protocol::AutoplayEvent::OwnershipLost);
                 self.retry = None;
+                self.recovery = None;
             }
             cancelled
         }
@@ -1954,43 +2158,75 @@ mod device {
             if self.cancel_local_if_stale() {
                 return Ok(());
             }
-            let lease = self.socket_lease.context("Sonos disconnected")?;
-            ensure!(
-                self.queue.intent_valid(),
-                "Sonos reservation expired or cancelled"
-            );
-            let client = self.socket.as_ref().context("Sonos disconnected")?;
-            with_network(&self.network, lease, || {
-                client.verify(Instant::now() + TIMEOUT)
-            })
-            .map_err(|error| anyhow!(error))??;
-            let uri = with_network(&self.network, lease, || {
-                client.media_uri(Instant::now() + TIMEOUT)
-            })
-            .map_err(|error| anyhow!(error))??;
-            let transport = with_network(&self.network, lease, || {
-                client.transport_state(Instant::now() + TIMEOUT)
-            })
-            .map_err(|error| anyhow!(error))??;
-            let state = HttpOwnership::observe_owned_uri(
-                &mut self.owned_uri,
-                &uri,
-                transport == TransportState::Playing,
-            )
-            .context("Playback source changed")?;
-            let state = if state == State::Playing {
-                state
+            let now = Instant::now();
+            let deadline = if let Some(recovery) = self.recovery.as_mut() {
+                if now < recovery.next && now < recovery.deadline {
+                    self.poll_at = recovery.next.min(recovery.deadline);
+                    return Ok(());
+                }
+                recovery.begin(now)?
             } else {
-                http_transport_state(transport)
+                now + Duration::from_secs(5)
             };
+            let lease = self.socket_lease.context("Sonos disconnected")?;
+            observation_checkpoint(
+                &self.queue,
+                &self.commands,
+                self.generation,
+                &self.network,
+                lease,
+            )?;
+            if self.recovery.is_some() {
+                commit_observation(
+                    &self.queue,
+                    &self.commands,
+                    self.generation,
+                    &self.network,
+                    lease,
+                    || {
+                        self.status.lock().unwrap().state = State::Recovering;
+                    },
+                )?;
+            }
+            let client = self.socket.as_ref().context("Sonos disconnected")?;
+            let uri = self
+                .owned_uri
+                .as_deref()
+                .context("Sonos has no owned URI")?;
+            let observed = client.observe(uri, deadline, || {
+                observation_checkpoint(
+                    &self.queue,
+                    &self.commands,
+                    self.generation,
+                    &self.network,
+                    lease,
+                )
+            });
+            let mut seed = 0u32;
+            if self.recovery.is_none()
+                && observed.as_ref().is_err_and(recoverable_observation_error)
+            {
+                // SAFETY: the SDK writes exactly the supplied seed's byte length.
+                unsafe {
+                    sys::esp_fill_random((&mut seed as *mut u32).cast(), std::mem::size_of::<u32>())
+                };
+            }
+            let state = ControlObservation {
+                queue: &self.queue,
+                commands: &self.commands,
+                generation: self.generation,
+                lease,
+                status: &self.status,
+            }
+            .finish(&mut self.recovery, observed, Instant::now(), seed)?;
+            if let Some(recovery) = self.recovery.as_ref() {
+                self.poll_at = recovery.next.min(recovery.deadline);
+            }
             if state == State::Stopped {
-                self.queue.clear();
                 self.owned_uri = None;
                 self.policy
                     .update(self.now(), protocol::AutoplayEvent::OwnershipLost);
-                self.status.lock().unwrap().active_player_id = None;
             }
-            self.status.lock().unwrap().state = state;
             Ok(())
         }
     }
@@ -3180,5 +3416,444 @@ mod network_tests {
             snapshot
         });
         assert_eq!(queue.snapshot().unwrap().item_id, "fresh");
+    }
+}
+
+#[cfg(test)]
+mod control_recovery_tests {
+    use super::*;
+    use std::{
+        io,
+        time::{Duration, Instant},
+    };
+
+    fn recovery_status() -> std::sync::Mutex<Snapshot> {
+        std::sync::Mutex::new(Snapshot {
+            config: SonosConfig::default(),
+            buffer_available: true,
+            active_format: esp_shazam_core::stream_buffer::OutputFormat::Flac,
+            groups: vec![],
+            active_player_id: Some("same-player".into()),
+            state: State::Playing,
+            last_error: None,
+        })
+    }
+
+    fn with_observation(test: impl FnOnce(ControlObservation<'_>, QueueSnapshot)) {
+        use esp_shazam_core::stream_buffer::OutputFormat;
+        let network = network_tests::ready_network();
+        let lease = network.lease().unwrap();
+        let (commands, receiver) = Commands::new(network.clone());
+        commands.submit(Command::Play).unwrap();
+        let generation = receiver.recv().unwrap().generation;
+        let queue = Queue::new(network.clone());
+        let intent = queue
+            .capacity
+            .reserve(
+                "192.0.2.20".parse().unwrap(),
+                network,
+                lease,
+                commands.token(generation).unwrap(),
+                OutputFormat::Flac,
+                Some(esp_shazam_core::stream_buffer::BufferPreset::High),
+                Instant::now(),
+            )
+            .unwrap();
+        queue.snapshot.lock().unwrap().intent = Some(intent);
+        let original = QueueSnapshot::new(
+            "same-item".into(),
+            lease.address,
+            Some(esp_shazam_core::stream_buffer::BufferPreset::High),
+            OutputFormat::Flac,
+            lease.generation,
+            intent,
+        )
+        .unwrap();
+        queue.publish(original.clone());
+        let status = recovery_status();
+        test(
+            ControlObservation {
+                queue: &queue,
+                commands: &commands,
+                generation,
+                lease,
+                status: &status,
+            },
+            original,
+        );
+    }
+
+    #[test]
+    fn production_observation_retains_until_playing_and_cleans_terminal_replies() {
+        use esp_shazam_core::sonos_upnp::TransportState;
+        for terminal in 0..6 {
+            with_observation(|observation, original| {
+                let now = Instant::now();
+                let mut recovery = None;
+                assert_eq!(
+                    observation
+                        .finish(
+                            &mut recovery,
+                            Err(io::Error::from(io::ErrorKind::TimedOut)),
+                            now,
+                            17
+                        )
+                        .unwrap(),
+                    State::Degraded
+                );
+                assert_eq!(observation.queue.snapshot(), Some(original.clone()));
+                let retry = recovery.as_mut().unwrap();
+                let next = retry.next;
+                retry.begin(next).unwrap();
+                assert_eq!(
+                    observation
+                        .finish(
+                            &mut recovery,
+                            Ok(Some(TransportState::Transitioning)),
+                            next,
+                            17
+                        )
+                        .unwrap(),
+                    State::Degraded
+                );
+                assert_eq!(observation.queue.snapshot(), Some(original.clone()));
+                assert!(observation.status.lock().unwrap().last_error.is_some());
+                let outcome = match terminal {
+                    0 => Ok(Some(TransportState::Playing)),
+                    1 => Ok(Some(TransportState::Stopped)),
+                    2 => Ok(Some(TransportState::Paused)),
+                    3 => Ok(None),
+                    4 => Err(io::Error::from(io::ErrorKind::InvalidData)),
+                    _ => Err(io::Error::from(io::ErrorKind::UnexpectedEof)),
+                };
+                let result = observation.finish(&mut recovery, outcome, next, 17);
+                if terminal == 0 {
+                    assert_eq!(result.unwrap(), State::Playing);
+                    assert_eq!(observation.queue.snapshot(), Some(original));
+                    assert_eq!(observation.status.lock().unwrap().last_error, None);
+                } else {
+                    assert_eq!(observation.queue.snapshot(), None);
+                    assert!(!observation.queue.capacity.valid(original.sonos_intent));
+                }
+                assert!(recovery.is_none());
+            });
+        }
+    }
+
+    #[test]
+    fn late_success_and_attempt_exhaustion_clear_delivery() {
+        use esp_shazam_core::sonos_upnp::TransportState;
+        for late in [false, true] {
+            with_observation(|observation, original| {
+                let now = Instant::now();
+                let mut recovery = Some(ControlRecovery::new(now, 9));
+                let mut next = now;
+                for attempt in 0..3 {
+                    next = recovery.as_ref().unwrap().next;
+                    recovery.as_mut().unwrap().begin(next).unwrap();
+                    if attempt < 2 {
+                        observation
+                            .finish(
+                                &mut recovery,
+                                Err(io::Error::from(io::ErrorKind::TimedOut)),
+                                next,
+                                9,
+                            )
+                            .unwrap();
+                    }
+                }
+                let result = if late {
+                    Ok(Some(TransportState::Playing))
+                } else {
+                    Ok(Some(TransportState::Transitioning))
+                };
+                let finished = if late {
+                    now + Duration::from_secs(30)
+                } else {
+                    next
+                };
+                assert!(observation
+                    .finish(&mut recovery, result, finished, 9)
+                    .is_err());
+                assert!(!observation.queue.capacity.valid(original.sonos_intent));
+                assert!(recovery.is_none());
+            });
+        }
+    }
+
+    #[test]
+    fn accepted_cancellations_and_network_loss_reject_late_success() {
+        use esp_shazam_core::sonos_upnp::TransportState;
+        for cancel in [
+            Some(Command::Stop),
+            Some(Command::Select("other".into())),
+            Some(Command::SetAutoplay(false)),
+            None,
+        ] {
+            with_observation(|observation, original| {
+                let mut recovery = None;
+                observation
+                    .finish(
+                        &mut recovery,
+                        Err(io::Error::from(io::ErrorKind::TimedOut)),
+                        Instant::now(),
+                        3,
+                    )
+                    .unwrap();
+                if let Some(command) = cancel {
+                    observation.commands.submit(command).unwrap();
+                } else {
+                    observation.queue.network.invalidate();
+                }
+                assert!(observation
+                    .finish(
+                        &mut recovery,
+                        Ok(Some(TransportState::Playing)),
+                        Instant::now(),
+                        3
+                    )
+                    .is_err());
+                assert_eq!(observation.queue.snapshot(), None);
+                assert!(!observation.queue.capacity.valid(original.sonos_intent));
+                assert_eq!(observation.status.lock().unwrap().state, State::Degraded);
+            });
+        }
+    }
+
+    #[test]
+    fn recovery_keeps_one_finite_budget_and_three_jittered_attempts() {
+        let now = Instant::now();
+        let mut recovery = ControlRecovery::new(now, 123);
+        let end = now + Duration::from_secs(30);
+        for (attempt, base) in [1u64, 2, 4].into_iter().enumerate() {
+            let previous = if attempt == 0 { now } else { recovery.next };
+            if attempt != 0 {
+                recovery.backoff(previous).unwrap();
+            }
+            let delay = recovery.next.duration_since(previous);
+            assert!(delay >= Duration::from_millis(base * 800));
+            assert!(delay <= Duration::from_millis(base * 1200));
+            assert_eq!(recovery.deadline, end);
+            assert!(recovery.begin(recovery.next).unwrap() <= end);
+        }
+        assert!(recovery.backoff(recovery.next).is_err());
+        assert!(recovery.begin(end).is_err());
+    }
+
+    #[test]
+    fn retained_queue_survives_read_error_but_late_reply_cannot_restore_cancelled_play() {
+        use esp_shazam_core::{
+            stream_buffer::OutputFormat,
+            stream_wait::{Capacity, Slot},
+        };
+        let network = network_tests::ready_network();
+        let lease = network.lease().unwrap();
+        let (commands, receiver) = Commands::new(network.clone());
+        commands.submit(Command::Play).unwrap();
+        let generation = receiver.recv().unwrap().generation;
+        let queue = Queue::new(network.clone());
+        let peer = "192.0.2.20".parse().unwrap();
+        let token = commands.token(generation).unwrap();
+        let intent = queue
+            .capacity
+            .reserve(
+                peer,
+                network.clone(),
+                lease,
+                token,
+                OutputFormat::Mp3,
+                None,
+                Instant::now(),
+            )
+            .unwrap();
+        queue.snapshot.lock().unwrap().intent = Some(intent);
+        let snapshot = QueueSnapshot::new(
+            "same-item".into(),
+            lease.address,
+            None,
+            OutputFormat::Mp3,
+            lease.generation,
+            intent,
+        )
+        .unwrap();
+        queue.publish(snapshot.clone());
+        let listener = Capacity::admit(
+            &queue.capacity,
+            intent,
+            peer,
+            lease.generation,
+            OutputFormat::Mp3,
+            None,
+        )
+        .unwrap();
+        let debug = Slot::take(&queue.capacity, 2).unwrap();
+        let status = recovery_status();
+        let observation = ControlObservation {
+            queue: &queue,
+            commands: &commands,
+            generation,
+            lease,
+            status: &status,
+        };
+        let mut recovery = None;
+        assert_eq!(
+            observation
+                .finish(
+                    &mut recovery,
+                    Err(io::Error::from(io::ErrorKind::TimedOut)),
+                    Instant::now(),
+                    7
+                )
+                .unwrap(),
+            State::Degraded
+        );
+        assert_eq!(status.lock().unwrap().state, State::Degraded);
+        assert!(status.lock().unwrap().last_error.is_some());
+        assert_eq!(queue.snapshot(), Some(snapshot.clone()));
+        drop(listener);
+        let retry = Capacity::admit(
+            &queue.capacity,
+            intent,
+            peer,
+            lease.generation,
+            OutputFormat::Mp3,
+            None,
+        )
+        .unwrap();
+        assert_eq!(queue.capacity.held(), 2);
+        commands.submit(Command::Stop).unwrap();
+        assert!(observation_checkpoint(&queue, &commands, generation, &network, lease).is_err());
+        assert!(observation
+            .finish(
+                &mut recovery,
+                Ok(Some(esp_shazam_core::sonos_upnp::TransportState::Playing)),
+                Instant::now(),
+                7
+            )
+            .is_err());
+        assert_eq!(status.lock().unwrap().state, State::Degraded);
+        assert_eq!(queue.snapshot(), None);
+        drop(retry);
+        drop(debug);
+        assert_eq!(queue.capacity.held(), 0);
+    }
+
+    #[test]
+    fn startup_errors_and_invalid_reservations_cannot_enter_recovery() {
+        with_observation(|observation, original| {
+            observation.status.lock().unwrap().state = State::Connecting;
+            let mut recovery = None;
+            assert!(observation
+                .finish(
+                    &mut recovery,
+                    Err(io::Error::from(io::ErrorKind::TimedOut)),
+                    Instant::now(),
+                    7
+                )
+                .is_err());
+            assert!(recovery.is_none());
+            assert!(!observation.queue.capacity.valid(original.sonos_intent));
+        });
+        with_observation(|observation, original| {
+            observation.queue.capacity.clear(original.sonos_intent);
+            let mut recovery = None;
+            assert!(observation
+                .finish(
+                    &mut recovery,
+                    Err(io::Error::from(io::ErrorKind::TimedOut)),
+                    Instant::now(),
+                    7
+                )
+                .is_err());
+            assert!(recovery.is_none());
+            assert_eq!(observation.queue.snapshot(), None);
+        });
+    }
+
+    #[test]
+    fn each_observation_uses_remaining_shared_deadline() {
+        let now = Instant::now();
+        let mut recovery = ControlRecovery::new(now, 11);
+        assert_eq!(
+            recovery.begin(now + Duration::from_secs(29)).unwrap(),
+            now + Duration::from_secs(30)
+        );
+        assert_eq!(recovery.deadline, now + Duration::from_secs(30));
+    }
+
+    #[test]
+    fn absent_intent_cannot_validate_an_observation() {
+        let network = network_tests::ready_network();
+        let lease = network.lease().unwrap();
+        let (commands, _) = Commands::new(network.clone());
+        let queue = Queue::new(network.clone());
+        assert!(!queue.intent_valid());
+        assert!(observation_checkpoint(&queue, &commands, 0, &network, lease).is_err());
+    }
+
+    #[test]
+    fn foreign_source_revokes_delivery_and_late_matching_reply_cannot_restore_it() {
+        use esp_shazam_core::sonos_upnp::TransportState;
+        with_observation(|observation, original| {
+            let mut recovery = None;
+            assert!(observation
+                .finish(&mut recovery, Ok(None), Instant::now(), 7)
+                .is_err());
+            assert_eq!(observation.queue.snapshot(), None);
+            assert!(!observation.queue.capacity.valid(original.sonos_intent));
+            assert!(observation
+                .finish(
+                    &mut recovery,
+                    Ok(Some(TransportState::Playing)),
+                    Instant::now(),
+                    7
+                )
+                .is_err());
+            assert_eq!(observation.queue.snapshot(), None);
+            assert!(recovery.is_none());
+        });
+    }
+
+    #[test]
+    fn settings_changes_preserve_degraded_error_until_confirmed_playing() {
+        let status = std::sync::Mutex::new(Snapshot {
+            config: SonosConfig::default(),
+            buffer_available: true,
+            active_format: esp_shazam_core::stream_buffer::OutputFormat::Mp3,
+            groups: vec![],
+            active_player_id: Some("same-player".into()),
+            state: State::Degraded,
+            last_error: Some("control timeout".into()),
+        });
+        let config = SonosConfig {
+            output_format: esp_shazam_core::stream_buffer::OutputFormat::Flac,
+            ..Default::default()
+        };
+        save_config(&status, config.clone(), |_| Ok::<(), ()>(())).unwrap();
+        assert_eq!(
+            status.lock().unwrap().last_error.as_deref(),
+            Some("control timeout")
+        );
+        assert_eq!(status.lock().unwrap().config, config);
+        assert_eq!(
+            status.lock().unwrap().active_format,
+            esp_shazam_core::stream_buffer::OutputFormat::Mp3
+        );
+    }
+
+    #[test]
+    fn malformed_control_and_network_change_are_terminal() {
+        assert!(!recoverable_observation_error(&io::Error::from(
+            io::ErrorKind::InvalidData
+        )));
+        assert!(!recoverable_observation_error(&io::Error::from(
+            io::ErrorKind::PermissionDenied
+        )));
+        let network = network_tests::ready_network();
+        let lease = network.lease().unwrap();
+        let (commands, _) = Commands::new(network.clone());
+        let queue = Queue::new(network.clone());
+        network.invalidate();
+        assert!(observation_checkpoint(&queue, &commands, 0, &network, lease).is_err());
     }
 }
