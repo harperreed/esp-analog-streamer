@@ -76,7 +76,9 @@ def validate_capture(data, format, out, label):
             if start != cursor or size <= 0 or end > len(data):
                 raise ValueError('FLAC packet offsets do not cover a contiguous capture')
             frame = memoryview(data)[start:end]
-            if size < 14 or bytes(frame[:4]) != b'\xff\xf8\xca\x18' or crc16(frame):
+            minimum_size = 15 if size >= 4 and frame[3] == 0x88 else 14
+            if (size < minimum_size or bytes(frame[:3]) != b'\xff\xf8\xca'
+                    or frame[3] not in (0x18, 0x88) or crc16(frame)):
                 if index == len(packets) - 1 and end == len(data):
                     # A CRC-invalid final packet can be truncated or corrupt. Do not claim which.
                     tail_note = 'final packet lacks a valid whole-frame CRC; truncation versus corruption is unresolved'

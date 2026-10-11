@@ -22,6 +22,10 @@ against their original acceptance criteria; do not let extra diagnostic gates
 or unrelated audio failures keep completed work open. Reconcile implementation
 and evidence before starting another investigation. Keep genuine failed gates
 open, and never redefine scope or close tickets just to improve the count.
+Doctor Biz repeated this concern during 45k9. Record a close-or-block decision
+after the bounded acceptance run; do not turn each failed gate into another
+unbounded investigation under the same ticket. Count closures separately from
+code changes and passing checks.
 
 The October 10 concurrent-admission trials both failed. One exposed a corrected
 host-driver reset-handling defect; the other returned the exact MP3 HTTP 200

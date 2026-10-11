@@ -40,3 +40,37 @@ fn benchmark_accepts_zero_frames_from_the_current_encoder() {
 fn benchmark_accepts_dc_frames_from_the_current_encoder() {
     constant_frames("dc", [123_456, -123_456]);
 }
+
+#[test]
+fn benchmark_stereo_cases_are_deterministic_and_cover_channel_relationships() {
+    let mut samples = vec![0; BLOCK_FRAMES * CHANNELS];
+    let mut repeated = samples.clone();
+    for kind in contract::KINDS {
+        contract::fill_input(kind, &mut samples);
+        contract::fill_input(kind, &mut repeated);
+        assert_eq!(samples, repeated, "{kind}");
+        if !matches!(kind, "zero" | "dc") {
+            assert!(
+                samples.chunks_exact(2).any(|p| p != &samples[..2]),
+                "{kind} must vary"
+            );
+        }
+        match kind {
+            "identical" => assert!(samples.chunks_exact(2).all(|p| p[0] == p[1])),
+            "opposite" => assert!(samples.chunks_exact(2).all(|p| p[0] == -p[1])),
+            "hard_left" => assert!(samples.chunks_exact(2).all(|p| p[1] == 0)),
+            "hard_right" => assert!(samples.chunks_exact(2).all(|p| p[0] == 0)),
+            "extremes" => assert!(samples.iter().all(|s| matches!(*s, -8_388_608 | 8_388_352))),
+            "correlated" => assert!(samples.chunks_exact(2).all(|p| (p[0] - p[1]).abs() <= 4096)),
+            _ => (),
+        }
+        let mut encoder = Encoder::new();
+        let mut frame = Vec::with_capacity(MAX_FRAME_BYTES);
+        let pointer = frame.as_ptr();
+        let capacity = frame.capacity();
+        encoder.push(&samples);
+        encoder.encode_block(0, &mut frame);
+        contract::assert_frame(kind, &frame, pointer, capacity);
+        assert_eq!(MAX_FRAME_BYTES, 16_399);
+    }
+}
