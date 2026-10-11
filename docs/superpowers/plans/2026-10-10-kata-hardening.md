@@ -1,7 +1,7 @@
 # Finish the Kata hardening backlog
 
 Doctor Biz's active goal on October 10: finish all Kata work, then assess.
-Base c134069 on wip/kata-capture-protection. Compactions in this phase: 14; latest firmware implementation checkpoint is e6a9b58 (distinct listener end reasons; delivery still fails).
+Base c134069 on wip/kata-capture-protection. Compactions in this phase: 15; latest firmware implementation checkpoint is e6a9b58 (distinct listener end reasons; delivery still fails).
 Use GPT-6.1 Sol subagents with clean contexts. Parent owns review, integration,
 canonical checks, commits and every hardware action. Continue through batches;
 a phase checkpoint is not a reason to abandon the active goal.
@@ -710,3 +710,13 @@ worker is checking pinned scheduler observation seams before proposing the next
 bounded measurement. No new tracing or priority change is implemented. The
 landed phase is checkpointed here; root replacement remains unavailable, so work
 continues with fresh worker contexts under the recorded session exception.
+
+The next bounded transport measurement is ON-only frame-write task-state
+sampling, reviewed in 2026-10-10-listener-frame-state.md. Existing supervisor
+samples two fixed listener identities; no scheduler hooks or runtime crossover.
+Counts are observations, not time accounting. The first independent review
+requires coherent immutable publication and actual-toolchain lifetime proof;
+implementation and device acceptance remain pending. Sonos documentation now
+confirms a local WebSocket join workflow, but exact join messages and stale
+session write rejection remain unproven; pqqq stays open. Root replacement
+remains unavailable; this checkpoint and clean Sol 6.1 workers retain continuity.
