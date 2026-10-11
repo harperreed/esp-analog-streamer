@@ -52,6 +52,36 @@ comparison; hosted CI needs publication; dedicated HIL needs established lab
 access. Treat these as exact unmet requirements, not reasons to create more
 planning tickets or launch another general soak.
 
+The pd6c pinned counter/API inventory and per-listener measurement mapping are
+complete in `docs/audit-evidence/2026-10-11/network-diagnosis.md`. Independent
+review accepts the existing sampled maximum lag, mean accepted throughput and
+elapsed send/poll measurements with their stated limits. Remaining: resolve AP
+capture access, then collect correlated evidence where available or document
+the specific unavailable acquisition. Doctor Biz's access answer is pending;
+do not turn that into a claim of impossible access. Open count remains 18.
+
+The existing coverage/replay/fuzz workflows passed focused permission and
+actionlint review. No hosted workflows are registered yet. m31k needs publication
+and actual hosted JSON/HTML/provenance inspection, not another local pilot.
+Publication approval must cover the accumulated branch: the comparison against
+cached origin/main spans 530 files, not just the three workflow files. The origin
+repository is private; fuzz artifacts include all committed files in source.tar,
+including historical tracked journals. The focused workflow review did not audit
+the entire accumulated diff. No push or draft PR was performed.
+
+97bk still needs fast host/firmware CI cadence and dedicated HIL/release evidence.
+The three current workflows do not implement its whole release contract. Continue
+that implementation within the existing provider and trust boundaries; do not
+call publishing the coverage workflow completion of the release gate.
+
+The active completion target is now m31k: finish its first hosted coverage run
+and inspect the reports. Prepare the accumulated branch for publication under
+the existing no-push constraint, then obtain the required decision. Do not repeat
+local coverage or start additional release-gate implementation while describing
+either as progress on m31k's remaining hosted criterion. An October 11 remote-ref
+read confirms main is still 8bd024837ef94784072122d931655ce3ef3ebf96 and the
+wip/kata-capture-protection branch is absent from origin.
+
 ### Historical metrics checkpoint before 23310f6
 
 Metrics checkpoint: the bounded endpoint, collector and separate dashboard now

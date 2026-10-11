@@ -991,6 +991,10 @@ primary implementation moving through its original acceptance; parallel workers
 should resolve named blockers or finish independent tickets. Report the actual
 open count and exact remaining gate. Supporting tools, plans and partial tests
 are progress, but do not count as closures or justify expanding acceptance.
+Repeating this promise is not a correction. Before starting more work, name the
+ticket and the original unmet criterion the action will satisfy. If it requires
+external access or a decision, surface that dependency instead of filling the
+wait with more diagnostics or another review of the same backlog.
 
 Encoder reset acknowledgement retains the last actual output receipt. A ring
 reset alone publishes no audio, so recovered output can have a higher generation
@@ -1026,3 +1030,9 @@ Shazam request also passes, but neither trial proves concurrent-load recovery.
 Do not combine an interactive serial monitor with timeout's separate process
 group: terminal reads can suspend it and leave UART owned. Use the supported
 noninteractive monitor and verify process exit before opening the port again.
+
+Pinned ESP-IDF 5.5.5 lwIP Kconfig mentions a TCP_SNDBUF socket option that its
+actual socket headers and implementation do not expose. Verify declarations and
+implementation before suggesting runtime options. PCB nrtx resets and saturates;
+it is not a lifetime retransmission count. The public Wi-Fi statistics dump also
+lacks documented module masks and counter semantics in the inspected headers.
