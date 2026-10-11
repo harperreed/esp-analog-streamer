@@ -257,8 +257,17 @@ pub(crate) enum End {
     InvalidFrame(io::Error),
     /// The socket failed, usually because the listener closed it.
     Failed(io::Error),
+    EncodedReset,
+    InvalidCursor,
 }
 impl End {
+    pub(crate) fn from_encoded_read_error(error: flac_ring::ReadError) -> Self {
+        match error {
+            flac_ring::ReadError::GenerationChanged => Self::EncodedReset,
+            flac_ring::ReadError::Overwritten => Self::FellBehind,
+            flac_ring::ReadError::InvalidOffset => Self::InvalidCursor,
+        }
+    }
     pub(crate) fn from_write_error(error: io::Error) -> Self {
         // lwIP reports a send timeout as EAGAIN; the deadline running out is TimedOut.
         match error.kind() {
@@ -422,9 +431,10 @@ impl CompressedListener {
                 let result = match epoch.ring.try_lock() {
                     Ok(ring) => {
                         if epoch.retired() {
-                            Err(flac_ring::Overrun)
+                            Err(End::Retired)
                         } else {
                             ring.read(self.cursor.as_mut().unwrap(), scratch)
+                                .map_err(End::from_encoded_read_error)
                         }
                     }
                     Err(TryLockError::WouldBlock) => Ok(0),
@@ -437,9 +447,9 @@ impl CompressedListener {
                         self.read_wait += now().saturating_sub(*started);
                         return self.end(End::CaptureStalled);
                     }
-                    WaitStep::Failed(_) => {
+                    WaitStep::Failed(end) => {
                         self.read_wait += now().saturating_sub(*started);
-                        return self.end(End::FellBehind);
+                        return self.end(end);
                     }
                     WaitStep::RetryNow => unreachable!(),
                 };

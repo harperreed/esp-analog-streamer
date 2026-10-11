@@ -693,3 +693,13 @@ listener history loss both report FellBehind. A Sol 6.1 worker is implementing t
 small diagnostic correction; stream termination and recovery policy stay intact.
 Plan 418609e passed independent review and a fresh Sol 6.1 worker is implementing
 its real ring/pipeline/telemetry/parser regressions before the production change.
+
+ce69 implementation now passes independent code review, all 27 canonical stages
+(run.OwbY8PAR, complete/equal boundary snapshots), and the final 22 harness tests
+after a test-only log-fixture correction. Actual image fd8e7471 emits explicit
+generation-change departures for both peers, followed by close/release records
+with zero export loss. Device evidence passed independent review and is retained
+as listener-end-reasons-device.md/.json. Audio/acquisition still fail; slow-reader
+acceptance remains unrun. Source/UART cleanup and stopped MP3/Medium are verified.
+Next diagnosis must distinguish blocked send time from runnable scheduling delay;
+the failed historical rate-gap reproduction is not reopened by this reporting fix.

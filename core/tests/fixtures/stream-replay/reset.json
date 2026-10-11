@@ -134,7 +134,7 @@
   "actors": {
     "0": {
       "ranges": [],
-      "terminal": "FellBehind",
+      "terminal": "EncodedReset",
       "pending_source": null,
       "close_state": "closed",
       "admission": [

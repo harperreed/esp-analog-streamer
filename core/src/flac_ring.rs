@@ -25,9 +25,13 @@ pub struct Cursor {
     offset: usize,
 }
 
-/// Unread bytes were overwritten, or the cursor has an invalid frame offset.
+/// The encoded reader no longer refers to readable retained bytes.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct Overrun;
+pub enum ReadError {
+    GenerationChanged,
+    Overwritten,
+    InvalidOffset,
+}
 
 /// Invalid storage dimensions or a failed allocation.
 #[derive(Debug)]
@@ -131,13 +135,13 @@ impl FlacRing {
 
     /// Copies at most one frame's remaining bytes and advances this reader only.
     /// Release the external mutex before socket I/O. A lapped cursor stays unchanged.
-    pub fn read(&self, cursor: &mut Cursor, out: &mut [u8]) -> Result<usize, Overrun> {
+    pub fn read(&self, cursor: &mut Cursor, out: &mut [u8]) -> Result<usize, ReadError> {
         if cursor.generation != self.generation {
-            return Err(Overrun);
+            return Err(ReadError::GenerationChanged);
         }
         let behind = self.written.saturating_sub(cursor.sequence);
         if behind > self.capacity() as u64 {
-            return Err(Overrun);
+            return Err(ReadError::Overwritten);
         }
         if behind == 0 {
             return Ok(0);
@@ -146,7 +150,7 @@ impl FlacRing {
         // A cursor from another ring can have a byte offset beyond this slot.
         // Reject it instead of panicking and poisoning the shared mutex.
         if cursor.offset >= self.lengths[slot] {
-            return Err(Overrun);
+            return Err(ReadError::InvalidOffset);
         }
         let n = (self.lengths[slot] - cursor.offset).min(out.len());
         let start = slot * self.max_frame_bytes + cursor.offset;
@@ -220,9 +224,14 @@ mod tests {
         ring.push(b"def").unwrap();
         ring.push(b"ghi").unwrap();
         let before = cursor;
-        assert_eq!(ring.read(&mut cursor, &mut [0; 8]), Err(Overrun));
+        let mut sentinel = [99; 8];
+        assert_eq!(
+            ring.read(&mut cursor, &mut sentinel),
+            Err(ReadError::Overwritten)
+        );
+        assert_eq!(sentinel, [99; 8]);
         assert_eq!(cursor, before);
-        assert_eq!(ring.read(&mut cursor, &mut []), Err(Overrun));
+        assert_eq!(ring.read(&mut cursor, &mut []), Err(ReadError::Overwritten));
     }
 
     #[test]
@@ -244,7 +253,16 @@ mod tests {
         let mut destination = FlacRing::try_new(2, 8).unwrap();
         destination.push(b"ab").unwrap();
         let before = cursor;
-        assert_eq!(destination.read(&mut cursor, &mut [0; 8]), Err(Overrun));
+        let mut sentinel = [99; 8];
+        assert_eq!(
+            destination.read(&mut cursor, &mut sentinel),
+            Err(ReadError::InvalidOffset)
+        );
+        assert_eq!(sentinel, [99; 8]);
+        assert_eq!(
+            destination.read(&mut cursor, &mut []),
+            Err(ReadError::InvalidOffset)
+        );
         assert_eq!(cursor, before);
     }
 
@@ -256,13 +274,33 @@ mod tests {
         assert_eq!(ring.read(&mut old, &mut [0; 2]), Ok(2));
         ring.reset();
         let before = old;
-        assert_eq!(ring.read(&mut old, &mut [0; 8]), Err(Overrun));
+        assert_eq!(
+            ring.read(&mut old, &mut [0; 8]),
+            Err(ReadError::GenerationChanged)
+        );
         assert_eq!(old, before);
+        assert_eq!(
+            ring.read(&mut old, &mut []),
+            Err(ReadError::GenerationChanged)
+        );
         let mut joining = ring.cursor_now();
         assert_eq!(ring.read(&mut joining, &mut [0; 8]), Ok(0));
         ring.push(b"after").unwrap();
         assert_eq!(drain(&ring, &mut joining), b"after");
-        assert_eq!(ring.read(&mut old, &mut [0; 8]), Err(Overrun));
+        assert_eq!(
+            ring.read(&mut old, &mut [0; 8]),
+            Err(ReadError::GenerationChanged)
+        );
+        for _ in 0..3 {
+            ring.push(b"full").unwrap();
+        }
+        let mut sentinel = [99; 8];
+        assert_eq!(
+            ring.read(&mut old, &mut sentinel),
+            Err(ReadError::GenerationChanged)
+        );
+        assert_eq!(sentinel, [99; 8]);
+        assert_eq!(old, before);
     }
 
     #[test]

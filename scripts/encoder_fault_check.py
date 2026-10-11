@@ -5,6 +5,21 @@ from datetime import datetime, timezone
 from pathlib import Path
 from collections import deque
 
+def listener_end_category(reason):
+    """Classify the production departure reason without retaining private peer text."""
+    for text, category in (
+        ('fell a ring behind', 'ring_overrun'),
+        ('encoded ring generation changed', 'encoded_reset'),
+        ('encoded ring cursor invalid', 'invalid_cursor'),
+        ('format epoch retired', 'format_retired'),
+        ('stopped reading', 'frame_timeout'),
+        ('no fresh audio', 'capture_freshness'),
+    ):
+        if text in reason:
+            return category
+    return 'socket_error'
+
+
 def port(value):
     if not 1 <= len(value) <= 5 or not value.isascii() or not value.isdecimal() or not 1 <= int(value) <= 65535:
         raise argparse.ArgumentTypeError('port must be an integer from 1 to 65535')

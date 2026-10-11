@@ -6,7 +6,7 @@ mod stream_limits;
 
 use esp_shazam_core::{
     flac,
-    flac_ring::{FlacRing, Overrun},
+    flac_ring::{FlacRing, ReadError},
 };
 use stream_limits::{flac_history_frames, flac_write_limit_ms};
 
@@ -56,7 +56,10 @@ fn profiles_retain_exact_capacity_then_reject_overwritten_audio() {
         assert_eq!(output, [0]);
         ring.push(&[255]).unwrap();
         let before = stale;
-        assert_eq!(ring.read(&mut stale, &mut output), Err(Overrun));
+        assert_eq!(
+            ring.read(&mut stale, &mut output),
+            Err(ReadError::Overwritten)
+        );
         assert_eq!(stale, before);
     }
 }

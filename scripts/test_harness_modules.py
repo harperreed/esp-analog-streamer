@@ -18,6 +18,22 @@ LISTENER_RECEIPT = ('listener-telemetry: dropped=0 loss_occurred=false observed_
 
 
 class ModuleTests(unittest.TestCase):
+    def test_retention_reason_classification_uses_emitted_departure_text(self):
+        from encoder_fault_check import listener_end_category
+        for reason, category in (
+            ('fell a ring behind', 'ring_overrun'),
+            ('encoded ring generation changed', 'encoded_reset'),
+            ('encoded ring cursor invalid', 'invalid_cursor'),
+            ('format epoch retired', 'format_retired'),
+            ('stopped reading', 'frame_timeout'),
+            ('no fresh audio for 2 s', 'capture_freshness'),
+            ('socket error kind=BrokenPipe raw_os_error=Some(32)', 'socket_error'),
+        ):
+            line = ('I (120) esp_shazam_firmware::stream: stream: 192.168.23.1:1234 left after 1.0 s: '
+                    + reason + ' event_us=123 owner_stack_free_bytes=512')
+            self.assertEqual(listener_end_category(reason), category)
+            self.assertEqual(listener_end_category(line), category)
+
     def test_shared_observation_state_defaults_to_mp3_and_accepts_explicit_flac(self):
         from encoder_probe_check import require_state
         for output_format in ('mp3', 'flac'):

@@ -690,3 +690,40 @@ fn shared_response_write_times_out_with_original_socket_flags() {
         "whole response write took {took:?}"
     );
 }
+
+#[test]
+fn encoded_terminal_identity_survives_deferred_queue_export() {
+    use listener_telemetry::EndCode;
+    use stream_pipeline::End;
+    for end in [
+        End::EncodedReset,
+        End::InvalidCursor,
+        End::Retired,
+        End::FellBehind,
+    ] {
+        let expected = format!("{end:?}");
+        let queue = Queue::new();
+        let mut event = record(42);
+        event.payload = Payload::Departure {
+            metrics: None,
+            tenths: 3,
+            end: EndCode::from(&end),
+            owner_stack_free_bytes: 512,
+        };
+        assert!(queue.publish(event));
+        let exported = queue.take().unwrap();
+        let Payload::Departure {
+            end,
+            tenths,
+            owner_stack_free_bytes,
+            ..
+        } = exported.payload
+        else {
+            panic!("departure")
+        };
+        assert_eq!(format!("{end:?}"), expected);
+        assert_eq!((tenths, owner_stack_free_bytes), (3, 512));
+        assert_eq!(exported.event_us, event.event_us);
+        assert!(queue.take().is_none());
+    }
+}

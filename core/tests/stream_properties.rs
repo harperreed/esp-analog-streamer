@@ -3,7 +3,7 @@
 #![cfg(not(any(feature = "capture-loom", feature = "listener-loom")))]
 use esp_shazam_core::{
     capture_buffer::CaptureBuffer,
-    flac_ring::{FlacRing, InvalidFrame, Overrun},
+    flac_ring::{FlacRing, InvalidFrame, ReadError as EncodedReadError},
     stream_ring::ReadError,
     stream_wait::Slot,
 };
@@ -113,8 +113,13 @@ proptest! {
                     let old = cursors[reader];
                     let mut out = vec![99; count];
                     let result = ring.read(&mut cursors[reader], &mut out);
-                    if epoch != generation || log.len().saturating_sub(index) > capacity {
-                        prop_assert_eq!(result, Err(Overrun));
+                    if epoch != generation {
+                        prop_assert_eq!(result, Err(EncodedReadError::GenerationChanged));
+                        prop_assert_eq!(cursors[reader], old);
+                        prop_assert!(out.iter().all(|&v| v == 99));
+                    } else if log.len().saturating_sub(index) > capacity {
+                        prop_assert_eq!(result, Err(EncodedReadError::Overwritten));
+                        prop_assert!(out.iter().all(|&v| v == 99));
                         prop_assert_eq!(cursors[reader], old);
                     } else if index == log.len() { prop_assert_eq!(result, Ok(0)); }
                     else {

@@ -44,10 +44,10 @@ Parser search found one reason classifier: `scripts/retention-check` currently s
 
 **Interface:** `flac_ring::ReadError { GenerationChanged, Overwritten, InvalidOffset }`; `FlacRing::read(&self, cursor: &mut Cursor, out: &mut [u8]) -> Result<usize, ReadError>`. Delete unit Overrun rather than retain a second API.
 
-- [ ] Change/add tests first: partial overwritten frame yields Overwritten, reset yields GenerationChanged before and after new publication, foreign cursor with excessive offset yields InvalidOffset. Assert cursor and sentinel output unchanged for each error, including zero output length. Add a reset-plus-capacity-loss case proving generation precedence; preserve success, empty and exact-capacity behavior.
-- [ ] Run `cargo test -p esp-shazam-core --lib flac_ring` and observe the missing typed API failures before implementation.
-- [ ] Replace each existing error return without moving any checks or changing success behavior. Update only encoded error imports/assertions. Split the property model's combined mismatch/lag condition into generation-first assertions so it independently checks the reason.
-- [ ] Run focused core ring/wait tests and `cargo test -p esp-shazam-core --test stream_properties --test stream_limits`. Parent reviews this API migration before integrating it with the next task; do not leave a partially migrated build as a completion claim.
+- [x] Change/add tests first: partial overwritten frame yields Overwritten, reset yields GenerationChanged before and after new publication, foreign cursor with excessive offset yields InvalidOffset. Assert cursor and sentinel output unchanged for each error, including zero output length. Add a reset-plus-capacity-loss case proving generation precedence; preserve success, empty and exact-capacity behavior.
+- [x] Run `cargo test -p esp-shazam-core --lib flac_ring` and observe the missing typed API failures before implementation.
+- [x] Replace each existing error return without moving any checks or changing success behavior. Update only encoded error imports/assertions. Split the property model's combined mismatch/lag condition into generation-first assertions so it independently checks the reason.
+- [x] Run focused core ring/wait tests and `cargo test -p esp-shazam-core --test stream_properties --test stream_limits`. Parent reviews this API migration before integrating it with the next task; do not leave a partially migrated build as a completion claim.
 
 ## Task 2: Preserve error identity through the actual listener
 
@@ -55,22 +55,41 @@ Parser search found one reason classifier: `scripts/retention-check` currently s
 
 **Interfaces:** Append `End::EncodedReset`, `End::InvalidCursor` and matching EndCode variants. Add `End::from_encoded_read_error(flac_ring::ReadError) -> End`: GenerationChanged → EncodedReset; Overwritten → FellBehind; InvalidOffset → InvalidCursor. Display text: `encoded ring generation changed` and `encoded ring cursor invalid`. Existing Retired text stays `format epoch retired`.
 
-- [ ] Write failing tests against real rings/listeners: reset while waiting ends EncodedReset; actual overwrite ends FellBehind; invalid-offset mapping ends InvalidCursor; real runtime switch while fresh-waiting ends Retired; empty expiry remains CaptureStalled. Exercise error completion before/at/after expiry with controlled clocks and assert identical read_wait accounting. Use actual foreign cursor ring tests for InvalidOffset; do not add a test-only cursor injection API.
-- [ ] Update the existing raw invalidation replay to expect EncodedReset from the old listener, preserving rejected-copy counts, fresh listener behavior and source ledger assertions. Change only reset fixture terminal identity; keep events, actor ranges, timing, cleanup and overrun fixture unchanged. Add an explicit encoded_reset replay invariant only if required by the existing fixture's expectations.
-- [ ] Observe focused tests fail, then keep Phase::Read's result as `Result<usize, End>`: retirement produces Err(End::Retired), actual read uses map_err(End::from_encoded_read_error), and WaitStep::Failed(end) performs the existing read_wait update before ending with end. Do not early-return from inside the ring lock or add retirement/clock reads.
-- [ ] Extend fixed EndCode conversion and Display. Test each new conversion using actual End values and queue drain; verify the existing production cleanup seam still closes once before release. Keep frame-invalid and socket-invalid diagnostics distinct.
-- [ ] Run `cargo test -p esp-shazam-core --test replay_pipeline --test stream_replay --test listener_telemetry`. Reuse the existing actual replay/writer integration; no mock server or second orchestration implementation.
+- [x] Write failing tests against real rings/listeners: reset while waiting ends EncodedReset; actual overwrite ends FellBehind; invalid-offset mapping ends InvalidCursor; real runtime switch while fresh-waiting ends Retired; empty expiry remains CaptureStalled. Exercise error completion before/at/after expiry with controlled clocks and assert identical read_wait accounting. Use actual foreign cursor ring tests for InvalidOffset; do not add a test-only cursor injection API.
+- [x] Update the existing raw invalidation replay to expect EncodedReset from the old listener, preserving rejected-copy counts, fresh listener behavior and source ledger assertions. Change only reset fixture terminal identity; keep events, actor ranges, timing, cleanup and overrun fixture unchanged. Add an explicit encoded_reset replay invariant only if required by the existing fixture's expectations.
+- [x] Observe focused tests fail, then keep Phase::Read's result as `Result<usize, End>`: retirement produces Err(End::Retired), actual read uses map_err(End::from_encoded_read_error), and WaitStep::Failed(end) performs the existing read_wait update before ending with end. Do not early-return from inside the ring lock or add retirement/clock reads.
+- [x] Extend fixed EndCode conversion and Display. Test each new conversion using actual End values and queue drain; verify the existing production cleanup seam still closes once before release. Keep frame-invalid and socket-invalid diagnostics distinct.
+- [x] Run `cargo test -p esp-shazam-core --test replay_pipeline --test stream_replay --test listener_telemetry`. Reuse the existing actual replay/writer integration; no mock server or second orchestration implementation.
 
 ## Task 3: Report consumers and final review
 
 **Files:** `scripts/retention-check`, actual harness module/test files if needed for a narrow importable reason classifier, `scripts/test_harness_modules.py`. Avoid extracting unrelated retention orchestration.
 
-- [ ] Add failing tests for production reason classification: old FellBehind → ring_overrun, new generation text → encoded_reset, invalid cursor → invalid_cursor, retirement → format_retired, existing timeout/freshness/socket reasons retain their categories. Cover actual logger prefix and trailing event/stack fields. If retention-check has no import seam, place only its reason classifier in the existing importable harness module and call it from the original script; tests must exercise that production function.
-- [ ] Implement those reason classifications; preserve admission/departure/close timestamps, counts, fault suspension checks, strict telemetry-loss rejection and replay incomplete-tail validation. Run the actual corresponding Python module tests via the repository's uv workflow.
-- [ ] Re-search every `flac_ring::Overrun`, old imported unit error, End match, reason string and reset/FellBehind replay expectation. Confirm no duplicate generation state, compatibility API or stable enum edits. Independent parent review covers full diff and exact behavior preservation.
-- [ ] Parent runs `scripts/check`, firmware target builds and real device trial under sole hardware ownership. Existing full checks cover lint/type/unit/integration and real replay decoder checks; do not substitute syntax checks. Hardware must verify emitted generation-change identity after a real reset and compare unchanged termination/close/release behavior; failure to trigger a reset leaves device acceptance open.
-- [ ] Parent records evidence and limitations, updates ce69, then commits with `fix: distinguish encoded listener end reasons`. This change improves attribution; it does not fix capture loss or slow delivery.
+- [x] Add failing tests for production reason classification: old FellBehind → ring_overrun, new generation text → encoded_reset, invalid cursor → invalid_cursor, retirement → format_retired, existing timeout/freshness/socket reasons retain their categories. Cover actual logger prefix and trailing event/stack fields. If retention-check has no import seam, place only its reason classifier in the existing importable harness module and call it from the original script; tests must exercise that production function.
+- [x] Implement those reason classifications; preserve admission/departure/close timestamps, counts, fault suspension checks, strict telemetry-loss rejection and replay incomplete-tail validation. Run the actual corresponding Python module tests via the repository's uv workflow.
+- [x] Re-search every `flac_ring::Overrun`, old imported unit error, End match, reason string and reset/FellBehind replay expectation. Confirm no duplicate generation state, compatibility API or stable enum edits. Independent parent review covers full diff and exact behavior preservation.
+- [x] Parent runs `scripts/check`, firmware target builds and real device trial under sole hardware ownership. Existing full checks cover lint/type/unit/integration and real replay decoder checks; do not substitute syntax checks. Hardware must verify emitted generation-change identity after a real reset and compare unchanged termination/close/release behavior; failure to trigger a reset leaves device acceptance open.
+- [x] Parent records evidence and limitations, updates ce69, then commits with `fix: distinguish encoded listener end reasons`. This change improves attribution; it does not fix capture loss or slow delivery.
 
 ## Self-review
 
 The plan covers every current encoded-ring error and the known retirement race, with actual capacity lag and WAV unaffected. All reason names agree across ring, listener, telemetry and replay. No check is moved across the wait boundary. Invalid cursor is proven at the actual ring plus the production mapping, without exposing private cursor state. Device acceptance remains the parent's responsibility. The missing machine-local `~/.codex/docs/local.md` was reported; no machine-specific build commands were invented.
+
+## Verified outcome
+
+Implemented and independently reviewed. Canonical scripts/check passes all 27 stages
+with complete, equal boundary receipts in target/check-logs/run.OwbY8PAR. The final
+logger-fixture wording correction changes only a test; all 22 imported harness
+tests pass afterward. Genuine retirement behavioral RED precedes implementation;
+additional boundary mutation RED is explicitly labeled postimplementation.
+
+Parent flashed frozen ordinary image fd8e7471 and observed both actual reset
+departures as encoded ring generation changed, each followed by matching
+close/release and loss-free export receipts. Independent device evidence review
+is clear: listener-end-reasons-device.md/.json. Delivery and acquisition still
+fail and the slow scenario never ran. No performance/recovery improvement is
+claimed. Board remains stopped MP3/Medium; source/UART ownership is cleaned up.
+
+Ruling: execute the coupled typed-error and listener migration as one unit before
+full parent review, avoiding an intentionally half-migrated build. Preserve
+original RED evidence and review the coherent contract before device use.

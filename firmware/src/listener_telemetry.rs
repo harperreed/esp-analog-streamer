@@ -37,12 +37,16 @@ pub(crate) enum EndCode {
     CaptureStalled,
     Failed(ErrorCode),
     InvalidFrame(ErrorCode),
+    EncodedReset,
+    InvalidCursor,
 }
 impl From<&crate::stream_pipeline::End> for EndCode {
     fn from(end: &crate::stream_pipeline::End) -> Self {
         use crate::stream_pipeline::End;
         match end {
             End::Retired => Self::Retired,
+            End::EncodedReset => Self::EncodedReset,
+            End::InvalidCursor => Self::InvalidCursor,
             End::FellBehind => Self::FellBehind,
             End::StoppedReading => Self::StoppedReading,
             End::CaptureStalled => Self::CaptureStalled,

@@ -42,6 +42,8 @@ def main():
     signal.signal(signal.SIGHUP, interrupt)
     os.umask(0o077)
     repo = Path(os.environ['RETENTION_CHECK_REPO'])
+    sys.path.insert(0, str(repo / 'scripts'))
+    from encoder_fault_check import listener_end_category
     out = Path(args.out or repo / 'target/retention-check').resolve() / datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%S.%fZ')
     out.mkdir(parents=True)
     events = (out / 'events.jsonl').open('w')
@@ -165,9 +167,7 @@ def main():
             if match:
                 reason = match[1]
                 # Keep only known reason classes; raw peer/error text stays in private UART.
-                category = ('ring_overrun' if 'fell a ring behind' in reason else
-                            'frame_timeout' if 'stopped reading' in reason else
-                            'capture_freshness' if 'no fresh audio' in reason else 'socket_error')
+                category = listener_end_category(reason)
                 reasons[category] = reasons.get(category, 0) + 1
                 record('listener_end', reason=category)
                 if category == 'capture_freshness':

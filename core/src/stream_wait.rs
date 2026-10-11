@@ -512,7 +512,9 @@ mod tests {
         encoded.reset();
         assert_eq!(
             read_fresh(LIMIT, INTERVAL, || encoded.read(&mut cursor, &mut [0; 16])),
-            Err(WaitError::Read(crate::flac_ring::Overrun))
+            Err(WaitError::Read(
+                crate::flac_ring::ReadError::GenerationChanged
+            ))
         );
     }
 

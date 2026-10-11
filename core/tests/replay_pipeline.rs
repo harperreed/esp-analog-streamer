@@ -132,40 +132,45 @@ fn pending_header_cannot_be_preempted_and_payload_accounting_requires_complete_w
 }
 
 #[test]
-fn retirement_during_fresh_wait_is_fell_behind_and_empty_expiry_is_stalled() {
+fn retirement_during_fresh_wait_is_retired_and_empty_expiry_is_stalled() {
     use stream_pipeline::{CompressedListener, End, ListenerStep};
-    for retire in [false, true] {
-        let (runtime, mut worker) = Runtime::new(OutputFormat::Flac, false).unwrap();
-        let epoch = worker.epoch.clone();
-        let mut listener = CompressedListener::new(&epoch, None, false, &mut || Duration::ZERO);
-        let mut bytes = vec![0; OutputFormat::Flac.max_frame_bytes()];
-        listener.step(&epoch, &mut bytes, &mut || Duration::ZERO, &mut || true);
-        listener.step(&epoch, &mut bytes, &mut || Duration::ZERO, &mut || true);
-        listener.write_finished(Ok(()));
-        assert!(matches!(
-            listener.step(&epoch, &mut bytes, &mut || Duration::ZERO, &mut || true),
-            ListenerStep::SleepUntil(at) if at == Duration::from_millis(10)
-        ));
-        if retire {
-            let _pending = runtime.begin_switch(
-                OutputFormat::Mp3,
-                true,
-                std::sync::Arc::new(std::sync::Mutex::new(true)),
-                Duration::from_secs(1),
-            );
-            assert!(worker.service(&runtime));
+    for elapsed in [
+        Duration::from_millis(500),
+        Duration::from_secs(2),
+        Duration::from_secs(3),
+    ] {
+        for retire in [false, true] {
+            if !retire && elapsed < Duration::from_secs(2) {
+                continue;
+            }
+            let (runtime, mut worker) = Runtime::new(OutputFormat::Flac, false).unwrap();
+            let epoch = worker.epoch.clone();
+            let mut listener = CompressedListener::new(&epoch, None, false, &mut || Duration::ZERO);
+            let mut bytes = vec![0; OutputFormat::Flac.max_frame_bytes()];
+            listener.step(&epoch, &mut bytes, &mut || Duration::ZERO, &mut || true);
+            listener.step(&epoch, &mut bytes, &mut || Duration::ZERO, &mut || true);
+            listener.write_finished(Ok(()));
+            assert!(matches!(
+                listener.step(&epoch, &mut bytes, &mut || Duration::ZERO, &mut || true),
+                ListenerStep::SleepUntil(at) if at == Duration::from_millis(10)
+            ));
+            if retire {
+                let _pending = runtime.begin_switch(
+                    OutputFormat::Mp3,
+                    true,
+                    std::sync::Arc::new(std::sync::Mutex::new(true)),
+                    Duration::from_secs(1),
+                );
+                assert!(worker.service(&runtime));
+            }
+            let end = listener.step(&epoch, &mut bytes, &mut || elapsed, &mut || true);
+            assert_eq!(listener.read_wait, elapsed);
+            assert!(matches!(
+                (retire, end),
+                (true, ListenerStep::End(End::Retired))
+                    | (false, ListenerStep::End(End::CaptureStalled))
+            ));
         }
-        let end = listener.step(
-            &epoch,
-            &mut bytes,
-            &mut || Duration::from_secs(2),
-            &mut || true,
-        );
-        assert!(matches!(
-            (retire, end),
-            (true, ListenerStep::End(End::FellBehind))
-                | (false, ListenerStep::End(End::CaptureStalled))
-        ));
     }
 }
 
@@ -500,4 +505,80 @@ fn empty_wait_crosses_report_threshold_without_splitting_raw_wait_or_phase() {
         },
     );
     assert!(stalled);
+}
+
+#[test]
+fn encoded_failures_keep_identity_and_wait_accounting_at_freshness_boundaries() {
+    use stream_pipeline::{CompressedListener, End, ListenerStep};
+    for elapsed in [
+        Duration::from_millis(500),
+        Duration::from_secs(2),
+        Duration::from_secs(3),
+    ] {
+        for reset in [false, true] {
+            let (_runtime, worker) = Runtime::new(OutputFormat::Flac, false).unwrap();
+            let epoch = worker.epoch.clone();
+            let mut listener = CompressedListener::new(&epoch, None, false, &mut || Duration::ZERO);
+            let mut bytes = vec![0; OutputFormat::Flac.max_frame_bytes()];
+            listener.step(&epoch, &mut bytes, &mut || Duration::ZERO, &mut || true);
+            listener.step(&epoch, &mut bytes, &mut || Duration::ZERO, &mut || true);
+            listener.write_finished(Ok(()));
+            assert!(matches!(
+                listener.step(&epoch, &mut bytes, &mut || Duration::ZERO, &mut || true),
+                ListenerStep::SleepUntil(_)
+            ));
+            {
+                let mut ring = epoch.ring.lock().unwrap();
+                if reset {
+                    ring.reset();
+                } else {
+                    for _ in 0..=ring.capacity() {
+                        ring.push(b"frame").unwrap();
+                    }
+                }
+            }
+            let mut clock_calls = 0;
+            let end = listener.step(
+                &epoch,
+                &mut bytes,
+                &mut || {
+                    clock_calls += 1;
+                    elapsed
+                },
+                &mut || true,
+            );
+            assert!(matches!(
+                (reset, end),
+                (true, ListenerStep::End(End::EncodedReset))
+                    | (false, ListenerStep::End(End::FellBehind))
+            ));
+            assert_eq!(listener.read_wait, elapsed);
+            assert_eq!(clock_calls, 1, "failed completion must not sample expiry");
+        }
+    }
+}
+
+#[test]
+fn foreign_cursor_error_maps_to_invalid_cursor_without_poisoning_ring() {
+    use esp_shazam_core::flac_ring::{FlacRing, ReadError};
+    use stream_pipeline::End;
+    let mut source = FlacRing::try_new(2, 8).unwrap();
+    let mut cursor = source.cursor_now();
+    source.push(b"abcdef").unwrap();
+    source.read(&mut cursor, &mut [0; 4]).unwrap();
+    let destination = std::sync::Mutex::new(FlacRing::try_new(2, 8).unwrap());
+    let mut ring = destination.lock().unwrap();
+    ring.push(b"ab").unwrap();
+    let before = cursor;
+    let mut sentinel = [99; 8];
+    let error = ring.read(&mut cursor, &mut sentinel).unwrap_err();
+    assert_eq!(error, ReadError::InvalidOffset);
+    assert!(matches!(
+        End::from_encoded_read_error(error),
+        End::InvalidCursor
+    ));
+    assert_eq!(cursor, before);
+    assert_eq!(sentinel, [99; 8]);
+    drop(ring);
+    assert!(!destination.is_poisoned());
 }

@@ -242,7 +242,7 @@ fn atomic_copy_reset_rejects_scratch_and_new_generation_reconnect_is_exact() {
             &mut || Duration::ZERO,
             &mut || true
         ),
-        ListenerStep::End(End::FellBehind)
+        ListenerStep::End(End::EncodedReset)
     ));
     let (_, new_lease) = runtime.admit("GET /stream.flac HTTP/1.1");
     let epoch = &new_lease.as_ref().unwrap().epoch;

@@ -900,3 +900,8 @@ must retain its normal firmware/target layout: an external target directory can
 redirect SDK installation and relative configuration lookup. Activate mise in
 the trusted original repo before entering a copied source tree. Isolate the
 copies and caches; do not change trust settings to make a reconstruction build.
+
+An encoded-ring generation reset invalidates every old cursor, even if retained
+capacity was sufficient. The old FellBehind label also covered this case and
+invalid offsets; it did not prove that a receiver exhausted history. Use explicit
+read reasons and align them with producer reset events when diagnosing delivery.

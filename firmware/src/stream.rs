@@ -840,6 +840,8 @@ impl std::fmt::Display for EndCode {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Retired => f.write_str("format epoch retired"),
+            Self::EncodedReset => f.write_str("encoded ring generation changed"),
+            Self::InvalidCursor => f.write_str("encoded ring cursor invalid"),
             Self::FellBehind => f.write_str("fell a ring behind"),
             Self::StoppedReading => f.write_str("stopped reading"),
             Self::CaptureStalled => {
