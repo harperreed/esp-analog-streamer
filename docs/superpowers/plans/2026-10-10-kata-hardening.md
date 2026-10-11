@@ -1,7 +1,7 @@
 # Finish the Kata hardening backlog
 
 Doctor Biz's active goal on October 10: finish all Kata work, then assess.
-Base c134069 on wip/kata-capture-protection. Compactions in this phase: 22.
+Base c134069 on wip/kata-capture-protection. Compactions in this phase: 23.
 Latest checkpoint: original-criteria review closed 8s9m, 21tp and 89g8.
 The wbz6 MP3 instruction-placement correction now passes matched hardware and
 all 27 canonical stages; its ordinary ELF equals the tested candidate exactly.
@@ -93,6 +93,30 @@ stays open. No push, device flash, audio or network change occurred. The pending
 publication request names frozen 4b607fa, not later local commits.
 
 ### October 11 work-in-progress limit
+
+CAP-2 checkpoint: the two permanent output workers and owned mailbox pass scoped
+review and host verification. Full canonical run.kcrncMVU passed 26 stages with
+only lib.rs module-order formatting failing; after that formatting correction,
+firmware run.eiWqre4n passed all five. The new candidate
+473391a8309a13b027f058a1a9a76b000c06bd31984db1d2d34278fede2c83a7 is installed.
+Its one bounded FLAC contention trial FAILED at TLS -0x2700 before any Sonos
+listener joined. Newer diagnostic checked-close and older survival passed;
+real recovery did not. No reconnect/cancel/failed-start cases or further soak ran.
+See `docs/audit-evidence/2026-10-11/listener-resource.md` and `.json`.
+
+Close-or-block decision: 7vhq remains open on the exact TLS/recovery gate; do not
+keep expanding its implementation or rerun unchanged. A Sol 6.1 read-only check
+of all other original ticket bodies found no independent closure supported by
+existing evidence. Open count is still 18, with zero closures in this phase.
+Doctor Biz's complaint is valid: code changes/checks are supporting work, not
+finished tickets. Retire this bounded phase after committing its code/evidence.
+The next action must address the recorded TLS verification failure, whose detailed
+cause is not known; no certificate-policy change is authorized by this result.
+
+Four driver cleanup errors remain in the failed receipt. Separate parent cleanup
+verified stopped MP3/Medium, autoplay/recognition off and no active player on the
+same trial boot, with source/UART processes stopped. No push/merge occurred.
+The following CAP-1 checkpoint is historical, preceding CAP-2 above.
 
 Doctor Biz again corrected long work without reducing the count. It remains 18.
 The executable closure target is 7vhq: bounded Sonos listener reservation. Its

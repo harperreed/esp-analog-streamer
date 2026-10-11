@@ -1,5 +1,14 @@
 # Gotchas
 
+The October 11 permanent-listener-worker candidate passed host/firmware checks
+but failed real Sonos contention before any Sonos listener joined: native TLS
+returned -0x2700 (the pinned header's certificate-verification failure). Detailed
+verification flags were not recorded; neither invalid credentials nor memory
+exhaustion is established. Keep that failed gate separate from the prior
+per-connection thread ENOMEM. See listener-resource evidence; do not claim
+target acceptance from debug-client displacement or repeat an unchanged run.
+Its failed driver cleanup needed a separate scoped Stop before idle MP3 restore.
+
 ESP32 UART core decoding needs debug types in the exact archived ELF. A stripped
 release ELF made the pinned decoder wait repeatedly on failed GDB TCB_t queries.
 Use command-local CARGO_PROFILE_RELEASE_DEBUG=2 for diagnostic and baseline builds,

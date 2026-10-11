@@ -21,6 +21,7 @@ mod stream_admission;
 mod stream_codec;
 mod stream_pipeline;
 mod stream_runtime;
+mod stream_workers;
 mod threads;
 mod web;
 

@@ -100,7 +100,53 @@ impl ListenerBuffer {
     }
 }
 
-/// Keeps the listener slot until its socket close succeeds, including spawn failure.
+struct ListenerJob {
+    connection: ListenerConnection,
+    ring: SharedStreamRing,
+    buffer: ListenerBuffer,
+    preset: Option<BufferPreset>,
+    network: Network,
+    network_lease: NetworkLease,
+}
+
+type OutputMailbox = crate::stream_workers::Mailbox<ListenerJob>;
+
+fn output_job(job: ListenerJob) {
+    let ListenerJob {
+        connection,
+        ring,
+        buffer,
+        preset,
+        network,
+        network_lease,
+    } = job;
+    let resources = connection
+        .resources
+        .as_ref()
+        .expect("listener owns resources");
+    EVENTS.publish(Record {
+        event_us: event_us(),
+        peer: connection.peer,
+        payload: Payload::Joined {
+            format: match &buffer {
+                ListenerBuffer::Wav => Format::Wav,
+                ListenerBuffer::Compressed(_) => resources
+                    .lease
+                    .as_ref()
+                    .expect("compressed lease")
+                    .epoch
+                    .format
+                    .format(),
+            },
+            held: resources.slot.taken(),
+            owner_id: resources.slot.owner_id(),
+            sonos_intent: resources.slot.intent_id(),
+        },
+    });
+    listen(connection, ring, buffer, preset, network, network_lease);
+}
+
+/// Keeps the listener slot until its socket close succeeds, including dispatch failure.
 struct ListenerConnection {
     resources: Option<ConnectionResources<TcpStream>>,
     peer: Option<SocketAddr>,
@@ -142,7 +188,7 @@ impl Drop for ListenerConnection {
 /// The stream's port. The page and `/api/state` stay on port 80.
 pub const PORT: u16 = 8000;
 /// WAV and compressed listeners share the slots, and a third listener of either gets 503. Each one takes a
-/// thread, TCP buffers that prefer PSRAM, and Wi-Fi: 2.3 Mbit/s for the WAV, less for compressed audio.
+/// permanent worker, TCP buffers that prefer PSRAM, and Wi-Fi: 2.3 Mbit/s for the WAV, less for compressed audio.
 const MAX_LISTENERS: usize = 2;
 // Both compressed codecs encode the capture sample rate.
 const _: () = assert!(codec::SAMPLE_RATE_HZ == CAPTURE_RATE_HZ);
@@ -194,6 +240,25 @@ pub fn start(ring: SharedStreamRing, mdns: &mut EspMdns, network: Network) -> Re
     ENCODER_THREAD
         .spawn(move || encode(encoder_raw, encoder_runtime, encoder_listeners, worker))?;
     let gate = Arc::new(crate::stream_admission::StartupGate::new());
+    // Startup-only receipt: retain these stacks through native Sonos/TLS setup.
+    // SAFETY: heap capability queries are read-only after ESP-IDF initialization.
+    let internal_before =
+        unsafe { sys::heap_caps_get_free_size(sys::MALLOC_CAP_INTERNAL | sys::MALLOC_CAP_8BIT) };
+    let outputs = Arc::new(OutputMailbox::new());
+    log::info!("stream-output-layout: job={} mailbox={} native_backing=excluded allocator_overhead=excluded", std::mem::size_of::<ListenerJob>(), std::mem::size_of::<OutputMailbox>());
+    for index in 0..2 {
+        let mailbox = outputs.clone();
+        if let Err(error) = LISTENER_THREAD.spawn(move || mailbox.work(index, output_job)) {
+            gate.exit();
+            outputs.close();
+            return Err(error);
+        }
+    }
+    if !outputs.wait_ready(Instant::now() + Duration::from_secs(2)) {
+        gate.exit();
+        outputs.close();
+        return Err(anyhow::anyhow!("output workers did not enter initial wait"));
+    }
     for &name in ADMISSION_WORKERS {
         let (listener, ring, runtime, listeners, worker_gate) = (
             listener.clone(),
@@ -203,19 +268,26 @@ pub fn start(ring: SharedStreamRing, mdns: &mut EspMdns, network: Network) -> Re
             gate.clone(),
         );
         let network = network.clone();
+        let worker_outputs = outputs.clone();
         if let Err(error) = (ThreadSpec {
             name,
             ..ACCEPT_THREAD
         })
         .spawn(move || {
             if worker_gate.wait() {
-                accept(listener, ring, runtime, listeners, network);
+                accept(listener, ring, runtime, listeners, network, worker_outputs);
             }
         }) {
             gate.exit();
+            outputs.close();
             return Err(error);
         }
     }
+    // SAFETY: same startup-only read-only allocator query as above.
+    let internal_after =
+        unsafe { sys::heap_caps_get_free_size(sys::MALLOC_CAP_INTERNAL | sys::MALLOC_CAP_8BIT) };
+    log::info!("stream-output-startup: workers=2 stack_bytes_each=4096 internal_free_before={} internal_free_after={} scope=output_mailbox_and_output_and_admission_startup", internal_before, internal_after);
+    outputs.run();
     gate.run();
     #[cfg(feature = "admission-resources")]
     ADMISSION_READY.store(true, Ordering::Release);
@@ -239,6 +311,7 @@ fn accept(
     runtime: Arc<Runtime>,
     listeners: Arc<Capacity>,
     network: Network,
+    outputs: Arc<OutputMailbox>,
 ) -> ! {
     loop {
         let accepted = listener
@@ -247,7 +320,7 @@ fn accept(
             .accept(&network);
         match accepted {
             Ok(Some((sock, _, lease))) => {
-                answer(sock, &ring, &runtime, &listeners, &network, lease)
+                answer(sock, &ring, &runtime, &listeners, &network, lease, &outputs)
             }
             Ok(None) => std::thread::sleep(Duration::from_millis(100)),
             Err(e) => {
@@ -295,7 +368,7 @@ pub(crate) fn export_admission_resources(sequence: &mut u64) {
         sequence, device_us, ADMISSION_WORKERS.len(), ready, found[0], hwm[0], found[1], hwm[1], task_count, query_us, metrics_hwm);
 }
 
-/// Reads one request and answers it: a listener thread for a stream, or a refusal.
+/// Reads one request and answers it: an owned job for a stream, or a refusal.
 fn answer(
     sock: TcpStream,
     ring: &SharedStreamRing,
@@ -303,6 +376,7 @@ fn answer(
     listeners: &Arc<Capacity>,
     network: &Network,
     network_lease: NetworkLease,
+    outputs: &OutputMailbox,
 ) {
     if !network.is_current(network_lease) {
         return;
@@ -409,7 +483,7 @@ fn answer(
                         resources: Some(ConnectionResources::new(sock, slot, lease)),
                         peer: peer_address,
                     };
-                    // Required frame storage is admitted before spawning or sending HTTP 200.
+                    // Required frame storage is admitted before dispatching or sending HTTP 200.
                     // A failed allocation cannot fall back to memory needed by DMA or stacks.
                     if !network.is_current(network_lease) {
                         return;
@@ -432,23 +506,24 @@ fn answer(
                     if !network.is_current(network_lease) {
                         return;
                     }
-                    EVENTS.publish(Record {
-                        event_us: event_us(),
-                        peer: connection.peer,
-                        payload: Payload::Joined {
-                            format,
-                            held: connection.resources.as_ref().unwrap().slot.taken(),
-                            owner_id: connection.resources.as_ref().unwrap().slot.owner_id(),
-                            sonos_intent: connection.resources.as_ref().unwrap().slot.intent_id(),
-                        },
-                    });
-                    let ring = ring.clone();
-                    // The owned connection's drop observes close even if no thread can be created.
-                    if let Err(e) = LISTENER_THREAD.spawn({
-                        let network = network.clone();
-                        move || listen(connection, ring, buffer, preset, network, network_lease)
-                    }) {
-                        log::warn!("stream: no thread for a listener: {e}");
+                    let job = ListenerJob {
+                        connection,
+                        ring: ring.clone(),
+                        buffer,
+                        preset,
+                        network: network.clone(),
+                        network_lease,
+                    };
+                    if let Err(job) = outputs.try_submit(job) {
+                        send_refusal(
+                            job.connection.socket(),
+                            &peer,
+                            &request_line,
+                            Status::ServiceUnavailable,
+                        );
+                        // Rejection returns ownership; checked close runs outside the mailbox lock.
+                        drop(job);
+                        log::error!("stream: output mailbox rejected admitted listener");
                     }
                 }
                 None => refuse(sock, &peer, &request_line, Status::ServiceUnavailable),
@@ -480,7 +555,7 @@ fn send_refusal(sock: &TcpStream, peer: &str, request_line: &str, status: Status
     }
 }
 
-/// A listener's thread: streams `format` until the listener goes or falls behind, then frees its slot.
+/// Streams one job until the listener goes or falls behind, then checked-closes its slot.
 fn listen(
     connection: ListenerConnection,
     ring: SharedStreamRing,
@@ -537,7 +612,8 @@ fn listen(
     };
     // Integer tenths: formatting a float to a precision puts a 1 KB buffer on this small stack.
     let tenths = (started.elapsed().as_millis() / 100) as u64;
-    // SAFETY: NULL selects this live listener owner; IDF reports stack headroom in bytes.
+    // Lifetime minimum for this permanent output worker, across every job and wait.
+    // SAFETY: NULL selects this live worker; IDF reports stack headroom in bytes.
     let owner_stack_free_bytes = unsafe { sys::uxTaskGetStackHighWaterMark(std::ptr::null_mut()) };
     EVENTS.publish(Record {
         event_us: event_us(),
