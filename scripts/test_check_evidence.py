@@ -37,6 +37,50 @@ class EvidenceTests(unittest.TestCase):
     def run_dir(self):
         return next((self.root / 'target/check-logs').iterdir())
 
+    def install_check(self):
+        directory = self.root / 'scripts'
+        directory.mkdir()
+        script = directory / 'check'
+        script.write_bytes(CHECK.read_bytes())
+        script.chmod(0o755)
+        return script
+
+    def test_cli_rejects_invalid_arguments_without_side_effects(self):
+        script = self.install_check()
+        for args in [('',), ('--wat',), ('--host', '--host'), ('--firmware', '--firmware'),
+                     ('--host', '--firmware'), ('--help', '--host'), ('--help', '--help')]:
+            with self.subTest(args=args):
+                result = subprocess.run([str(script), *args], text=True, capture_output=True)
+                self.assertEqual(result.returncode, 2, result.stderr)
+                self.assertFalse((self.root / 'target').exists())
+
+    def test_help_without_side_effects(self):
+        result = subprocess.run([str(self.install_check()), '--help'], text=True, capture_output=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn('--host', result.stdout)
+        self.assertIn('--firmware', result.stdout)
+        self.assertFalse((self.root / 'target').exists())
+
+    def test_scope_receipts_are_separate_from_applicability(self):
+        for scope in ['all', 'host', 'firmware']:
+            with self.subTest(scope=scope):
+                result = self.run_shell(f'check_init {scope} && stage real true && check_finalize')
+                self.assertEqual(result.returncode, 0, result.stderr)
+                runs = list((self.root / 'target/check-logs').iterdir())
+                run = max(runs, key=lambda p: p.stat().st_mtime_ns)
+                self.assertEqual((run / 'scope').read_text(), scope + '\n')
+                self.assertEqual((run / 'applicability.tsv').read_text(), 'branch\tapplicable\n')
+                self.assertEqual((run / 'run.status').read_text(), 'complete\n')
+
+    def test_firmware_requires_workspace_before_activation(self):
+        result = subprocess.run([str(self.install_check()), '--firmware'], text=True, capture_output=True)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('firmware workspace', result.stderr)
+        run = self.run_dir()
+        self.assertEqual((run / 'scope').read_text(), 'firmware\n')
+        self.assertEqual((run / 'run.status').read_text(), 'incomplete\n')
+        self.assertFalse((run / 'setup.log').exists())
+
     def test_stage_preserves_parent_descriptor(self):
         self.assertNotIn('exec {log_fd}', CHECK.read_text(), 'Mac Bash 3.2 cannot allocate named descriptors')
         result = self.run_shell('exec 3> parent.log; check_init || exit; printf "before\\n" >&3; stage good true || exit; printf "after\\n" >&3; exec 3>&-')

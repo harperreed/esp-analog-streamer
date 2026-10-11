@@ -1,0 +1,97 @@
+# ABOUTME: Runs independent canonical host and firmware checks on hosted Linux runners.
+# ABOUTME: Retains scoped check receipts without devices, credentials or release actions.
+name: Canonical checks
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  host:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Bootstrap mise only
+        uses: jdx/mise-action@2d8d4cafcbd33be2ea37d2b6f5ad595363d1f1ca # v5.1.1
+        with:
+          version: '2026.9.15'
+          install: false
+          cache: false
+          env: false
+          export_path: false
+          add_shims_to_path: false
+          persist_github_token: false
+      - name: Install native dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends build-essential pkg-config libasound2-dev ffmpeg
+      - name: Install pinned tools
+        run: |
+          mise trust mise.toml
+          mise install
+          mise install uv@0.12.19
+      - name: Check host
+        run: mise exec uv@0.12.19 -- scripts/check --host
+      - name: Retain check evidence
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: canonical-host-${{ github.run_id }}-${{ github.run_attempt }}
+          path: target/check-logs/run.*/
+          retention-days: 7
+          if-no-files-found: warn
+  firmware:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Bootstrap mise only
+        uses: jdx/mise-action@2d8d4cafcbd33be2ea37d2b6f5ad595363d1f1ca # v5.1.1
+        with:
+          version: '2026.9.15'
+          install: false
+          cache: false
+          env: false
+          export_path: false
+          add_shims_to_path: false
+          persist_github_token: false
+      - name: Install native dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends build-essential pkg-config libudev-dev git wget flex bison gperf python3 python3-pip python3-venv ccache libffi-dev libssl-dev dfu-util libusb-1.0-0
+      - name: Install pinned tools
+        run: |
+          mise trust mise.toml
+          mise install
+          mise install uv@0.12.19
+      - name: Prepare firmware build
+        run: |
+          mise run esp-toolchain
+          cp firmware/cfg.toml.example firmware/cfg.toml
+      - name: Check firmware
+        run: mise exec uv@0.12.19 -- scripts/check --firmware
+      - name: Retain check evidence
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: canonical-firmware-${{ github.run_id }}-${{ github.run_attempt }}
+          path: target/check-logs/run.*/
+          retention-days: 7
+          if-no-files-found: warn

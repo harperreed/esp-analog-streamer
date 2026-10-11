@@ -82,6 +82,16 @@ either as progress on m31k's remaining hosted criterion. An October 11 remote-re
 read confirms main is still 8bd024837ef94784072122d931655ce3ef3ebf96 and the
 wip/kata-capture-protection branch is absent from origin.
 
+While that publication decision is pending, 97bk's canonical host/firmware split
+is implemented. `scripts/check --host` passes 22 stages in run.iyk42Anc;
+`--firmware` passes five in run.XVdCY5UR. Default run.bZ2lnZDo passes all 27;
+its stage order exactly equals the two scoped runs joined. Receipts explicitly
+record scope; 17 process tests and independent design/code reviews pass. The
+new hosted workflow uses separate read-only hosted jobs and placeholder firmware
+configuration. Hosted execution and dedicated HIL remain unverified, so 97bk
+stays open. No push, device flash, audio or network change occurred. The pending
+publication request names frozen 4b607fa, not later local commits.
+
 ### Historical metrics checkpoint before 23310f6
 
 Metrics checkpoint: the bounded endpoint, collector and separate dashboard now

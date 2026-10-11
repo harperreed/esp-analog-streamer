@@ -43,6 +43,7 @@ check_init() {
   mkdir -p target/check-logs || { check_error 'cannot create log parent'; return 1; }
   LOG_DIR="$(mktemp -d target/check-logs/run.XXXXXXXX)" || { check_error 'cannot allocate run'; return 1; }
   printf 'incomplete\n' > "$LOG_DIR/run.status" || return 1
+  printf '%s\n' "${1:-all}" > "$LOG_DIR/scope" || return 1
   printf 'stage\texit_code\tlog\n' > "$LOG_DIR/stages.tsv" || return 1
   printf 'branch\tapplicable\n' > "$LOG_DIR/applicability.tsv" || return 1
   printf '%s\n' 'Boundary snapshots only; untracked bytes and effective environment unverified.' 'Config values are Git blob IDs, not SHA-256 attestations.' > "$LOG_DIR/identity-limits.txt" || return 1
@@ -114,48 +115,74 @@ check_install_signal_traps() {
 }
 
 check_main() {
+  local scope=all
+  if [[ "$#" -gt 1 ]]; then
+    echo 'Usage: scripts/check [--host | --firmware | --help]' >&2
+    return 2
+  fi
+  case "${1:-}" in
+    '')
+      if [[ "$#" -ne 0 ]]; then
+        echo 'Unknown empty argument (see --help)' >&2
+        return 2
+      fi ;;
+    --host) scope=host ;;
+    --firmware) scope=firmware ;;
+    --help)
+      echo 'Usage: scripts/check [--host | --firmware | --help]'
+      echo 'Default: all applicable stages. --host: host stages. --firmware: required firmware stages.'
+      return 0 ;;
+    *) echo "Unknown argument: $1 (see --help)" >&2; return 2 ;;
+  esac
   cd "$(dirname "${BASH_SOURCE[0]}")/.." || return 1
-  check_init || return 1
+  check_init "$scope" || return 1
+  if [[ "$scope" == firmware && ! -d firmware ]]; then
+    check_error 'firmware workspace is absent'; return 1
+  fi
   check_install_signal_traps || return 1
   check_setup mise env -s bash || return 1
-  stage fmt cargo fmt --all -- --check || return 1
-  stage clippy cargo clippy --workspace --all-targets -- -D warnings || return 1
-  stage test cargo test --workspace || return 1
-  stage capture-loom cargo test -p esp-shazam-core --features capture-loom models:: --lib || return 1
-  stage listener-loom cargo test -p esp-shazam-core --features listener-loom --lib --test listener_runtime_loom models:: || return 1
-  stage sonos-web node --test test/sonos-web.test.cjs || return 1
-  stage harnesses scripts/check-harnesses || return 1
-  stage coverage-host scripts/test-coverage-host || return 1
-  stage stream-format scripts/test-stream-format || return 1
-  stage decoder-integrity scripts/test-decoder-integrity || return 1
-  stage replay-oracle scripts/test-replay-stream || return 1
-  stage stream-replay scripts/check-stream-replay || return 1
-  stage failure-observation scripts/test-failure-observation || return 1
-  stage tls-capture-peer scripts/test-tls-capture-peer || return 1
-  stage e2e-fixtures scripts/test-e2e-fixtures || return 1
-  stage interface-relay scripts/test-interface-relay || return 1
-  stage wifi-throughput scripts/test-wifi-throughput-check || return 1
-  if [ "$(uname -s)" = Linux ]; then
-    printf "linux\tyes\n" >> "$LOG_DIR/applicability.tsv" || return 1
-    stage fuzz-host scripts/test-fuzz-host || return 1
-    stage fuzz-helpers cargo test --manifest-path fuzz/Cargo.toml --locked --lib || return 1
-    stage mutation-host scripts/test-mutation-host || return 1
-    stage setup-linux scripts/test-setup-linux || return 1
-    stage capture-stream-packets scripts/test-capture-stream-packets || return 1
-  else
-    printf "linux\tno\n" >> "$LOG_DIR/applicability.tsv" || return 1
+  if [[ "$scope" != firmware ]]; then
+    stage fmt cargo fmt --all -- --check || return 1
+    stage clippy cargo clippy --workspace --all-targets -- -D warnings || return 1
+    stage test cargo test --workspace || return 1
+    stage capture-loom cargo test -p esp-shazam-core --features capture-loom models:: --lib || return 1
+    stage listener-loom cargo test -p esp-shazam-core --features listener-loom --lib --test listener_runtime_loom models:: || return 1
+    stage sonos-web node --test test/sonos-web.test.cjs || return 1
+    stage harnesses scripts/check-harnesses || return 1
+    stage coverage-host scripts/test-coverage-host || return 1
+    stage stream-format scripts/test-stream-format || return 1
+    stage decoder-integrity scripts/test-decoder-integrity || return 1
+    stage replay-oracle scripts/test-replay-stream || return 1
+    stage stream-replay scripts/check-stream-replay || return 1
+    stage failure-observation scripts/test-failure-observation || return 1
+    stage tls-capture-peer scripts/test-tls-capture-peer || return 1
+    stage e2e-fixtures scripts/test-e2e-fixtures || return 1
+    stage interface-relay scripts/test-interface-relay || return 1
+    stage wifi-throughput scripts/test-wifi-throughput-check || return 1
+    if [ "$(uname -s)" = Linux ]; then
+      printf "linux\tyes\n" >> "$LOG_DIR/applicability.tsv" || return 1
+      stage fuzz-host scripts/test-fuzz-host || return 1
+      stage fuzz-helpers cargo test --manifest-path fuzz/Cargo.toml --locked --lib || return 1
+      stage mutation-host scripts/test-mutation-host || return 1
+      stage setup-linux scripts/test-setup-linux || return 1
+      stage capture-stream-packets scripts/test-capture-stream-packets || return 1
+    else
+      printf "linux\tno\n" >> "$LOG_DIR/applicability.tsv" || return 1
+    fi
   fi
 
-  if [ -d firmware ]; then
-    printf "firmware\tyes\n" >> "$LOG_DIR/applicability.tsv" || return 1
-    stage firmware-fmt rustfmt --edition 2021 --check firmware/build.rs firmware/src/*.rs || return 1
-    stage firmware-build bash -c 'cd firmware && { [ -f "$HOME/export-esp.sh" ] && . "$HOME/export-esp.sh"; true; } && cargo +esp build --release --message-format=json-render-diagnostics' || return 1
-    stage i2s-iram-tests scripts/test-i2s-iram || return 1
-    stage i2s-iram scripts/check-i2s-iram --cargo-messages "$LOG_DIR/firmware-build.log" || return 1
-    # cargo's summary line names our crates when they produce warnings
-    stage firmware-warnings firmware_warnings "$LOG_DIR/firmware-build.log" || return 1
-  else
-    printf "firmware\tno\n" >> "$LOG_DIR/applicability.tsv" || return 1
+  if [[ "$scope" != host ]]; then
+    if [ -d firmware ]; then
+      printf "firmware\tyes\n" >> "$LOG_DIR/applicability.tsv" || return 1
+      stage firmware-fmt rustfmt --edition 2021 --check firmware/build.rs firmware/src/*.rs || return 1
+      stage firmware-build bash -c 'cd firmware && { [ -f "$HOME/export-esp.sh" ] && . "$HOME/export-esp.sh"; true; } && cargo +esp build --release --message-format=json-render-diagnostics' || return 1
+      stage i2s-iram-tests scripts/test-i2s-iram || return 1
+      stage i2s-iram scripts/check-i2s-iram --cargo-messages "$LOG_DIR/firmware-build.log" || return 1
+      # cargo's summary line names our crates when they produce warnings
+      stage firmware-warnings firmware_warnings "$LOG_DIR/firmware-build.log" || return 1
+    else
+      printf "firmware\tno\n" >> "$LOG_DIR/applicability.tsv" || return 1
+    fi
   fi
   check_finalize || return 1
   return "$status"

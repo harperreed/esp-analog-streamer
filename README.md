@@ -4,6 +4,9 @@ An always-listening Shazam box. Rust firmware for the Ai-Thinker ESP32-A1S Audio
 
 - Design: `docs/superpowers/specs/2026-10-03-esp-shazam-design.md`
 - Check everything: `scripts/check`
+- Check host stages (including Linux checks where applicable): `scripts/check --host`
+- Check required firmware stages: `scripts/check --firmware`
+- Show check usage: `scripts/check --help`
 
 ## Linux workstation setup
 
@@ -139,6 +142,18 @@ compilation; static checks and hardware acceptance need separate results.
 | Diagnostic completeness | [shared export validators](scripts/encoder_fault_check.py), [probe analyzer](scripts/encoder_probe_check.py) | Encoder/listener sticky export loss, rejected loss counters or missing required final batch receipts invalidate conclusions that depend on those diagnostics. Require producer event times and the corresponding receipt; UART arrival alone cannot certify a delayed event or checked close. |
 | Clean two-listener hardware run | [scripts/stream-soak](scripts/stream-soak), implemented in [stream_soak.py](scripts/stream_soak.py) | Each decoder exits successfully with exactly `round(seconds * 48000)` sample frames. The harness uses a requested-duration-plus-60-second wall timeout, a 20-second decoder-progress limit and a 25-second UART-progress limit. No extra reset, panic or watchdog; capture queue-overflow, software-drop, read-error, restart and discontinuity counters stay at the settled baseline. Require capture telemetry after both decoders finish, with a 20-second final-receipt wait. Preserve raw UART, decoder logs and the run summary. |
 | Fault recovery and endurance | Existing fault/soak harnesses; [hardening backlog](docs/superpowers/plans/2026-10-10-kata-hardening.md) | Passing bounded scenarios precede longer runs. Retain failed attempts, actual two-listener overlap and survivor catch-up separately. Six-hour reconnect and 24-hour continuity gates require their full workloads; a short pass or an open socket cannot replace them. Manual Stop and foreign-session ownership need their own evidence. |
+
+The [canonical workflow](.github/workflows/check.yml) runs independent host and
+firmware jobs on GitHub-hosted Ubuntu 24.04 for pushes, pull requests and manual
+runs. Each calls the corresponding selector above and retains only its check
+receipts for seven days. The firmware job builds with the tracked example
+configuration and has no device or office credentials.
+
+Each receipt's `scope` file records `all`, `host` or `firmware`, separately from
+`applicability.tsv`. A complete scoped receipt covers only that subset; it does
+not establish the full canonical gate. Firmware mode fails if its workspace is
+absent. Actual hosted execution, hardware-in-the-loop and release acceptance
+remain unverified; this split alone does not complete Kata 97bk.
 
 For each required gate, record `passed`, `failed`, `missing`, `canceled` or
 `infrastructure-failed`, with links to its raw evidence. Only a reviewed `passed`
