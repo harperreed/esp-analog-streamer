@@ -1,7 +1,7 @@
 # Finish the Kata hardening backlog
 
 Doctor Biz's active goal on October 10: finish all Kata work, then assess.
-Base c134069 on wip/kata-capture-protection. Compactions in this phase: 14; latest firmware implementation checkpoint is 7c4ed7b (refusal deadlines; device admission acceptance remains open).
+Base c134069 on wip/kata-capture-protection. Compactions in this phase: 14; latest firmware implementation checkpoint is e6a9b58 (distinct listener end reasons; delivery still fails).
 Use GPT-6.1 Sol subagents with clean contexts. Parent owns review, integration,
 canonical checks, commits and every hardware action. Continue through batches;
 a phase checkpoint is not a reason to abandon the active goal.
@@ -703,3 +703,10 @@ as listener-end-reasons-device.md/.json. Audio/acquisition still fail; slow-read
 acceptance remains unrun. Source/UART cleanup and stopped MP3/Medium are verified.
 Next diagnosis must distinguish blocked send time from runnable scheduling delay;
 the failed historical rate-gap reproduction is not reopened by this reporting fix.
+
+ce69 is closed with commit e6a9b58 and scoped device evidence. The exact recorded
+22-test closure command also passes in closure-test-command.log. A fresh Sol 6.1
+worker is checking pinned scheduler observation seams before proposing the next
+bounded measurement. No new tracing or priority change is implemented. The
+landed phase is checkpointed here; root replacement remains unavailable, so work
+continues with fresh worker contexts under the recorded session exception.
