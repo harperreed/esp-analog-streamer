@@ -738,3 +738,20 @@ off. Diagnostic image 5ddee0ff remains installed. The next bounded proposal
 tests listener-only priority 7 versus 8, preserving encoder priority and all
 audio gates. Scoped design review passes; production policy is unchanged. Evidence lives
 in listener-frame-state-device.md/.json under docs/audit-evidence/2026-10-10.
+
+The listener-only priority experiment passed canonical27 stages (run.PKNzkEkS)
+and independent source/linked review. Exact A/B executable bytes and allocated
+placement match; only priority data and source-line metadata differ. B1 cuts
+send maxima to 19.415/11.896 ms from 441.001/436.093 ms, but both streams still
+fail after encoder raw loss. Final decoded totals are 4.944/4.752 seconds.
+Pre-admission encoder rate remains about 0.867x. The approved early-stop rule
+ends this series without A2/B2/A3 or a production priority change.
+
+The source override is removed; its patch and reviewed evidence are retained
+as listener-service-priority8.patch and listener-service-experiment.md/.json.
+Candidate dc908452 remains deployed and stopped MP3/Medium; source/UART cleanup
+and fresh settings are verified. A clean Sol 6.1 worker is planning a bounded
+benchmark of the current shared encoder wrapper and allocator. The older
+benchmark's wrapper and build flags differ, so its results cannot certify the
+current 24 ms frame budget. No historical rate attribution or ADC fixture
+collection is reopened.

@@ -119,3 +119,27 @@ target/kata-hardening/listener-service-experiment-round1-review.md.
 Implementation, compiled configuration checks and hardware acceptance remain
 pending. Optional exact linked-byte/placement comparison can narrow the layout
 confound only if the actual artifacts support that conclusion.
+
+## Result
+
+B was built and checked with all 27 canonical stages at run.PKNzkEkS. Source
+and linked review pass. For the frozen A/B pair, all allocated section placement
+and executable bytes match. Stored allocated differences are the listener
+priority byte plus 32 source-line metadata bytes. This removes the observed
+code-placement alternative for this pair, not runtime or RF variation.
+
+The retained ordinary trial qualified as A1. B1 reduced observed send maxima
+from 441001/436093 us to 19415/11896 us, but failed audio, raw-loss and encoder
+progress gates. Final decoded audio is 4.944/4.752 seconds; both listeners end
+on a generation change. Pre-admission generation remains about 0.867x and
+later mixed windows are slower. The series stops here under the approved rule;
+A2/B2/A3 and the slow-reader scenarios remain unrun. This is a partial delivery
+improvement, not a complete fix or permanent scheduling decision.
+
+The throwaway source insertion was removed and stream.rs matches frozen A.
+Its exact patch is retained as listener-service-priority8.patch beside the
+reviewed listener-service-experiment.md/.json evidence in
+docs/audit-evidence/2026-10-10. Candidate image dc908452 remains installed,
+stopped MP3/Medium, autoplay/recognition off. Source and UART owners are absent.
+The next question is the current encoder's frame budget; historical benchmark
+numbers used a different wrapper and build configuration.

@@ -7,6 +7,14 @@ The diagnostic encoded near real time while the ordinary control lost raw
 history, so comparing the images cannot isolate sampling overhead. Both failed
 audio. See listener-frame-state-device evidence before changing scheduling.
 
+The separate priority-7/8 experiment holds executable bytes and allocated
+placement fixed. Its one priority-byte change reduced observed send maxima to
+12–19 ms, but encoding still lost raw audio and disconnected both listeners.
+Only one A/B pair ran; no production priority change landed. Reuse the saved
+listener-service-priority8.patch for any later combined assessment. Historical
+MP3 cost numbers used a different wrapper/build setup; measure the current
+shared encoder before treating those numbers as its performance budget.
+
 Mise 2026.9.15 accepts Rust's llvm-tools-preview install alias but can keep
 reporting the toolchain missing afterward. Pin the canonical llvm-tools component
 name; it selects the same bundled LLVM. Verify clean activation and exact rustc,
