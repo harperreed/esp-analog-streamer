@@ -853,3 +853,20 @@ Test phase receipts and cleanup with real socket behavior before any new device
 run. The live-versus-isolated MP3 cost discrepancy still needs a discriminating
 cause; neither these resource results nor the completed input-repetition check
 justifies changing priorities, codec settings or buffers.
+
+The disposable pending-head runner revision now passes 15 host tests and an
+independent scoped review. A real subprocess SIGTERM regression first showed
+the combined stream phase starting after interruption; a dedicated interruption
+exception now preserves the phase receipt and reaches outer cleanup instead.
+The prior runner/test bytes were archived before editing. The revision has not
+run on hardware, and none of the saved failed acquisitions used it. Current
+runner SHA256: 0869333d5a5c8deadc9ea559f2a5358e42f631f236b15153c8d1f188288c2a00.
+
+Independent dashboard investigation found no pipeline counters or freshness in
+the existing state API. A network snapshot proposal is retained at
+`docs/superpowers/specs/2026-10-10-device-metrics-design.md`; it copies existing
+numeric observations from the low-priority metrics owner, outside source locks,
+and keeps missing boot identity/live stage measures explicitly unavailable.
+Doctor Biz was asked the network-versus-USB transport preference asynchronously;
+network is recommended. This is design evidence, not implementation or service
+deployment. No new endpoint, host service or Grafana instance is running.
