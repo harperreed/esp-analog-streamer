@@ -1,7 +1,7 @@
 # Finish the Kata hardening backlog
 
 Doctor Biz's active goal on October 10: finish all Kata work, then assess.
-Base c134069 on wip/kata-capture-protection. Compactions in this phase: 20.
+Base c134069 on wip/kata-capture-protection. Compactions in this phase: 21.
 Latest checkpoint: original-criteria review closed 8s9m, 21tp and 89g8.
 The wbz6 MP3 instruction-placement correction now passes matched hardware and
 all 27 canonical stages; its ordinary ELF equals the tested candidate exactly.
@@ -9,6 +9,31 @@ Prior failed device audio trials remain failed.
 Use GPT-6.1 Sol subagents with clean contexts. Parent owns review, integration,
 canonical checks, commits and every hardware action. Continue through batches;
 a phase checkpoint is not a reason to abandon the active goal.
+
+## Sender diagnostics closure checkpoint
+
+The original d2cb overhead comparison is complete: matched normal/control boots
+ran MP3 → FLAC → MP3, each 30 seconds solo then about 60 seconds dual. All six
+staged trials passed; twelve saved prefixes have independently matching decoded
+sample totals and no natural EOF. Capture fault deltas were zero during trials;
+startup faults remain. Removing the whole sender probe lowered measured listener
+CPU per frame, while delivery remained near real time. One sequential image pair
+does not isolate runtime accounting from layout or radio variation.
+
+The normal collector failed summary finalization on a malformed UART record.
+Its failure remains recorded; separate offline recovery excludes that producer
+window and its dependent baseline. The control collector passed. Seven host
+regressions and independent reviews pass. Normal production source is unchanged,
+its rebuild equals the tested bd8392 image, canonical run.WKEIQEGi remains valid,
+and the image is restored with MP3/Medium stopped and autoplay/recognition off.
+UART/source owners are absent. See sender-overhead.md/.json and the exact control
+patch under docs/audit-evidence/2026-10-10. Close d2cb with the evidence commit;
+do not require resolution of every transport failure for this diagnostic ticket.
+
+Next whole-ticket candidate is ewvq: shared Wi-Fi/IP generation handling. Start
+with its original required policy review, then bounded invalidation of stale
+network work while capture remains independent. Do not start partial codec
+studies or reopen resolved wbz6 experiments to fill idle hardware time.
 
 ## Completion rules
 
@@ -29,10 +54,10 @@ build change passes canonical run.WKEIQEGi and produces the identical tested
 ELF bd8392cd041355bfd7a7fbd9b9eded48d741cf4e70600a2595293a4bec755490.
 The current installed image remains stopped MP3/Medium, recognition/autoplay off.
 No source or UART owner remains. Do not reopen the input-repetition or placement
-experiment merely because transport/recovery work remains. The next d2cb action
-is its original matched observer-overhead comparison on the corrected build;
-candidate joint delivery of about 98.9% still needs the transport gates. Full
-evidence: `docs/audit-evidence/2026-10-10/mp3-instruction-placement.md`.
+experiment merely because transport/recovery work remains. The d2cb comparison
+is now complete in the checkpoint above; this earlier candidate’s joint delivery
+of about 98.9% remains historical evidence and does not clear transport gates.
+Full evidence: `docs/audit-evidence/2026-10-10/mp3-instruction-placement.md`.
 
 A Kata closes only when its actual acceptance criteria have evidence. Keep
 hardware acceptance and implementation separate. Do not close an epic just

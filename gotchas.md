@@ -958,3 +958,10 @@ conditions and executable layout remain different; do not call the discrepancy
 proof of contention or a cache defect. cc 1.6 debug command output also exposes
 its intentionally failing compiler-family `-?` probe. Keep that expected noise
 separate from the actual ten successful C compilations.
+
+A sender-overhead matrix finished its real trials but lost final summary output
+when UART contained `encoded_frames=2086esets=0`. Reject malformed counter records
+before advancing count anchors, exclude the dependent window, and write failure
+receipts even when analysis fails. Preserve original verdicts when recovering
+from raw logs. Numeric field parsers must retain digit-bearing names such as
+`send_over_10ms` without accepting an IPv4 prefix as a counter.
