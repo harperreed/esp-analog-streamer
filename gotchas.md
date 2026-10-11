@@ -1,5 +1,20 @@
 # Gotchas
 
+The later TLS diagnostic resolves one hidden failure: RSA returned -0x4290
+(RSA_PUBLIC_FAILED + MPI_ALLOC_FAILED), then X.509 mapped it to NOT_TRUSTED.
+Heap reported after unwinding is not allocation-time headroom. Lowering the
+general threshold from 8191 to 2047 increased observed setup free RAM but still
+failed native TLS; that trial was reverted. Internal TLS allocation remains.
+An external-TLS allocator test is awaiting explicit approval because this ESP32
+would store TLS keys/plaintext in unencrypted PSRAM. Never bypass verification
+or assume that permission. See tls-verification-memory evidence.
+
+Cargo's ESP-IDF rebuild reset the temporary SDK diagnostic edits. Apply such
+throwaway patches after the IDF build, rebuild the affected native libraries,
+relink the firmware, and verify the exact ELF contains the diagnostic strings
+before testing. Preserve original hashes and restore both sources/libraries.
+Do not call an image diagnostic merely because its build command succeeded.
+
 The October 11 permanent-listener-worker candidate passed host/firmware checks
 but failed real Sonos contention before any Sonos listener joined: native TLS
 returned -0x2700 (the pinned header's certificate-verification failure). Detailed

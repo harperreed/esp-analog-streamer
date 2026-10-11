@@ -1,0 +1,106 @@
+{
+  "verdict": "FAILED",
+  "interpretation": "RSA signature verification returned RSA_PUBLIC_FAILED + MPI_ALLOC_FAILED; chain failure hides allocation failure",
+  "signature_return": -17040,
+  "signature_return_hex": "-0x4290",
+  "rsa_public_failed": -17024,
+  "mpi_alloc_failed": -16,
+  "tls_return": -9984,
+  "verification_flags": 8,
+  "internal_free_after_unwind": 7511,
+  "internal_largest_after_unwind": 7424,
+  "not_claimed": [
+    "exact failed allocation size",
+    "exact failure-time available heap",
+    "normal firmware acceptance"
+  ],
+  "trial_identity": {
+    "build_elf_sha256": "968aa68eb005886bbc2b2c96a5e47c21fafa253f274d8fc1a425107bbe66ac72",
+    "boot_token": "6c7b0e1efe8602c0a7e756a9937625e2",
+    "served_device_us": 6362572
+  },
+  "after_identity": {
+    "build_elf_sha256": "968aa68eb005886bbc2b2c96a5e47c21fafa253f274d8fc1a425107bbe66ac72",
+    "boot_token": "6c7b0e1efe8602c0a7e756a9937625e2",
+    "served_device_us": 18777129
+  },
+  "cleanup_errors": [],
+  "restored": {
+    "state": "stopped",
+    "active_format": "mp3",
+    "config": {
+      "player_id": "RINCON_38420B8F3F0C01400",
+      "autoplay": false,
+      "buffer_preset": "med",
+      "output_format": "mp3"
+    }
+  },
+  "raw_sha256": {
+    "result.json": "90325e3b1b626cdb5924dd8d7cb368fa79c16db19e1422ccae3ef3947d9ecdd4",
+    "uart.log": "075a71173ca9b8e3f9b3460cebacd717f53fda13dda9a5ea797576481f52ffb6",
+    "host-chain.log": "9e0ddd7250b2b689381a636f36eb99269cea323ccb0778170206e82d2639210c",
+    "diagnostic.elf": "968aa68eb005886bbc2b2c96a5e47c21fafa253f274d8fc1a425107bbe66ac72"
+  },
+  "kata": "7vhq",
+  "kata_complete": false,
+  "threshold_trial": {
+    "passed": false,
+    "verdict": "FAILED",
+    "trial_identity": {
+      "build_elf_sha256": "ec3ac7aca5266c98fb9984a4a1b749761d6006fed710f90a1148fbcfb22bf70d",
+      "boot_token": "755301328678554b9445267757626806",
+      "served_device_us": 6655053
+    },
+    "after_identity": {
+      "build_elf_sha256": "ec3ac7aca5266c98fb9984a4a1b749761d6006fed710f90a1148fbcfb22bf70d",
+      "boot_token": "755301328678554b9445267757626806",
+      "served_device_us": 19838267
+    },
+    "cleanup_errors": [],
+    "threshold": 2047,
+    "before_connect_internal_free": 35163,
+    "before_connect_internal_largest": 32768,
+    "tls_error": "-0x2700",
+    "inner_error": "not instrumented",
+    "setting_retained": false,
+    "sonos_join_observed": false,
+    "canonical_run": "run.0VkX36b9",
+    "canonical_stages_passed": 27
+  },
+  "normal_restoration": {
+    "build_elf_sha256": "d448497eb0892bc25287c95a4cc0d7a5ab6a1ca42baba57b6627cefc4a75d540",
+    "boot_token": "c782967a7c46e501639c28cd385f399a",
+    "served_device_us": 26334689,
+    "sonos": {
+      "config": {
+        "player_id": "RINCON_38420B8F3F0C01400",
+        "autoplay": false,
+        "buffer_preset": "med",
+        "output_format": "mp3"
+      },
+      "buffer_available": true,
+      "active_format": "mp3",
+      "groups": [],
+      "active_player_id": null,
+      "state": "stopped",
+      "last_error": null
+    },
+    "recognition_enabled": false,
+    "general_threshold": 8191,
+    "tls_allocation": "internal",
+    "restoration": "separate normal image flash after rejected trial",
+    "canonical_firmware_run": "run.R4rluLpM",
+    "canonical_firmware_stages_passed": 5
+  },
+  "external_tls_test_approval": "pending",
+  "external_tls_image_built_or_flashed": false,
+  "additional_artifacts": {
+    "target/kata-hardening/tls-verification/placement/contention/result.json": "37d0adff8a87c6d06c5e9d6b2f4c8d119720682585134800d88192cfe446118f",
+    "target/kata-hardening/tls-verification/placement/contention/uart.log": "f486a9e312c53ffb8f58e16d1fe363058d71416cdf3135c1b904ead1a3e4e8b6",
+    "target/kata-hardening/tls-verification/placement/failed-setting.patch": "5af91cc43fd0893926ffced878090d70117e11425296506e3e1af427d1a407f3",
+    "target/kata-hardening/tls-verification/normal-restoration.json": "4e63962a55da87d44fc6b7bb86ccdff4e9b9b54cb5e29350dabc1d4b9b019634",
+    "target/kata-hardening/tls-verification/control-run.py": "cecfafdf2a3ba608f8d1ae5507d905bc03004dcfe643ad110d77d07a9868e6f0",
+    "target/kata-hardening/tls-verification/test_control_capacity.py": "f34a6995d725e234f21491f11463104a4bdfe57d7b0d1dd185b731ee3de810b4",
+    "target/kata-hardening/tls-verification/source-receipt.json": "049b8c0196c8e38e26f48e0677d9369b10ff97b459c61e76e97353d078c9449c"
+  }
+}

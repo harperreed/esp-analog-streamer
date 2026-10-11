@@ -94,6 +94,40 @@ publication request names frozen 4b607fa, not later local commits.
 
 ### October 11 work-in-progress limit
 
+TLS checkpoint after 22cfe35: a two-site diagnostic reproduced the combined
+RSA_PUBLIC_FAILED and MPI_ALLOC_FAILED error (-0x4290), which X.509 converted
+to NOT_TRUSTED/-0x2700.
+Do not chase clock validity or replace certificate roots: effective date checks
+are disabled, and the host verified the current chain against our roots. See
+`docs/audit-evidence/2026-10-11/tls-verification-memory.md` and `.json`.
+
+One general-allocation trial (8191 -> 2047) passed all 27 canonical stages in
+run.0VkX36b9 and increased before-connect internal free memory by 3632 bytes
+relative to the diagnostic trial, but still failed TLS before any Sonos join.
+It was rejected and reverted; no further threshold guesses. Its exact inner
+failure was not instrumented. The scratch driver's narrow pre-session cleanup
+fix passed twelve tests and actual cleanup in both failed runs.
+
+Original general allocation/internal TLS policy is restored, with all five
+firmware stages passing in run.R4rluLpM. Normal image
+d448497eb0892bc25287c95a4cc0d7a5ab6a1ca42baba57b6627cefc4a75d540 is attested,
+stopped MP3/Medium with autoplay/recognition off and no active player or test
+audio/UART process. No diagnostic patch remains. No production code change is
+retained from the unsuccessful threshold trial. Open count: 18; closures: 0.
+
+Pending explicit choice: Doctor Biz was asked to approve one supported external
+TLS allocation test. The reviewed exact patch is in the Pending decision section
+of `docs/audit-evidence/2026-10-11/tls-verification-memory.md`. On this ESP32 that
+would put TLS keys/plaintext in unencrypted external RAM, affecting all Mbed TLS
+users. Certificate checks would remain enabled. This needs the project's
+security-change approval; none has arrived. Do not infer approval from elapsed
+time, the overall goal, or unattended audio permission. No external-TLS image
+has been built/flashed. Prior publication/AP-access questions remain pending.
+Retire this diagnostic phase with its evidence saved; resume at that explicit
+memory-policy choice rather than repeating either failed experiment.
+
+The following worker-resource checkpoint is historical.
+
 CAP-2 checkpoint: the two permanent output workers and owned mailbox pass scoped
 review and host verification. Full canonical run.kcrncMVU passed 26 stages with
 only lib.rs module-order formatting failing; after that formatting correction,
