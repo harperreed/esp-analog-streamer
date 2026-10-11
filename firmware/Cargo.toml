@@ -72,3 +72,8 @@ remote_component = { name = "espressif/esp_websocket_client", version = "1.8.0" 
 [[package.metadata.esp-idf-sys.extra_components]]
 bindings_header = "bindings/tcp-retention.h"
 bindings_module = "tcp_retention"
+
+# Generate the pinned heap trace ABI; only the isolated diagnostic example calls it.
+[[package.metadata.esp-idf-sys.extra_components]]
+bindings_header = "bindings/diagnostics.h"
+bindings_module = "diagnostics"

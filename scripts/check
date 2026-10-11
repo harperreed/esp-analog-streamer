@@ -149,9 +149,9 @@ check_main() {
   if [ -d firmware ]; then
     printf "firmware\tyes\n" >> "$LOG_DIR/applicability.tsv" || return 1
     stage firmware-fmt rustfmt --edition 2021 --check firmware/build.rs firmware/src/*.rs || return 1
-    stage firmware-build bash -c 'cd firmware && { [ -f "$HOME/export-esp.sh" ] && . "$HOME/export-esp.sh"; true; } && cargo +esp build --release' || return 1
+    stage firmware-build bash -c 'cd firmware && { [ -f "$HOME/export-esp.sh" ] && . "$HOME/export-esp.sh"; true; } && cargo +esp build --release --message-format=json-render-diagnostics' || return 1
     stage i2s-iram-tests scripts/test-i2s-iram || return 1
-    stage i2s-iram scripts/check-i2s-iram || return 1
+    stage i2s-iram scripts/check-i2s-iram --cargo-messages "$LOG_DIR/firmware-build.log" || return 1
     # cargo's summary line names our crates when they produce warnings
     stage firmware-warnings firmware_warnings "$LOG_DIR/firmware-build.log" || return 1
   else

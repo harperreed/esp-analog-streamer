@@ -4,6 +4,14 @@
 mod mp3_iram;
 
 fn main() {
+    // Disabled SDK options are still valid names in the isolated diagnostic example.
+    for name in [
+        "esp_idf_heap_tracing_standalone",
+        "esp_idf_esp_coredump_enable_to_uart",
+        "esp_idf_esp_coredump_capture_dram",
+    ] {
+        println!("cargo:rustc-check-cfg=cfg({name})");
+    }
     if let Some(cfg) = embuild::espidf::sysenv::cfg_args() {
         cfg.output();
     }

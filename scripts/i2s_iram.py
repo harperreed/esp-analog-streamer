@@ -2,6 +2,7 @@
 # ABOUTME: Checks the pinned capture path without treating symbol placement as hardware proof.
 
 import argparse
+import json
 import re
 import subprocess
 import sys
@@ -52,14 +53,48 @@ def validate(config, table):
     return symbols
 
 
+def config_from_cargo(messages, elf):
+    """Select the SDK output named by this successful normal firmware build."""
+    records = []
+    for line in messages.splitlines():
+        if line.lstrip().startswith('{'):
+            record = json.loads(line)
+            if not isinstance(record, dict):
+                raise ValueError("Cargo message must be an object")
+            records.append(record)
+    finished = [record for record in records if record.get('reason') == 'build-finished']
+    if len(finished) != 1 or finished[0].get('success') is not True or records[-1] != finished[0]:
+        raise ValueError("Cargo receipt requires one final successful build-finished message")
+    outputs = [record.get('out_dir') for record in records
+               if record.get('reason') == 'build-script-executed'
+               and record.get('package_id', '').rsplit('#', 1)[-1].split('@', 1)[0] == 'esp-idf-sys']
+    if len(outputs) != 1 or not isinstance(outputs[0], str):
+        raise ValueError("Cargo receipt requires exactly one esp-idf-sys output directory")
+    artifacts = [record for record in records if record.get('reason') == 'compiler-artifact'
+                 and record.get('target', {}).get('name') == 'esp-shazam'
+                 and record.get('target', {}).get('kind') == ['bin']]
+    if len(artifacts) != 1 or not isinstance(artifacts[0].get('executable'), str):
+        raise ValueError("Cargo receipt requires one normal esp-shazam executable")
+    if Path(artifacts[0]['executable']).resolve() != elf.resolve():
+        raise ValueError("Cargo executable receipt does not match --elf")
+    config = Path(outputs[0]) / 'sdkconfig'
+    if not config.is_file():
+        raise ValueError("Cargo-selected generated sdkconfig is missing")
+    return config
+
+
 def main():
     parser = argparse.ArgumentParser(description="Check generated sdkconfig and linked elf for pinned ESP32 I2S IRAM safety.")
-    parser.add_argument("--sdkconfig", type=Path, help="effective generated sdkconfig; auto-discovered only if unambiguous")
+    config_input = parser.add_mutually_exclusive_group()
+    config_input.add_argument("--sdkconfig", type=Path, help="effective generated sdkconfig; auto-discovered only if unambiguous")
+    config_input.add_argument("--cargo-messages", type=Path, help="successful Cargo JSON build log naming the actual SDK output and normal ELF")
     parser.add_argument("--elf", type=Path, default=Path("firmware/target/xtensa-esp32-espidf/release/esp-shazam"))
     parser.add_argument("--objdump", type=Path, help="pinned Xtensa objdump executable")
     parser.add_argument("--symbol-table", type=Path, help="saved objdump -t output for regression/audit replay")
     args = parser.parse_args()
     try:
+        if args.cargo_messages is not None:
+            args.sdkconfig = config_from_cargo(args.cargo_messages.read_text(), args.elf)
         if args.sdkconfig is None:
             configs = list(Path("firmware/target/xtensa-esp32-espidf/release/build").glob("esp-idf-sys-*/out/sdkconfig"))
             if len(configs) != 1:

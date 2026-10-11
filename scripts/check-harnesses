@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# ABOUTME: Checks the real hardware harness UART readers and internal-fragmentation parser on the host.
+# ABOUTME: Checks hardware harness parsing, private crash capture and bounded cleanup on the host.
 # ABOUTME: Uses temporary files and imported functions; never contacts or resets a board.
 set -euo pipefail
 case "${1:-}" in
@@ -14,4 +14,5 @@ uv run --quiet --project "$repo" --locked python3 scripts/test_harness_parsers.p
 uv run --quiet --project "$repo" --locked python3 -m unittest discover -s scripts -p test_encoder_probe_check.py
 uv run --quiet --project "$repo" --locked python3 -m unittest discover -s scripts -p test_noise_fixture.py
 uv run --quiet --project "$repo" --locked python3 -m unittest discover -s scripts -p test_check_evidence.py
+uv run --quiet --project "$repo" --locked python3 -m unittest discover -s scripts -p test_core_dump.py
 exec uv run --quiet --project "$repo" --locked python3 -m unittest discover -s scripts -p test_harness_modules.py

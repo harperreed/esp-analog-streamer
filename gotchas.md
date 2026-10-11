@@ -1,5 +1,12 @@
 # Gotchas
 
+ESP32 UART core decoding needs debug types in the exact archived ELF. A stripped
+release ELF made the pinned decoder wait repeatedly on failed GDB TCB_t queries.
+Use command-local CARGO_PROFILE_RELEASE_DEBUG=2 for diagnostic and baseline builds,
+preflight the ELF type lookup, and capture a fresh matching dump. Raising the
+timeout does not repair missing types. Retain normal and diagnostic build caches;
+checks must identify the configuration used by Cargo, not assume only one exists.
+
 The October 10 matched MP3 link test restored live encoder keep-up by placing
 Shine C instructions/literals in IRAM: flash control ran at 0.725x with raw loss;
 IRAM kept up with zero/one/two listeners and no added capture faults. The normal
