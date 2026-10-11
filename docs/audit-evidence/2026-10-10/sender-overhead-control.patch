@@ -1,9 +1,6 @@
 --- original/stream_http.rs
 +++ no-counter/stream_http.rs
-@@ -5,13 +5,6 @@
- use std::net::TcpStream;
- use std::os::fd::AsRawFd;
- use std::time::{Duration, Instant};
+@@ -8,7 +7,0 @@
 -
 -#[cfg(not(target_os = "espidf"))]
 -const POLL_INVALID: libc::c_short = libc::POLLNVAL;
@@ -11,66 +8,34 @@
 -// libc 0.2.190's ESP-IDF bindings omit it. The generated IDF bindings agree.
 -#[cfg(target_os = "espidf")]
 -const POLL_INVALID: libc::c_short = 1 << 7;
- 
- /// Reads a socket with one deadline for all its reads, so a client that sends a request head a
- /// byte at a time can't hold the server past it. A plain read timeout restarts with every read.
-@@ -69,10 +62,8 @@
-     pub ready_then_would_block: u32,
- }
- 
+@@ -72,4 +65,2 @@
 -// Include the pending readiness timestamp in the per-writer diagnostic budget.
 -const _: () = assert!(
 -    std::mem::size_of::<WriterDiagnostics>() + std::mem::size_of::<Option<Instant>>() <= 160
 -);
 +// THROWAWAY no-new-counter control: the diagnostics API returns no data.
 +const _: () = assert!(std::mem::size_of::<WriterDiagnostics>() <= 160);
- 
- /// Writes a response with one elapsed-time budget for all sends and writable waits.
- /// The caller retains ownership and must exclusively use the socket, including clones,
-@@ -87,27 +78,20 @@
- /// socket timeouts can restart inside a blocking send when the peer makes progress.
- pub struct DeadlineWriter<'a> {
-     sock: &'a TcpStream,
+@@ -90,2 +80,0 @@
 -    diagnostics: WriterDiagnostics,
 -    ready_at: Option<Instant>,
- }
- 
- impl<'a> DeadlineWriter<'a> {
-     pub fn new(sock: &'a TcpStream) -> Self {
+@@ -96,5 +85 @@
 -        Self {
 -            sock,
 -            diagnostics: WriterDiagnostics::default(),
 -            ready_at: None,
 -        }
 +        Self { sock }
-     }
- 
-     pub fn diagnostics(&self) -> WriterDiagnostics {
+@@ -104 +89 @@
 -        self.diagnostics
 +        WriterDiagnostics::default()
-     }
- 
-     /// Starts a fresh payload interval after the media header succeeds.
-     pub fn reset_diagnostics(&mut self) {
+@@ -109,2 +94 @@
 -        self.diagnostics = WriterDiagnostics::default();
 -        self.ready_at = None;
 +        // THROWAWAY no-new-counter control: diagnostics contain no data.
-     }
- 
-     /// Writes all of `buf` before `deadline`, restoring the socket's original flags afterward.
-@@ -139,8 +123,6 @@
-             let buf = &bytes[offset..];
-             // SAFETY: the borrowed socket stays open, and buf is readable for its full length.
-             // O_NONBLOCK prevents waiting for buffer space; MSG_NOSIGNAL suppresses SIGPIPE.
+@@ -142,2 +125,0 @@
 -            let after_ready = self.ready_at.take();
 -            let started = Instant::now();
-             let sent = unsafe {
-                 libc::send(
-                     self.sock.as_raw_fd(),
-@@ -151,41 +133,6 @@
-             };
-             // Capture errno before clock reads, which may themselves call platform APIs.
-             let error = (sent < 0).then(io::Error::last_os_error);
+@@ -154,35 +135,0 @@
 -            let elapsed = started.elapsed().as_micros() as u64;
 -            let metrics = &mut self.diagnostics;
 -            if let Some(ready_at) = after_ready {
@@ -106,16 +71,9 @@
 -                    _ => metrics.send_errors = metrics.send_errors.saturating_add(1),
 -                },
 -            }
-             progress.sent(match error {
-                 Some(error) => Err(error),
-                 None => Ok(sent as usize),
-@@ -200,38 +147,15 @@
-             revents: 0,
-         };
-         // SAFETY: fd is one initialized pollfd, and the borrowed socket remains open.
+@@ -203 +149,0 @@
 -        let started = Instant::now();
-         let ready = unsafe { libc::poll(&mut fd, 1, timeout) };
-         let error = (ready < 0).then(io::Error::last_os_error);
+@@ -206,9 +151,0 @@
 -        let finished = Instant::now();
 -        let elapsed = finished.duration_since(started).as_micros() as u64;
 -        let metrics = &mut self.diagnostics;
@@ -125,26 +83,19 @@
 -        if elapsed > 10_000 {
 -            metrics.poll_over_10ms = metrics.poll_over_10ms.saturating_add(1);
 -        }
-         if ready > 0 {
+@@ -216,6 +152,0 @@
 -            if fd.revents & (libc::POLLERR | libc::POLLHUP | POLL_INVALID) != 0 {
 -                metrics.poll_error_ready = metrics.poll_error_ready.saturating_add(1);
 -            } else if fd.revents & libc::POLLOUT != 0 {
 -                metrics.poll_ready = metrics.poll_ready.saturating_add(1);
 -                self.ready_at = Some(finished);
 -            }
-             // Retry send to report a closed peer or socket error through its normal errno.
-             return Ok(true);
-         }
-         if ready < 0 {
-             let error = error.expect("negative poll has errno");
+@@ -227,5 +157,0 @@
 -            if error.kind() != io::ErrorKind::Interrupted {
 -                metrics.poll_errors = metrics.poll_errors.saturating_add(1);
 -                return Err(error);
 -            }
 -            metrics.poll_interrupted = metrics.poll_interrupted.saturating_add(1);
-             return Err(error);
+@@ -233,2 +158,0 @@
 -        } else {
 -            metrics.poll_timeouts = metrics.poll_timeouts.saturating_add(1);
-         }
-         Ok(false)
-     }
