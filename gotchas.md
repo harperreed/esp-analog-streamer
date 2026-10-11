@@ -1015,3 +1015,14 @@ bytes. Rust's last borrow does not drop the owning tree: getInfo retained about
 4437-byte TLS allocations still failed with a 3712-byte largest internal block.
 Do not equate total free heap, native listener admission, or this partial fix
 with working recovery. Keep bounded verified fixes separate from later probes.
+
+Sonos can retain the original stopped radio URI while a new native queue is
+unpublished, then expose the queue before its current track changes. Startup
+observation may wait on those recorded states within a deadline, but neither
+grants ownership. Require the exact published track and fresh coordinator before
+cleanup. Native control passes with 2048-byte TLS output records; a real 14027-byte
+Shazam request also passes, but neither trial proves concurrent-load recovery.
+
+Do not combine an interactive serial monitor with timeout's separate process
+group: terminal reads can suspend it and leave UART owned. Use the supported
+noninteractive monitor and verify process exit before opening the port again.

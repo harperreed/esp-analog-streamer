@@ -27,6 +27,9 @@ CONFIG_I2S_ISR_IRAM_SAFE=y
 # Retain certificate/config data so connection setup and reconnect keep the same trust policy.
 CONFIG_MBEDTLS_INTERNAL_MEM_ALLOC=y
 CONFIG_MBEDTLS_DYNAMIC_BUFFER=y
+# Keep dynamic transmit allocations below the measured 3712-byte internal block.
+# ESP-TLS splits larger HTTPS writes into records; receive capacity stays unchanged.
+CONFIG_MBEDTLS_SSL_OUT_CONTENT_LEN=2048
 # CONFIG_MBEDTLS_DYNAMIC_FREE_CONFIG_DATA is not set
 # CONFIG_MBEDTLS_DYNAMIC_FREE_CA_CERT is not set
 # The fixed Audio Kit requires mapped PSRAM for the capture and encoded-frame rings.

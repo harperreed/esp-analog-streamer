@@ -32,11 +32,19 @@ verdicts remain failed; this fix closes no Kata. See
 
 Doctor Biz again flagged the unchanged count. Finish and commit the six-line
 lifetime correction separately; do not keep it attached to an expanding probe.
-The temporary allocator instrumentation is removed. Further TLS work must target
-the measured contiguous-block requirement, with native control and Shazam HTTPS
-compatibility checks before changing global TLS configuration. Native playback
-alone will not close pqqq: protocol ownership proof and recovery acceptance still
-remain. Do not repeat the completed baseline or allocation observations.
+It is committed as 8b2c878 and the temporary allocator instrumentation is removed.
+The subsequent 2048-byte TLS transmit-record candidate passes native Playing for
+15 seconds, owned Stop and restoration, plus a real 14027-byte Shazam HTTPS upload
+and parsed Miss. Receive size, internal allocation and trust settings are unchanged.
+See `docs/audit-evidence/2026-10-11/tls-transmit-records.md`. Two failed startup
+observation attempts remain failed; their queue-publication assumptions were
+corrected against recorded device responses. The diagnostic example is removed.
+
+Native playback alone does not close pqqq: protocol ownership proof and recovery
+acceptance still remain. Do not repeat the completed baseline, allocation or
+HTTPS compatibility observations without a relevant change. The next recovery
+action must establish the actual session-rejoin contract and stale-session
+behavior; do not guess commands or blindly call play_current on reconnect.
 
 Independent work selection found no immediate software-only closure among e8hd,
 ed4k, 97bk and z5fs. ed4k needs a verified physical cold-start method and measured
