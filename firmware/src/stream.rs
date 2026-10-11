@@ -142,15 +142,14 @@ const MAX_LISTENERS: usize = 2;
 // Both compressed codecs encode the capture sample rate.
 const _: () = assert!(codec::SAMPLE_RATE_HZ == CAPTURE_RATE_HZ);
 /// A client gets this long to send its whole request head, which may be at most `MAX_HEAD_BYTES`,
-/// and to take a refusal. The accept thread answers one connection at a time, so this is how long
-/// one client can hold up the next.
+/// and a separate allowance to take a refusal. Each admission worker handles one head at a time.
 const HEAD_TIMEOUT: Duration = Duration::from_secs(2);
 const MAX_HEAD_BYTES: u64 = 4096;
 /// The server threads share core 1 with the encoder. Their priority, 7, is
 /// above the recognizer's (5), so a fingerprint can't starve a listener, and below the audio thread
 /// (10), lwIP (18) and Wi-Fi (23).
 const ACCEPT_THREAD: ThreadSpec = ThreadSpec {
-    name: c"stream",
+    name: c"stream-in-1",
     core: Core::Core1,
     priority: 7,
     stack_bytes: 4 * 1024,
@@ -165,10 +164,10 @@ const LISTENER_THREAD: ThreadSpec = ThreadSpec {
     ..ACCEPT_THREAD
 };
 
-/// Listens on port 8000 on a thread of its own, and advertises the stream over mDNS as
+/// Listens on port 8000 with two admission workers, and advertises the stream over mDNS as
 /// "esp-shazam stream", next to the page's "esp-shazam".
 pub fn start(ring: SharedStreamRing, mdns: &mut EspMdns) -> Result<()> {
-    let listener = TcpListener::bind(("0.0.0.0", PORT))?;
+    let listener = Arc::new(Mutex::new(TcpListener::bind(("0.0.0.0", PORT))?));
     let (runtime, worker) = Runtime::new(OutputFormat::Flac, CONFIG.shazam_enabled)?;
     RUNTIME
         .set(runtime.clone())
@@ -179,7 +178,29 @@ pub fn start(ring: SharedStreamRing, mdns: &mut EspMdns) -> Result<()> {
     let (encoder_raw, encoder_runtime) = (ring.clone(), runtime.clone());
     ENCODER_THREAD
         .spawn(move || encode(encoder_raw, encoder_runtime, encoder_listeners, worker))?;
-    ACCEPT_THREAD.spawn(move || accept(listener, ring, runtime, listeners))?;
+    let gate = Arc::new(crate::stream_admission::StartupGate::new());
+    for name in [c"stream-in-1", c"stream-in-2"] {
+        let (listener, ring, runtime, listeners, worker_gate) = (
+            listener.clone(),
+            ring.clone(),
+            runtime.clone(),
+            listeners.clone(),
+            gate.clone(),
+        );
+        if let Err(error) = (ThreadSpec {
+            name,
+            ..ACCEPT_THREAD
+        })
+        .spawn(move || {
+            if worker_gate.wait() {
+                accept(listener, ring, runtime, listeners);
+            }
+        }) {
+            gate.exit();
+            return Err(error);
+        }
+    }
+    gate.run();
     // The stream works without the advertisement, so a failure is only logged.
     if let Err(e) = mdns.add_service(
         Some("esp-shazam stream"),
@@ -195,12 +216,11 @@ pub fn start(ring: SharedStreamRing, mdns: &mut EspMdns) -> Result<()> {
 }
 
 fn accept(
-    listener: TcpListener,
+    listener: Arc<Mutex<TcpListener>>,
     ring: SharedStreamRing,
     runtime: Arc<Runtime>,
     listeners: Arc<AtomicUsize>,
 ) {
-    let listener = Mutex::new(listener);
     loop {
         match crate::stream_admission::accept_one(&listener) {
             Ok((sock, _)) => answer(sock, &ring, &runtime, &listeners),

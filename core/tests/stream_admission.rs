@@ -295,3 +295,200 @@ fn poisoned_listener_returns_io_error() {
         io::ErrorKind::Other
     );
 }
+
+// Publishes Exit on assertion unwind and wakes any accept already released by Run.
+// Host joins here prove finite fixture teardown, not ESP task joining.
+struct StartupWorkers<T> {
+    gate: Arc<stream_admission::StartupGate>,
+    workers: Vec<JoinHandle<T>>,
+    address: Option<SocketAddr>,
+}
+
+impl<T> StartupWorkers<T> {
+    fn new(address: Option<SocketAddr>) -> Self {
+        Self {
+            gate: Arc::new(stream_admission::StartupGate::new()),
+            workers: Vec::new(),
+            address,
+        }
+    }
+
+    fn join(&mut self) -> Vec<T> {
+        let results: Vec<_> = self.workers.drain(..).map(|worker| worker.join()).collect();
+        results.into_iter().map(Result::unwrap).collect()
+    }
+}
+
+impl<T> Drop for StartupWorkers<T> {
+    fn drop(&mut self) {
+        self.gate.exit();
+        if let Some(address) = self.address {
+            for _ in &self.workers {
+                let _ = TcpStream::connect_timeout(&address, HEAD);
+            }
+        }
+        for worker in self.workers.drain(..) {
+            let _ = worker.join();
+        }
+    }
+}
+
+#[test]
+fn startup_run_releases_two_pending_workers_before_acceptance() {
+    let listener = Arc::new(Mutex::new(TcpListener::bind("127.0.0.1:0").unwrap()));
+    let address = listener.lock().unwrap().local_addr().unwrap();
+    let mut fixture = StartupWorkers::new(Some(address));
+    let gate = fixture.gate.clone();
+    let (entered, entries) = mpsc::channel();
+    let (accepted, accepts) = mpsc::channel();
+    for _ in 0..2 {
+        let (listener, gate, entered, accepted) = (
+            listener.clone(),
+            gate.clone(),
+            entered.clone(),
+            accepted.clone(),
+        );
+        fixture.workers.push(thread::spawn(move || {
+            entered.send(()).unwrap();
+            if gate.wait() {
+                let (_socket, _) = accept_one(&listener).unwrap();
+                accepted.send(()).unwrap();
+            }
+        }));
+    }
+    for _ in 0..2 {
+        entries.recv_timeout(HEAD).unwrap();
+    }
+    let clients = [
+        TcpStream::connect(address).unwrap(),
+        TcpStream::connect(address).unwrap(),
+    ];
+    let premature = accepts.recv_timeout(Duration::from_millis(50));
+    gate.run();
+    // Even failed assertions must release and join the actual blocking workers.
+    fixture.join();
+    drop(clients);
+    assert!(matches!(premature, Err(mpsc::RecvTimeoutError::Timeout)));
+    for _ in 0..2 {
+        accepts.recv_timeout(HEAD).unwrap();
+    }
+    gate.exit();
+    assert!(gate.wait(), "the first published decision is final");
+}
+
+#[test]
+fn startup_exit_releases_all_pending_workers_and_is_final() {
+    let mut fixture = StartupWorkers::new(None);
+    let gate = fixture.gate.clone();
+    let (entered, entries) = mpsc::channel();
+    for _ in 0..2 {
+        let (gate, entered) = (gate.clone(), entered.clone());
+        fixture.workers.push(thread::spawn(move || {
+            entered.send(()).unwrap();
+            gate.wait()
+        }));
+    }
+    for _ in 0..2 {
+        entries.recv_timeout(HEAD).unwrap();
+    }
+    gate.exit();
+    let decisions = fixture.join();
+    assert_eq!(decisions, [false, false]);
+    gate.run();
+    assert!(!gate.wait(), "Exit cannot later become Run");
+}
+
+#[test]
+fn failed_second_launch_exits_first_worker_without_accepting() {
+    let listener = Arc::new(Mutex::new(TcpListener::bind("127.0.0.1:0").unwrap()));
+    let address = listener.lock().unwrap().local_addr().unwrap();
+    let mut fixture = StartupWorkers::new(Some(address));
+    let gate = fixture.gate.clone();
+    let (entered, entries) = mpsc::channel();
+    let (handled, handlers) = mpsc::channel();
+    let first = {
+        let (listener, gate) = (listener.clone(), gate.clone());
+        thread::Builder::new()
+            .spawn(move || {
+                entered.send(()).unwrap();
+                if gate.wait() {
+                    let _socket = accept_one(&listener).unwrap();
+                    handled.send(()).unwrap();
+                }
+            })
+            .unwrap()
+    };
+    fixture.workers.push(first);
+    entries.recv_timeout(HEAD).unwrap();
+    let client = TcpStream::connect(address).unwrap();
+    let second = {
+        let (listener, gate) = (listener.clone(), gate.clone());
+        thread::Builder::new()
+            .stack_size(usize::MAX)
+            .spawn(move || {
+                if gate.wait() {
+                    let _socket = accept_one(&listener).unwrap();
+                }
+            })
+    };
+    gate.exit();
+    fixture.join();
+    drop(client);
+    assert!(second.is_err());
+    assert!(handlers.try_recv().is_err());
+    assert_eq!(Arc::strong_count(&listener), 1);
+}
+
+#[test]
+fn failed_first_launch_releases_captured_listener() {
+    let listener = Arc::new(Mutex::new(TcpListener::bind("127.0.0.1:0").unwrap()));
+    let gate = Arc::new(stream_admission::StartupGate::new());
+    let spawned = {
+        let (listener, gate) = (listener.clone(), gate.clone());
+        thread::Builder::new()
+            .stack_size(usize::MAX)
+            .spawn(move || {
+                if gate.wait() {
+                    let _socket = accept_one(&listener).unwrap();
+                }
+            })
+    };
+    gate.exit();
+    assert!(spawned.is_err());
+    assert_eq!(Arc::strong_count(&listener), 1);
+    assert!(!gate.wait());
+}
+
+#[allow(dead_code)]
+#[path = "../../firmware/src/threads.rs"]
+mod threads;
+
+#[test]
+fn successful_launch_with_reset_error_runs_one_gated_worker() {
+    let gate = Arc::new(stream_admission::StartupGate::new());
+    let (handled, handlers) = mpsc::channel();
+    let worker_gate = gate.clone();
+    let spawned = thread::Builder::new().spawn(move || {
+        if worker_gate.wait() {
+            handled.send(()).unwrap();
+        }
+    });
+    let mut diagnostics = Vec::new();
+    let result = threads::finish_spawn(
+        spawned
+            .as_ref()
+            .map(|_| ())
+            .map_err(|error| error.to_string()),
+        Err("pthread reset failed".to_owned()),
+        |error| diagnostics.push(error),
+    );
+    if result.is_ok() {
+        gate.run();
+    } else {
+        gate.exit();
+    }
+    spawned.unwrap().join().unwrap();
+    assert!(result.is_ok());
+    assert_eq!(diagnostics, ["pthread reset failed"]);
+    assert_eq!(handlers.try_iter().count(), 1);
+}

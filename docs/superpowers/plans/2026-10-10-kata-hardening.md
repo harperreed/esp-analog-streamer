@@ -1,7 +1,7 @@
 # Finish the Kata hardening backlog
 
 Doctor Biz's active goal on October 10: finish all Kata work, then assess.
-Base c134069 on wip/kata-capture-protection. Compactions in this phase: 18; latest firmware implementation checkpoint is 23bd686 (bounded listener frame-state diagnostic; delivery still fails).
+Base c134069 on wip/kata-capture-protection. Compactions in this phase: 18; latest firmware work is gated concurrent admission (host and target build pass; actual device acceptance pending).
 Use GPT-6.1 Sol subagents with clean contexts. Parent owns review, integration,
 canonical checks, commits and every hardware action. Continue through batches;
 a phase checkpoint is not a reason to abandon the active goal.
@@ -807,3 +807,14 @@ Next selected work is independent concurrent admission 8s9m, accepted plan
 progress, not an implemented admission fix or target acceptance. Compaction
 count is 18; the parent retains the established landed-phase/root-replacement
 checkpoint obligation.
+
+## Concurrent admission implementation checkpoint
+
+Task 1 extraction landed as 3dfbc27 with the slow-first real-socket RED/GREEN.
+Task 2 now launches exactly two persistent gated workers, preserves admission
+and close ownership, and exits waiting workers if startup fails. Independent
+reviews pass without findings. All 39 targeted tests and all 27 canonical
+stages pass (`run.QSVJJTto`), including the actual firmware build and IRAM audit.
+No device was flashed for this change yet. Task 3 will check real requests and
+measure the additional worker; audio continuity and the Kata 8s9m acceptance
+remain open. The board remains stopped MP3/Medium on the existing candidate.

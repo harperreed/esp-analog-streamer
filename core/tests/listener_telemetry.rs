@@ -727,3 +727,70 @@ fn encoded_terminal_identity_survives_deferred_queue_export() {
         assert!(queue.take().is_none());
     }
 }
+
+#[test]
+fn actual_listener_launch_failure_closes_captured_resources() {
+    // This host owner exercises the existing close seam on closure destruction;
+    // ESP checked-close and ListenerConnection itself remain target acceptance work.
+    struct ClosingOwner {
+        resources: Option<ConnectionResources<TcpStream>>,
+        queue: Arc<Queue>,
+    }
+    impl Drop for ClosingOwner {
+        fn drop(&mut self) {
+            let closed = listener_telemetry::close_and_report(
+                self.resources.take().unwrap(),
+                &self.queue,
+                None,
+                || 30,
+                |socket| {
+                    socket.shutdown(std::net::Shutdown::Both)?;
+                    drop(socket);
+                    Ok::<_, std::io::Error>(Duration::ZERO)
+                },
+            );
+            assert!(closed.is_ok());
+        }
+    }
+
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let mut peer = TcpStream::connect(listener.local_addr().unwrap()).unwrap();
+    peer.set_read_timeout(Some(Duration::from_secs(1))).unwrap();
+    let (socket, _) = listener.accept().unwrap();
+    let slots = Arc::new(AtomicUsize::new(0));
+    let queue = Arc::new(Queue::new());
+    let (runtime, mut worker) = Runtime::new(OutputFormat::Flac, false).unwrap();
+    let (_, lease) = runtime.admit("GET /stream.flac HTTP/1.1");
+    let owner = ClosingOwner {
+        resources: Some(ConnectionResources::new(
+            socket,
+            Slot::take(&slots, 2).unwrap(),
+            lease,
+        )),
+        queue: queue.clone(),
+    };
+    let launched = std::thread::Builder::new()
+        .stack_size(usize::MAX)
+        .spawn(move || drop(owner));
+    assert!(launched.is_err());
+    assert_eq!(slots.load(Ordering::Acquire), 0);
+    assert_eq!(peer.read(&mut [0]).unwrap(), 0);
+    assert!(
+        queue.take().is_some(),
+        "close publishes after releasing resources"
+    );
+    assert!(
+        queue.take().is_none(),
+        "the captured owner closes exactly once"
+    );
+    let SwitchStart::Pending(pending) = runtime.begin_switch(
+        OutputFormat::Mp3,
+        false,
+        Arc::new(std::sync::Mutex::new(true)),
+        Duration::from_secs(1),
+    ) else {
+        panic!("switch must enqueue");
+    };
+    worker.service(&runtime);
+    assert!(matches!(pending.poll(), SwitchPoll::Finished(Ok(true))));
+}
