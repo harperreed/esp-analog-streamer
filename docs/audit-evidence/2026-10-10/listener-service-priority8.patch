@@ -2,11 +2,10 @@ diff --git a/firmware/src/stream.rs b/firmware/src/stream.rs
 index 7859916..5d3b397 100644
 --- a/firmware/src/stream.rs
 +++ b/firmware/src/stream.rs
-@@ -162,6 +162,7 @@ const ENCODER_THREAD: ThreadSpec = ThreadSpec {
+@@ -162,5 +162,6 @@ const ENCODER_THREAD: ThreadSpec = ThreadSpec {
  };
  const LISTENER_THREAD: ThreadSpec = ThreadSpec {
      name: c"stream-out",
 +    priority: 8,
      ..ACCEPT_THREAD
  };
- 
