@@ -22,15 +22,27 @@ Doctor Biz again flagged elapsed work without enough closures. Report actual
 closures separately from partial implementation and diagnostic evidence. Use
 each ticket's original acceptance; no new general soak or review gate is added.
 
-The immediate recovery blocker is native Sonos TLS allocation failure. Pinned
-SDK source traces the 4437-byte request to the dynamic TLS transmit buffer,
-including for a small WebSocket header, with internal-only allocation. Existing
-heap snapshots precede the failure and cannot identify the competing allocation.
-The next observation must capture allocation-time memory pressure and queued
-Sonos payloads, then drive a specific correction. Do not repeat the completed
-baseline/current comparison or change global TLS memory policy on speculation.
-Native playback alone will not close pqqq: ownership-safe recovery and its
-original real-device acceptance still remain.
+The allocation-time observation is now complete. A retained getInfo JSON tree
+kept about 14.5 KiB of internal RAM live across the next TLS write. Three explicit
+JSON drops release unused values before later writes. The diagnostic candidate
+reached a native FLAC request, but a later 4437-byte TLS allocation still failed
+with 11019 total free bytes and only a 3712-byte largest block. All three trial
+verdicts remain failed; this fix closes no Kata. See
+`docs/audit-evidence/2026-10-11/sonos-json-lifetimes.md`.
+
+Doctor Biz again flagged the unchanged count. Finish and commit the six-line
+lifetime correction separately; do not keep it attached to an expanding probe.
+The temporary allocator instrumentation is removed. Further TLS work must target
+the measured contiguous-block requirement, with native control and Shazam HTTPS
+compatibility checks before changing global TLS configuration. Native playback
+alone will not close pqqq: protocol ownership proof and recovery acceptance still
+remain. Do not repeat the completed baseline or allocation observations.
+
+Independent work selection found no immediate software-only closure among e8hd,
+ed4k, 97bk and z5fs. ed4k needs a verified physical cold-start method and measured
+comparison; hosted CI needs publication; dedicated HIL needs established lab
+access. Treat these as exact unmet requirements, not reasons to create more
+planning tickets or launch another general soak.
 
 ### Historical metrics checkpoint before 23310f6
 

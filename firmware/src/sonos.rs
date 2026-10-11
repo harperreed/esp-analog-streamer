@@ -1562,6 +1562,8 @@ mod device {
                     && info["groupId"].as_str() == Some(&group.group_id),
                 "Sonos identity/topology changed since discovery"
             );
+            // Identity is checked; release the parsed response before the next TLS write.
+            drop(info);
             self.request(
                 "playback:1",
                 "subscribe",
@@ -1631,6 +1633,8 @@ mod device {
                 .filter(|s| protocol::validate_id(s).is_ok())
                 .context("Sonos did not return a valid session")?
                 .to_owned();
+            // Later requests only need the owned session ID from this response.
+            drop(body);
             with_network(&self.network, lease, || ()).map_err(|error| anyhow!(error))?;
             self.session = Some(session.clone());
             self.policy
@@ -1856,6 +1860,8 @@ mod device {
                 scope,
             };
             let bytes = protocol::encode_command(&command, &body).map_err(protocol_error)?;
+            // Encoded bytes own the payload; release its parsed tree before TLS sends it.
+            drop(body);
             let sent = self.now();
             let pending = protocol::PendingCommand {
                 namespace,

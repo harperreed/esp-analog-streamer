@@ -1008,3 +1008,10 @@ An October 11 trial kept HTTP fresh while that owner had a 54-second acquisition
 gap. Copy the bounded listener registry after HTTP metadata/cache guards end,
 then record served time. Cached capture/encoder families still need independent
 freshness; a rendered historical graph is not a current-health assertion.
+
+Explicitly drop parsed Sonos JSON after copying needed identity or encoding wire
+bytes. Rust's last borrow does not drop the owning tree: getInfo retained about
+14.5 KiB across the next TLS send. Releasing it fixed that pressure, but later
+4437-byte TLS allocations still failed with a 3712-byte largest internal block.
+Do not equate total free heap, native listener admission, or this partial fix
+with working recovery. Keep bounded verified fixes separate from later probes.
