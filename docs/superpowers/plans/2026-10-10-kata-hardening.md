@@ -1,7 +1,7 @@
 # Finish the Kata hardening backlog
 
 Doctor Biz's active goal on October 10: finish all Kata work, then assess.
-Base c134069 on wip/kata-capture-protection. Compactions in this phase: 21.
+Base c134069 on wip/kata-capture-protection. Compactions in this phase: 22.
 Latest checkpoint: original-criteria review closed 8s9m, 21tp and 89g8.
 The wbz6 MP3 instruction-placement correction now passes matched hardware and
 all 27 canonical stages; its ordinary ELF equals the tested candidate exactly.
@@ -91,6 +91,36 @@ new hosted workflow uses separate read-only hosted jobs and placeholder firmware
 configuration. Hosted execution and dedicated HIL remain unverified, so 97bk
 stays open. No push, device flash, audio or network change occurred. The pending
 publication request names frozen 4b607fa, not later local commits.
+
+### October 11 work-in-progress limit
+
+Doctor Biz again corrected long work without reducing the count. It remains 18.
+The executable closure target is 7vhq: bounded Sonos listener reservation. Its
+independent policy review is complete; implementation, focused tests, canonical
+checks and the original real contention acceptance remain. Use one implementer
+and one scoped reviewer. Do not attach general transport diagnosis to this
+ticket or rerun the completed native baseline. After its bounded acceptance,
+close only if the original gates pass; otherwise record the exact failed gate.
+m31k awaits the existing publication decision, and pd6c awaits AP access facts;
+neither pending question justifies another local pilot or broad review.
+
+7vhq implementation now passes scoped source review and all 27 canonical stages
+in run.Mtobk1qk. Both actual contention trials remain FAILED; see
+`docs/audit-evidence/2026-10-11/sonos-capacity.md` and `.json`. WAV diagnostics
+both fell behind before reservation. The distinct FLAC workload kept the older
+diagnostic, reclaimed the newer and admitted the correct Sonos intent with two
+held slots, but listener thread creation failed with ENOMEM after TLS setup.
+This is the exact remaining acceptance blocker. Do not repeat either unchanged
+trial or add a general soak. Reconnect/cancel/start-failure device cases were
+not reached. The next change must account for the listener's execution resources
+before native setup; admission count alone does not ensure stack availability.
+
+The failed FLAC cleanup retained three errors; a separate same-image reboot
+restored stopped MP3/Medium, autoplay/recognition off and no active player.
+Candidate ad2d30b4610a8e8bb05088856cbb30801757364dec9659fa4c12442117756147
+remains installed. No source/UART process remains. Open count stays 18. Commit
+this bounded implementation/evidence phase without claiming 7vhq complete; no
+push/merge. Resume only at the specific listener-memory requirement.
 
 ### Historical metrics checkpoint before 23310f6
 

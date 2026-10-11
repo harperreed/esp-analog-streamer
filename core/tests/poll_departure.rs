@@ -8,7 +8,6 @@ use socket2::SockRef;
 use std::io::{self, Read};
 use std::net::{Shutdown, TcpListener, TcpStream};
 use std::os::fd::AsRawFd;
-use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{mpsc, Arc};
 use std::thread;
 use std::time::{Duration, Instant};
@@ -90,7 +89,7 @@ fn pressured_reset_bounds_error_ready_retry_and_releases_slot_after_socket_drop(
         let (server, mut client) = pair();
         server.set_nonblocking(nonblocking).unwrap();
         let original = flags(&server);
-        let slots = Arc::new(AtomicUsize::new(0));
+        let slots = Arc::new(esp_shazam_core::stream_wait::Capacity::default());
         let slot = Slot::take(&slots, 1).unwrap();
         let (pressured_tx, pressured_rx) = mpsc::channel();
         let (finished_tx, finished_rx) = mpsc::channel();
@@ -120,7 +119,7 @@ fn pressured_reset_bounds_error_ready_retry_and_releases_slot_after_socket_drop(
             finished_tx.send((error, elapsed, metrics)).unwrap();
         });
         let accepted = pressured_rx.recv_timeout(BOUND).unwrap();
-        assert_eq!(slots.load(Ordering::Acquire), 1);
+        assert_eq!(slots.held(), 1);
         assert!(Slot::take(&slots, 1).is_none());
         // Check a real received prefix, without claiming all accepted bytes reached the peer.
         let mut prefix = [0; 1024];
@@ -148,7 +147,7 @@ fn pressured_reset_bounds_error_ready_retry_and_releases_slot_after_socket_drop(
         );
         assert_eq!(metrics.ready_then_would_block, 0, "{metrics:?}");
         assert_eq!(metrics.poll_errors, 0);
-        assert_eq!(slots.load(Ordering::Acquire), 0);
+        assert_eq!(slots.held(), 0);
         assert!(Slot::take(&slots, 1).is_some());
         eprintln!("pressured reset nonblocking={nonblocking}: {error:?}; {metrics:?}");
     }

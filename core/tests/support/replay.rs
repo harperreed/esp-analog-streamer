@@ -14,7 +14,7 @@ use std::{
     io,
     path::Path,
     sync::{
-        atomic::{AtomicU64, AtomicUsize, Ordering},
+        atomic::{AtomicU64, Ordering},
         Arc,
     },
     time::Duration,
@@ -256,7 +256,7 @@ pub fn run(fixture: &Fixture) -> Replay {
     let mut pump = EncoderPump::new();
     let mut pump_wake = Duration::ZERO;
     let mut now = || Duration::from_micros(clock.load(Ordering::Acquire));
-    let slots = Arc::new(AtomicUsize::new(0));
+    let slots = Arc::new(esp_shazam_core::stream_wait::Capacity::default());
     let mut actors = BTreeMap::<usize, Actor>::new();
     let mut publications = Vec::<Publication>::new();
     let mut input = Vec::<i32>::new();
@@ -690,7 +690,7 @@ pub fn run(fixture: &Fixture) -> Replay {
             }
         }
     }
-    let active_slots = slots.load(Ordering::Acquire);
+    let active_slots = slots.held();
     Replay {
         trace,
         listeners: actors.into_iter().map(|(id, a)| (id, a.receipt)).collect(),

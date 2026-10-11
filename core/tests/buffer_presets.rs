@@ -571,14 +571,11 @@ fn rst_during_fill_releases_listener_slot_without_sending_200() {
     };
     use std::{
         io::{Read, Write},
-        sync::{
-            atomic::{AtomicUsize, Ordering},
-            mpsc, Arc, Mutex,
-        },
+        sync::{mpsc, Arc, Mutex},
         time::{Duration, Instant},
     };
     let ring = Arc::new(Mutex::new(FlacRing::try_new(4, 8).unwrap()));
-    let slots = Arc::new(AtomicUsize::new(0));
+    let slots = Arc::new(esp_shazam_core::stream_wait::Capacity::default());
     let slot = Slot::take(&slots, 2).unwrap();
     let (server, mut client) = pair();
     let (begun, ready) = mpsc::channel();
@@ -612,7 +609,7 @@ fn rst_during_fill_releases_listener_slot_without_sending_200() {
     drop(client);
     assert_eq!(worker.join().unwrap(), Err(BufferWaitError::Disconnected));
     assert!(cancelled.elapsed() < Duration::from_millis(150));
-    assert_eq!(slots.load(Ordering::Acquire), 0);
+    assert_eq!(slots.held(), 0);
 }
 
 fn route(line: &str) -> esp_shazam_core::stream_http::Route {

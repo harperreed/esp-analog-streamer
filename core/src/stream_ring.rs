@@ -736,7 +736,10 @@ mod tests {
         let limit = Duration::from_millis(20);
         let interval = Duration::from_millis(1);
         let started = Instant::now();
-        assert_eq!(cursor_before(&ring, started + limit, interval), None);
+        assert_eq!(
+            cursor_before(&ring, started + limit, interval, || false),
+            None
+        );
         assert!(started.elapsed() >= limit);
         let before = cursor;
         assert_eq!(
@@ -762,6 +765,6 @@ mod tests {
         );
         assert_eq!(out, [1, -1, 2, -2]);
         writer.join().unwrap();
-        assert!(cursor_before(&ring, Instant::now() + limit, interval).is_some());
+        assert!(cursor_before(&ring, Instant::now() + limit, interval, || false).is_some());
     }
 }

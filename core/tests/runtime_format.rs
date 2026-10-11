@@ -50,6 +50,7 @@ fn queue_freezes_format_with_buffer() {
             Some(BufferPreset::High),
             format,
             0,
+            41,
         )
         .unwrap();
         let body: serde_json::Value = serde_json::from_str(
@@ -58,7 +59,7 @@ fn queue_freezes_format_with_buffer() {
         .unwrap();
         assert_eq!(
             body["items"][0]["track"]["mediaUrl"],
-            format!("http://192.0.2.1:8000/stream.{path}?buffer=high&network_generation=0")
+            format!("http://192.0.2.1:8000/stream.{path}?buffer=high&network_generation=0&sonos_intent=41")
         );
         assert_eq!(body["items"][0]["track"]["contentType"], mime);
     }

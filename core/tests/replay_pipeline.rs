@@ -40,20 +40,17 @@ fn absent_capture_retains_partial_input_and_generation_reset_discards_it() {
 #[test]
 fn close_failure_retains_slot_and_epoch_lease_until_actor_is_released() {
     use esp_shazam_core::stream_wait::Slot;
-    use std::sync::{
-        atomic::{AtomicUsize, Ordering},
-        Arc,
-    };
+    use std::sync::Arc;
     use stream_pipeline::ConnectionResources;
     let (runtime, mut worker) = Runtime::new(OutputFormat::Flac, false).unwrap();
     let (_, lease) = runtime.admit("GET /stream.flac HTTP/1.1");
-    let slots = Arc::new(AtomicUsize::new(0));
+    let slots = Arc::new(esp_shazam_core::stream_wait::Capacity::default());
     let resources = ConnectionResources::new((), Slot::take(&slots, 1).unwrap(), lease);
     let retained = resources
         .close(|_| Err::<(), _>("uncertain close"))
         .err()
         .unwrap();
-    assert_eq!(slots.load(Ordering::Acquire), 1);
+    assert_eq!(slots.held(), 1);
     let request = runtime.begin_switch(
         OutputFormat::Mp3,
         false,
@@ -72,7 +69,7 @@ fn close_failure_retains_slot_and_epoch_lease_until_actor_is_released() {
         stream_runtime::SwitchPoll::Finished(Ok(false))
     ));
     drop(retained);
-    assert_eq!(slots.load(Ordering::Acquire), 0);
+    assert_eq!(slots.held(), 0);
     let request = runtime.begin_switch(
         OutputFormat::Mp3,
         false,
@@ -177,21 +174,18 @@ fn retirement_during_fresh_wait_is_retired_and_empty_expiry_is_stalled() {
 #[test]
 fn close_callback_runs_once_before_releasing_slot_and_lease() {
     use esp_shazam_core::stream_wait::Slot;
-    use std::sync::{
-        atomic::{AtomicUsize, Ordering},
-        Arc, Mutex,
-    };
+    use std::sync::{Arc, Mutex};
     use stream_pipeline::ConnectionResources;
     let (runtime, mut worker) = Runtime::new(OutputFormat::Flac, false).unwrap();
     let (_, lease) = runtime.admit("GET /stream.flac HTTP/1.1");
-    let slots = Arc::new(AtomicUsize::new(0));
+    let slots = Arc::new(esp_shazam_core::stream_wait::Capacity::default());
     let resources = ConnectionResources::new((), Slot::take(&slots, 1).unwrap(), lease);
     let mut calls = 0;
     assert_eq!(
         resources
             .close(|_| {
                 calls += 1;
-                assert_eq!(slots.load(Ordering::Acquire), 1);
+                assert_eq!(slots.held(), 1);
                 let request = runtime.begin_switch(
                     OutputFormat::Mp3,
                     false,
@@ -206,7 +200,7 @@ fn close_callback_runs_once_before_releasing_slot_and_lease() {
         Some((13, 1))
     );
     assert_eq!(calls, 1);
-    assert_eq!(slots.load(Ordering::Acquire), 0);
+    assert_eq!(slots.held(), 0);
     let request = runtime.begin_switch(
         OutputFormat::Mp3,
         false,
@@ -343,25 +337,22 @@ fn payload_counters_advance_only_after_a_whole_successful_write() {
 #[test]
 fn close_reports_slots_held_after_actual_close_before_releasing_its_slot() {
     use esp_shazam_core::stream_wait::Slot;
-    use std::sync::{
-        atomic::{AtomicUsize, Ordering},
-        Arc,
-    };
-    let slots = Arc::new(AtomicUsize::new(0));
+    use std::sync::Arc;
+    let slots = Arc::new(esp_shazam_core::stream_wait::Capacity::default());
     let own = Slot::take(&slots, 2).unwrap();
     let other = Slot::take(&slots, 2).unwrap();
     let resources = stream_pipeline::ConnectionResources::new((), own, None);
     let result = resources
         .close(|_| {
-            assert_eq!(slots.load(Ordering::Acquire), 2);
+            assert_eq!(slots.held(), 2);
             // Another close completes while this close is in progress.
             drop(other);
-            assert_eq!(slots.load(Ordering::Acquire), 1);
+            assert_eq!(slots.held(), 1);
             Ok::<_, ()>(37)
         })
         .ok();
     assert_eq!(result, Some((37, 1)));
-    assert_eq!(slots.load(Ordering::Acquire), 0);
+    assert_eq!(slots.held(), 0);
 }
 
 #[test]

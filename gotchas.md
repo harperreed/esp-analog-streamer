@@ -26,6 +26,11 @@ Doctor Biz repeated this concern during 45k9. Record a close-or-block decision
 after the bounded acceptance run; do not turn each failed gate into another
 unbounded investigation under the same ticket. Count closures separately from
 code changes and passing checks.
+Doctor Biz repeated this after the TLS fixes and CI split left 18 open. Keep
+one executable closure target in progress; finish its original acceptance or
+record the exact unmet gate before choosing another. A review, diagnosis, or
+supporting commit does not count as a closure. Do not answer the same correction
+with another broad audit or a fresh promise unaccompanied by implementation.
 Do not give every agent a branch of the same hardware investigation. Keep an
 independent implementation moving when its acceptance does not depend on that
 failure. Report remaining acceptance gaps explicitly; another diagnostic run
@@ -1030,6 +1035,13 @@ Shazam request also passes, but neither trial proves concurrent-load recovery.
 Do not combine an interactive serial monitor with timeout's separate process
 group: terminal reads can suspend it and leave UART owned. Use the supported
 noninteractive monitor and verify process exit before opening the port again.
+
+Sonos capacity needs execution resources as well as a slot. The October 11 FLAC
+contention trial reclaimed the newer diagnostic and kept the older, but TLS left
+too little contiguous internal memory for a new 4 KiB listener thread. Admission
+then closed safely with ENOMEM and native playback failed. Do not claim recovery
+from a joined log alone: require actual payload. WAV clients in the paired trial
+fell behind before reservation, so their later checked closes do not prove eviction.
 
 Pinned ESP-IDF 5.5.5 lwIP Kconfig mentions a TCP_SNDBUF socket option that its
 actual socket headers and implementation do not expose. Verify declarations and

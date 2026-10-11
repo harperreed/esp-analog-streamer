@@ -141,6 +141,18 @@ fn with_network<T>(
     Ok(result)
 }
 
+/// A sent create request must collect its bounded reply before reporting network loss.
+fn with_create_send<T>(
+    network: &Network,
+    lease: Lease,
+    operation: impl FnOnce() -> T,
+) -> Result<T, &'static str> {
+    if !network.is_current(lease) {
+        return Err("Sonos network changed");
+    }
+    Ok(operation())
+}
+
 /// Stop relinquishes local ownership even when the old network cannot confirm suspension.
 fn stop_completion<E>(
     network: &Network,
@@ -223,6 +235,7 @@ fn queue_for_play(
     host: std::net::Ipv4Addr,
     status: &Snapshot,
     network_generation: u32,
+    sonos_intent: u64,
 ) -> Result<QueueSnapshot, sonos_queue::Error> {
     QueueSnapshot::new(
         item,
@@ -232,6 +245,7 @@ fn queue_for_play(
             .then_some(status.config.buffer_preset),
         status.active_format,
         network_generation,
+        sonos_intent,
     )
 }
 
@@ -458,19 +472,47 @@ fn decode_config(saved: Option<&str>) -> (SonosConfig, Option<String>) {
 
 #[derive(Clone)]
 struct Queue {
-    snapshot: std::sync::Arc<std::sync::Mutex<Option<QueueSnapshot>>>,
+    snapshot: std::sync::Arc<std::sync::Mutex<QueueState>>,
+    capacity: std::sync::Arc<esp_shazam_core::stream_wait::Capacity>,
     network: Network,
+}
+
+#[derive(Default)]
+struct QueueState {
+    snapshot: Option<QueueSnapshot>,
+    intent: Option<u64>,
+}
+
+// Clears only the Play that installed this reservation on any failed startup path.
+struct IntentGuard {
+    queue: Queue,
+    id: u64,
+    armed: bool,
+}
+impl Drop for IntentGuard {
+    fn drop(&mut self) {
+        if self.armed {
+            self.queue.clear_intent(self.id);
+        }
+    }
 }
 
 impl Queue {
     fn new(network: Network) -> Self {
         Self {
             snapshot: Default::default(),
+            #[cfg(target_os = "espidf")]
+            capacity: crate::stream::capacity(),
+            #[cfg(not(target_os = "espidf"))]
+            capacity: Default::default(),
             network,
         }
     }
     fn snapshot(&self) -> Option<QueueSnapshot> {
-        let snapshot = self.snapshot.lock().unwrap().clone()?;
+        let snapshot = self.snapshot.lock().unwrap().snapshot.clone()?;
+        if !self.capacity.valid(snapshot.sonos_intent) {
+            return None;
+        }
         self.network
             .is_current(Lease {
                 generation: snapshot.network_generation,
@@ -479,10 +521,35 @@ impl Queue {
             .then_some(snapshot)
     }
     fn publish(&self, snapshot: QueueSnapshot) {
-        *self.snapshot.lock().unwrap() = Some(snapshot);
+        self.snapshot.lock().unwrap().snapshot = Some(snapshot);
     }
     fn clear(&self) {
-        *self.snapshot.lock().unwrap() = None;
+        let id = {
+            let mut state = self.snapshot.lock().unwrap();
+            state.snapshot = None;
+            state.intent.take()
+        };
+        if let Some(id) = id {
+            self.capacity.clear(id);
+        }
+    }
+    fn clear_intent(&self, id: u64) {
+        let mut state = self.snapshot.lock().unwrap();
+        if state.intent == Some(id) {
+            state.intent = None;
+            state.snapshot = None;
+        }
+        drop(state);
+        self.capacity.clear(id);
+    }
+    fn intent_valid(&self) -> bool {
+        let id = self.snapshot.lock().unwrap().intent;
+        id.is_none_or(|id| self.capacity.valid(id))
+    }
+    /// Caller holds the command token gate; do not lock that token again.
+    fn intent_current(&self) -> bool {
+        let id = self.snapshot.lock().unwrap().intent;
+        id.is_some_and(|id| self.capacity.current(id))
     }
 }
 
@@ -1603,8 +1670,6 @@ mod device {
                 .clone()
                 .context("Choose a Sonos destination first")?;
             let format = self.status.lock().unwrap().config.output_format;
-            crate::stream::select_format(format, true, play_token.clone())?;
-            self.status.lock().unwrap().active_format = crate::stream::active_format();
             ensure!(
                 self.commands.is_current(self.generation),
                 "Sonos Play cancelled"
@@ -1615,7 +1680,56 @@ mod device {
                 self.commands.is_current(self.generation),
                 "Sonos Play cancelled"
             );
+            let buffer = {
+                let status = self.status.lock().unwrap();
+                status
+                    .buffer_available
+                    .then_some(status.config.buffer_preset)
+            };
+            let intent = self
+                .queue
+                .capacity
+                .reserve(
+                    group.host.into(),
+                    self.network.clone(),
+                    lease,
+                    play_token.clone(),
+                    format,
+                    buffer,
+                    Instant::now(),
+                )
+                .context("Sonos reservation unavailable")?;
+            self.queue.snapshot.lock().unwrap().intent = Some(intent);
+            let mut cleanup = IntentGuard {
+                queue: self.queue.clone(),
+                id: intent,
+                armed: true,
+            };
+            log::info!(
+                "stream-capacity: reserved sonos_intent={} network_generation={} held={}",
+                intent,
+                lease.generation,
+                self.queue.capacity.held()
+            );
+            crate::stream::select_format(format, true, play_token.clone())?;
+            self.status.lock().unwrap().active_format = crate::stream::active_format();
+            let reclaim = Instant::now() + Duration::from_secs(12);
+            while !self.queue.capacity.ready(intent) {
+                ensure!(
+                    self.queue.capacity.valid(intent),
+                    "Sonos reservation expired or cancelled"
+                );
+                ensure!(
+                    Instant::now() < reclaim,
+                    "Sonos listener reclamation timed out"
+                );
+                std::thread::sleep(Duration::from_millis(10));
+            }
             self.connect(group.clone(), lease)?;
+            ensure!(
+                self.queue.capacity.valid(intent),
+                "Sonos reservation expired or cancelled"
+            );
             let mut mac = [0u8; 6];
             sys::esp!(unsafe { sys::esp_efuse_mac_get_default(mac.as_mut_ptr()) })?;
             let context = format!(
@@ -1635,8 +1749,8 @@ mod device {
                 .to_owned();
             // Later requests only need the owned session ID from this response.
             drop(body);
-            with_network(&self.network, lease, || ()).map_err(|error| anyhow!(error))?;
             self.session = Some(session.clone());
+            with_network(&self.network, lease, || ()).map_err(|error| anyhow!(error))?;
             self.policy
                 .update(self.now(), protocol::AutoplayEvent::OwnershipAcquired);
             self.status.lock().unwrap().active_player_id = Some(player);
@@ -1657,6 +1771,7 @@ mod device {
                     lease.address,
                     &self.status.lock().unwrap(),
                     lease.generation,
+                    intent,
                 )
                 .map_err(|error| anyhow!("Invalid Sonos queue: {error:?}"))?;
                 let body = queue_load_body(&queue);
@@ -1668,6 +1783,11 @@ mod device {
                     );
                     let permit = play_token.lock().unwrap();
                     ensure!(*permit, "Sonos Play cancelled");
+                    ensure!(self.queue.intent_current(), "Sonos reservation expired");
+                    ensure!(
+                        self.queue.capacity.current_ready(intent),
+                        "Sonos capacity unavailable before queue publication"
+                    );
                     with_network(&self.network, lease, || self.queue.publish(queue))
                         .map_err(|error| anyhow!(error))?;
                 }
@@ -1692,6 +1812,8 @@ mod device {
             })();
             if result.is_err() {
                 let _ = self.stop();
+            } else {
+                cleanup.armed = false;
             }
             result
         }
@@ -1845,6 +1967,10 @@ mod device {
             scope: protocol::Scope<'_>,
             body: Value,
         ) -> Result<Value> {
+            ensure!(
+                self.queue.intent_valid(),
+                "Sonos reservation expired or cancelled"
+            );
             self.sequence = self
                 .sequence
                 .checked_add(1)
@@ -1875,7 +2001,14 @@ mod device {
             if matches!(name, "createSession" | "loadCloudQueue") {
                 self.commands
                     .run_if_current(self.generation, || {
-                        with_network(&self.network, lease, || socket.send(&bytes))
+                        if !self.queue.intent_current() {
+                            return Err("Sonos reservation expired");
+                        }
+                        if name == "createSession" {
+                            with_create_send(&self.network, lease, || socket.send(&bytes))
+                        } else {
+                            with_network(&self.network, lease, || socket.send(&bytes))
+                        }
                     })
                     .map_err(|error| anyhow!(error))?
                     .map_err(|error| anyhow!(error))??;
@@ -1885,10 +2018,18 @@ mod device {
             }
             while self.now() < pending.deadline_ms {
                 let socket = self.socket.as_mut().context("Sonos is disconnected")?;
-                let message = with_network(&self.network, lease, || {
-                    socket.receive(Duration::from_millis(50))
-                })
-                .map_err(|error| anyhow!(error))??;
+                let message = if name == "createSession" {
+                    socket.receive(Duration::from_millis(50))?
+                } else {
+                    ensure!(
+                        self.queue.intent_valid(),
+                        "Sonos reservation expired or cancelled"
+                    );
+                    with_network(&self.network, lease, || {
+                        socket.receive(Duration::from_millis(50))
+                    })
+                    .map_err(|error| anyhow!(error))??
+                };
                 if let Some(message) = message {
                     if message.header.cmd_id.as_deref() == Some(&id)
                         && !scope_matches(&message.header, &household, &command.scope)
@@ -1909,6 +2050,14 @@ mod device {
                             message.body.get("errorCode").unwrap_or(&Value::Null)
                         ),
                         protocol::ReplyMatch::Expired => break,
+                        protocol::ReplyMatch::Unrelated if name == "createSession" => {
+                            // A malformed/unusable event must not discard the owned create reply.
+                            if let Err(error) = self.event(&message) {
+                                log::warn!(
+                                    "sonos: event rejected while collecting create reply: {error}"
+                                );
+                            }
+                        }
                         protocol::ReplyMatch::Unrelated => self.event(&message)?,
                     }
                 }
@@ -1919,6 +2068,24 @@ mod device {
 }
 #[cfg(target_os = "espidf")]
 pub use device::*;
+
+#[cfg(test)]
+fn reserve_test_queue(queue: &Queue, snapshot: &mut QueueSnapshot) {
+    let id = queue
+        .capacity
+        .reserve(
+            "192.0.2.20".parse().unwrap(),
+            queue.network.clone(),
+            queue.network.lease().unwrap(),
+            std::sync::Arc::new(std::sync::Mutex::new(true)),
+            snapshot.format,
+            snapshot.buffer_preset,
+            std::time::Instant::now(),
+        )
+        .unwrap();
+    snapshot.sonos_intent = id;
+    queue.snapshot.lock().unwrap().intent = Some(id);
+}
 
 #[cfg(test)]
 mod tests {
@@ -1940,7 +2107,8 @@ mod tests {
             last_error: None,
         });
         let host = "192.0.2.10".parse().unwrap();
-        let current = queue_for_play("current".into(), host, &status.lock().unwrap(), 0).unwrap();
+        let current =
+            queue_for_play("current".into(), host, &status.lock().unwrap(), 0, 41).unwrap();
         let mut config = status.lock().unwrap().config.clone();
         config.buffer_preset = esp_shazam_core::stream_buffer::BufferPreset::High;
         let saved = std::sync::Mutex::new(String::new());
@@ -1964,7 +2132,7 @@ mod tests {
             Some(esp_shazam_core::stream_buffer::BufferPreset::Medium)
         );
         assert_eq!(
-            queue_for_play("next".into(), host, &status.lock().unwrap(), 0)
+            queue_for_play("next".into(), host, &status.lock().unwrap(), 0, 41)
                 .unwrap()
                 .buffer_preset,
             Some(esp_shazam_core::stream_buffer::BufferPreset::High)
@@ -1978,7 +2146,7 @@ mod tests {
         assert_eq!(status.lock().unwrap().config, config);
         status.lock().unwrap().buffer_available = false;
         assert_eq!(
-            queue_for_play("live".into(), host, &status.lock().unwrap(), 0)
+            queue_for_play("live".into(), host, &status.lock().unwrap(), 0, 41)
                 .unwrap()
                 .buffer_preset,
             None
@@ -2226,16 +2394,19 @@ mod tests {
             last_error: None,
         };
         let queue = Queue::new(network_tests::ready_network());
-        queue.publish(
-            QueueSnapshot::new(
+        queue.publish({
+            let mut snapshot = QueueSnapshot::new(
                 "item".into(),
                 "192.0.2.10".parse().unwrap(),
                 None,
                 esp_shazam_core::stream_buffer::OutputFormat::Flac,
                 1,
+                41,
             )
-            .unwrap(),
-        );
+            .unwrap();
+            reserve_test_queue(&queue, &mut snapshot);
+            snapshot
+        });
         let mut policy = protocol::Autoplay::new(-50.0, -60.0).unwrap();
         policy.update(0, protocol::AutoplayEvent::Enabled(true));
         policy.update(0, protocol::AutoplayEvent::OwnershipAcquired);
@@ -2284,6 +2455,100 @@ mod tests {
         let preview = Diagnostic::new(format_args!("raw={:?}", "line\nnext"));
         assert!(!preview.truncated);
         assert_eq!(preview.to_string(), "raw=\"line\\nnext\"");
+    }
+
+    #[test]
+    fn commands_cancel_queue_protection_and_old_startup_cleanup_cannot_clear_retry() {
+        use esp_shazam_core::{stream_buffer::OutputFormat, stream_wait::Slot};
+        use std::time::Instant;
+        let network = network_tests::ready_network();
+        let lease = network.lease().unwrap();
+        let (commands, _receiver) = Commands::new(network.clone());
+        let queue = Queue::new(network.clone());
+        let token = commands.token(0).unwrap();
+        let id = queue
+            .capacity
+            .reserve(
+                "192.0.2.20".parse().unwrap(),
+                network.clone(),
+                lease,
+                token,
+                OutputFormat::Flac,
+                None,
+                Instant::now(),
+            )
+            .unwrap();
+        queue.snapshot.lock().unwrap().intent = Some(id);
+        let old_cleanup = IntentGuard {
+            queue: queue.clone(),
+            id,
+            armed: true,
+        };
+        let snapshot = QueueSnapshot::new(
+            "owned".into(),
+            lease.address,
+            None,
+            OutputFormat::Flac,
+            lease.generation,
+            id,
+        )
+        .unwrap();
+        commands
+            .run_if_current(0, || {
+                assert!(queue.intent_current());
+                queue.publish(snapshot);
+            })
+            .unwrap();
+        assert!(queue.snapshot().is_some());
+        commands.submit(Command::Stop).unwrap();
+        assert!(queue.snapshot().is_none());
+        assert!(!queue.intent_valid());
+        assert!(commands
+            .run_if_current(0, || panic!("cancelled Play published"))
+            .is_err());
+        let next = queue
+            .capacity
+            .reserve(
+                "192.0.2.20".parse().unwrap(),
+                network,
+                lease,
+                commands.token(1).unwrap(),
+                OutputFormat::Flac,
+                None,
+                Instant::now(),
+            )
+            .unwrap();
+        queue.snapshot.lock().unwrap().intent = Some(next);
+        drop(old_cleanup);
+        assert!(queue.intent_valid());
+        commands
+            .run_if_current(1, || {
+                assert!(queue.intent_current());
+                queue.publish(
+                    QueueSnapshot::new(
+                        "retry".into(),
+                        lease.address,
+                        None,
+                        OutputFormat::Flac,
+                        lease.generation,
+                        next,
+                    )
+                    .unwrap(),
+                );
+            })
+            .unwrap();
+        assert_eq!(queue.snapshot().unwrap().item_id, "retry");
+        // Startup failure uses the same ID-bound guard and returns both diagnostic places.
+        drop(IntentGuard {
+            queue: queue.clone(),
+            id: next,
+            armed: true,
+        });
+        assert!(queue.snapshot().is_none());
+        let first = Slot::take(&queue.capacity, 2).unwrap();
+        let second = Slot::take(&queue.capacity, 2).unwrap();
+        assert!(Slot::take(&queue.capacity, 2).is_none());
+        drop((first, second));
     }
 
     #[test]
@@ -2511,13 +2776,15 @@ mod tests {
         let queue = Queue::new(network_tests::ready_network());
         let reader = queue.clone();
         assert_eq!(reader.snapshot(), None);
-        let snapshot = QueueSnapshot {
+        let mut snapshot = QueueSnapshot {
             item_id: "item-first".into(),
             host: "192.0.2.10".parse().unwrap(),
             network_generation: 1,
+            sonos_intent: 41,
             buffer_preset: None,
             format: esp_shazam_core::stream_buffer::OutputFormat::Flac,
         };
+        reserve_test_queue(&queue, &mut snapshot);
         queue.publish(snapshot.clone());
         assert_eq!(reader.snapshot(), Some(snapshot.clone()));
         let next = QueueSnapshot {
@@ -2536,6 +2803,7 @@ mod tests {
             item_id: "item-live".into(),
             host: "192.0.2.10".parse().unwrap(),
             network_generation: 1,
+            sonos_intent: 41,
             buffer_preset: None,
             format: esp_shazam_core::stream_buffer::OutputFormat::Flac,
         };
@@ -2761,6 +3029,43 @@ mod network_tests {
     }
 
     #[test]
+    fn sent_create_keeps_reply_collection_when_network_changes_during_send() {
+        use std::{
+            io::{Read, Write},
+            net::{TcpListener, TcpStream},
+        };
+        let network = ready_network();
+        let lease = network.lease().unwrap();
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let mut client = TcpStream::connect(listener.local_addr().unwrap()).unwrap();
+        client
+            .set_read_timeout(Some(std::time::Duration::from_secs(1)))
+            .unwrap();
+        let (mut speaker, _) = listener.accept().unwrap();
+        let responder = std::thread::spawn(move || {
+            let mut command = [0; 6];
+            speaker.read_exact(&mut command).unwrap();
+            assert_eq!(&command, b"create");
+            speaker.write_all(br#"{"sessionId":"owned"}"#).unwrap();
+        });
+        let sent = with_create_send(&network, lease, || {
+            client.write_all(b"create").unwrap();
+            network.invalidate();
+        });
+        assert_eq!(
+            sent,
+            Ok(()),
+            "sent create must retain its bounded reply collection"
+        );
+        let mut reply = String::new();
+        client.read_to_string(&mut reply).unwrap();
+        let body: serde_json::Value = serde_json::from_str(&reply).unwrap();
+        assert_eq!(body["sessionId"], "owned");
+        assert!(!network.is_current(lease));
+        responder.join().unwrap();
+    }
+
+    #[test]
     fn local_stop_completes_when_suspend_loses_its_network() {
         let network = ready_network();
         let lease = network.lease().unwrap();
@@ -2783,32 +3088,38 @@ mod network_tests {
         let network = ready_network();
         let lease = network.lease().unwrap();
         let queue = Queue::new(network.clone());
-        queue.publish(
-            QueueSnapshot::new(
+        queue.publish({
+            let mut snapshot = QueueSnapshot::new(
                 "owned".into(),
                 lease.address,
                 None,
                 esp_shazam_core::stream_buffer::OutputFormat::Flac,
                 lease.generation,
+                41,
             )
-            .unwrap(),
-        );
+            .unwrap();
+            reserve_test_queue(&queue, &mut snapshot);
+            snapshot
+        });
         assert!(queue.snapshot().is_some());
         network.invalidate();
         assert!(queue.snapshot().is_none());
         network.observe(network.snapshot(), Some(lease.address));
         assert!(queue.snapshot().is_none());
         let fresh = network.lease().unwrap();
-        queue.publish(
-            QueueSnapshot::new(
+        queue.publish({
+            let mut snapshot = QueueSnapshot::new(
                 "fresh".into(),
                 fresh.address,
                 None,
                 esp_shazam_core::stream_buffer::OutputFormat::Flac,
                 fresh.generation,
+                41,
             )
-            .unwrap(),
-        );
+            .unwrap();
+            reserve_test_queue(&queue, &mut snapshot);
+            snapshot
+        });
         assert_eq!(queue.snapshot().unwrap().item_id, "fresh");
     }
 }

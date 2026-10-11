@@ -1,0 +1,285 @@
+{
+  "kata": "7vhq",
+  "verdict": "INCOMPLETE",
+  "candidate_elf_sha256": "ad2d30b4610a8e8bb05088856cbb30801757364dec9659fa4c12442117756147",
+  "canonical": {
+    "run": "run.Mtobk1qk",
+    "stages": 27,
+    "all_pass": true,
+    "boundaries_equal": true
+  },
+  "trials": {
+    "contention": {
+      "scenario": "contention",
+      "passed": false,
+      "verdict": "FAILED",
+      "error": "AssertionError('older diagnostic ended')",
+      "cleanup_errors": [],
+      "terminal": {
+        "config": {
+          "player_id": "RINCON_38420B8F3F0C01400",
+          "autoplay": false,
+          "buffer_preset": "med",
+          "output_format": "flac"
+        },
+        "buffer_available": true,
+        "active_format": "flac",
+        "groups": [
+          {
+            "player_id": "RINCON_38420B8F3F0C01400",
+            "group_id": "RINCON_38420B8CFB1401400:2822440277",
+            "household_id": "Sonos_jcwHSQKzaB3I72pcFkRoOPOsOD.vwtjIZFfciyX6iRRKcnu",
+            "name": "Altec + 3",
+            "host": "192.168.23.205",
+            "is_leader": true
+          }
+        ],
+        "active_player_id": "RINCON_38420B8F3F0C01400",
+        "state": "playing",
+        "last_error": null
+      },
+      "diagnostics": [
+        {
+          "label": "older-diagnostic",
+          "local_address": [
+            "192.168.23.153",
+            54324
+          ],
+          "started_monotonic": 1178290.972223687,
+          "payload_bytes": 241920,
+          "ended_monotonic": 1178295.857515774,
+          "last_payload_monotonic": 1178295.857491469,
+          "error": null
+        },
+        {
+          "label": "newer-diagnostic",
+          "local_address": [
+            "192.168.23.153",
+            54330
+          ],
+          "started_monotonic": 1178291.462095175,
+          "payload_bytes": 211680,
+          "ended_monotonic": 1178295.839406439,
+          "last_payload_monotonic": 1178295.839366103,
+          "error": null
+        }
+      ],
+      "trial_identity": {
+        "build_elf_sha256": "ad2d30b4610a8e8bb05088856cbb30801757364dec9659fa4c12442117756147",
+        "boot_token": "55aeb67c94419803ac57070c3d00399e",
+        "served_device_us": 5967690
+      },
+      "after": {
+        "config": {
+          "player_id": "RINCON_38420B8F3F0C01400",
+          "autoplay": false,
+          "buffer_preset": "med",
+          "output_format": "mp3"
+        },
+        "buffer_available": true,
+        "active_format": "mp3",
+        "groups": [
+          {
+            "player_id": "RINCON_38420B8F3F0C01400",
+            "group_id": "RINCON_38420B8CFB1401400:2822440277",
+            "household_id": "Sonos_jcwHSQKzaB3I72pcFkRoOPOsOD.vwtjIZFfciyX6iRRKcnu",
+            "name": "Altec + 3",
+            "host": "192.168.23.205",
+            "is_leader": true
+          }
+        ],
+        "active_player_id": null,
+        "state": "stopped",
+        "last_error": null
+      },
+      "after_identity": {
+        "build_elf_sha256": "ad2d30b4610a8e8bb05088856cbb30801757364dec9659fa4c12442117756147",
+        "boot_token": "55aeb67c94419803ac57070c3d00399e",
+        "served_device_us": 24343573
+      },
+      "uart_errors": [],
+      "device_failure_markers": [],
+      "source_dir": "target/kata-hardening/sonos-capacity-device/contention",
+      "sha256": {
+        "result.json": "518327faf91c09566273a4473d5dc3cd0e776ca7444483de690511ba1a9e9f01",
+        "uart.log": "041f4dadbd9758e51c4dd4c9536fc5bbd50e53e2c079ceb57abcfd48c6301771",
+        "events.jsonl": "0e4cc12e234c93102da0ad101d2694eeb7057b6dedd0a880bb926cc664733d67"
+      },
+      "uart_capacity_lines": [
+        "I (10137) esp_shazam_firmware::stream: stream: 192.168.23.153:54324 joined /stream.wav (1 of 2) event_us=8887840 owner_id=1 sonos_intent=0 role=diagnostic",
+        "I (10487) esp_shazam_firmware::stream: stream: 192.168.23.153:54330 joined /stream.wav (2 of 2) event_us=9230202 owner_id=2 sonos_intent=0 role=diagnostic",
+        "I (13037) esp_shazam_firmware::stream: stream: 192.168.23.153:54324 left after 2.8 s: fell a ring behind listener_stack_free_bytes=1284 event_us=11743750",
+        "I (13617) esp_shazam_firmware::stream: stream: 192.168.23.153:54330 left after 3.1 s: fell a ring behind listener_stack_free_bytes=1272 event_us=12333301",
+        "I (14477) esp_shazam_firmware::sonos::device: stream-capacity: reserved sonos_intent=3 network_generation=2 held=2",
+        "I (14887) esp_shazam_firmware::stream: stream: 192.168.23.153:54330 socket closed in 1256 ms; releasing slot (2 held) event_us=13590745 owner_id=2 sonos_intent=0",
+        "I (14887) esp_shazam_firmware::stream: stream: 192.168.23.153:54324 socket closed in 1847 ms; releasing slot (1 held) event_us=13591799 owner_id=1 sonos_intent=0",
+        "I (18447) esp_shazam_firmware::stream: stream: 192.168.23.205:45582 joined /stream.flac (1 of 2) event_us=17125173 owner_id=4 sonos_intent=3 role=sonos",
+        "I (19037) esp_shazam_firmware::stream: stream: 192.168.23.205:45598 \"HEAD /stream.flac?buffer=med&network_generation=2&sonos_intent=3 HTTP/1.1\": HTTP/1.1 405 Method Not Allowed",
+        "I (21727) esp_shazam_firmware::stream: stream: 192.168.23.205:45582 left after 3.0 s: format epoch retired listener_stack_free_bytes=1168 event_us=20137952",
+        "I (21747) esp_shazam_firmware::stream: stream: 192.168.23.205:45582 socket closed in 120 ms; releasing slot (1 held) event_us=20258342 owner_id=4 sonos_intent=3",
+        "I (22327) esp_shazam_firmware::stream: stream: 192.168.23.205:45618 \"HEAD /stream.flac?buffer=med&network_generation=2&sonos_intent=3 HTTP/1.1\": HTTP/1.1 405 Method Not Allowed"
+      ]
+    },
+    "flac-contention": {
+      "scenario": "contention",
+      "diagnostic_format": "flac",
+      "passed": false,
+      "verdict": "FAILED",
+      "cleanup_errors": [
+        "guarded-board-stop: AssertionError('selected media changed after native stream observed; refusing Stop')",
+        "restore-mp3: TimeoutError('format did not settle')",
+        "verify-exact-config: AssertionError()"
+      ],
+      "terminal": {
+        "config": {
+          "player_id": "RINCON_38420B8F3F0C01400",
+          "autoplay": false,
+          "buffer_preset": "med",
+          "output_format": "flac"
+        },
+        "buffer_available": true,
+        "active_format": "flac",
+        "groups": [
+          {
+            "player_id": "RINCON_38420B8F3F0C01400",
+            "group_id": "RINCON_38420B8CFB1401400:2822440277",
+            "household_id": "Sonos_jcwHSQKzaB3I72pcFkRoOPOsOD.vwtjIZFfciyX6iRRKcnu",
+            "name": "Altec + 3",
+            "host": "192.168.23.205",
+            "is_leader": true
+          }
+        ],
+        "active_player_id": null,
+        "state": "error",
+        "last_error": "Sonos playback error: ERROR_PLAYBACK_FAILED"
+      },
+      "diagnostics": [
+        {
+          "label": "older-diagnostic",
+          "local_address": [
+            "192.168.23.153",
+            45302
+          ],
+          "started_monotonic": 1178493.43570344,
+          "payload_bytes": 2855756,
+          "ended_monotonic": null,
+          "last_payload_monotonic": 1178520.537562642,
+          "error": null
+        },
+        {
+          "label": "newer-diagnostic",
+          "local_address": [
+            "192.168.23.153",
+            45316
+          ],
+          "started_monotonic": 1178493.73173716,
+          "payload_bytes": 370644,
+          "ended_monotonic": 1178497.386067077,
+          "last_payload_monotonic": 1178497.385998143,
+          "error": null
+        }
+      ],
+      "trial_identity": {
+        "build_elf_sha256": "ad2d30b4610a8e8bb05088856cbb30801757364dec9659fa4c12442117756147",
+        "boot_token": "d6a141eb026f96aac6cf1a11a0064576",
+        "served_device_us": 6477785
+      },
+      "after": {
+        "config": {
+          "player_id": "RINCON_38420B8F3F0C01400",
+          "autoplay": false,
+          "buffer_preset": "med",
+          "output_format": "mp3"
+        },
+        "buffer_available": true,
+        "active_format": "flac",
+        "groups": [
+          {
+            "player_id": "RINCON_38420B8F3F0C01400",
+            "group_id": "RINCON_38420B8CFB1401400:2822440277",
+            "household_id": "Sonos_jcwHSQKzaB3I72pcFkRoOPOsOD.vwtjIZFfciyX6iRRKcnu",
+            "name": "Altec + 3",
+            "host": "192.168.23.205",
+            "is_leader": true
+          }
+        ],
+        "active_player_id": null,
+        "state": "stopped",
+        "last_error": null
+      },
+      "after_identity": {
+        "build_elf_sha256": "ad2d30b4610a8e8bb05088856cbb30801757364dec9659fa4c12442117756147",
+        "boot_token": "d6a141eb026f96aac6cf1a11a0064576",
+        "served_device_us": 35432987
+      },
+      "uart_errors": [],
+      "device_failure_markers": [],
+      "source_dir": "target/kata-hardening/sonos-capacity-device/flac-contention",
+      "sha256": {
+        "result.json": "458af6095047f72c0108159e3a2be34ba99d5c238f6f34fd92bb795f2fb5f589",
+        "uart.log": "a3af4d216dac23ec11e0c59da2f289dcb21c3671ab6e4269bd108846935cfd4f",
+        "events.jsonl": "e491482586724157f5d3d28fb77cf1f61d7c13d6f84d1e44b9e2b6b9b6a00dab"
+      },
+      "uart_capacity_lines": [
+        "I (9977) esp_shazam_firmware::stream: stream: 192.168.23.153:45302 joined /stream.flac (1 of 2) event_us=8659155 owner_id=1 sonos_intent=0 role=diagnostic",
+        "I (10137) esp_shazam_firmware::stream: stream: 192.168.23.153:45316 joined /stream.flac (2 of 2) event_us=8885708 owner_id=2 sonos_intent=0 role=diagnostic",
+        "I (13667) esp_shazam_firmware::sonos::device: stream-capacity: reserved sonos_intent=3 network_generation=2 held=2",
+        "I (13797) esp_shazam_firmware::stream: stream: 192.168.23.153:45316 left after 3.5 s: format epoch retired listener_stack_free_bytes=1144 event_us=12417886",
+        "I (13817) esp_shazam_firmware::stream: stream: 192.168.23.153:45316 socket closed in 94 ms; releasing slot (2 held) event_us=12513099 owner_id=2 sonos_intent=0",
+        "W (18007) esp_shazam_firmware::stream: stream: no thread for a listener: Not enough space (os error 12)",
+        "I (18057) esp_shazam_firmware::stream: stream: 192.168.23.205:45688 joined /stream.flac (2 of 2) event_us=16755344 owner_id=4 sonos_intent=3 role=sonos",
+        "I (18057) esp_shazam_firmware::stream: stream: 192.168.23.205:45688 socket closed in 1 ms; releasing slot (2 held) event_us=16758101 owner_id=4 sonos_intent=3",
+        "I (18907) esp_shazam_firmware::sonos::device: sonos: state=Error stack_free_min=8840 level_dbfs=-23.6"
+      ]
+    }
+  },
+  "limits": [
+    "No sample-exact continuity or audible-output claim.",
+    "Real reconnect, cancellation and failed-start series not reached.",
+    "Metadata total excludes queue binding/telemetry growth and allocator overhead."
+  ],
+  "restoration": {
+    "method": "explicit same-image serial reboot after failed cleanup",
+    "sonos": {
+      "config": {
+        "player_id": "RINCON_38420B8F3F0C01400",
+        "autoplay": false,
+        "buffer_preset": "med",
+        "output_format": "mp3"
+      },
+      "buffer_available": true,
+      "active_format": "mp3",
+      "groups": [],
+      "active_player_id": null,
+      "state": "stopped",
+      "last_error": null
+    },
+    "shazam_enabled": false,
+    "boot_token": "1a043a46b0da0e1a8e84d5eceda694f5",
+    "build_elf_sha256": "ad2d30b4610a8e8bb05088856cbb30801757364dec9659fa4c12442117756147",
+    "owned_processes": "",
+    "sha256": "053bbd088ffd6a16d3b3b08cd0dac4fca43ba1b4e6e1b833928e0159493fd622"
+  },
+  "layout_bytes": {
+    "slot": 16,
+    "owner": 24,
+    "intent": 64,
+    "registry": 120,
+    "mutex_registry": 128,
+    "arc_data_offset": 8,
+    "arc_allocation": 136,
+    "native_mutex_requested": 104,
+    "fixed_subset_current": 272,
+    "fixed_subset_previous": 20,
+    "fixed_subset_delta": 252
+  },
+  "boot_layout": [
+    "I (5927) esp_shazam_firmware::stream: stream-capacity-layout: slot=16 owner=24 intent=64 registry=120 mutex_registry=128 arc_data_offset=8 arc_allocation=136 native_mutex_backing=excluded allocator_overhead=excluded"
+  ],
+  "drivers": {
+    "driver.py": "7c64eabb8eddfd259997274fb711f1958f8d5b85f65e93fe0168d9d8a8dd5c5f",
+    "driver-flac.py": "4b510ea97c682ca4860bd8f2745749d202c83e5f06777a42c9c7e664b561d629",
+    "test_control_capacity.py": "414564ce3a5e6e340a35860b5332143f15061bc9cb4986f423cd475a73e6e817",
+    "test_control_capacity_flac.py": "09bbdb92824fccb67072e2dd9d26ef876eca63b158e1cf6ac7ef7e77a3635f26"
+  }
+}

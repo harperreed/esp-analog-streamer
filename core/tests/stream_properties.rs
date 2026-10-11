@@ -8,10 +8,7 @@ use esp_shazam_core::{
     stream_wait::Slot,
 };
 use proptest::prelude::*;
-use std::sync::{
-    atomic::{AtomicUsize, Ordering},
-    Arc,
-};
+use std::sync::Arc;
 
 // Default config retains environment overrides, shrinking and source-relative regressions.
 fn config() -> ProptestConfig {
@@ -169,7 +166,7 @@ proptest! {
     // Catches a third admission, leaked guards on cancellation, and failed reconnect after release.
     #[test]
     fn listener_ownership_survives_reconnect_and_cancel(operations in prop::collection::vec((0u8..4, 0usize..5), 1..240)) {
-        let taken = Arc::new(AtomicUsize::new(0));
+        let taken = Arc::new(esp_shazam_core::stream_wait::Capacity::default());
         let mut guards: Vec<Option<Slot>> = (0..5).map(|_| None).collect();
         let mut active = [false; 5];
         for (op, index) in operations {
@@ -191,16 +188,16 @@ proptest! {
                 _ => {}
             }
             let expected = active.iter().filter(|&&v| v).count();
-            prop_assert_eq!(taken.load(Ordering::Acquire), expected);
+            prop_assert_eq!(taken.held(), expected);
             prop_assert!(expected <= 2);
         }
         drop(guards);
-        prop_assert_eq!(taken.load(Ordering::Acquire), 0);
+        prop_assert_eq!(taken.held(), 0);
         let first = Slot::take(&taken, 2).unwrap();
         let second = Slot::take(&taken, 2).unwrap();
         prop_assert!(Slot::take(&taken, 2).is_none());
         drop((first, second));
-        prop_assert_eq!(taken.load(Ordering::Acquire), 0);
+        prop_assert_eq!(taken.held(), 0);
     }
 }
 
@@ -215,10 +212,10 @@ proptest! {
     #[test]
     fn runtime_cancel_reconnect_releases_epoch(operations in prop::collection::vec((any::<bool>(), 0usize..3), 1..40)) {
         use esp_shazam_core::stream_buffer::OutputFormat;
-        use std::{sync::Mutex, time::Duration};
+        use std::sync::Mutex;
         let (runtime, worker) = stream_runtime::Runtime::new(OutputFormat::Flac, false).unwrap();
         let weak = Arc::downgrade(&worker.epoch);
-        let taken = Arc::new(AtomicUsize::new(0));
+        let taken = Arc::new(esp_shazam_core::stream_wait::Capacity::default());
         let mut listeners = Vec::new();
         for (cancel, operation) in operations {
             match operation {
@@ -230,13 +227,12 @@ proptest! {
                 }
                 1 => { listeners.pop(); }
                 _ => {
-                    let result = runtime.play_format(OutputFormat::Flac, Arc::new(Mutex::new(!cancel)), &taken, 2, Duration::ZERO);
+                    let result = runtime.play_format(OutputFormat::Flac, Arc::new(Mutex::new(!cancel)));
                     if cancel { prop_assert!(result.is_err()); }
-                    else if listeners.len() == 2 { prop_assert_eq!(result.unwrap_err().kind(), std::io::ErrorKind::TimedOut); }
                     else { prop_assert_eq!(result.unwrap(), true); }
                 }
             }
-            prop_assert_eq!(taken.load(Ordering::Acquire), listeners.len());
+            prop_assert_eq!(taken.held(), listeners.len());
             prop_assert_eq!(runtime.active_format(), OutputFormat::Flac);
             prop_assert!(!worker.epoch.retired());
         }
@@ -244,6 +240,6 @@ proptest! {
         prop_assert_eq!(weak.upgrade().is_some(), !listeners.is_empty());
         drop(listeners);
         prop_assert!(weak.upgrade().is_none());
-        prop_assert_eq!(taken.load(Ordering::Acquire), 0);
+        prop_assert_eq!(taken.held(), 0);
     }
 }

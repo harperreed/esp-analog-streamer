@@ -6,7 +6,7 @@ use std::io;
 use std::net::{SocketAddr, TcpStream};
 #[cfg(feature = "admission-resources")]
 use std::sync::atomic::AtomicBool;
-use std::sync::atomic::{AtomicU32, AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::{Arc, Mutex, OnceLock};
 use std::time::{Duration, Instant};
 
@@ -25,7 +25,9 @@ use esp_shazam_core::stream_http::{
     self, DeadlineWriter, Format, Route, Status, WriterDiagnostics,
 };
 use esp_shazam_core::stream_ring::{Cursor, ReadError};
-use esp_shazam_core::stream_wait::{cursor_before, read_atomic_fresh_with, Slot, WaitError};
+use esp_shazam_core::stream_wait::{
+    cursor_before, read_atomic_fresh_with, Capacity, Slot, WaitError,
+};
 use esp_shazam_core::wav;
 
 use crate::audio_in::{SharedStreamRing, CAPTURE_RATE_HZ};
@@ -38,7 +40,7 @@ use crate::socket_close;
 use crate::threads::ThreadSpec;
 
 use crate::stream_runtime::{Epoch, Runtime, Worker};
-static LISTENERS: OnceLock<Arc<AtomicUsize>> = OnceLock::new();
+static LISTENERS: OnceLock<Arc<Capacity>> = OnceLock::new();
 static RUNTIME: OnceLock<Arc<Runtime>> = OnceLock::new();
 
 pub(crate) fn try_active_format() -> Option<OutputFormat> {
@@ -60,19 +62,15 @@ pub fn select_format(
         .get()
         .ok_or_else(|| io::Error::other("stream encoder unavailable"))?;
     if force {
-        let listeners = LISTENERS
-            .get()
-            .ok_or_else(|| io::Error::other("stream listener capacity unavailable"))?;
-        runtime.play_format(
-            format,
-            token,
-            listeners,
-            MAX_LISTENERS,
-            Duration::from_secs(12),
-        )
+        runtime.play_format(format, token)
     } else {
         runtime.switch(format, false, token, Duration::from_secs(3))
     }
+}
+pub(crate) fn capacity() -> Arc<Capacity> {
+    LISTENERS
+        .get_or_init(|| Arc::new(Capacity::default()))
+        .clone()
 }
 static RAW_READ_MAX_US: AtomicU32 = AtomicU32::new(0);
 
@@ -186,8 +184,11 @@ pub fn start(ring: SharedStreamRing, mdns: &mut EspMdns, network: Network) -> Re
     RUNTIME
         .set(runtime.clone())
         .map_err(|_| anyhow::anyhow!("stream already started"))?;
-    let listeners = Arc::new(AtomicUsize::new(0));
-    let _ = LISTENERS.set(listeners.clone());
+    let listeners = capacity();
+    // Initialize native mutex storage before admission/listener tasks start.
+    let _ = listeners.held();
+    let layout = esp_shazam_core::stream_wait::capacity_metadata_layout();
+    log::info!("stream-capacity-layout: slot={} owner={} intent={} registry={} mutex_registry={} arc_data_offset={} arc_allocation={} native_mutex_backing=excluded allocator_overhead=excluded", layout[0], layout[1], layout[2], layout[3], layout[4], layout[5], layout[6]);
     let encoder_listeners = listeners.clone();
     let (encoder_raw, encoder_runtime) = (ring.clone(), runtime.clone());
     ENCODER_THREAD
@@ -236,7 +237,7 @@ fn accept(
     listener: Arc<Mutex<crate::stream_admission::GenerationListener>>,
     ring: SharedStreamRing,
     runtime: Arc<Runtime>,
-    listeners: Arc<AtomicUsize>,
+    listeners: Arc<Capacity>,
     network: Network,
 ) -> ! {
     loop {
@@ -299,7 +300,7 @@ fn answer(
     sock: TcpStream,
     ring: &SharedStreamRing,
     runtime: &Arc<Runtime>,
-    listeners: &Arc<AtomicUsize>,
+    listeners: &Arc<Capacity>,
     network: &Network,
     network_lease: NetworkLease,
 ) {
@@ -338,6 +339,13 @@ fn answer(
         }
         _ => {}
     }
+    let sonos_intent = match stream_http::request_sonos_intent(&request_line) {
+        Ok(intent) => intent,
+        Err(_) => {
+            refuse(sock, &peer, &request_line, Status::BadRequest);
+            return;
+        }
+    };
     let (route, lease) = runtime.admit(&request_line);
     match route {
         Route::Stream(_) | Route::Buffered(_) => {
@@ -360,7 +368,42 @@ fn answer(
                 refuse(sock, &peer, &request_line, Status::ServiceUnavailable);
                 return;
             }
-            match Slot::take(listeners, MAX_LISTENERS) {
+            // Reconnect waits at most 12 seconds for the prior owner's checked close.
+            // The two admission workers may each spend this finite budget on replacement.
+            let deadline = Instant::now() + Duration::from_secs(12);
+            let slot = if let Some(intent) = sonos_intent {
+                loop {
+                    let candidate = match peer_address {
+                        Some(peer) => match Capacity::admit_request(
+                            listeners,
+                            &request_line,
+                            peer.ip(),
+                            network_lease.generation,
+                        ) {
+                            Ok(candidate) => candidate,
+                            Err(status) => {
+                                refuse(sock, &peer.to_string(), &request_line, status);
+                                return;
+                            }
+                        },
+                        None => {
+                            refuse(sock, &peer, &request_line, Status::ServiceUnavailable);
+                            return;
+                        }
+                    };
+                    if candidate.is_some()
+                        || !listeners.valid(intent)
+                        || Instant::now() >= deadline
+                        || !network.is_current(network_lease)
+                    {
+                        break candidate;
+                    }
+                    std::thread::sleep(Duration::from_millis(10));
+                }
+            } else {
+                Slot::take(listeners, MAX_LISTENERS)
+            };
+            match slot {
                 Some(slot) => {
                     let connection = ListenerConnection {
                         resources: Some(ConnectionResources::new(sock, slot, lease)),
@@ -395,6 +438,8 @@ fn answer(
                         payload: Payload::Joined {
                             format,
                             held: connection.resources.as_ref().unwrap().slot.taken(),
+                            owner_id: connection.resources.as_ref().unwrap().slot.owner_id(),
+                            sonos_intent: connection.resources.as_ref().unwrap().slot.intent_id(),
                         },
                     });
                     let ring = ring.clone();
@@ -409,7 +454,12 @@ fn answer(
                 None => refuse(sock, &peer, &request_line, Status::ServiceUnavailable),
             }
         }
-        Route::Refuse(status) => refuse(sock, &peer, &request_line, status),
+        Route::Refuse(status) => refuse(
+            sock,
+            &peer,
+            &request_line,
+            stream_http::reservation_refusal(status, sonos_intent.is_some()),
+        ),
     }
 }
 
@@ -439,6 +489,11 @@ fn listen(
     network: Network,
     network_lease: NetworkLease,
 ) {
+    let slot = &connection
+        .resources
+        .as_ref()
+        .expect("listener owns resources")
+        .slot;
     let sock = connection.socket();
     let lease = &connection
         .resources
@@ -449,7 +504,7 @@ fn listen(
     let started = Instant::now();
     let mut departure = None;
     let end = match buffer {
-        ListenerBuffer::Wav => stream_wav(sock, &ring, peer, &network, network_lease),
+        ListenerBuffer::Wav => stream_wav(sock, &ring, peer, &network, network_lease, slot),
         ListenerBuffer::Compressed(mut bytes) => {
             let mut metrics = ListenerMetrics::new(
                 lease
@@ -470,6 +525,7 @@ fn listen(
                 &mut metrics,
                 &network,
                 network_lease,
+                slot,
                 #[cfg(feature = "listener-frame-state")]
                 frame_state.as_mut(),
             );
@@ -517,10 +573,14 @@ fn read_some(
     cursor: &mut Cursor,
     out: &mut [i32],
     mut metrics: Option<&mut RawReadMetrics>,
+    slot: &Slot,
 ) -> Result<esp_shazam_core::stream_ring::RawRead, WaitError<ReadError>> {
     let mut receipt = None;
     let wait_started = metrics.as_ref().map(|_| Instant::now());
     let result = read_atomic_fresh_with(FRESH_AUDIO_TIMEOUT, CAUGHT_UP_SLEEP, || {
+        if slot.revoked() {
+            return Err(ReadError::Overrun);
+        }
         // Single-read wall time includes preemption, excludes retry sleeps and socket/encoder work.
         let started = Instant::now();
         let result = ring.read(cursor, out).map(|read| {
@@ -562,15 +622,24 @@ fn stream_wav(
     peer: Option<SocketAddr>,
     network: &Network,
     lease: NetworkLease,
+    slot: &Slot,
 ) -> End {
+    if slot.revoked() {
+        return End::Retired;
+    }
     if !network.is_current(lease) {
         return End::NetworkChanged;
     }
     let write_limit = frame_write_limit(ring.capacity());
-    let Some(mut cursor) =
-        cursor_before(ring, Instant::now() + FRESH_AUDIO_TIMEOUT, CAUGHT_UP_SLEEP)
-    else {
-        return if network.is_current(lease) {
+    let Some(mut cursor) = cursor_before(
+        ring,
+        Instant::now() + FRESH_AUDIO_TIMEOUT,
+        CAUGHT_UP_SLEEP,
+        || slot.revoked() || !network.is_current(lease),
+    ) else {
+        return if slot.revoked() {
+            End::Retired
+        } else if network.is_current(lease) {
             End::CaptureStalled
         } else {
             End::NetworkChanged
@@ -585,6 +654,9 @@ fn stream_wav(
     let mut oldest = None;
     let observation = crate::listener_observation::REGISTRY.register(event_us());
     loop {
+        if slot.revoked() {
+            return End::Retired;
+        }
         if !network.is_current(lease) {
             return End::NetworkChanged;
         }
@@ -612,13 +684,19 @@ fn stream_wav(
         if oldest.is_some_and(|oldest| age.check(event_us(), oldest).is_err()) {
             return End::MediaAge;
         }
+        if slot.revoked() {
+            return End::Retired;
+        }
         if !network.is_current(lease) {
             return End::NetworkChanged;
         }
         if let Err(e) = result {
             return End::from_write_error(e);
         }
-        let result = read_some(ring, &mut cursor, &mut frames, None);
+        let result = read_some(ring, &mut cursor, &mut frames, None, slot);
+        if slot.revoked() {
+            return End::Retired;
+        }
         if !network.is_current(lease) {
             return End::NetworkChanged;
         }
@@ -667,7 +745,7 @@ fn write_frame(
 fn encode(
     raw: SharedStreamRing,
     runtime: Arc<Runtime>,
-    listeners: Arc<AtomicUsize>,
+    listeners: Arc<Capacity>,
     mut worker: Worker,
 ) {
     let mut pump = EncoderPump::new();
@@ -925,6 +1003,7 @@ fn stream_compressed(
     metrics: &mut ListenerMetrics,
     network: &Network,
     network_lease: NetworkLease,
+    slot: &Slot,
     #[cfg(feature = "listener-frame-state")] mut frame_state: Option<
         &mut crate::listener_frame_state::Owner<'_>,
     >,
@@ -936,6 +1015,9 @@ fn stream_compressed(
     let mut payload_started = None;
     let observation = crate::listener_observation::REGISTRY.register(event_us());
     let end = loop {
+        if slot.revoked() {
+            break End::Retired;
+        }
         if !network.is_current(network_lease) {
             break End::NetworkChanged;
         }
@@ -956,6 +1038,9 @@ fn stream_compressed(
             }
             ListenerStep::End(end) => break end,
             ListenerStep::Write { deadline, header } => {
+                if slot.revoked() {
+                    break End::Retired;
+                }
                 if !network.is_current(network_lease) {
                     break End::NetworkChanged;
                 }
@@ -995,6 +1080,9 @@ fn stream_compressed(
                     let us = started.elapsed().as_micros() as u64;
                     metrics.frame_write_wall_total_us += us;
                     metrics.frame_write_wall_max_us = metrics.frame_write_wall_max_us.max(us);
+                }
+                if slot.revoked() {
+                    break End::Retired;
                 }
                 if !network.is_current(network_lease) {
                     break End::NetworkChanged;
@@ -1061,9 +1149,9 @@ fn owner_snapshot() -> (u64, u32) {
         (sys::esp_timer_get_time() as u64, status.ulRunTimeCounter)
     }
 }
-fn owner_sample(listeners: &AtomicUsize, scan_stack: bool) -> Sample {
+fn owner_sample(listeners: &Capacity, scan_stack: bool) -> Sample {
     let (us, runtime) = owner_snapshot();
-    let listeners = listeners.load(Ordering::Acquire);
+    let listeners = listeners.held();
     // SAFETY: only the encoder owner calls this; IDF reports its minimum free stack in bytes.
     let stack_free_bytes = if scan_stack {
         unsafe { sys::uxTaskGetStackHighWaterMark(std::ptr::null_mut()) }
@@ -1229,8 +1317,8 @@ pub(crate) fn export_listener_events() {
             .map_or_else(|| "unknown peer".to_owned(), |peer| peer.to_string());
         let event_us = record.event_us;
         match record.payload {
-            Payload::Joined { format, held } => log::info!("stream: {peer} joined {} ({held} of {MAX_LISTENERS}) event_us={event_us}", format.path()),
-            Payload::Closed { elapsed_ms, held } => log::info!("stream: {peer} socket closed in {elapsed_ms} ms; releasing slot ({held} held) event_us={event_us}"),
+            Payload::Joined { format, held, owner_id, sonos_intent } => log::info!("stream: {peer} joined {} ({held} of {MAX_LISTENERS}) event_us={event_us} owner_id={owner_id} sonos_intent={sonos_intent} role={}", format.path(), if sonos_intent == 0 { "diagnostic" } else { "sonos" }),
+            Payload::Closed { elapsed_ms, held, owner_id, sonos_intent } => log::info!("stream: {peer} socket closed in {elapsed_ms} ms; releasing slot ({held} held) event_us={event_us} owner_id={owner_id} sonos_intent={sonos_intent}"),
             Payload::Timeout { elapsed_ms, limit_ms, bytes } => log::info!("stream: frame write timed out elapsed_ms={elapsed_ms} limit_ms={limit_ms} bytes={bytes} peer={peer} event_us={event_us}"),
             Payload::Refusal { reason, status, response_error } => {
                 let (reason, allocation_error) = match reason {

@@ -445,6 +445,15 @@ pub enum Status {
     ServiceUnavailable,
 }
 
+/// Maps reservation route availability failures while retaining HTTP refusal policy.
+pub fn reservation_refusal(status: Status, tagged: bool) -> Status {
+    if tagged && status == Status::NotFound {
+        Status::ServiceUnavailable
+    } else {
+        status
+    }
+}
+
 impl Status {
     /// The whole response: status line, headers and a one-line text body.
     pub fn response(self) -> String {
@@ -540,6 +549,34 @@ pub fn request_network_generation(request_line: &str) -> io::Result<Option<u32>>
     Ok(generation)
 }
 
+/// Parses a bounded boot-local reservation identity, rejecting duplicates and signs.
+pub fn request_sonos_intent(request_line: &str) -> io::Result<Option<u64>> {
+    let target = request_line.split_whitespace().nth(1).unwrap_or("");
+    let Some((_, query)) = target.split_once('?') else {
+        return Ok(None);
+    };
+    let mut intent = None;
+    for field in query.split('&') {
+        let (key, value) = field.split_once('=').unwrap_or((field, ""));
+        if key != "sonos_intent" {
+            continue;
+        }
+        if intent.is_some() || value.is_empty() || !value.bytes().all(|byte| byte.is_ascii_digit())
+        {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                "invalid Sonos intent",
+            ));
+        }
+        intent = Some(
+            value
+                .parse()
+                .map_err(|_| io::Error::new(io::ErrorKind::InvalidData, "invalid Sonos intent"))?,
+        );
+    }
+    Ok(intent)
+}
+
 /// Routes live paths and strict compressed buffer queries. Other cache-busting queries stay live.
 pub fn route_for(request_line: &str, active: crate::stream_buffer::OutputFormat) -> Route {
     let mut parts = request_line.split_whitespace();
@@ -563,7 +600,9 @@ pub fn route_for(request_line: &str, active: crate::stream_buffer::OutputFormat)
     {
         return Route::Refuse(Status::NotFound);
     }
-    if request_network_generation(request_line).is_err() {
+    if request_network_generation(request_line).is_err()
+        || request_sonos_intent(request_line).is_err()
+    {
         return Route::Refuse(Status::BadRequest);
     }
     if let Some(query) = query {
@@ -573,9 +612,12 @@ pub fn route_for(request_line: &str, active: crate::stream_buffer::OutputFormat)
             .any(|part| part.split('=').next() == Some("buffer"))
         {
             use crate::stream_buffer::BufferPreset;
-            let mut fields = query
-                .split('&')
-                .filter(|field| field.split('=').next() != Some("network_generation"));
+            let mut fields = query.split('&').filter(|field| {
+                !matches!(
+                    field.split('=').next(),
+                    Some("network_generation" | "sonos_intent")
+                )
+            });
             let buffer = fields.next().unwrap_or("");
             if fields.next().is_some() {
                 return Route::Refuse(Status::BadRequest);
@@ -602,6 +644,68 @@ pub fn route_for(request_line: &str, active: crate::stream_buffer::OutputFormat)
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn tagged_head_preserves_method_refusal_and_allow_header() {
+        let line = "HEAD /stream.flac?buffer=med&network_generation=1&sonos_intent=41 HTTP/1.1";
+        let Route::Refuse(status) = route(line) else {
+            panic!("HEAD must refuse payload admission");
+        };
+        let status = reservation_refusal(status, request_sonos_intent(line).unwrap().is_some());
+        assert_eq!(status, Status::MethodNotAllowed);
+        let response = status.response();
+        assert!(response.starts_with("HTTP/1.1 405 Method Not Allowed\r\n"));
+        assert!(response.contains("\r\nAllow: GET\r\n"));
+    }
+
+    #[test]
+    fn reservation_refusals_preserve_protocol_errors_and_hide_unavailable_routes() {
+        for status in [
+            Status::BadRequest,
+            Status::MethodNotAllowed,
+            Status::NotFound,
+            Status::ServiceUnavailable,
+        ] {
+            assert_eq!(reservation_refusal(status, false), status);
+        }
+        assert_eq!(
+            reservation_refusal(Status::BadRequest, true),
+            Status::BadRequest
+        );
+        assert_eq!(
+            reservation_refusal(Status::NotFound, true),
+            Status::ServiceUnavailable
+        );
+        assert_eq!(
+            reservation_refusal(Status::ServiceUnavailable, true),
+            Status::ServiceUnavailable
+        );
+    }
+
+    #[test]
+    fn reserved_identity_is_strict_and_allowed_alongside_buffer() {
+        use crate::stream_buffer::{BufferPreset, OutputFormat};
+        assert_eq!(
+            route_for(
+                "GET /stream.flac?buffer=med&network_generation=1&sonos_intent=2 HTTP/1.1",
+                OutputFormat::Flac
+            ),
+            Route::Buffered(BufferPreset::Medium)
+        );
+        for query in [
+            "sonos_intent=",
+            "sonos_intent=-1",
+            "sonos_intent=18446744073709551616",
+            "sonos_intent=2&sonos_intent=2",
+        ] {
+            assert_eq!(
+                route_for(
+                    &format!("GET /stream.flac?{query} HTTP/1.1"),
+                    OutputFormat::Flac
+                ),
+                Route::Refuse(Status::BadRequest)
+            );
+        }
+    }
     fn route(line: &str) -> Route {
         route_for(line, crate::stream_buffer::OutputFormat::Flac)
     }

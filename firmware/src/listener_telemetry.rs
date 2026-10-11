@@ -85,6 +85,8 @@ pub(crate) enum Payload {
     Joined {
         format: esp_shazam_core::stream_http::Format,
         held: usize,
+        owner_id: u64,
+        sonos_intent: u64,
     },
     Departure {
         metrics: Option<Departure>,
@@ -95,6 +97,8 @@ pub(crate) enum Payload {
     Closed {
         elapsed_ms: u64,
         held: usize,
+        owner_id: u64,
+        sonos_intent: u64,
     },
     Timeout {
         elapsed_ms: u64,
@@ -245,13 +249,20 @@ pub(crate) fn close_and_report<S, F>(
     now: impl FnOnce() -> u64,
     close: impl FnOnce(S) -> Result<Duration, F>,
 ) -> Result<(), RetainedClose<F>> {
-    let (elapsed, held) = resources.close(close)?;
+    let owner_id = resources.slot.owner_id();
+    let sonos_intent = resources.slot.intent_id();
+    // Stamp checked close before releasing the slot so a replacement's join
+    // can be ordered against it without depending on exporter scheduling.
+    let ((elapsed, event_us), held) =
+        resources.close(|socket| close(socket).map(|elapsed| (elapsed, now())))?;
     queue.publish(Record {
-        event_us: now(),
+        event_us,
         peer,
         payload: Payload::Closed {
             elapsed_ms: elapsed.as_millis() as u64,
             held,
+            owner_id,
+            sonos_intent,
         },
     });
     Ok(())
@@ -262,6 +273,46 @@ pub(crate) static EVENTS: Queue = Queue::new();
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn close_timestamp_precedes_capacity_reuse() {
+        use esp_shazam_core::stream_wait::{Capacity, Slot};
+        use std::{
+            io::Read,
+            net::{Shutdown, TcpListener, TcpStream},
+            sync::Arc,
+        };
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let mut peer = TcpStream::connect(listener.local_addr().unwrap()).unwrap();
+        peer.set_read_timeout(Some(Duration::from_secs(1))).unwrap();
+        let (socket, address) = listener.accept().unwrap();
+        let capacity = Arc::new(Capacity::default());
+        let slot = Slot::take(&capacity, 2).unwrap();
+        let expected_owner = slot.owner_id();
+        let queue = Queue::new();
+        assert!(close_and_report(
+            ConnectionResources::new(socket, slot, None),
+            &queue,
+            Some(address),
+            || {
+                assert_eq!(capacity.held(), 1, "timestamp must precede slot reuse");
+                123
+            },
+            |socket| {
+                socket.shutdown(Shutdown::Both)?;
+                drop(socket);
+                Ok::<_, std::io::Error>(Duration::from_millis(2))
+            }
+        )
+        .is_ok());
+        assert_eq!(capacity.held(), 0);
+        assert_eq!(peer.read(&mut [0]).unwrap(), 0);
+        let record = queue.take().unwrap();
+        assert_eq!(record.event_us, 123);
+        assert_eq!(record.peer, Some(address));
+        assert!(matches!(record.payload, Payload::Closed {
+            owner_id, sonos_intent: 0, elapsed_ms: 2, held: 1,
+        } if owner_id == expected_owner));
+    }
     fn record() -> Record {
         Record {
             event_us: 12,
@@ -269,6 +320,8 @@ mod tests {
             payload: Payload::Closed {
                 elapsed_ms: 3,
                 held: 1,
+                owner_id: 1,
+                sonos_intent: 0,
             },
         }
     }
@@ -367,11 +420,11 @@ mod tests {
     }
     #[test]
     fn held_and_poisoned_export_storage_cannot_hold_real_admission_after_close() {
-        use esp_shazam_core::stream_wait::Slot;
+        use esp_shazam_core::stream_wait::{Capacity, Slot};
         use std::{
             io::Read,
             net::{Shutdown, TcpListener, TcpStream},
-            sync::{atomic::AtomicUsize, Arc},
+            sync::Arc,
         };
         for poison in [false, true] {
             let q = Queue::new();
@@ -390,7 +443,7 @@ mod tests {
             let mut peer = TcpStream::connect(listener.local_addr().unwrap()).unwrap();
             peer.set_read_timeout(Some(Duration::from_secs(1))).unwrap();
             let (socket, address) = listener.accept().unwrap();
-            let slots = Arc::new(AtomicUsize::new(0));
+            let slots = Arc::new(Capacity::default());
             let (runtime, _worker) = crate::stream_runtime::Runtime::new(
                 esp_shazam_core::stream_buffer::OutputFormat::Flac,
                 false,
@@ -410,7 +463,7 @@ mod tests {
                 }
             )
             .is_ok());
-            assert_eq!(slots.load(Ordering::Acquire), 0);
+            assert_eq!(slots.held(), 0);
             assert_eq!(peer.read(&mut [0]).unwrap(), 0);
             assert_eq!(q.dropped(), 1);
         }

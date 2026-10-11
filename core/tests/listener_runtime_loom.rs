@@ -11,10 +11,7 @@ mod stream_runtime;
 
 mod models {
     use esp_shazam_core::stream_wait::Slot;
-    use loom::sync::{
-        atomic::{AtomicUsize, Ordering},
-        Arc,
-    };
+    use loom::sync::Arc;
     use loom::thread;
 
     pub(crate) fn check(f: impl Fn() + Send + Sync + 'static) {
@@ -43,11 +40,66 @@ mod models {
     }
 
     #[test]
+    fn reserve_admit_cancel_and_drop_never_create_a_third_payload_owner() {
+        check(|| {
+            use esp_shazam_core::{
+                network_lifecycle::Network, stream_buffer::OutputFormat, stream_wait::Capacity,
+            };
+            let network = Network::new();
+            network.observe(network.snapshot(), Some("192.0.2.10".parse().unwrap()));
+            let lease = network.lease().unwrap();
+            let capacity = Arc::new(Capacity::default());
+            let diagnostic = Slot::take(&capacity, 2).unwrap();
+            let newest = Slot::take(&capacity, 2).unwrap();
+            let peer = "192.0.2.20".parse().unwrap();
+            let id = capacity
+                .reserve(
+                    peer,
+                    network,
+                    lease,
+                    Arc::new(loom::sync::Mutex::new(true)),
+                    OutputFormat::Flac,
+                    None,
+                    std::time::Instant::now(),
+                )
+                .unwrap();
+            let release = thread::spawn(move || drop(newest));
+            let listener_capacity = capacity.clone();
+            let listener = thread::spawn(move || {
+                let slot = Capacity::admit(
+                    &listener_capacity,
+                    id,
+                    peer,
+                    lease.generation,
+                    OutputFormat::Flac,
+                    None,
+                );
+                assert!(listener_capacity.held() <= 2);
+                drop(slot);
+            });
+            let cancellation_capacity = capacity.clone();
+            let cancellation = thread::spawn(move || {
+                cancellation_capacity.clear(id);
+                let slot = Slot::take(&cancellation_capacity, 2);
+                assert!(cancellation_capacity.held() <= 2);
+                drop(slot);
+            });
+            release.join().unwrap();
+            listener.join().unwrap();
+            cancellation.join().unwrap();
+            assert!(!diagnostic.revoked());
+            drop(diagnostic);
+            assert_eq!(capacity.held(), 0);
+        });
+    }
+
+    #[test]
     fn slot_saturation() {
         check(|| {
-            let count = Arc::new(AtomicUsize::new(0));
+            let count = Arc::new(esp_shazam_core::stream_wait::Capacity::default());
             // Type witness: the actual production signature must accept Loom ownership.
-            let take: fn(&Arc<AtomicUsize>, usize) -> Option<Slot> = Slot::take;
+            let take: fn(&Arc<esp_shazam_core::stream_wait::Capacity>, usize) -> Option<Slot> =
+                Slot::take;
             let workers: Vec<_> = (0..3)
                 .map(|_| {
                     let count = count.clone();
@@ -61,12 +113,12 @@ mod models {
             for worker in workers {
                 worker.join().unwrap();
             }
-            assert_eq!(count.load(Ordering::Acquire), 0);
+            assert_eq!(count.held(), 0);
             let first = take(&count, 2).unwrap();
             let second = take(&count, 2).unwrap();
             assert!(take(&count, 2).is_none());
             drop((first, second));
-            assert_eq!(count.load(Ordering::Acquire), 0);
+            assert_eq!(count.held(), 0);
             assert_eq!(Arc::strong_count(&count), 1);
         });
     }
@@ -74,7 +126,7 @@ mod models {
     #[test]
     fn slot_release_races_admission() {
         check(|| {
-            let count = Arc::new(AtomicUsize::new(0));
+            let count = Arc::new(esp_shazam_core::stream_wait::Capacity::default());
             let first = Slot::take(&count, 2).unwrap();
             let second = Slot::take(&count, 2).unwrap();
             let release = thread::spawn(move || drop(first));
@@ -82,12 +134,9 @@ mod models {
             let contender = thread::spawn(move || Slot::take(&contender_count, 2));
             release.join().unwrap();
             let admitted = contender.join().unwrap();
-            assert_eq!(
-                count.load(Ordering::Acquire),
-                1 + usize::from(admitted.is_some())
-            );
+            assert_eq!(count.held(), 1 + usize::from(admitted.is_some()));
             drop((second, admitted));
-            assert_eq!(count.load(Ordering::Acquire), 0);
+            assert_eq!(count.held(), 0);
             assert_eq!(Arc::strong_count(&count), 1);
         });
     }
@@ -95,7 +144,7 @@ mod models {
     #[test]
     fn slot_worker_normal_and_early_return() {
         check(|| {
-            let count = Arc::new(AtomicUsize::new(0));
+            let count = Arc::new(esp_shazam_core::stream_wait::Capacity::default());
             let normal = Slot::take(&count, 2).unwrap();
             let early = Slot::take(&count, 2).unwrap();
             let worker = thread::spawn(move || {
@@ -110,7 +159,7 @@ mod models {
             });
             worker.join().unwrap();
             cancelled.join().unwrap();
-            assert_eq!(count.load(Ordering::Acquire), 0);
+            assert_eq!(count.held(), 0);
             assert_eq!(Arc::strong_count(&count), 1);
         });
     }
@@ -118,7 +167,7 @@ mod models {
     #[test]
     fn unlaunched_closure_releases_slot() {
         check(|| {
-            let count = Arc::new(AtomicUsize::new(0));
+            let count = Arc::new(esp_shazam_core::stream_wait::Capacity::default());
             let slot = Slot::take(&count, 2).unwrap();
             let other = Slot::take(&count, 2).unwrap();
             let unlaunched = move || drop(slot);
@@ -128,7 +177,7 @@ mod models {
             cleanup.join().unwrap();
             let admitted = contender.join().unwrap();
             drop((other, admitted));
-            assert_eq!(count.load(Ordering::Acquire), 0);
+            assert_eq!(count.held(), 0);
             assert_eq!(Arc::strong_count(&count), 1);
         });
     }

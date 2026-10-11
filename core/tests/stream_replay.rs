@@ -77,7 +77,7 @@ fn runtime_requests_obey_tokens_expiry_block_boundaries_and_draining_leases() {
     };
     use std::{
         sync::{
-            atomic::{AtomicU64, AtomicUsize, Ordering},
+            atomic::{AtomicU64, Ordering},
             Arc, Mutex,
         },
         time::Duration,
@@ -131,7 +131,7 @@ fn runtime_requests_obey_tokens_expiry_block_boundaries_and_draining_leases() {
     assert!(matches!(expired.poll(), SwitchPoll::Finished(Err(_))));
     worker.service(&runtime);
     assert_eq!(runtime.active_format(), OutputFormat::Flac);
-    let slots = Arc::new(AtomicUsize::new(0));
+    let slots = Arc::new(esp_shazam_core::stream_wait::Capacity::default());
     let (_, lease) = runtime.admit("GET /stream.flac HTTP/1.1");
     let draining = ConnectionResources::new(1, Slot::take(&slots, 2).unwrap(), lease);
     let SwitchStart::Pending(idle) = runtime.begin_switch(
@@ -176,7 +176,7 @@ fn runtime_requests_obey_tokens_expiry_block_boundaries_and_draining_leases() {
     assert!(old.retired());
     let (_, lease) = runtime.admit("GET /stream.mp3 HTTP/1.1");
     assert_eq!(lease.unwrap().epoch.format, OutputFormat::Mp3);
-    assert_eq!(slots.load(Ordering::Acquire), 0);
+    assert_eq!(slots.held(), 0);
 }
 
 #[cfg(feature = "capture-fixture")]

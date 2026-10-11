@@ -245,70 +245,18 @@ fn repeated_switches_decode_independently_and_release_unheld_epochs() {
 }
 
 #[test]
-fn same_format_play_waits_for_real_slots_after_cancelled_switch() {
-    use esp_shazam_core::stream_wait::Slot;
-    use std::{
-        sync::{atomic::AtomicUsize, mpsc},
-        thread,
-    };
-    let (runtime, mut worker) = Runtime::new(OutputFormat::Flac, false).unwrap();
-    let slots = Arc::new(AtomicUsize::new(0));
-    let first = Slot::take(&slots, 2).unwrap();
-    let second = Slot::take(&slots, 2).unwrap();
-    let token = Arc::new(Mutex::new(true));
-    let caller = runtime.clone();
-    let held = slots.clone();
-    let permit = token.clone();
-    let (started, running) = mpsc::channel();
-    let cancelled = thread::spawn(move || {
-        started.send(()).unwrap();
-        caller.play_format(OutputFormat::Mp3, permit, &held, 2, Duration::from_secs(1))
-    });
-    running.recv_timeout(Duration::from_secs(1)).unwrap();
-    assert!(worker.wait_and_service(&runtime, Duration::from_secs(1)));
-    assert_eq!(runtime.active_format(), OutputFormat::Mp3);
-    *token.lock().unwrap() = false;
-    assert!(cancelled.join().unwrap().is_err());
-    let caller = runtime.clone();
-    let held = slots.clone();
-    let (finished, completion) = mpsc::channel();
-    let retry = thread::spawn(move || {
-        let result = caller.play_format(
-            OutputFormat::Mp3,
-            Arc::new(Mutex::new(true)),
-            &held,
-            2,
-            Duration::from_secs(1),
-        );
-        finished.send(result).unwrap();
-    });
-    assert!(completion.recv_timeout(Duration::from_millis(20)).is_err());
-    drop(first);
-    assert!(completion
-        .recv_timeout(Duration::from_secs(1))
-        .unwrap()
+fn healthy_same_format_play_preserves_compatible_diagnostic_epoch() {
+    let (runtime, worker) = Runtime::new(OutputFormat::Flac, false).unwrap();
+    let (_, diagnostic) = runtime.admit("GET /stream.flac HTTP/1.1");
+    let epoch = diagnostic.unwrap().epoch.clone();
+    assert!(runtime
+        .play_format(OutputFormat::Flac, Arc::new(Mutex::new(true)))
         .unwrap());
-    retry.join().unwrap();
+    assert!(Arc::ptr_eq(&worker.epoch, &epoch));
+    assert!(!epoch.retired());
     assert!(runtime
-        .play_format(
-            OutputFormat::Mp3,
-            Arc::new(Mutex::new(false)),
-            &slots,
-            2,
-            Duration::from_secs(1)
-        )
+        .play_format(OutputFormat::Flac, Arc::new(Mutex::new(false)))
         .is_err());
-    let first = Slot::take(&slots, 2).unwrap();
-    assert!(runtime
-        .play_format(
-            OutputFormat::Mp3,
-            Arc::new(Mutex::new(true)),
-            &slots,
-            2,
-            Duration::from_millis(10)
-        )
-        .is_err());
-    drop((first, second));
 }
 
 #[test]

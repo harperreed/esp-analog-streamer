@@ -213,32 +213,12 @@ impl Runtime {
             Prepared::new(format, self.recognition, self.health.clone())
         })
     }
-    /// Every deliberate Play waits for capacity, including a retry of the already active codec.
-    pub fn play_format(
-        &self,
-        format: OutputFormat,
-        token: Arc<Mutex<bool>>,
-        listeners: &AtomicUsize,
-        limit: usize,
-        wait_timeout: Duration,
-    ) -> io::Result<bool> {
-        let applied = self.switch(format, true, token.clone(), Duration::from_secs(3))?;
-        let deadline = Instant::now() + wait_timeout;
-        loop {
-            if !*token.lock().unwrap() {
-                return Err(io::Error::other("Sonos Play cancelled"));
-            }
-            if listeners.load(Ordering::Acquire) < limit {
-                return Ok(applied);
-            }
-            if Instant::now() >= deadline {
-                return Err(io::Error::new(
-                    io::ErrorKind::TimedOut,
-                    "stream listeners did not release a slot",
-                ));
-            }
-            std::thread::sleep(Duration::from_millis(10));
+    /// Selects the Play epoch; capacity belongs to the shared reservation registry.
+    pub fn play_format(&self, format: OutputFormat, token: Arc<Mutex<bool>>) -> io::Result<bool> {
+        if !*token.lock().unwrap() {
+            return Err(io::Error::other("Sonos Play cancelled"));
         }
+        self.switch(format, true, token, Duration::from_secs(3))
     }
 
     #[cfg(test)]

@@ -19,10 +19,7 @@ use listener_telemetry::{Payload, Queue, Record};
 use std::{
     io::Read,
     net::{TcpListener, TcpStream},
-    sync::{
-        atomic::{AtomicUsize, Ordering},
-        Arc, Barrier,
-    },
+    sync::{Arc, Barrier},
     time::Duration,
 };
 use stream_pipeline::ConnectionResources;
@@ -35,6 +32,8 @@ fn record(n: u64) -> Record {
         payload: Payload::Closed {
             elapsed_ms: n,
             held: 1,
+            owner_id: n,
+            sonos_intent: 0,
         },
     }
 }
@@ -97,7 +96,7 @@ fn blocked_exporter_cannot_delay_real_close_slot_or_format_lease_release() {
     let mut peer = TcpStream::connect(listener.local_addr().unwrap()).unwrap();
     peer.set_read_timeout(Some(Duration::from_secs(1))).unwrap();
     let (socket, _) = listener.accept().unwrap();
-    let slots = Arc::new(AtomicUsize::new(0));
+    let slots = Arc::new(esp_shazam_core::stream_wait::Capacity::default());
     let (runtime, mut worker) = Runtime::new(OutputFormat::Flac, false).unwrap();
     let (_, lease) = runtime.admit("GET /stream.flac HTTP/1.1");
     let resources = ConnectionResources::new(socket, Slot::take(&slots, 2).unwrap(), lease);
@@ -119,7 +118,7 @@ fn blocked_exporter_cannot_delay_real_close_slot_or_format_lease_release() {
     );
     assert!(close.is_ok());
     assert_eq!(peer.read(&mut [0]).unwrap(), 0);
-    assert_eq!(slots.load(Ordering::Acquire), 0);
+    assert_eq!(slots.held(), 0);
     assert_eq!(q.dropped(), 1);
     let SwitchStart::Pending(pending) = runtime.begin_switch(
         OutputFormat::Mp3,
@@ -190,7 +189,7 @@ fn timeout_result_is_reported_without_consuming_or_changing_terminal_error() {
 #[test]
 fn real_failed_close_retains_slot_and_format_lease_without_false_success_event() {
     let q = Queue::new();
-    let slots = Arc::new(AtomicUsize::new(0));
+    let slots = Arc::new(esp_shazam_core::stream_wait::Capacity::default());
     let (runtime, mut worker) = Runtime::new(OutputFormat::Flac, false).unwrap();
     let (_, lease) = runtime.admit("GET /stream.flac HTTP/1.1");
     let socket = socket2::Socket::new(
@@ -221,7 +220,7 @@ fn real_failed_close_retains_slot_and_format_lease_without_false_success_event()
         },
     )
     .expect_err("actual OS shutdown must fail");
-    assert_eq!(slots.load(Ordering::Acquire), 1);
+    assert_eq!(slots.held(), 1);
     assert!(q.take().is_none());
     let SwitchStart::Pending(pending) = runtime.begin_switch(
         OutputFormat::Mp3,
@@ -235,7 +234,7 @@ fn real_failed_close_retains_slot_and_format_lease_without_false_success_event()
     assert!(matches!(pending.poll(), SwitchPoll::Finished(Ok(false))));
     assert_eq!(runtime.active_format(), OutputFormat::Flac);
     drop(failed);
-    assert_eq!(slots.load(Ordering::Acquire), 0);
+    assert_eq!(slots.held(), 0);
 }
 
 #[test]
@@ -263,7 +262,7 @@ fn real_socket_timeout_and_refusal_reach_close_with_full_queue_and_blocked_expor
         let mut peer = TcpStream::connect(listener.local_addr().unwrap()).unwrap();
         peer.set_read_timeout(Some(Duration::from_secs(1))).unwrap();
         let (socket, address) = listener.accept().unwrap();
-        let slots = Arc::new(AtomicUsize::new(0));
+        let slots = Arc::new(esp_shazam_core::stream_wait::Capacity::default());
         let (runtime, _worker) = Runtime::new(OutputFormat::Flac, false).unwrap();
         let (_, lease) = runtime.admit("GET /stream.flac HTTP/1.1");
         let resources = ConnectionResources::new(socket, Slot::take(&slots, 2).unwrap(), lease);
@@ -351,7 +350,7 @@ fn real_socket_timeout_and_refusal_reach_close_with_full_queue_and_blocked_expor
             }
         )
         .is_ok());
-        assert_eq!(slots.load(Ordering::Acquire), 0);
+        assert_eq!(slots.held(), 0);
         let mut bytes = Vec::new();
         peer.read_to_end(&mut bytes).unwrap();
         if refusal {
@@ -444,7 +443,7 @@ fn delayed_actual_close_holds_admission_until_socket_operation_finishes() {
     peer.set_read_timeout(Some(Duration::from_millis(30)))
         .unwrap();
     let (socket, address) = listener.accept().unwrap();
-    let slots = Arc::new(AtomicUsize::new(0));
+    let slots = Arc::new(esp_shazam_core::stream_wait::Capacity::default());
     let (runtime, mut worker) = Runtime::new(OutputFormat::Flac, false).unwrap();
     let (_, lease) = runtime.admit("GET /stream.flac HTTP/1.1");
     let resources = ConnectionResources::new(socket, Slot::take(&slots, 2).unwrap(), lease);
@@ -471,7 +470,7 @@ fn delayed_actual_close_holds_admission_until_socket_operation_finishes() {
         })
     };
     started_rx.recv_timeout(Duration::from_secs(1)).unwrap();
-    assert_eq!(slots.load(Ordering::Acquire), 1);
+    assert_eq!(slots.held(), 1);
     let SwitchStart::Pending(pending) = runtime.begin_switch(
         OutputFormat::Mp3,
         false,
@@ -488,7 +487,7 @@ fn delayed_actual_close_holds_admission_until_socket_operation_finishes() {
     finish_tx.send(()).unwrap();
     assert!(closer.join().unwrap());
     assert_eq!(peer.read(&mut [0]).unwrap(), 0);
-    assert_eq!(slots.load(Ordering::Acquire), 0);
+    assert_eq!(slots.held(), 0);
     assert_eq!(q.dropped(), 1);
 }
 
@@ -758,7 +757,7 @@ fn actual_listener_launch_failure_closes_captured_resources() {
     let mut peer = TcpStream::connect(listener.local_addr().unwrap()).unwrap();
     peer.set_read_timeout(Some(Duration::from_secs(1))).unwrap();
     let (socket, _) = listener.accept().unwrap();
-    let slots = Arc::new(AtomicUsize::new(0));
+    let slots = Arc::new(esp_shazam_core::stream_wait::Capacity::default());
     let queue = Arc::new(Queue::new());
     let (runtime, mut worker) = Runtime::new(OutputFormat::Flac, false).unwrap();
     let (_, lease) = runtime.admit("GET /stream.flac HTTP/1.1");
@@ -774,7 +773,7 @@ fn actual_listener_launch_failure_closes_captured_resources() {
         .stack_size(usize::MAX)
         .spawn(move || drop(owner));
     assert!(launched.is_err());
-    assert_eq!(slots.load(Ordering::Acquire), 0);
+    assert_eq!(slots.held(), 0);
     assert_eq!(peer.read(&mut [0]).unwrap(), 0);
     assert!(
         queue.take().is_some(),
@@ -794,4 +793,147 @@ fn actual_listener_launch_failure_closes_captured_resources() {
     };
     worker.service(&runtime);
     assert!(matches!(pending.poll(), SwitchPoll::Finished(Ok(true))));
+}
+
+#[test]
+fn sonos_replacement_cannot_send_success_before_checked_close_receipt() {
+    use esp_shazam_core::{network_lifecycle::Network, stream_wait::Capacity};
+    use std::{
+        io,
+        sync::{mpsc, Mutex},
+        time::Instant,
+    };
+    for reconnect in [false, true] {
+        let network = Network::new();
+        network.observe(network.snapshot(), Some("192.0.2.10".parse().unwrap()));
+        let lease = network.lease().unwrap();
+        let slots = Arc::new(Capacity::default());
+        let diagnostic = Slot::take(&slots, 2).unwrap();
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let old_peer = TcpStream::connect(listener.local_addr().unwrap()).unwrap();
+        let (old_socket, peer) = listener.accept().unwrap();
+        let token = Arc::new(Mutex::new(true));
+        let (intent, old_slot) = if reconnect {
+            let id = slots
+                .reserve(
+                    peer.ip(),
+                    network.clone(),
+                    lease,
+                    token.clone(),
+                    OutputFormat::Flac,
+                    None,
+                    Instant::now(),
+                )
+                .unwrap();
+            (
+                id,
+                Capacity::admit(
+                    &slots,
+                    id,
+                    peer.ip(),
+                    lease.generation,
+                    OutputFormat::Flac,
+                    None,
+                )
+                .unwrap(),
+            )
+        } else {
+            let old = Slot::take(&slots, 2).unwrap();
+            let id = slots
+                .reserve(
+                    peer.ip(),
+                    network.clone(),
+                    lease,
+                    token.clone(),
+                    OutputFormat::Flac,
+                    None,
+                    Instant::now(),
+                )
+                .unwrap();
+            (id, old)
+        };
+        let mut replacement_peer = TcpStream::connect(listener.local_addr().unwrap()).unwrap();
+        replacement_peer
+            .set_read_timeout(Some(Duration::from_millis(40)))
+            .unwrap();
+        let (replacement_socket, peer) = listener.accept().unwrap();
+        let request = format!(
+            "GET /stream.flac?network_generation={}&sonos_intent={intent} HTTP/1.1",
+            lease.generation
+        );
+        // First attempt revokes only the owned Sonos connection on reconnect.
+        assert!(
+            Capacity::admit_request(&slots, &request, peer.ip(), lease.generation)
+                .unwrap()
+                .is_none()
+        );
+        assert!(old_slot.revoked());
+        assert!(!diagnostic.revoked());
+        let resources = ConnectionResources::new(old_socket, old_slot, None);
+        let (closing, entered) = mpsc::channel();
+        let (release, released) = mpsc::channel();
+        let closer = std::thread::spawn(move || {
+            let queue = Queue::new();
+            assert!(listener_telemetry::close_and_report(
+                resources,
+                &queue,
+                Some(peer),
+                || 1,
+                |socket| {
+                    closing.send(()).unwrap();
+                    released.recv().unwrap();
+                    socket.shutdown(std::net::Shutdown::Both)?;
+                    drop(socket);
+                    Ok::<_, io::Error>(Duration::ZERO)
+                }
+            )
+            .is_ok());
+        });
+        entered.recv_timeout(Duration::from_secs(1)).unwrap();
+        let capacity = slots.clone();
+        let replacement = std::thread::spawn(move || {
+            let deadline = Instant::now() + Duration::from_secs(1);
+            let slot = loop {
+                if let Some(slot) =
+                    Capacity::admit_request(&capacity, &request, peer.ip(), lease.generation)
+                        .unwrap()
+                {
+                    break slot;
+                }
+                assert!(Instant::now() < deadline);
+                std::thread::yield_now();
+            };
+            let resources = ConnectionResources::new(replacement_socket, slot, None);
+            esp_shazam_core::stream_http::DeadlineWriter::new(&resources.socket)
+                .write_all_before(b"HTTP/1.1 200 OK\r\n\r\n", deadline)
+                .unwrap();
+            assert!(resources
+                .close(|socket| {
+                    socket.shutdown(std::net::Shutdown::Both)?;
+                    drop(socket);
+                    Ok::<_, io::Error>(())
+                })
+                .is_ok());
+        });
+        let mut first = [0; 1];
+        let before_receipt = replacement_peer.read(&mut first);
+        assert!(
+            matches!(before_receipt, Err(ref error) if matches!(error.kind(), io::ErrorKind::WouldBlock | io::ErrorKind::TimedOut))
+        );
+        assert_eq!(slots.held(), 2);
+        release.send(()).unwrap();
+        closer.join().unwrap();
+        replacement.join().unwrap();
+        replacement_peer
+            .set_read_timeout(Some(Duration::from_secs(1)))
+            .unwrap();
+        let mut response = Vec::new();
+        replacement_peer.read_to_end(&mut response).unwrap();
+        assert!(response.starts_with(b"HTTP/1.1 200"));
+        assert_eq!(slots.held(), 1);
+        assert!(!diagnostic.revoked());
+        drop(old_peer);
+        slots.clear(intent);
+        assert!(Slot::take(&slots, 2).is_some());
+    }
 }

@@ -42,11 +42,8 @@ fn actual_launch_error_survives_an_independent_reset_failure() {
 #[test]
 fn actual_failed_launch_drops_captured_listener_slot() {
     use esp_shazam_core::stream_wait::Slot;
-    use std::sync::{
-        atomic::{AtomicUsize, Ordering},
-        Arc,
-    };
-    let count = Arc::new(AtomicUsize::new(0));
+    use std::sync::Arc;
+    let count = Arc::new(esp_shazam_core::stream_wait::Capacity::default());
     let slot = Slot::take(&count, 2).unwrap();
     let result = std::thread::Builder::new()
         .stack_size(usize::MAX)
@@ -55,6 +52,6 @@ fn actual_failed_launch_drops_captured_listener_slot() {
         result.is_err(),
         "the rejected stack must fail before running the closure"
     );
-    assert_eq!(count.load(Ordering::Acquire), 0);
+    assert_eq!(count.held(), 0);
     assert_eq!(Arc::strong_count(&count), 1);
 }
