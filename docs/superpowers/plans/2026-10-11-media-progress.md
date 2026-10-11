@@ -1,7 +1,8 @@
 # Pipeline progress and media age (6vct)
 
-Status: original acceptance verified; commit and Kata closure next. Base 2edaa55;
-21 open Katas before closure. Original `kata show 6vct` acceptance remains
+Status: committed as f5592cf; Kata 6vct closed. Open count verified 21 → 20.
+CRC oracle fix committed separately as b26cc37. Base 2edaa55.
+Original `kata show 6vct` acceptance remains
 authoritative. Host, bounded device policy, sample correlation and overhead
 measurement are complete. Failed transport trials remain failures on pd6c.
 Earlier progress entries below are a historical log, not current blockers.
