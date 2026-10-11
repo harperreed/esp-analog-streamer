@@ -10,6 +10,30 @@ Use GPT-6.1 Sol subagents with clean contexts. Parent owns review, integration,
 canonical checks, commits and every hardware action. Continue through batches;
 a phase checkpoint is not a reason to abandon the active goal.
 
+## October 11 closure and work-selection checkpoint
+
+45k9 is closed against its original codec acceptance (9cb1259, 3fefbbb).
+The live backlog is 19 open, down from 20 before that closure. Doctor Biz
+again flagged too much investigation without completed tickets.
+
+The next independent implementation is amqe, device metrics and its separate
+dashboard. This supersedes the historical dashboard hold below. Its existing
+cache/endpoint plan is only a first unit: completing that unit must not close
+amqe without collector, identity/freshness, matched overhead and live controlled
+event evidence. No additional design-only ticket can close from current notes:
+the original recovery, listener priority and quantization criteria require
+real device acceptance. m31k still needs hosted CI execution; publication
+approval remains pending, and repeating local coverage cannot satisfy it.
+
+Limit native TLS work at this checkpoint to the saved baseline/current control
+comparison. Retain failed trials under 93hm/pqqq; do not reopen the closed
+codec ticket or launch another general transport campaign. A failing comparison
+is diagnostic evidence, not closure or a release pass. Follow-up must name a
+specific missing criterion and a bounded implementation or experiment.
+
+Keep one independent implementation moving alongside the sole-owner hardware
+work. Report closures, implemented work and blocked acceptance separately.
+
 ## Sender diagnostics closure checkpoint
 
 The original d2cb overhead comparison is complete: matched normal/control boots
