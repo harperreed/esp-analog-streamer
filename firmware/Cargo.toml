@@ -27,6 +27,8 @@ debug = true
 opt-level = "z"
 
 [features]
+# Bounded ON-only compressed frame-write-state diagnostic.
+listener-frame-state = []
 # Diagnostic-only fixed observer OFF / ON / OFF schedule.
 metrics-state-crossover = []
 encoder-probe = ["esp-shazam-core/encoder-probe", "esp-shazam-mp3/encoder-probe"]

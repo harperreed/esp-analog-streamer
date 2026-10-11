@@ -342,6 +342,8 @@ fn supervise() -> ! {
     let task = unsafe { esp_idf_svc::sys::xTaskGetCurrentTaskHandle() };
     SUPERVISOR_TASK.store(task.cast(), Ordering::Release);
     let launched = micros();
+    #[cfg(feature = "listener-frame-state")]
+    let mut frame_sampler = crate::listener_frame_state::Sampler::new(launched as u32);
     let mut sampling = Gate::new(launched);
     let mut observations = Counts::new();
     let mut metrics_task = std::ptr::null_mut();
@@ -366,6 +368,8 @@ fn supervise() -> ! {
                 unsafe { esp_idf_svc::sys::esp_restart() }
             }
         }
+        #[cfg(feature = "listener-frame-state")]
+        crate::listener_frame_state::observe(&mut frame_sampler);
         if sampling.due(micros(), 1_000_000) && metrics_observer_enabled() {
             observe_metrics(&mut observations, &mut metrics_task, &mut status);
             METRICS_OBSERVATIONS.publish(&observations);
@@ -375,6 +379,8 @@ fn supervise() -> ! {
 }
 
 fn metrics() -> ! {
+    #[cfg(feature = "listener-frame-state")]
+    let mut frame_exported = false;
     record_metrics_phase(metrics_observer_enabled(), Phase::Init);
     // SAFETY: this diverging task stays live for the boot; pinned ESP-IDF panics abort.
     let task = unsafe { esp_idf_svc::sys::xTaskGetCurrentTaskHandle() };
@@ -438,6 +444,15 @@ fn metrics() -> ! {
             export_restart_failures(&mut failure_exports);
             record_metrics_phase(observer_enabled, Phase::Init);
             next_log = now + 10_000_000;
+        }
+        #[cfg(feature = "listener-frame-state")]
+        if !frame_exported {
+            if let Some(receipt) = crate::listener_frame_state::DIAGNOSTIC.receipt() {
+                frame_exported = true;
+                record_metrics_phase(observer_enabled, Phase::DiagnosticExport);
+                crate::listener_frame_state::export(receipt);
+                record_metrics_phase(observer_enabled, Phase::Init);
+            }
         }
         record_metrics_phase(observer_enabled, Phase::ListenerExport);
         crate::stream::export_listener_events();

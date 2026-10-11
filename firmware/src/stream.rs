@@ -350,6 +350,8 @@ fn listen(
                     .format
                     .block_frames(),
             );
+            #[cfg(feature = "listener-frame-state")]
+            let mut frame_state = crate::listener_frame_state::register_current(peer);
             let end = stream_compressed(
                 sock,
                 &lease.as_ref().expect("compressed lease").epoch,
@@ -357,7 +359,11 @@ fn listen(
                 preset,
                 peer,
                 &mut metrics,
+                #[cfg(feature = "listener-frame-state")]
+                frame_state.as_mut(),
             );
+            #[cfg(feature = "listener-frame-state")]
+            drop(frame_state);
             departure = Some(metrics.departure());
             end
         }
@@ -733,6 +739,9 @@ fn stream_compressed(
     preset: Option<BufferPreset>,
     peer: Option<SocketAddr>,
     metrics: &mut ListenerMetrics,
+    #[cfg(feature = "listener-frame-state")] mut frame_state: Option<
+        &mut crate::listener_frame_state::Owner<'_>,
+    >,
 ) -> End {
     let origin = Instant::now();
     let mut listener = CompressedListener::new(epoch, preset, CONFIG.shazam_enabled, &mut || {
@@ -754,8 +763,20 @@ fn stream_compressed(
             ListenerStep::End(end) => break end,
             ListenerStep::Write { deadline, header } => {
                 let started = Instant::now();
+                #[cfg(feature = "listener-frame-state")]
+                if !header {
+                    if let Some(owner) = frame_state.as_deref_mut() {
+                        owner.begin(crate::listener_frame_state::now());
+                    }
+                }
                 let result =
                     writer.write_all_before(listener.write_bytes(bytes), origin + deadline);
+                #[cfg(feature = "listener-frame-state")]
+                if !header {
+                    if let Some(owner) = frame_state.as_deref_mut() {
+                        owner.end();
+                    }
+                }
                 listener_telemetry::report_timeout(
                     &EVENTS,
                     peer,
