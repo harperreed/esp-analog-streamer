@@ -515,6 +515,31 @@ pub fn read_request_line(reader: impl BufRead, max_bytes: u64) -> io::Result<Str
     }
 }
 
+/// Reads the optional boot-local network generation from a stream request.
+pub fn request_network_generation(request_line: &str) -> io::Result<Option<u32>> {
+    let target = request_line.split_whitespace().nth(1).unwrap_or("");
+    let Some((_, query)) = target.split_once('?') else {
+        return Ok(None);
+    };
+    let mut generation = None;
+    for field in query.split('&') {
+        let (key, value) = field.split_once('=').unwrap_or((field, ""));
+        if key != "network_generation" {
+            continue;
+        }
+        if generation.is_some() || value.is_empty() || !value.bytes().all(|b| b.is_ascii_digit()) {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                "invalid network generation",
+            ));
+        }
+        generation = Some(value.parse().map_err(|_| {
+            io::Error::new(io::ErrorKind::InvalidData, "invalid network generation")
+        })?);
+    }
+    Ok(generation)
+}
+
 /// Routes live paths and strict compressed buffer queries. Other cache-busting queries stay live.
 pub fn route_for(request_line: &str, active: crate::stream_buffer::OutputFormat) -> Route {
     let mut parts = request_line.split_whitespace();
@@ -538,6 +563,9 @@ pub fn route_for(request_line: &str, active: crate::stream_buffer::OutputFormat)
     {
         return Route::Refuse(Status::NotFound);
     }
+    if request_network_generation(request_line).is_err() {
+        return Route::Refuse(Status::BadRequest);
+    }
     if let Some(query) = query {
         // Any occurrence of the buffer key requests buffering, including malformed combinations.
         if query
@@ -545,7 +573,14 @@ pub fn route_for(request_line: &str, active: crate::stream_buffer::OutputFormat)
             .any(|part| part.split('=').next() == Some("buffer"))
         {
             use crate::stream_buffer::BufferPreset;
-            let preset = match query {
+            let mut fields = query
+                .split('&')
+                .filter(|field| field.split('=').next() != Some("network_generation"));
+            let buffer = fields.next().unwrap_or("");
+            if fields.next().is_some() {
+                return Route::Refuse(Status::BadRequest);
+            }
+            let preset = match buffer {
                 "buffer=low" => BufferPreset::Low,
                 "buffer=med" => BufferPreset::Medium,
                 "buffer=high" => BufferPreset::High,

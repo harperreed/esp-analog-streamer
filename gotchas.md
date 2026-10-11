@@ -965,3 +965,8 @@ before advancing count anchors, exclude the dependent window, and write failure
 receipts even when analysis fails. Preserve original verdicts when recovering
 from raw logs. Numeric field parsers must retain digit-bearing names such as
 `send_over_10ms` without accepting an IPv4 prefix as a counter.
+
+Wi-Fi loss can abort local TCP state without delivering FIN/RST to the remote
+host. Test stale socket cleanup through checked local close, released admission
+capacity and fresh streams; record remote EOF separately. Keep old host sockets
+open through the fresh admissions so host cleanup cannot explain board recovery.

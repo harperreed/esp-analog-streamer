@@ -10,6 +10,7 @@ pub const MAX_REPORT_BYTES: usize = 1024;
 pub struct QueueSnapshot {
     pub item_id: String,
     pub host: Ipv4Addr,
+    pub network_generation: u32,
     pub buffer_preset: Option<crate::stream_buffer::BufferPreset>,
     pub format: crate::stream_buffer::OutputFormat,
 }
@@ -34,11 +35,13 @@ impl QueueSnapshot {
         host: Ipv4Addr,
         buffer_preset: Option<crate::stream_buffer::BufferPreset>,
         format: crate::stream_buffer::OutputFormat,
+        network_generation: u32,
     ) -> Result<Self, Error> {
         crate::sonos::validate_id(&item_id).map_err(|_| Error::Invalid)?;
         Ok(Self {
             item_id,
             host,
+            network_generation,
             buffer_preset,
             format,
         })
@@ -102,8 +105,12 @@ fn media_url(snapshot: &QueueSnapshot) -> String {
         snapshot.format.format().path()
     );
     match snapshot.buffer_preset {
-        Some(preset) => format!("{url}?buffer={}", preset.query_value()),
-        None => url,
+        Some(preset) => format!(
+            "{url}?buffer={}&network_generation={}",
+            preset.query_value(),
+            snapshot.network_generation
+        ),
+        None => format!("{url}?network_generation={}", snapshot.network_generation),
     }
 }
 
@@ -190,6 +197,7 @@ mod tests {
         QueueSnapshot {
             item_id: "esp-test-1".into(),
             host: Ipv4Addr::new(192, 0, 2, 10),
+            network_generation: 0,
             buffer_preset: None,
             format: crate::stream_buffer::OutputFormat::Flac,
         }
@@ -197,11 +205,29 @@ mod tests {
 
     fn test_live_url() -> String {
         let path = "/stream.flac";
-        format!("http://192.0.2.10:8000{path}")
+        format!("http://192.0.2.10:8000{path}?network_generation=0")
     }
 
     fn report() -> Value {
         json!({"items":[{"contextVersion":"esp-test-1", "queueVersion":"esp-test-1", "id":"esp-test-1", "mediaUrl":test_live_url(), "type":"update", "positionMillis":2500, "positionMillisAtSegmentStart":0, "durationPlayedMillis":2500, "timeSincePlaybackMillis":2500}]})
+    }
+
+    #[test]
+    fn media_url_carries_network_generation_for_live_and_buffered_playback() {
+        for preset in [None, Some(crate::stream_buffer::BufferPreset::Medium)] {
+            let mut queue = snapshot();
+            queue.buffer_preset = preset;
+            queue.network_generation = 17;
+            let body: Value = serde_json::from_str(
+                &response(&queue, Endpoint::ItemWindow, "network_generation=99").unwrap(),
+            )
+            .unwrap();
+            let prefix = if preset.is_some() { "buffer=med&" } else { "" };
+            assert_eq!(
+                body["items"][0]["track"]["mediaUrl"],
+                format!("http://192.0.2.10:8000/stream.flac?{prefix}network_generation=17")
+            );
+        }
     }
 
     #[test]
@@ -212,9 +238,10 @@ mod tests {
             snapshot().host,
             Some(crate::stream_buffer::BufferPreset::Medium),
             crate::stream_buffer::OutputFormat::Flac,
+            0,
         )
         .unwrap();
-        let url = format!("http://192.0.2.10:8000{path}?buffer=med");
+        let url = format!("http://192.0.2.10:8000{path}?buffer=med&network_generation=0");
         let window: Value =
             serde_json::from_str(&response(&snapshot, Endpoint::ItemWindow, "").unwrap()).unwrap();
         assert_eq!(window["items"][0]["track"]["mediaUrl"], url);
@@ -245,9 +272,11 @@ mod tests {
                 snapshot().host,
                 Some(preset),
                 crate::stream_buffer::OutputFormat::Flac,
+                0,
             )
             .unwrap();
-            let expected = format!("{}?buffer={value}", test_live_url());
+            let expected =
+                format!("http://192.0.2.10:8000/stream.flac?buffer={value}&network_generation=0");
             let body: Value = serde_json::from_str(
                 &response(
                     &s,
@@ -347,14 +376,16 @@ mod tests {
             String::new(),
             snapshot().host,
             None,
-            crate::stream_buffer::OutputFormat::Flac
+            crate::stream_buffer::OutputFormat::Flac,
+            0,
         )
         .is_err());
         assert!(QueueSnapshot::new(
             "x".repeat(257),
             snapshot().host,
             None,
-            crate::stream_buffer::OutputFormat::Flac
+            crate::stream_buffer::OutputFormat::Flac,
+            0,
         )
         .is_err());
         let s = QueueSnapshot::new(
@@ -362,6 +393,7 @@ mod tests {
             snapshot().host,
             None,
             crate::stream_buffer::OutputFormat::Flac,
+            0,
         )
         .unwrap();
         let encoded = response(&s, Endpoint::ItemWindow, "").unwrap();

@@ -49,6 +49,7 @@ fn queue_freezes_format_with_buffer() {
             "192.0.2.1".parse().unwrap(),
             Some(BufferPreset::High),
             format,
+            0,
         )
         .unwrap();
         let body: serde_json::Value = serde_json::from_str(
@@ -57,7 +58,7 @@ fn queue_freezes_format_with_buffer() {
         .unwrap();
         assert_eq!(
             body["items"][0]["track"]["mediaUrl"],
-            format!("http://192.0.2.1:8000/stream.{path}?buffer=high")
+            format!("http://192.0.2.1:8000/stream.{path}?buffer=high&network_generation=0")
         );
         assert_eq!(body["items"][0]["track"]["contentType"], mime);
     }

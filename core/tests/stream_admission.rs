@@ -1,19 +1,60 @@
-// ABOUTME: Exercises production blocking admission operations with real loopback peers.
+// ABOUTME: Exercises production generation-owned admission operations with real loopback peers.
 // ABOUTME: Finite workers and a teardown owner close peers, wake accepts and join on failure.
 
 #[path = "../../firmware/src/stream_admission.rs"]
 mod stream_admission;
 
+use esp_shazam_core::network_lifecycle::Network;
 use esp_shazam_core::stream_http::{write_response, Status};
 use std::io::{self, Read, Write};
-use std::net::{Shutdown, SocketAddr, TcpListener, TcpStream};
+use std::net::{Shutdown, SocketAddr, TcpStream};
 use std::sync::{mpsc, Arc, Mutex};
 use std::thread::{self, JoinHandle};
 use std::time::{Duration, Instant};
-use stream_admission::{accept_one, read_head};
+use stream_admission::{read_head, GenerationListener};
 
 const HEAD: Duration = Duration::from_secs(2);
 const REQUEST: &[u8] = b"GET /missing HTTP/1.1\r\n\r\n";
+
+// The finite host driver retries the exact production nonblocking accept turn.
+struct BoundListener {
+    listener: GenerationListener,
+    network: Network,
+}
+impl BoundListener {
+    fn bind() -> io::Result<Self> {
+        let network = Network::new();
+        network.observe(network.snapshot(), Some("192.168.23.99".parse().unwrap()));
+        let mut listener = GenerationListener::new("127.0.0.1:0".parse().unwrap());
+        assert!(listener.accept(&network)?.is_none());
+        Ok(Self { listener, network })
+    }
+    fn local_addr(&self) -> Option<SocketAddr> {
+        self.listener.local_addr()
+    }
+}
+fn accept_one(listener: &Mutex<BoundListener>) -> io::Result<(TcpStream, SocketAddr)> {
+    let deadline = Instant::now() + HEAD * 3;
+    loop {
+        let accepted = {
+            let mut owner = listener
+                .lock()
+                .map_err(|_| io::Error::other("stream listener mutex poisoned"))?;
+            let BoundListener { listener, network } = &mut *owner;
+            listener.accept(network)?
+        };
+        if let Some((socket, peer, _)) = accepted {
+            return Ok((socket, peer));
+        }
+        if Instant::now() >= deadline {
+            return Err(io::Error::new(
+                io::ErrorKind::TimedOut,
+                "fixture accept timed out",
+            ));
+        }
+        thread::sleep(Duration::from_millis(1));
+    }
+}
 
 struct Fixture {
     address: SocketAddr,
@@ -24,7 +65,7 @@ struct Fixture {
 
 impl Fixture {
     fn new(workers: usize) -> Self {
-        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let listener = BoundListener::bind().unwrap();
         let address = listener.local_addr().unwrap();
         let listener = Arc::new(Mutex::new(listener));
         let (tx, accepted) = mpsc::channel();
@@ -165,7 +206,7 @@ struct HeadPeer {
 
 impl HeadPeer {
     fn new() -> Self {
-        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let listener = BoundListener::bind().unwrap();
         let client = TcpStream::connect(listener.local_addr().unwrap()).unwrap();
         client.set_write_timeout(Some(HEAD)).unwrap();
         let (tx, rx) = mpsc::channel();
@@ -283,19 +324,6 @@ fn disconnected_peer_has_no_complete_head() {
     );
 }
 
-#[test]
-fn poisoned_listener_returns_io_error() {
-    let listener = Mutex::new(TcpListener::bind("127.0.0.1:0").unwrap());
-    let _ = std::panic::catch_unwind(|| {
-        let _guard = listener.lock().unwrap();
-        panic!("poison fixture listener");
-    });
-    assert_eq!(
-        accept_one(&listener).unwrap_err().kind(),
-        io::ErrorKind::Other
-    );
-}
-
 // Publishes Exit on assertion unwind and wakes any accept already released by Run.
 // Host joins here prove finite fixture teardown, not ESP task joining.
 struct StartupWorkers<T> {
@@ -335,7 +363,7 @@ impl<T> Drop for StartupWorkers<T> {
 
 #[test]
 fn startup_run_releases_two_pending_workers_before_acceptance() {
-    let listener = Arc::new(Mutex::new(TcpListener::bind("127.0.0.1:0").unwrap()));
+    let listener = Arc::new(Mutex::new(BoundListener::bind().unwrap()));
     let address = listener.lock().unwrap().local_addr().unwrap();
     let mut fixture = StartupWorkers::new(Some(address));
     let gate = fixture.gate.clone();
@@ -365,7 +393,7 @@ fn startup_run_releases_two_pending_workers_before_acceptance() {
     ];
     let premature = accepts.recv_timeout(Duration::from_millis(50));
     gate.run();
-    // Even failed assertions must release and join the actual blocking workers.
+    // Even failed assertions must release and join the actual admission workers.
     fixture.join();
     drop(clients);
     assert!(matches!(premature, Err(mpsc::RecvTimeoutError::Timeout)));
@@ -400,7 +428,7 @@ fn startup_exit_releases_all_pending_workers_and_is_final() {
 
 #[test]
 fn failed_second_launch_exits_first_worker_without_accepting() {
-    let listener = Arc::new(Mutex::new(TcpListener::bind("127.0.0.1:0").unwrap()));
+    let listener = Arc::new(Mutex::new(BoundListener::bind().unwrap()));
     let address = listener.lock().unwrap().local_addr().unwrap();
     let mut fixture = StartupWorkers::new(Some(address));
     let gate = fixture.gate.clone();
@@ -441,7 +469,7 @@ fn failed_second_launch_exits_first_worker_without_accepting() {
 
 #[test]
 fn failed_first_launch_releases_captured_listener() {
-    let listener = Arc::new(Mutex::new(TcpListener::bind("127.0.0.1:0").unwrap()));
+    let listener = Arc::new(Mutex::new(BoundListener::bind().unwrap()));
     let gate = Arc::new(stream_admission::StartupGate::new());
     let spawned = {
         let (listener, gate) = (listener.clone(), gate.clone());
@@ -491,4 +519,41 @@ fn successful_launch_with_reset_error_runs_one_gated_worker() {
     assert!(result.is_ok());
     assert_eq!(diagnostics, ["pthread reset failed"]);
     assert_eq!(handlers.try_iter().count(), 1);
+}
+
+#[test]
+fn network_change_discards_backlog_and_rebinds_with_accepted_peer_alive() {
+    use esp_shazam_core::network_lifecycle::Network;
+    use stream_admission::GenerationListener;
+    let network = Network::new();
+    network.observe(network.snapshot(), Some("192.168.23.99".parse().unwrap()));
+    let mut listener = GenerationListener::new("127.0.0.1:0".parse().unwrap());
+    assert!(listener.accept(&network).unwrap().is_none());
+    let address = listener.local_addr().unwrap();
+    let _active = TcpStream::connect(address).unwrap();
+    let (accepted, _, old) = listener.accept(&network).unwrap().unwrap();
+    let mut queued = TcpStream::connect(address).unwrap();
+    queued.set_read_timeout(Some(HEAD)).unwrap();
+    network.invalidate();
+    network.observe(network.snapshot(), Some("192.168.23.99".parse().unwrap()));
+    assert!(!network.is_current(old));
+    assert!(listener.accept(&network).unwrap().is_none());
+    assert_eq!(listener.local_addr().unwrap(), address);
+    let _fresh = TcpStream::connect(address).unwrap();
+    let (_, _, lease) = listener.accept(&network).unwrap().unwrap();
+    assert!(network.is_current(lease));
+    let mut byte = [0];
+    match queued.read(&mut byte) {
+        Ok(0) => {}
+        Err(error)
+            if matches!(
+                error.kind(),
+                io::ErrorKind::ConnectionReset | io::ErrorKind::ConnectionAborted
+            ) => {}
+        result => panic!("obsolete backlog remained open: {result:?}"),
+    }
+    drop(accepted);
+    network.invalidate();
+    assert!(listener.accept(&network).unwrap().is_none());
+    assert!(listener.local_addr().is_none());
 }

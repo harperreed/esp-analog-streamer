@@ -1,6 +1,7 @@
 // ABOUTME: Wi-Fi station with a reconnect supervisor, SNTP wall-clock time, and the mDNS name.
 // ABOUTME: ESP-IDF never reconnects by itself, so `supervise` owns the link on the main thread.
 
+use std::net::Ipv4Addr;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use anyhow::{anyhow, Result};
@@ -13,6 +14,7 @@ use esp_idf_svc::sys::{self, esp};
 use esp_idf_svc::wifi::{
     AuthMethod, BlockingWifi, ClientConfiguration, Configuration, EspWifi, WifiEvent,
 };
+use esp_shazam_core::network_lifecycle::{Network, Snapshot};
 
 #[path = "net_policy.rs"]
 mod policy;
@@ -26,7 +28,14 @@ const STREAMING_RADIO: RadioPolicy = RadioPolicy {
 /// Holds the disconnect observer for the same lifetime as the station driver.
 pub struct WifiStation {
     wifi: BlockingWifi<EspWifi<'static>>,
+    network: Network,
     _events: EspSubscription<'static, System>,
+}
+
+impl WifiStation {
+    pub fn network(&self) -> Network {
+        self.network.clone()
+    }
 }
 
 /// Before SNTP sets it, the clock starts at 1970. Anything earlier than 2026-01-01T00:00:00Z means "not synced".
@@ -67,7 +76,17 @@ pub fn start_wifi(
         EspWifi::new(modem, sysloop.clone(), Some(nvs))?,
         sysloop.clone(),
     )?;
-    let events = sysloop.subscribe::<WifiEvent, _>(|event| {
+    let network = Network::new();
+    let observed_network = network.clone();
+    let events = sysloop.subscribe::<WifiEvent, _>(move |event| {
+        if matches!(
+            event,
+            WifiEvent::StaConnected(_) | WifiEvent::StaDisconnected(_) | WifiEvent::StaStopped
+        ) {
+            let before = observed_network.snapshot();
+            let after = observed_network.invalidate();
+            log_network_change(before, after);
+        }
         if let WifiEvent::StaDisconnected(info) = event {
             // Event Debug includes the SSID: report only the reason and signal strength.
             log::warn!(
@@ -110,8 +129,10 @@ pub fn start_wifi(
         Ok(()) => log_link_up(&wifi, "connected"),
         Err(e) => log::warn!("wifi: connect failed: {e}"),
     }
+    observe_link(&wifi, &network);
     Ok(WifiStation {
         wifi,
+        network,
         _events: events,
     })
 }
@@ -119,14 +140,19 @@ pub fn start_wifi(
 /// Never returns. Polls the link every second. While the station is off the AP, it starts a
 /// non-blocking connect attempt every 5 s, so the board rejoins within one attempt of the AP returning.
 pub fn supervise(station: WifiStation) -> ! {
-    let WifiStation { mut wifi, _events } = station;
+    let WifiStation {
+        mut wifi,
+        network,
+        _events,
+    } = station;
     let mut up = link_up(&wifi);
     // Until the first time the link comes up, that event is "connected", not "reconnected".
     let mut ever_up = up;
     let mut last_attempt: Option<Instant> = None;
     loop {
         std::thread::sleep(LINK_POLL);
-        if link_up(&wifi) {
+        let snapshot = observe_link(&wifi, &network);
+        if snapshot.address.is_some() {
             if !up {
                 log_link_up(&wifi, if ever_up { "reconnected" } else { "connected" });
                 up = true;
@@ -147,6 +173,35 @@ pub fn supervise(station: WifiStation) -> ! {
             if let Err(e) = wifi.wifi_mut().connect() {
                 log::debug!("wifi: connect attempt not started: {e}");
             }
+        }
+    }
+}
+
+/// Capture the generation before querying IDF so a disconnect during the query wins.
+fn observe_link(wifi: &BlockingWifi<EspWifi<'static>>, network: &Network) -> Snapshot {
+    let expected = network.snapshot();
+    let address = if link_up(wifi) {
+        wifi.wifi()
+            .sta_netif()
+            .get_ip_info()
+            .ok()
+            .map(|info| Ipv4Addr::from(info.ip.octets()))
+    } else {
+        None
+    };
+    let observed = network.observe(expected, address);
+    log_network_change(expected, observed);
+    observed
+}
+
+fn log_network_change(before: Snapshot, after: Snapshot) {
+    if before != after {
+        match after.address {
+            Some(address) => log::info!(
+                "wifi: network generation={} address={address}",
+                after.generation
+            ),
+            None => log::info!("wifi: network generation={} unavailable", after.generation),
         }
     }
 }

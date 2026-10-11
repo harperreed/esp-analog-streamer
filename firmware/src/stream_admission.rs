@@ -1,4 +1,4 @@
-// ABOUTME: Shares blocking socket acceptance and bounded HTTP head reading with host regressions.
+// ABOUTME: Shares generation-owned nonblocking acceptance and bounded HTTP head reading with host regressions.
 // ABOUTME: Keeps listener locking separate from each caller's owned connection and deadline.
 
 use std::io::{self, BufReader};
@@ -8,16 +8,65 @@ use std::time::Instant;
 
 use esp_shazam_core::stream_http::{read_request_line, DeadlineReader};
 
-pub fn accept_one(listener: &Mutex<TcpListener>) -> io::Result<(TcpStream, SocketAddr)> {
-    listener
-        .lock()
-        .map_err(|_| io::Error::other("stream listener mutex poisoned"))?
-        .accept()
-}
-
 pub fn read_head(socket: &TcpStream, deadline: Instant, max_bytes: u64) -> io::Result<String> {
     let reader = DeadlineReader::new(socket, deadline);
     read_request_line(BufReader::with_capacity(256, reader), max_bytes)
+}
+
+/// A bounded accept turn owns the listener's generation, including its queued connections.
+pub struct GenerationListener {
+    address: SocketAddr,
+    listener: Option<(TcpListener, esp_shazam_core::network_lifecycle::Lease)>,
+}
+impl GenerationListener {
+    pub fn new(address: SocketAddr) -> Self {
+        Self {
+            address,
+            listener: None,
+        }
+    }
+    pub fn local_addr(&self) -> Option<SocketAddr> {
+        self.listener
+            .as_ref()
+            .and_then(|(listener, _)| listener.local_addr().ok())
+    }
+    pub fn accept(
+        &mut self,
+        network: &esp_shazam_core::network_lifecycle::Network,
+    ) -> io::Result<
+        Option<(
+            TcpStream,
+            SocketAddr,
+            esp_shazam_core::network_lifecycle::Lease,
+        )>,
+    > {
+        let lease = network.lease();
+        if self
+            .listener
+            .as_ref()
+            .is_some_and(|(_, prior)| Some(*prior) != lease)
+        {
+            // Drop first: duplicate listening addresses remain forbidden with SO_REUSEADDR.
+            drop(self.listener.take());
+        }
+        let Some(lease) = lease else { return Ok(None) };
+        if self.listener.is_none() {
+            let listener = TcpListener::bind(self.address)?;
+            listener.set_nonblocking(true)?;
+            // Remember an ephemeral test port so replacement exercises same-port rebinding.
+            self.listener = Some((listener, lease));
+            self.address = self
+                .local_addr()
+                .ok_or_else(|| io::Error::other("stream listener address unavailable"))?;
+        }
+        let (listener, lease) = self.listener.as_ref().unwrap();
+        match listener.accept() {
+            Ok((socket, peer)) if network.is_current(*lease) => Ok(Some((socket, peer, *lease))),
+            Ok(_) => Ok(None),
+            Err(error) if error.kind() == io::ErrorKind::WouldBlock => Ok(None),
+            Err(error) => Err(error),
+        }
+    }
 }
 
 /// A single startup decision shared by the admission workers.

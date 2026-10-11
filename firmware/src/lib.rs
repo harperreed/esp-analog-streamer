@@ -79,8 +79,9 @@ pub fn run() -> Result<()> {
     let _sntp = net::start_sntp()?;
     let mut mdns = net::start_mdns(CONFIG.hostname)?;
 
-    stream::start(stream_ring, &mut mdns)?;
-    let sonos = sonos::start(store.clone(), nvs)?;
+    let network = wifi.network();
+    stream::start(stream_ring, &mut mdns, network.clone())?;
+    let sonos = sonos::start(store.clone(), nvs, network)?;
     let _server = web::start(store.clone(), sonos)?;
     let publisher = mqtt_out::start(CONFIG.mqtt_url, store.clone())?;
     // Capture only supplies a recognition ring when Shazam is enabled.

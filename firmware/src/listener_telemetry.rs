@@ -32,6 +32,7 @@ pub(crate) struct Departure {
 #[derive(Clone, Copy, Debug)]
 pub(crate) enum EndCode {
     Retired,
+    NetworkChanged,
     FellBehind,
     StoppedReading,
     CaptureStalled,
@@ -45,6 +46,7 @@ impl From<&crate::stream_pipeline::End> for EndCode {
         use crate::stream_pipeline::End;
         match end {
             End::Retired => Self::Retired,
+            End::NetworkChanged => Self::NetworkChanged,
             End::EncodedReset => Self::EncodedReset,
             End::InvalidCursor => Self::InvalidCursor,
             End::FellBehind => Self::FellBehind,

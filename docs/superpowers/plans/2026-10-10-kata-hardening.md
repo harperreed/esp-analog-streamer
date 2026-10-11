@@ -30,10 +30,27 @@ UART/source owners are absent. See sender-overhead.md/.json and the exact contro
 patch under docs/audit-evidence/2026-10-10. Close d2cb with the evidence commit;
 do not require resolution of every transport failure for this diagnostic ticket.
 
-Next whole-ticket candidate is ewvq: shared Wi-Fi/IP generation handling. Start
-with its original required policy review, then bounded invalidation of stale
-network work while capture remains independent. Do not start partial codec
-studies or reopen resolved wbz6 experiments to fill idle hardware time.
+## Network lifecycle closure checkpoint
+
+The ewvq implementation and original acceptance checks pass: one shared network
+generation invalidates old commands, queue URLs, admission backlogs and streams.
+Capture remains independent and reconnect does not reclaim Sonos playback.
+Canonical run.p3FPXV1J has 27 passing stages; source and harness reviews pass.
+The same-IP device repeat rejects the old URL, closes both old listeners, and
+decodes two new streams with 480,384 stereo sample frames each. Capture advances
+with all nine fault deltas zero. Prior two harness failures remain failed and
+explained in docs/audit-evidence/2026-10-11/network-generations.md/.json.
+The normal ewvq production image is e7404b41273f0b12fd55315dde025f81fd9b3d8a19771e49d234ef4ec7550ff7.
+Its restoration is confirmed: saved/active MP3, Medium buffering, stopped,
+autoplay/recognition off, no UART or source owner. Commit evidence, then close
+ewvq against its original criteria; no general endurance gate is added.
+
+Next whole-ticket candidate within the current no-push scope is cxbw: pinned
+UART crash and bounded heap diagnostics, with an exact-ELF decode, measured
+overhead, protected private artifacts and normal firmware restoration. No flash
+partition change or mandatory SystemView installation. m31k instead needs its
+already-written separate CI workflow published and run; that remains blocked on
+the no-push constraint. Do not reopen resolved codec studies to fill idle time.
 
 ## Completion rules
 

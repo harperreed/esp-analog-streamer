@@ -1,6 +1,7 @@
 // ABOUTME: One bounded Sonos controller worker owns discovery, TLS and our playback session.
 // ABOUTME: The UI queues commands and reads snapshots without waiting for speaker I/O.
 
+use esp_shazam_core::network_lifecycle::{Lease, Network};
 use esp_shazam_core::sonos::{self as protocol, DiscoveryGroup, SonosConfig};
 use esp_shazam_core::sonos_queue::{self, QueueSnapshot};
 use serde::Serialize;
@@ -26,9 +27,18 @@ fn validate_buffer_command(command: &Command, available: bool) -> Result<(), &'s
 struct QueuedCommand {
     command: Command,
     generation: u64,
+    network: Option<Lease>,
+}
+
+impl QueuedCommand {
+    fn network_current(&self, network: &Network) -> bool {
+        !matches!(self.command, Command::Play | Command::Discover)
+            || self.network.is_some_and(|lease| network.is_current(lease))
+    }
 }
 
 struct Commands {
+    network: Network,
     sender: std::sync::Mutex<(
         std::sync::mpsc::SyncSender<QueuedCommand>,
         u64,
@@ -37,10 +47,11 @@ struct Commands {
 }
 
 impl Commands {
-    fn new() -> (Self, std::sync::mpsc::Receiver<QueuedCommand>) {
+    fn new(network: Network) -> (Self, std::sync::mpsc::Receiver<QueuedCommand>) {
         let (sender, receiver) = std::sync::mpsc::sync_channel(4);
         (
             Self {
+                network,
                 sender: std::sync::Mutex::new((
                     sender,
                     0,
@@ -70,6 +81,7 @@ impl Commands {
             .try_send(QueuedCommand {
                 command,
                 generation,
+                network: self.network.lease(),
             })
             .map_err(|error| match error {
                 std::sync::mpsc::TrySendError::Full(_) => "Sonos command queue is full",
@@ -110,6 +122,35 @@ impl Commands {
 
     fn is_current(&self, generation: u64) -> bool {
         self.sender.lock().unwrap().1 == generation
+    }
+}
+
+/// The network lock covers checks only; platform I/O retains its existing deadlines.
+fn with_network<T>(
+    network: &Network,
+    lease: Lease,
+    operation: impl FnOnce() -> T,
+) -> Result<T, &'static str> {
+    if !network.is_current(lease) {
+        return Err("Sonos network changed");
+    }
+    let result = operation();
+    if !network.is_current(lease) {
+        return Err("Sonos network changed");
+    }
+    Ok(result)
+}
+
+/// Stop relinquishes local ownership even when the old network cannot confirm suspension.
+fn stop_completion<E>(
+    network: &Network,
+    lease: Option<Lease>,
+    result: Result<(), E>,
+) -> Result<(), E> {
+    if lease.is_some_and(|lease| !network.is_current(lease)) {
+        Ok(())
+    } else {
+        result
     }
 }
 
@@ -181,6 +222,7 @@ fn queue_for_play(
     item: String,
     host: std::net::Ipv4Addr,
     status: &Snapshot,
+    network_generation: u32,
 ) -> Result<QueueSnapshot, sonos_queue::Error> {
     QueueSnapshot::new(
         item,
@@ -189,6 +231,7 @@ fn queue_for_play(
             .buffer_available
             .then_some(status.config.buffer_preset),
         status.active_format,
+        network_generation,
     )
 }
 
@@ -413,18 +456,33 @@ fn decode_config(saved: Option<&str>) -> (SonosConfig, Option<String>) {
     }
 }
 
-#[derive(Clone, Default)]
-struct Queue(std::sync::Arc<std::sync::Mutex<Option<QueueSnapshot>>>);
+#[derive(Clone)]
+struct Queue {
+    snapshot: std::sync::Arc<std::sync::Mutex<Option<QueueSnapshot>>>,
+    network: Network,
+}
 
 impl Queue {
+    fn new(network: Network) -> Self {
+        Self {
+            snapshot: Default::default(),
+            network,
+        }
+    }
     fn snapshot(&self) -> Option<QueueSnapshot> {
-        self.0.lock().unwrap().clone()
+        let snapshot = self.snapshot.lock().unwrap().clone()?;
+        self.network
+            .is_current(Lease {
+                generation: snapshot.network_generation,
+                address: snapshot.host,
+            })
+            .then_some(snapshot)
     }
     fn publish(&self, snapshot: QueueSnapshot) {
-        *self.0.lock().unwrap() = Some(snapshot);
+        *self.snapshot.lock().unwrap() = Some(snapshot);
     }
     fn clear(&self) {
-        *self.0.lock().unwrap() = None;
+        *self.snapshot.lock().unwrap() = None;
     }
 }
 
@@ -482,6 +540,7 @@ mod device {
         status: Arc<Mutex<Snapshot>>,
         pending: Arc<WorkerStart<Launch>>,
         queue: Queue,
+        network: Network,
     }
 
     struct Launch {
@@ -506,6 +565,7 @@ mod device {
                 let status = self.status.clone();
                 let queue = self.queue.clone();
                 let commands = self.commands.clone();
+                let network = self.network.clone();
                 crate::threads::ThreadSpec {
                     name: c"sonos",
                     core: esp_idf_svc::hal::cpu::Core::Core0,
@@ -527,6 +587,8 @@ mod device {
                     Worker {
                         commands,
                         generation: 0,
+                        network,
+                        socket_lease: None,
                         status,
                         nvs: launch.nvs,
                         store: launch.store,
@@ -563,7 +625,11 @@ mod device {
         }
     }
 
-    pub fn start(store: recognizer::SharedStore, nvs: EspDefaultNvsPartition) -> Result<Handle> {
+    pub fn start(
+        store: recognizer::SharedStore,
+        nvs: EspDefaultNvsPartition,
+        network: Network,
+    ) -> Result<Handle> {
         let nvs = EspNvs::new(nvs, "sonos", true)?;
         let mut bytes = [0u8; 1024];
         let (config, last_error) = match nvs.get_str("config", &mut bytes) {
@@ -588,11 +654,12 @@ mod device {
             active_player_id: None,
             state: State::Stopped,
         }));
-        let (commands, receiver) = Commands::new();
+        let (commands, receiver) = Commands::new(network.clone());
         let handle = Handle {
             commands: Arc::new(commands),
             status,
-            queue: Queue::default(),
+            queue: Queue::new(network.clone()),
+            network,
             pending: Arc::new(WorkerStart::new(Launch {
                 receiver,
                 nvs,
@@ -1148,32 +1215,25 @@ mod device {
         log::info!("sonos: phase={phase} internal_free={free} internal_largest={largest}");
     }
 
-    fn board_ip() -> Result<Ipv4Addr> {
-        // The default station netif is created by EspWifi. IDF owns it for the Wi-Fi lifetime.
-        let netif = unsafe { sys::esp_netif_get_handle_from_ifkey(c"WIFI_STA_DEF".as_ptr()) };
-        ensure!(!netif.is_null(), "Wi-Fi station interface is unavailable");
-        let mut info = sys::esp_netif_ip_info_t::default();
-        sys::esp!(unsafe { sys::esp_netif_get_ip_info(netif, &mut info) })?;
-        let ip = Ipv4Addr::from(info.ip.addr.to_ne_bytes());
-        ensure!(
-            !ip.is_unspecified() && !ip.is_loopback(),
-            "Wi-Fi has no LAN address"
-        );
-        Ok(ip)
-    }
-
-    fn discover(selected: Option<&str>) -> Result<Vec<DiscoveryGroup>> {
-        let socket = UdpSocket::bind((board_ip()?, 0))?;
+    fn discover(
+        selected: Option<&str>,
+        network: &Network,
+        lease: Lease,
+    ) -> Result<Vec<DiscoveryGroup>> {
+        let socket = with_network(network, lease, || UdpSocket::bind((lease.address, 0)))
+            .map_err(|error| anyhow!(error))??;
         socket.set_read_timeout(Some(Duration::from_millis(200)))?;
         socket.set_write_timeout(Some(Duration::from_millis(200)))?;
         socket.set_multicast_ttl_v4(2)?;
-        socket.send_to(b"M-SEARCH * HTTP/1.1\r\nHOST: 239.255.255.250:1900\r\nMAN: \"ssdp:discover\"\r\nMX: 2\r\nST: urn:smartspeaker-audio:service:SpeakerGroup:1\r\n\r\n", (Ipv4Addr::new(239,255,255,250), 1900))?;
+        with_network(network, lease, || socket.send_to(b"M-SEARCH * HTTP/1.1\r\nHOST: 239.255.255.250:1900\r\nMAN: \"ssdp:discover\"\r\nMX: 2\r\nST: urn:smartspeaker-audio:service:SpeakerGroup:1\r\n\r\n", (Ipv4Addr::new(239,255,255,250), 1900))).map_err(|error| anyhow!(error))??;
         let deadline = Instant::now() + Duration::from_secs(3);
         // The extra byte detects truncated oversized packets instead of accepting their prefix.
         let mut packet = [0u8; protocol::MAX_DISCOVERY_BYTES + 1];
         let mut groups: Vec<DiscoveryGroup> = Vec::new();
         while Instant::now() < deadline {
-            match socket.recv_from(&mut packet) {
+            match with_network(network, lease, || socket.recv_from(&mut packet))
+                .map_err(|error| anyhow!(error))?
+            {
                 Ok((len, SocketAddr::V4(peer))) => {
                     if let Ok(Some(group)) =
                         protocol::parse_advertisement(&packet[..len], *peer.ip())
@@ -1203,7 +1263,7 @@ mod device {
             }
         }
         groups.sort_by(|a, b| a.name.cmp(&b.name));
-        Ok(groups)
+        with_network(network, lease, || groups).map_err(|error| anyhow!(error))
     }
 
     struct Retry {
@@ -1215,6 +1275,8 @@ mod device {
     struct Worker {
         commands: Arc<Commands>,
         generation: u64,
+        network: Network,
+        socket_lease: Option<Lease>,
         status: Arc<Mutex<Snapshot>>,
         nvs: EspNvs<NvsDefault>,
         store: recognizer::SharedStore,
@@ -1240,11 +1302,17 @@ mod device {
             loop {
                 match commands.recv_timeout(Duration::from_millis(50)) {
                     Ok(queued) => {
+                        self.check_network();
+                        if !queued.network_current(&self.network) {
+                            self.status.lock().unwrap().last_error =
+                                Some("Sonos network changed".into());
+                            continue;
+                        }
                         self.generation = queued.generation;
                         let command = queued.command;
                         let controls_session =
                             matches!(command, Command::Play | Command::Stop | Command::Select(_));
-                        if let Err(error) = self.command(command) {
+                        if let Err(error) = self.command(command, queued.network) {
                             if controls_session {
                                 self.fail(error);
                             } else {
@@ -1258,13 +1326,14 @@ mod device {
                     }
                     Err(mpsc::RecvTimeoutError::Timeout) => {}
                 }
+                self.check_network();
                 let sample = self.store.lock().unwrap().level_sample();
                 let level = sample_level(sample, Instant::now());
                 let action =
                     self.samples
                         .update(&mut self.policy, self.epoch, sample, Instant::now());
                 let result = match action {
-                    protocol::Action::Start => self.play(),
+                    protocol::Action::Start => self.play(self.network.lease()),
                     protocol::Action::Stop => self.stop(),
                     protocol::Action::None => Ok(()),
                 };
@@ -1282,7 +1351,11 @@ mod device {
                     let Some(socket) = &mut self.socket else {
                         break;
                     };
-                    match socket.receive(Duration::ZERO) {
+                    let lease = self.socket_lease.expect("Connected Sonos network lease");
+                    match with_network(&self.network, lease, || socket.receive(Duration::ZERO))
+                        .map_err(|error| anyhow!(error))
+                        .and_then(|result| result)
+                    {
                         Ok(Some(message)) => {
                             if let Err(e) = self.event(&message) {
                                 self.fail(e);
@@ -1296,11 +1369,15 @@ mod device {
                         }
                     }
                 }
-                if self.retry.as_ref().is_some_and(|r| Instant::now() >= r.at) {
+                if let Some(lease) = self
+                    .network
+                    .lease()
+                    .filter(|_| self.retry.as_ref().is_some_and(|r| Instant::now() >= r.at))
+                {
                     let mut retry = self.retry.take().unwrap();
                     match self
-                        .resolve(&retry.player)
-                        .and_then(|group| self.connect(group))
+                        .resolve(&retry.player, lease)
+                        .and_then(|group| self.connect(group, lease))
                     {
                         Ok(()) => {
                             // Reconnect observes status only. It never creates/reclaims a session.
@@ -1308,6 +1385,7 @@ mod device {
                         }
                         Err(error) => {
                             self.socket = None;
+                            self.socket_lease = None;
                             self.group = None;
                             self.status.lock().unwrap().last_error =
                                 Some(format!("Reconnect: {error}"));
@@ -1322,6 +1400,15 @@ mod device {
             }
         }
 
+        fn check_network(&mut self) {
+            if self
+                .socket_lease
+                .is_some_and(|lease| !self.network.is_current(lease))
+            {
+                self.fail(anyhow!("Sonos network changed"));
+            }
+        }
+
         fn fail(&mut self, error: anyhow::Error) {
             self.queue.clear();
             self.policy
@@ -1332,6 +1419,8 @@ mod device {
                 .and_then(|_| self.status.lock().unwrap().config.player_id.clone());
             // A failed transport is not permission to take over again. Forget ownership locally.
             self.socket = None;
+            self.socket_lease = None;
+            self.item_confirmed = false;
             self.session = None;
             self.group = None;
             let mut status = self.status.lock().unwrap();
@@ -1353,13 +1442,17 @@ mod device {
             })
         }
 
-        fn command(&mut self, command: Command) -> Result<()> {
+        fn command(&mut self, command: Command, lease: Option<Lease>) -> Result<()> {
             match command {
                 Command::Discover => {
                     let previous = self.status.lock().unwrap().state;
                     self.status.lock().unwrap().state = State::Discovering;
                     let selected = self.status.lock().unwrap().config.player_id.clone();
-                    let result = discover(selected.as_deref());
+                    let result = discover(
+                        selected.as_deref(),
+                        &self.network,
+                        lease.context("Wi-Fi has no LAN address")?,
+                    );
                     self.status.lock().unwrap().state = previous;
                     let groups = result?;
                     let mut status = self.status.lock().unwrap();
@@ -1406,22 +1499,26 @@ mod device {
                     config.buffer_preset = preset;
                     self.save(config)?;
                 }
-                Command::Play => self.play()?,
+                Command::Play => self.play(lease)?,
                 Command::Stop => self.stop()?,
             }
             Ok(())
         }
 
-        fn resolve(&mut self, player: &str) -> Result<DiscoveryGroup> {
-            let groups = discover(Some(player))?;
+        fn resolve(&mut self, player: &str, lease: Lease) -> Result<DiscoveryGroup> {
+            let groups = discover(Some(player), &self.network, lease)?;
             let group = resolve_group(&groups, player);
             self.status.lock().unwrap().groups =
                 groups.into_iter().filter(|g| g.is_leader).collect();
             group.ok_or_else(|| anyhow!("Selected player's current group leader is unavailable"))
         }
 
-        fn connect(&mut self, group: DiscoveryGroup) -> Result<()> {
-            self.socket = Some(Socket::connect(&group)?);
+        fn connect(&mut self, group: DiscoveryGroup, lease: Lease) -> Result<()> {
+            self.socket = Some(
+                with_network(&self.network, lease, || Socket::connect(&group))
+                    .map_err(|error| anyhow!(error))??,
+            );
+            self.socket_lease = Some(lease);
             self.group = Some(group.clone());
             let info = self.request(
                 "info:1",
@@ -1444,11 +1541,12 @@ mod device {
             Ok(())
         }
 
-        fn play(&mut self) -> Result<()> {
+        fn play(&mut self, lease: Option<Lease>) -> Result<()> {
             if !self.commands.is_current(self.generation) {
                 return Ok(());
             }
-            let result = self.play_current();
+            let lease = lease.context("Wi-Fi has no LAN address")?;
+            let result = self.play_current(lease);
             if !self.commands.is_current(self.generation) {
                 // A create reply must still be collected so cleanup targets only our session.
                 self.stop()?;
@@ -1457,7 +1555,8 @@ mod device {
             result
         }
 
-        fn play_current(&mut self) -> Result<()> {
+        fn play_current(&mut self, lease: Lease) -> Result<()> {
+            with_network(&self.network, lease, || ()).map_err(|error| anyhow!(error))?;
             let play_token = self
                 .commands
                 .token(self.generation)
@@ -1479,12 +1578,12 @@ mod device {
                 "Sonos Play cancelled"
             );
             self.status.lock().unwrap().state = State::Connecting;
-            let group = self.resolve(&player)?;
+            let group = self.resolve(&player, lease)?;
             ensure!(
                 self.commands.is_current(self.generation),
                 "Sonos Play cancelled"
             );
-            self.connect(group.clone())?;
+            self.connect(group.clone(), lease)?;
             let mut mac = [0u8; 6];
             sys::esp!(unsafe { sys::esp_efuse_mac_get_default(mac.as_mut_ptr()) })?;
             let context = format!(
@@ -1502,6 +1601,7 @@ mod device {
                 .filter(|s| protocol::validate_id(s).is_ok())
                 .context("Sonos did not return a valid session")?
                 .to_owned();
+            with_network(&self.network, lease, || ()).map_err(|error| anyhow!(error))?;
             self.session = Some(session.clone());
             self.policy
                 .update(self.now(), protocol::AutoplayEvent::OwnershipAcquired);
@@ -1518,8 +1618,13 @@ mod device {
                     "Sonos session lost before load"
                 );
                 let item = format!("{context}-{}-{}", self.now(), self.sequence);
-                let queue = queue_for_play(item, board_ip()?, &self.status.lock().unwrap())
-                    .map_err(|error| anyhow!("Invalid Sonos queue: {error:?}"))?;
+                let queue = queue_for_play(
+                    item,
+                    lease.address,
+                    &self.status.lock().unwrap(),
+                    lease.generation,
+                )
+                .map_err(|error| anyhow!("Invalid Sonos queue: {error:?}"))?;
                 let body = queue_load_body(&queue);
                 // Sonos can request the queue before the command reply arrives.
                 {
@@ -1529,7 +1634,8 @@ mod device {
                     );
                     let permit = play_token.lock().unwrap();
                     ensure!(*permit, "Sonos Play cancelled");
-                    self.queue.publish(queue);
+                    with_network(&self.network, lease, || self.queue.publish(queue))
+                        .map_err(|error| anyhow!(error))?;
                 }
                 self.item_confirmed = false;
                 self.request(
@@ -1542,6 +1648,7 @@ mod device {
                     self.session.as_deref() == Some(&session),
                     "Sonos session lost during load"
                 );
+                with_network(&self.network, lease, || ()).map_err(|error| anyhow!(error))?;
                 let mut status = self.status.lock().unwrap();
                 if status.state != State::Playing {
                     status.state = State::Buffering;
@@ -1561,27 +1668,38 @@ mod device {
                 .update(self.now(), protocol::AutoplayEvent::ManualStop);
             self.retry = None;
             // Only our session ID is eligible for cleanup, even if playback ownership changed.
+            let lease = self.socket_lease;
             let result = match self.session.take() {
-                Some(session) if self.socket.is_some() => self
-                    .request(
+                Some(session)
+                    if self.socket.is_some()
+                        && self
+                            .socket_lease
+                            .is_some_and(|lease| self.network.is_current(lease)) =>
+                {
+                    self.request(
                         "playbackSession:1",
                         "suspend",
                         protocol::Scope::Session(&session),
                         json!({}),
                     )
-                    .map(|_| ()),
+                    .map(|_| ())
+                }
                 _ => Ok(()),
             };
             self.socket = None;
+            self.socket_lease = None;
+            self.item_confirmed = false;
             self.group = None;
             let mut status = self.status.lock().unwrap();
             status.active_player_id = None;
             status.state = State::Stopped;
             status.last_error = None;
-            result
+            stop_completion(&self.network, lease, result)
         }
 
         fn event(&mut self, message: &protocol::Message) -> Result<()> {
+            let lease = self.socket_lease.context("Sonos is disconnected")?;
+            with_network(&self.network, lease, || ()).map_err(|error| anyhow!(error))?;
             let item = self.queue.snapshot().map(|queue| queue.item_id);
             let Some(group) = self.group.as_ref() else {
                 return Ok(());
@@ -1716,20 +1834,25 @@ mod device {
                 sent_at_ms: sent,
                 deadline_ms: sent + TIMEOUT.as_millis() as u64,
             };
+            let lease = self.socket_lease.context("Sonos is disconnected")?;
             let socket = self.socket.as_mut().context("Sonos is disconnected")?;
             if matches!(name, "createSession" | "loadCloudQueue") {
                 self.commands
-                    .run_if_current(self.generation, || socket.send(&bytes))
+                    .run_if_current(self.generation, || {
+                        with_network(&self.network, lease, || socket.send(&bytes))
+                    })
+                    .map_err(|error| anyhow!(error))?
                     .map_err(|error| anyhow!(error))??;
             } else {
-                socket.send(&bytes)?;
+                with_network(&self.network, lease, || socket.send(&bytes))
+                    .map_err(|error| anyhow!(error))??;
             }
             while self.now() < pending.deadline_ms {
-                let message = self
-                    .socket
-                    .as_mut()
-                    .context("Sonos is disconnected")?
-                    .receive(Duration::from_millis(50))?;
+                let socket = self.socket.as_mut().context("Sonos is disconnected")?;
+                let message = with_network(&self.network, lease, || {
+                    socket.receive(Duration::from_millis(50))
+                })
+                .map_err(|error| anyhow!(error))??;
                 if let Some(message) = message {
                     if message.header.cmd_id.as_deref() == Some(&id)
                         && !scope_matches(&message.header, &household, &command.scope)
@@ -1781,7 +1904,7 @@ mod tests {
             last_error: None,
         });
         let host = "192.0.2.10".parse().unwrap();
-        let current = queue_for_play("current".into(), host, &status.lock().unwrap()).unwrap();
+        let current = queue_for_play("current".into(), host, &status.lock().unwrap(), 0).unwrap();
         let mut config = status.lock().unwrap().config.clone();
         config.buffer_preset = esp_shazam_core::stream_buffer::BufferPreset::High;
         let saved = std::sync::Mutex::new(String::new());
@@ -1805,7 +1928,7 @@ mod tests {
             Some(esp_shazam_core::stream_buffer::BufferPreset::Medium)
         );
         assert_eq!(
-            queue_for_play("next".into(), host, &status.lock().unwrap())
+            queue_for_play("next".into(), host, &status.lock().unwrap(), 0)
                 .unwrap()
                 .buffer_preset,
             Some(esp_shazam_core::stream_buffer::BufferPreset::High)
@@ -1819,7 +1942,7 @@ mod tests {
         assert_eq!(status.lock().unwrap().config, config);
         status.lock().unwrap().buffer_available = false;
         assert_eq!(
-            queue_for_play("live".into(), host, &status.lock().unwrap())
+            queue_for_play("live".into(), host, &status.lock().unwrap(), 0)
                 .unwrap()
                 .buffer_preset,
             None
@@ -1828,7 +1951,7 @@ mod tests {
 
     #[test]
     fn buffer_command_keeps_inflight_play_and_rejects_recognition_profile() {
-        let (commands, receiver) = Commands::new();
+        let (commands, receiver) = Commands::new(network_tests::ready_network());
         commands.submit(Command::Play).unwrap();
         let play = receiver.recv().unwrap();
         commands
@@ -1979,7 +2102,7 @@ mod tests {
             state: State::Stopped,
             last_error: None,
         });
-        let (commands, receiver) = Commands::new();
+        let (commands, receiver) = Commands::new(network_tests::ready_network());
         let start = WorkerStart::new(receiver);
         start_autoplay(&status, || {
             start.ensure_started(|resources| {
@@ -2066,13 +2189,14 @@ mod tests {
             state: State::Playing,
             last_error: None,
         };
-        let queue = Queue::default();
+        let queue = Queue::new(network_tests::ready_network());
         queue.publish(
             QueueSnapshot::new(
                 "item".into(),
                 "192.0.2.10".parse().unwrap(),
                 None,
                 esp_shazam_core::stream_buffer::OutputFormat::Flac,
+                1,
             )
             .unwrap(),
         );
@@ -2133,7 +2257,7 @@ mod tests {
             Command::SetAutoplay(false),
             Command::Select("other".into()),
         ] {
-            let (commands, receiver) = Commands::new();
+            let (commands, receiver) = Commands::new(network_tests::ready_network());
             commands.submit(Command::Play).unwrap();
             let playing = receiver.recv().unwrap();
             assert!(commands.is_current(playing.generation));
@@ -2149,7 +2273,7 @@ mod tests {
 
     #[test]
     fn rejected_cancel_and_unrelated_commands_do_not_cancel_play() {
-        let (commands, receiver) = Commands::new();
+        let (commands, receiver) = Commands::new(network_tests::ready_network());
         commands.submit(Command::Play).unwrap();
         let playing = receiver.recv().unwrap();
         for _ in 0..4 {
@@ -2348,12 +2472,13 @@ mod tests {
 
     #[test]
     fn queue_publication_and_cleanup_share_one_snapshot_across_handles() {
-        let queue = Queue::default();
+        let queue = Queue::new(network_tests::ready_network());
         let reader = queue.clone();
         assert_eq!(reader.snapshot(), None);
         let snapshot = QueueSnapshot {
             item_id: "item-first".into(),
             host: "192.0.2.10".parse().unwrap(),
+            network_generation: 1,
             buffer_preset: None,
             format: esp_shazam_core::stream_buffer::OutputFormat::Flac,
         };
@@ -2374,6 +2499,7 @@ mod tests {
         let snapshot = QueueSnapshot {
             item_id: "item-live".into(),
             host: "192.0.2.10".parse().unwrap(),
+            network_generation: 1,
             buffer_preset: None,
             format: esp_shazam_core::stream_buffer::OutputFormat::Flac,
         };
@@ -2456,7 +2582,7 @@ mod format_cancellation_tests {
     use super::*;
     #[test]
     fn stop_revokes_captured_token_and_old_play_cannot_borrow_replacement() {
-        let (commands, receiver) = Commands::new();
+        let (commands, receiver) = Commands::new(network_tests::ready_network());
         commands.submit(Command::Play).unwrap();
         let play = receiver.recv().unwrap();
         let token = commands.token(play.generation).unwrap();
@@ -2481,7 +2607,7 @@ mod send_cancellation_tests {
     };
     #[test]
     fn revoked_generation_cannot_start_final_operation() {
-        let (commands, receiver) = Commands::new();
+        let (commands, receiver) = Commands::new(network_tests::ready_network());
         commands.submit(Command::Play).unwrap();
         let play = receiver.recv().unwrap();
         commands.submit(Command::Stop).unwrap();
@@ -2493,7 +2619,7 @@ mod send_cancellation_tests {
     }
     #[test]
     fn stop_acceptance_waits_for_already_started_operation() {
-        let (commands, receiver) = Commands::new();
+        let (commands, receiver) = Commands::new(network_tests::ready_network());
         let commands = Arc::new(commands);
         commands.submit(Command::Play).unwrap();
         let play = receiver.recv().unwrap();
@@ -2519,5 +2645,134 @@ mod send_cancellation_tests {
         acceptance.recv_timeout(Duration::from_secs(1)).unwrap();
         stop.join().unwrap();
         assert!(commands.run_if_current(play.generation, || ()).is_err());
+    }
+}
+
+#[cfg(test)]
+mod network_tests {
+    use super::*;
+    use esp_shazam_core::network_lifecycle::Network;
+
+    pub(super) fn ready_network() -> Network {
+        let network = Network::new();
+        network.observe(network.snapshot(), Some("192.0.2.10".parse().unwrap()));
+        network
+    }
+
+    #[test]
+    fn queued_network_work_expires_even_when_same_address_returns() {
+        let network = ready_network();
+        let (commands, receiver) = Commands::new(network.clone());
+        commands.submit(Command::Play).unwrap();
+        commands.submit(Command::Discover).unwrap();
+        let play = receiver.recv().unwrap();
+        let discover = receiver.recv().unwrap();
+        assert!(play.network_current(&network));
+        assert!(discover.network_current(&network));
+        network.invalidate();
+        network.observe(network.snapshot(), Some("192.0.2.10".parse().unwrap()));
+        assert!(!play.network_current(&network));
+        assert!(!discover.network_current(&network));
+        commands.submit(Command::Play).unwrap();
+        assert!(receiver.recv().unwrap().network_current(&network));
+    }
+
+    #[test]
+    fn offline_play_stays_stale_but_stop_and_settings_survive_loss() {
+        let network = Network::new();
+        let (commands, receiver) = Commands::new(network.clone());
+        commands.submit(Command::Play).unwrap();
+        network.observe(network.snapshot(), Some("192.0.2.10".parse().unwrap()));
+        assert!(!receiver.recv().unwrap().network_current(&network));
+        commands.submit(Command::Stop).unwrap();
+        commands.submit(Command::SetAutoplay(false)).unwrap();
+        network.invalidate();
+        assert!(receiver.recv().unwrap().network_current(&network));
+        assert!(receiver.recv().unwrap().network_current(&network));
+    }
+
+    #[test]
+    fn network_checkpoint_rejects_real_reply_after_invalidation_without_locking_io() {
+        use std::io::{Read, Write};
+        use std::net::{TcpListener, TcpStream};
+        let network = ready_network();
+        let lease = network.lease().unwrap();
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let mut client = TcpStream::connect(listener.local_addr().unwrap()).unwrap();
+        client
+            .set_read_timeout(Some(std::time::Duration::from_secs(1)))
+            .unwrap();
+        let invalidating = network.clone();
+        let server = std::thread::spawn(move || {
+            let (mut peer, _) = listener.accept().unwrap();
+            let mut request = [0];
+            peer.read_exact(&mut request).unwrap();
+            invalidating.invalidate();
+            peer.write_all(b"reply").unwrap();
+        });
+        let reply = with_network(&network, lease, || {
+            client.write_all(b"x").unwrap();
+            let mut reply = [0; 5];
+            client.read_exact(&mut reply).unwrap();
+            reply
+        });
+        assert_eq!(reply, Err("Sonos network changed"));
+        server.join().unwrap();
+        assert_eq!(
+            with_network(&network, lease, || panic!("stale operation started")),
+            Err::<(), _>("Sonos network changed")
+        );
+    }
+
+    #[test]
+    fn local_stop_completes_when_suspend_loses_its_network() {
+        let network = ready_network();
+        let lease = network.lease().unwrap();
+        let suspended = with_network(&network, lease, || network.invalidate()).map(|_| ());
+        assert!(suspended.is_err());
+        assert_eq!(stop_completion(&network, Some(lease), suspended), Ok(()));
+        let local = with_network(&network, lease, || ());
+        assert!(stop_completion(&network, None, local).is_err());
+        network.observe(network.snapshot(), Some(lease.address));
+        let current = network.lease().unwrap();
+        let failed: Result<(), &str> = Err("current transport failed");
+        assert_eq!(
+            stop_completion(&network, Some(current), failed),
+            Err("current transport failed")
+        );
+    }
+
+    #[test]
+    fn queue_hides_old_urls_before_worker_cleanup_and_after_same_ip_rejoin() {
+        let network = ready_network();
+        let lease = network.lease().unwrap();
+        let queue = Queue::new(network.clone());
+        queue.publish(
+            QueueSnapshot::new(
+                "owned".into(),
+                lease.address,
+                None,
+                esp_shazam_core::stream_buffer::OutputFormat::Flac,
+                lease.generation,
+            )
+            .unwrap(),
+        );
+        assert!(queue.snapshot().is_some());
+        network.invalidate();
+        assert!(queue.snapshot().is_none());
+        network.observe(network.snapshot(), Some(lease.address));
+        assert!(queue.snapshot().is_none());
+        let fresh = network.lease().unwrap();
+        queue.publish(
+            QueueSnapshot::new(
+                "fresh".into(),
+                fresh.address,
+                None,
+                esp_shazam_core::stream_buffer::OutputFormat::Flac,
+                fresh.generation,
+            )
+            .unwrap(),
+        );
+        assert_eq!(queue.snapshot().unwrap().item_id, "fresh");
     }
 }

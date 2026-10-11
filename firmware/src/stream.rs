@@ -1,8 +1,9 @@
 // ABOUTME: The LINE IN stream on port 8000: serves the selected compressed codec and diagnostic 24-bit WAV at 48 kHz stereo.
 // ABOUTME: One core 1 encoder shares compressed frames; listeners copy out before socket work and drop if they fall behind.
 
+use esp_shazam_core::network_lifecycle::{Lease as NetworkLease, Network};
 use std::io;
-use std::net::{SocketAddr, TcpListener, TcpStream};
+use std::net::{SocketAddr, TcpStream};
 #[cfg(feature = "admission-resources")]
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::{AtomicU32, AtomicUsize, Ordering};
@@ -173,8 +174,10 @@ const LISTENER_THREAD: ThreadSpec = ThreadSpec {
 
 /// Listens on port 8000 with two admission workers, and advertises the stream over mDNS as
 /// "esp-shazam stream", next to the page's "esp-shazam".
-pub fn start(ring: SharedStreamRing, mdns: &mut EspMdns) -> Result<()> {
-    let listener = Arc::new(Mutex::new(TcpListener::bind(("0.0.0.0", PORT))?));
+pub fn start(ring: SharedStreamRing, mdns: &mut EspMdns, network: Network) -> Result<()> {
+    let listener = Arc::new(Mutex::new(
+        crate::stream_admission::GenerationListener::new(SocketAddr::from(([0, 0, 0, 0], PORT))),
+    ));
     let (runtime, worker) = Runtime::new(OutputFormat::Flac, CONFIG.shazam_enabled)?;
     RUNTIME
         .set(runtime.clone())
@@ -194,13 +197,14 @@ pub fn start(ring: SharedStreamRing, mdns: &mut EspMdns) -> Result<()> {
             listeners.clone(),
             gate.clone(),
         );
+        let network = network.clone();
         if let Err(error) = (ThreadSpec {
             name,
             ..ACCEPT_THREAD
         })
         .spawn(move || {
             if worker_gate.wait() {
-                accept(listener, ring, runtime, listeners);
+                accept(listener, ring, runtime, listeners, network);
             }
         }) {
             gate.exit();
@@ -220,19 +224,27 @@ pub fn start(ring: SharedStreamRing, mdns: &mut EspMdns) -> Result<()> {
     ) {
         log::warn!("stream: mDNS service not added: {e}");
     }
-    log::info!("stream: listening on port {PORT}");
+    log::info!("stream: admission workers started on port {PORT}");
     Ok(())
 }
 
 fn accept(
-    listener: Arc<Mutex<TcpListener>>,
+    listener: Arc<Mutex<crate::stream_admission::GenerationListener>>,
     ring: SharedStreamRing,
     runtime: Arc<Runtime>,
     listeners: Arc<AtomicUsize>,
+    network: Network,
 ) -> ! {
     loop {
-        match crate::stream_admission::accept_one(&listener) {
-            Ok((sock, _)) => answer(sock, &ring, &runtime, &listeners),
+        let accepted = listener
+            .lock()
+            .expect("stream listener mutex poisoned")
+            .accept(&network);
+        match accepted {
+            Ok(Some((sock, _, lease))) => {
+                answer(sock, &ring, &runtime, &listeners, &network, lease)
+            }
+            Ok(None) => std::thread::sleep(Duration::from_millis(100)),
             Err(e) => {
                 log::warn!("stream: accept failed: {e}");
                 // lwIP drops a connection it has no socket for. Pause in case an error repeats at once.
@@ -284,7 +296,12 @@ fn answer(
     ring: &SharedStreamRing,
     runtime: &Arc<Runtime>,
     listeners: &Arc<AtomicUsize>,
+    network: &Network,
+    network_lease: NetworkLease,
 ) {
+    if !network.is_current(network_lease) {
+        return;
+    }
     let peer_address = sock.peer_addr().ok();
     let peer = peer_address.map_or_else(|| "unknown peer".to_owned(), |addr| addr.to_string());
     // One deadline for the whole head: a per-read timeout would let a client that sends a byte
@@ -303,6 +320,20 @@ fn answer(
             return;
         }
     };
+    if !network.is_current(network_lease) {
+        return;
+    }
+    match stream_http::request_network_generation(&request_line) {
+        Ok(Some(generation)) if generation != network_lease.generation => {
+            refuse(sock, &peer, &request_line, Status::ServiceUnavailable);
+            return;
+        }
+        Err(_) => {
+            refuse(sock, &peer, &request_line, Status::BadRequest);
+            return;
+        }
+        _ => {}
+    }
     let (route, lease) = runtime.admit(&request_line);
     match route {
         Route::Stream(_) | Route::Buffered(_) => {
@@ -333,6 +364,9 @@ fn answer(
                     };
                     // Required frame storage is admitted before spawning or sending HTTP 200.
                     // A failed allocation cannot fall back to memory needed by DMA or stacks.
+                    if !network.is_current(network_lease) {
+                        return;
+                    }
                     let buffer = match ListenerBuffer::try_new(format) {
                         Ok(buffer) => buffer,
                         Err(error) => {
@@ -348,6 +382,9 @@ fn answer(
                             return;
                         }
                     };
+                    if !network.is_current(network_lease) {
+                        return;
+                    }
                     EVENTS.publish(Record {
                         event_us: event_us(),
                         peer: connection.peer,
@@ -358,9 +395,10 @@ fn answer(
                     });
                     let ring = ring.clone();
                     // The owned connection's drop observes close even if no thread can be created.
-                    if let Err(e) =
-                        LISTENER_THREAD.spawn(move || listen(connection, ring, buffer, preset))
-                    {
+                    if let Err(e) = LISTENER_THREAD.spawn({
+                        let network = network.clone();
+                        move || listen(connection, ring, buffer, preset, network, network_lease)
+                    }) {
                         log::warn!("stream: no thread for a listener: {e}");
                     }
                 }
@@ -394,6 +432,8 @@ fn listen(
     ring: SharedStreamRing,
     buffer: ListenerBuffer,
     preset: Option<BufferPreset>,
+    network: Network,
+    network_lease: NetworkLease,
 ) {
     let sock = connection.socket();
     let lease = &connection
@@ -405,7 +445,7 @@ fn listen(
     let started = Instant::now();
     let mut departure = None;
     let end = match buffer {
-        ListenerBuffer::Wav => stream_wav(sock, &ring, peer),
+        ListenerBuffer::Wav => stream_wav(sock, &ring, peer, &network, network_lease),
         ListenerBuffer::Compressed(mut bytes) => {
             let mut metrics = ListenerMetrics::new(
                 lease
@@ -424,6 +464,8 @@ fn listen(
                 preset,
                 peer,
                 &mut metrics,
+                &network,
+                network_lease,
                 #[cfg(feature = "listener-frame-state")]
                 frame_state.as_mut(),
             );
@@ -506,12 +548,25 @@ fn read_some(
 
 /// Sends the response head and the WAV header, then frames from the ring as they arrive, until the
 /// listener goes, stops reading, or falls a ring behind.
-fn stream_wav(sock: &TcpStream, ring: &SharedStreamRing, peer: Option<SocketAddr>) -> End {
+fn stream_wav(
+    sock: &TcpStream,
+    ring: &SharedStreamRing,
+    peer: Option<SocketAddr>,
+    network: &Network,
+    lease: NetworkLease,
+) -> End {
+    if !network.is_current(lease) {
+        return End::NetworkChanged;
+    }
     let write_limit = frame_write_limit(ring.capacity());
     let Some(mut cursor) =
         cursor_before(ring, Instant::now() + FRESH_AUDIO_TIMEOUT, CAUGHT_UP_SLEEP)
     else {
-        return End::CaptureStalled;
+        return if network.is_current(lease) {
+            End::CaptureStalled
+        } else {
+            End::NetworkChanged
+        };
     };
     let mut writer = DeadlineWriter::new(sock);
     let mut frames = vec![0i32; 2 * CHUNK_FRAMES];
@@ -519,10 +574,21 @@ fn stream_wav(sock: &TcpStream, ring: &SharedStreamRing, peer: Option<SocketAddr
     bytes.extend_from_slice(Format::Wav.response_head().as_bytes());
     bytes.extend_from_slice(&wav::endless_header_s24le(CAPTURE_RATE_HZ, 2));
     loop {
-        if let Err(e) = write_frame(&mut writer, &bytes, write_limit, peer) {
+        if !network.is_current(lease) {
+            return End::NetworkChanged;
+        }
+        let result = write_frame(&mut writer, &bytes, write_limit, peer);
+        if !network.is_current(lease) {
+            return End::NetworkChanged;
+        }
+        if let Err(e) = result {
             return End::from_write_error(e);
         }
-        let frames_read = match read_some(ring, &mut cursor, &mut frames, None) {
+        let result = read_some(ring, &mut cursor, &mut frames, None);
+        if !network.is_current(lease) {
+            return End::NetworkChanged;
+        }
+        let frames_read = match result {
             Ok(n) => n,
             Err(WaitError::Stalled | WaitError::Read(ReadError::Retry)) => {
                 return End::CaptureStalled
@@ -804,6 +870,8 @@ fn stream_compressed(
     preset: Option<BufferPreset>,
     peer: Option<SocketAddr>,
     metrics: &mut ListenerMetrics,
+    network: &Network,
+    network_lease: NetworkLease,
     #[cfg(feature = "listener-frame-state")] mut frame_state: Option<
         &mut crate::listener_frame_state::Owner<'_>,
     >,
@@ -815,9 +883,17 @@ fn stream_compressed(
     let mut writer = DeadlineWriter::new(sock);
     let mut payload_started = None;
     let end = loop {
-        let action = listener.step(epoch, bytes, &mut || origin.elapsed(), &mut || {
-            stream_http::peer_connected(sock).unwrap_or(false)
-        });
+        if !network.is_current(network_lease) {
+            break End::NetworkChanged;
+        }
+        let action = listener.step_network(
+            epoch,
+            bytes,
+            &mut || origin.elapsed(),
+            &mut || stream_http::peer_connected(sock).unwrap_or(false),
+            network,
+            network_lease,
+        );
         match action {
             ListenerStep::Progress => {}
             ListenerStep::SleepUntil(at) => {
@@ -827,6 +903,9 @@ fn stream_compressed(
             }
             ListenerStep::End(end) => break end,
             ListenerStep::Write { deadline, header } => {
+                if !network.is_current(network_lease) {
+                    break End::NetworkChanged;
+                }
                 let started = Instant::now();
                 #[cfg(feature = "listener-frame-state")]
                 if !header {
@@ -856,6 +935,9 @@ fn stream_compressed(
                     metrics.frame_write_wall_total_us += us;
                     metrics.frame_write_wall_max_us = metrics.frame_write_wall_max_us.max(us);
                 }
+                if !network.is_current(network_lease) {
+                    break End::NetworkChanged;
+                }
                 let succeeded = result.is_ok();
                 if let ListenerStep::End(end) = listener.write_finished(result) {
                     break end;
@@ -867,7 +949,7 @@ fn stream_compressed(
             }
         }
     };
-    if listener.refuse_buffered {
+    if listener.refuse_buffered && network.is_current(network_lease) {
         listener_telemetry::send_admitted_refusal(
             sock,
             &EVENTS,
@@ -926,6 +1008,7 @@ impl std::fmt::Display for EndCode {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Retired => f.write_str("format epoch retired"),
+            Self::NetworkChanged => f.write_str("network generation changed"),
             Self::EncodedReset => f.write_str("encoded ring generation changed"),
             Self::InvalidCursor => f.write_str("encoded ring cursor invalid"),
             Self::FellBehind => f.write_str("fell a ring behind"),

@@ -246,6 +246,7 @@ impl EncoderPump {
 #[derive(Debug)]
 pub(crate) enum End {
     Retired,
+    NetworkChanged,
     /// The ring overwrote frames the listener hadn't been sent: it read too slowly.
     FellBehind,
     /// Writing a frame exhausted its write budget: the listener stopped reading, or reads too
@@ -353,6 +354,20 @@ impl CompressedListener {
     fn end(&mut self, end: End) -> ListenerStep {
         self.phase = Phase::End;
         ListenerStep::End(end)
+    }
+    pub(crate) fn step_network(
+        &mut self,
+        epoch: &Epoch,
+        scratch: &mut [u8],
+        now: &mut impl FnMut() -> Duration,
+        peer_connected: &mut impl FnMut() -> bool,
+        network: &esp_shazam_core::network_lifecycle::Network,
+        lease: esp_shazam_core::network_lifecycle::Lease,
+    ) -> ListenerStep {
+        if !network.is_current(lease) {
+            return self.end(End::NetworkChanged);
+        }
+        self.step(epoch, scratch, now, peer_connected)
     }
     pub(crate) fn step(
         &mut self,

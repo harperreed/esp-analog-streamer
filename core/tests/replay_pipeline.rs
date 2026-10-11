@@ -582,3 +582,43 @@ fn foreign_cursor_error_maps_to_invalid_cursor_without_poisoning_ring() {
     drop(ring);
     assert!(!destination.is_poisoned());
 }
+
+#[test]
+fn network_retirement_precedes_buffered_admission_and_http_header() {
+    use esp_shazam_core::{network_lifecycle::Network, stream_buffer::BufferPreset};
+    use stream_pipeline::{CompressedListener, End, ListenerStep};
+    let network = Network::new();
+    network.observe(network.snapshot(), Some("192.168.23.99".parse().unwrap()));
+    let (_runtime, worker) = Runtime::new(OutputFormat::Mp3, false).unwrap();
+    for preset in [None, Some(BufferPreset::Medium)] {
+        network.observe(network.snapshot(), Some("192.168.23.99".parse().unwrap()));
+        let lease = network.lease().unwrap();
+        let mut actor =
+            CompressedListener::new(&worker.epoch, preset, false, &mut || Duration::ZERO);
+        if preset.is_none() {
+            assert!(matches!(
+                actor.step_network(
+                    &worker.epoch,
+                    &mut [],
+                    &mut || Duration::ZERO,
+                    &mut || true,
+                    &network,
+                    lease
+                ),
+                ListenerStep::Progress
+            ));
+        }
+        network.invalidate();
+        assert!(matches!(
+            actor.step_network(
+                &worker.epoch,
+                &mut [],
+                &mut || Duration::ZERO,
+                &mut || true,
+                &network,
+                lease
+            ),
+            ListenerStep::End(End::NetworkChanged)
+        ));
+    }
+}
