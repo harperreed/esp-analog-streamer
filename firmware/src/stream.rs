@@ -3,6 +3,8 @@
 
 use std::io;
 use std::net::{SocketAddr, TcpListener, TcpStream};
+#[cfg(feature = "admission-resources")]
+use std::sync::atomic::AtomicBool;
 use std::sync::atomic::{AtomicU32, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex, OnceLock};
 use std::time::{Duration, Instant};
@@ -145,11 +147,16 @@ const _: () = assert!(codec::SAMPLE_RATE_HZ == CAPTURE_RATE_HZ);
 /// and a separate allowance to take a refusal. Each admission worker handles one head at a time.
 const HEAD_TIMEOUT: Duration = Duration::from_secs(2);
 const MAX_HEAD_BYTES: u64 = 4096;
+const ADMISSION_WORKERS: &[&std::ffi::CStr] = &[c"stream-in-1", c"stream-in-2"];
+const _: () = assert!(!ADMISSION_WORKERS.is_empty() && ADMISSION_WORKERS.len() <= 2);
+#[cfg(feature = "admission-resources")]
+static ADMISSION_READY: AtomicBool = AtomicBool::new(false);
+
 /// The server threads share core 1 with the encoder. Their priority, 7, is
 /// above the recognizer's (5), so a fingerprint can't starve a listener, and below the audio thread
 /// (10), lwIP (18) and Wi-Fi (23).
 const ACCEPT_THREAD: ThreadSpec = ThreadSpec {
-    name: c"stream-in-1",
+    name: ADMISSION_WORKERS[0],
     core: Core::Core1,
     priority: 7,
     stack_bytes: 4 * 1024,
@@ -179,7 +186,7 @@ pub fn start(ring: SharedStreamRing, mdns: &mut EspMdns) -> Result<()> {
     ENCODER_THREAD
         .spawn(move || encode(encoder_raw, encoder_runtime, encoder_listeners, worker))?;
     let gate = Arc::new(crate::stream_admission::StartupGate::new());
-    for name in [c"stream-in-1", c"stream-in-2"] {
+    for &name in ADMISSION_WORKERS {
         let (listener, ring, runtime, listeners, worker_gate) = (
             listener.clone(),
             ring.clone(),
@@ -201,6 +208,8 @@ pub fn start(ring: SharedStreamRing, mdns: &mut EspMdns) -> Result<()> {
         }
     }
     gate.run();
+    #[cfg(feature = "admission-resources")]
+    ADMISSION_READY.store(true, Ordering::Release);
     // The stream works without the advertisement, so a failure is only logged.
     if let Err(e) = mdns.add_service(
         Some("esp-shazam stream"),
@@ -220,7 +229,7 @@ fn accept(
     ring: SharedStreamRing,
     runtime: Arc<Runtime>,
     listeners: Arc<AtomicUsize>,
-) {
+) -> ! {
     loop {
         match crate::stream_admission::accept_one(&listener) {
             Ok((sock, _)) => answer(sock, &ring, &runtime, &listeners),
@@ -231,6 +240,42 @@ fn accept(
             }
         }
     }
+}
+
+// Only the permanent metrics owner calls this, after capture formatting returns.
+#[cfg(feature = "admission-resources")]
+#[inline(never)]
+pub(crate) fn export_admission_resources(sequence: &mut u64) {
+    *sequence += 1;
+    let device_us = event_us();
+    let ready = ADMISSION_READY.load(Ordering::Acquire);
+    let mut found = [false; 2];
+    let mut hwm = [0; 2];
+    let mut task_count = 0;
+    let mut query_us = 0;
+    let mut metrics_hwm = 0;
+    if ready {
+        let started = event_us();
+        for (index, name) in ADMISSION_WORKERS.iter().enumerate() {
+            // SAFETY: Release readiness follows every successful spawn and terminal Run.
+            // Run enters accept -> !; no deletion, replacement or panic recovery exists.
+            // panic_abort ends the boot on panic. Never extend this to transient tasks.
+            let handle = unsafe { sys::xTaskGetHandle(name.as_ptr()) };
+            if !handle.is_null() {
+                found[index] = true;
+                // SAFETY: the permanent worker lifetime above outlives this local lookup.
+                hwm[index] = unsafe { sys::uxTaskGetStackHighWaterMark(handle) };
+            }
+        }
+        // SAFETY: count has no handle; NULL watermark intentionally selects this live owner.
+        task_count = unsafe { sys::uxTaskGetNumberOfTasks() };
+        metrics_hwm = unsafe { sys::uxTaskGetStackHighWaterMark(std::ptr::null_mut()) };
+        query_us = event_us() - started;
+    }
+    // IDF reports historical untouched fill bytes, not worst-case stack safety.
+    // Task count is sampled, not peak, and includes deleted tasks awaiting idle cleanup.
+    log::info!("admission-resources: schema=1 seq={} device_us={} expected_workers={} ready={} worker1_found={} worker1_hwm_bytes={} worker2_found={} worker2_hwm_bytes={} task_count={} query_us={} metrics_hwm_bytes={}",
+        sequence, device_us, ADMISSION_WORKERS.len(), ready, found[0], hwm[0], found[1], hwm[1], task_count, query_us, metrics_hwm);
 }
 
 /// Reads one request and answers it: a listener thread for a stream, or a refusal.

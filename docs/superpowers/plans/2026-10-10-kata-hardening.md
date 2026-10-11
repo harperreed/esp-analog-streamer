@@ -1,7 +1,7 @@
 # Finish the Kata hardening backlog
 
 Doctor Biz's active goal on October 10: finish all Kata work, then assess.
-Base c134069 on wip/kata-capture-protection. Compactions in this phase: 18; latest firmware work is gated concurrent admission (host and target build pass; actual device acceptance pending).
+Base c134069 on wip/kata-capture-protection. Compactions in this phase: 19; latest firmware work is gated concurrent admission (host and target build pass; two device trials failed, resource acceptance pending).
 Use GPT-6.1 Sol subagents with clean contexts. Parent owns review, integration,
 canonical checks, commits and every hardware action. Continue through batches;
 a phase checkpoint is not a reason to abandon the active goal.
@@ -818,3 +818,19 @@ stages pass (`run.QSVJJTto`), including the actual firmware build and IRAM audit
 No device was flashed for this change yet. Task 3 will check real requests and
 measure the additional worker; audio continuity and the Kata 8s9m acceptance
 remain open. The board remains stopped MP3/Medium on the existing candidate.
+
+## Concurrent admission device and resource checkpoint
+
+Both actual request trials failed; reviewed public evidence records the partial
+successes and preserves the failures. Trial 1 has 12 encoder overruns; trial 2
+has a replacement stream that ended after its HTTP 200 header. Keep 8s9m open.
+The board now runs the default two-worker image 01d2607f71524fc7b980fc37cc3516aa1f0e987f5ea0352bd2f3dca7bf113f04,
+with saved/active MP3, Medium, stopped playback and recognition/autoplay off.
+
+The default-off permanent-worker resource diagnostic passed all 27 canonical
+stages in run.uBzY2Yyr, an explicit feature build, source review and linked-code
+review. Its two-worker image remains unflashed. Next measure matched worker
+variants with bounded idle/stream workloads; TLS overlap and failure injection
+remain separate outstanding gates. No blind request-suite rerun follows the
+header-only failure. Root-session replacement is unavailable; this checkpoint
+and fresh Sol 6.1 workers preserve continuity without claiming completion.

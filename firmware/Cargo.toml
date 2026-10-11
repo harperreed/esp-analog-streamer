@@ -27,6 +27,8 @@ debug = true
 opt-level = "z"
 
 [features]
+# Low-rate permanent admission worker resource diagnostic; absent by default.
+admission-resources = []
 # Bounded ON-only compressed frame-write-state diagnostic.
 listener-frame-state = []
 # Diagnostic-only fixed observer OFF / ON / OFF schedule.

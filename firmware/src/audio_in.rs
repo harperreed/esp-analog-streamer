@@ -394,6 +394,8 @@ fn metrics() -> ! {
     let mut observed = 0u64;
     let mut requests_seen = 0;
     let mut next_log = launched + 10_000_000;
+    #[cfg(feature = "admission-resources")]
+    let mut admission_resource_sequence = 0;
     let mut runtime_sample = None;
     let mut failure_exports = ExportState::new();
     let mut diagnostic_exports = Gate::new(launched);
@@ -438,6 +440,8 @@ fn metrics() -> ! {
                     &mut window_start_free,
                     &mut runtime_sample,
                 );
+                #[cfg(feature = "admission-resources")]
+                crate::stream::export_admission_resources(&mut admission_resource_sequence);
                 record_metrics_phase(observer_enabled, Phase::Init);
             }
             record_metrics_phase(observer_enabled, Phase::RestartExport);

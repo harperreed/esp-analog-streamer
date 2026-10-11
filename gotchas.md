@@ -1,5 +1,12 @@
 # Gotchas
 
+The October 10 concurrent-admission trials both failed. One exposed a corrected
+host-driver reset-handling defect; the other returned the exact MP3 HTTP 200
+head then closed without payload on a replacement stream. Preserve the failed
+verdicts even when most cases pass. The first trial's full UART has 12 encoder
+overruns; its last periodic summary alone undercounts the tail. See the saved
+concurrent-admission-device evidence before retrying or assigning a cause.
+
 The October 10 listener frame-state diagnostic captured 174 Ready observations
 inside payload-write brackets, including 96 at observed ages >=100 ms. Ready
 includes sampler preemption; these counts cannot measure runnable wait time.

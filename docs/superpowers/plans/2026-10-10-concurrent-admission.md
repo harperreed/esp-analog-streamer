@@ -10,7 +10,7 @@
 
 **Spec:** `target/kata-hardening/admission-resume.md`, with ownership details in `target/kata-hardening/admission-policy-decisions.md`. This tracked plan includes the binding decisions because those supporting audit artifacts are ignored.
 
-**State:** Tasks 1–2 implemented and independently reviewed; all 27 canonical stages pass. Actual device and resource acceptance remain pending. Existing finish-all authorization covers implementation; no additional architecture permission gate. Compaction count: 0.
+**State:** Tasks 1–2 implemented and independently reviewed; all 27 canonical stages pass. Two actual device trials failed; partial request successes do not clear Task 3. The default-off resource diagnostic passes source and linked review and builds, but live resource acceptance remains pending. Existing finish-all authorization covers implementation; no additional architecture permission gate. Compaction count: 1.
 
 ## Global Constraints
 
@@ -97,3 +97,19 @@ actual pinned firmware build, IRAM audit and firmware warning check in
 `target/check-logs/run.QSVJJTto`; complete/equal boundary snapshots verified.
 No compiler warnings. Full firmware answer allocation/launch and full-slot
 behavior still need device evidence; host close ownership is not ESP close proof.
+
+Task 3 checkpoint: two failed device trials are retained in
+`docs/audit-evidence/2026-10-10/concurrent-admission-device.md` and its JSON
+companion. Trial 1 exposed a driver reset-handling defect, since fixed with
+16 host tests; its full UART also contains 12 encoder overruns. Trial 2 passed
+the exact full-capacity refusal and most request cases, then received HTTP 200
+without audio on a replacement connection. Neither failed verdict is changed.
+
+The default-off `admission-resources` feature samples only permanent admission
+workers from the existing ten-second metrics cadence. Startup readiness and
+NULL guards protect lookups; no transient task handles are retained. Default
+canonical run `run.uBzY2Yyr` passes all 27 stages, with equal boundary snapshots;
+the feature build and independent source/linked reviews pass. Six receipt-parser
+tests pass. These checks do not establish live resource margins. Next: matched
+one-/two-worker resource measurements, preserving audio failure gates and the
+unmeasured TLS overlap and whole-device socket-census limits.
