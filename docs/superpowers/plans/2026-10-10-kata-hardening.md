@@ -12,6 +12,22 @@ a phase checkpoint is not a reason to abandon the active goal.
 
 ## October 11 closure and work-selection checkpoint
 
+Metrics checkpoint: the bounded endpoint, collector and separate dashboard now
+pass all 27 canonical stages and a live two-boot / two-listener OFF/ON/OFF test.
+A real departure value reached Prometheus and Grafana's backend; source staleness
+was observed. See `docs/audit-evidence/2026-10-11/device-metrics.md` for exact limits.
+amqe remains open: live individual-listener coverage, rendered panels and HTTP
+runtime stack/saturation acceptance remain. The last completed receipt does not
+replace live per-listener data. Open count stays 19; no closure claimed here.
+
+Retire this metrics implementation phase after its evidence commit. Resume in a
+fresh context at the named listener-observation gap; do not rerun the already
+passed host, boot-identity or off/on checks without a relevant code change.
+Keep 768-byte cache/snapshot and 4096-byte wire bounds. Existing admission has no
+stable slot ID; diagnostic frame-state slots are not reusable production slots.
+The test image remains installed, MP3/Medium stopped, autoplay/recognition off,
+with temporary services, UART and source owners removed. No push or PR occurred.
+
 45k9 is closed against its original codec acceptance (9cb1259, 3fefbbb).
 The live backlog is 19 open, down from 20 before that closure. Doctor Biz
 again flagged too much investigation without completed tickets.

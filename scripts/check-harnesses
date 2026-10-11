@@ -17,4 +17,6 @@ uv run --quiet --project "$repo" --locked python3 -m unittest discover -s script
 uv run --quiet --project "$repo" --locked python3 -m unittest discover -s scripts -p test_core_dump.py
 uv run --quiet --project "$repo" --locked python3 -m unittest discover -s scripts -p test_media_fault_acceptance.py
 uv run --quiet --project "$repo" --locked python3 -m unittest discover -s scripts -p test_stereo_capture.py
+uv run --quiet --project "$repo" --locked python3 -m unittest discover -s scripts -p test_device_metrics.py
+uv run --quiet --project "$repo" --locked python3 -m unittest discover -s scripts -p test_device_dashboard.py
 exec uv run --quiet --project "$repo" --locked python3 -m unittest discover -s scripts -p test_harness_modules.py

@@ -550,6 +550,36 @@ mod device {
     }
 
     impl Handle {
+        pub(crate) fn metrics_network(&self) -> Option<crate::device_metrics::NetworkMetadata> {
+            let snapshot = self.network.try_snapshot()?;
+            Some(crate::device_metrics::NetworkMetadata {
+                generation: snapshot.generation,
+                connected: snapshot.address.is_some(),
+                disconnects: crate::net::disconnect_count(),
+            })
+        }
+
+        pub(crate) fn metrics_settings(&self) -> Option<crate::device_metrics::Settings> {
+            let (next_play_format, next_play_buffer, buffer_available, autoplay) = {
+                let status = self.status.try_lock().ok()?;
+                (
+                    status.config.output_format,
+                    status.config.buffer_preset,
+                    status.buffer_available,
+                    status.config.autoplay,
+                )
+            };
+            Some(crate::device_metrics::Settings {
+                active_format: crate::stream::try_active_format()?,
+                next_play_format,
+                next_play_buffer,
+                buffer_available,
+                autoplay,
+                recognition_enabled: crate::config::CONFIG.shazam_enabled,
+                pga_gain: crate::config::CONFIG.pga_gain,
+            })
+        }
+
         pub fn snapshot(&self) -> Snapshot {
             let mut snapshot = self.status.lock().unwrap().clone();
             snapshot.active_format = crate::stream::active_format();

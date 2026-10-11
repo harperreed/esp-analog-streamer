@@ -41,6 +41,10 @@ use crate::stream_runtime::{Epoch, Runtime, Worker};
 static LISTENERS: OnceLock<Arc<AtomicUsize>> = OnceLock::new();
 static RUNTIME: OnceLock<Arc<Runtime>> = OnceLock::new();
 
+pub(crate) fn try_active_format() -> Option<OutputFormat> {
+    RUNTIME.get()?.try_active_format()
+}
+
 pub fn active_format() -> OutputFormat {
     RUNTIME
         .get()
@@ -1073,8 +1077,21 @@ pub(crate) fn export_media_progress(raw: &esp_shazam_core::stream_ring::StreamRi
             raw.generation == source.raw_generation && source.source_end <= raw.committed_frames
         })
         .map(|(raw, source)| raw.committed_frames.saturating_sub(source.source_end));
+    let operator_epoch = runtime.health.token() >> 2;
+    let health = runtime.health.state();
+    crate::device_metrics::CACHE.publish_media_progress(
+        crate::device_metrics::project_media_progress(
+            at,
+            operator_epoch,
+            health,
+            accepted.as_ref(),
+            committed.as_ref(),
+            output.as_ref(),
+            backlog,
+        ),
+    );
     log::info!("media-progress: event_us={} operator_epoch={} health={:?} accepted_valid={} accepted_generation={} accepted_frames={} accepted_us={} raw_valid={} raw_generation={} raw_committed={} raw_publication_us={} encoded_valid={} encoded_operator_epoch={} encoded_generation={} encoded_sequence={} source_start={} source_end={} oldest_accepted_us={} source_raw_publication_us={} encoded_production_us={} source_age_us={} backlog_valid={} backlog_frames={}",
-        at,runtime.health.token()>>2,runtime.health.state(),accepted.is_some(),accepted.map_or(0,|a|a.generation),accepted.map_or(0,|a|a.frames),accepted.and_then(|a|a.at_us).unwrap_or(0),committed.is_some(),committed.map_or(0,|r|r.generation),committed.map_or(0,|r|r.committed_frames),committed.and_then(|r|r.committed_at_us).unwrap_or(0),output.is_some(),output.map_or(0,|o|o.operator_epoch),output.map_or(0,|o|o.receipt.generation),output.map_or(0,|o|o.receipt.sequence),source.map_or(0,|s|s.source_start),source.map_or(0,|s|s.source_end),source.map_or(0,|s|s.oldest_accepted_us),source.map_or(0,|s|s.raw_publication_us),output.map_or(0,|o|o.receipt.metadata.encoded_production_us),source.map_or(0,|s|at.saturating_sub(s.oldest_accepted_us)),backlog.is_some(),backlog.unwrap_or(0));
+        at,operator_epoch,health,accepted.is_some(),accepted.map_or(0,|a|a.generation),accepted.map_or(0,|a|a.frames),accepted.and_then(|a|a.at_us).unwrap_or(0),committed.is_some(),committed.map_or(0,|r|r.generation),committed.map_or(0,|r|r.committed_frames),committed.and_then(|r|r.committed_at_us).unwrap_or(0),output.is_some(),output.map_or(0,|o|o.operator_epoch),output.map_or(0,|o|o.receipt.generation),output.map_or(0,|o|o.receipt.sequence),source.map_or(0,|s|s.source_start),source.map_or(0,|s|s.source_end),source.map_or(0,|s|s.oldest_accepted_us),source.map_or(0,|s|s.raw_publication_us),output.map_or(0,|o|o.receipt.metadata.encoded_production_us),source.map_or(0,|s|at.saturating_sub(s.oldest_accepted_us)),backlog.is_some(),backlog.unwrap_or(0));
 }
 
 pub(crate) fn supervise_encoder(
@@ -1209,6 +1226,7 @@ pub(crate) fn export_listener_events() {
                 }
             }
             Payload::Departure { metrics, tenths, end, owner_stack_free_bytes } => {
+                crate::device_metrics::CACHE.publish_last_listener_departure(crate::device_metrics::project_departure(event_us, owner_stack_free_bytes, metrics.as_ref()));
                 if let Some(m) = metrics {
                     log::info!("stream-listener: peer={} elapsed_us={} task_runtime_us={} runtime_valid={} frames_sent={} bytes_sent={} frame_write_wall_total_us={} frame_write_wall_max_us={} frame_read_wait_wall_total_us={} block_samples={} listener_stack_free_bytes={} event_us={}",
                         peer, m.elapsed_us, m.task_runtime_us, m.runtime_valid, m.frames_sent, m.bytes_sent,
@@ -1239,8 +1257,16 @@ pub(crate) fn export_listener_events() {
     if first.is_some() || loss_changed || first_loss {
         // SAFETY: this call runs on the live audio-metrics owner, once per exported batch.
         let stack_free_bytes = unsafe { sys::uxTaskGetStackHighWaterMark(std::ptr::null_mut()) };
+        let loss_occurred = EVENTS.loss_occurred();
+        let observed_device_us = event_us();
+        crate::device_metrics::CACHE.publish_listener_loss(crate::device_metrics::Loss {
+            observed_device_us,
+            dropped,
+            loss_occurred,
+            metrics_stack_free_bytes: Some(stack_free_bytes),
+        });
         log::info!("listener-telemetry: dropped={} loss_occurred={} observed_event_range_valid={} observed_event_min_us={} observed_event_max_us={} record_bytes={} queue_bytes={} metrics_stack_free_bytes={} export_us={} dropped_full={} dropped_contended={} dropped_poisoned={}",
-            dropped, EVENTS.loss_occurred(), first.is_some(), first.unwrap_or(0), last.unwrap_or(0), std::mem::size_of::<Record>(), std::mem::size_of::<listener_telemetry::Queue>(), stack_free_bytes, event_us(), EVENTS.dropped_full(), EVENTS.dropped_contended(), EVENTS.dropped_poisoned());
+            dropped, loss_occurred, first.is_some(), first.unwrap_or(0), last.unwrap_or(0), std::mem::size_of::<Record>(), std::mem::size_of::<listener_telemetry::Queue>(), stack_free_bytes, observed_device_us, EVENTS.dropped_full(), EVENTS.dropped_contended(), EVENTS.dropped_poisoned());
     }
 }
 
@@ -1280,14 +1306,25 @@ fn render_encoder_batch(first: &Option<u64>, last: &Option<u64>) {
     if first.is_some() || changed || first_loss {
         // SAFETY: this is the live metrics owner, and IDF reports its minimum free stack in bytes.
         let stack_free_bytes = unsafe { sys::uxTaskGetStackHighWaterMark(std::ptr::null_mut()) };
+        let loss_occurred = EVENTS.loss_occurred();
+        let observed_device_us = event_us();
+        crate::device_metrics::CACHE.publish_encoder_loss(crate::device_metrics::Loss {
+            observed_device_us,
+            dropped,
+            loss_occurred,
+            metrics_stack_free_bytes: Some(stack_free_bytes),
+        });
         log::info!("encoder-telemetry: dropped={} loss_occurred={} observed_event_range_valid={} observed_event_min_us={} observed_event_max_us={} record_bytes={} queue_bytes={} metrics_stack_free_bytes={} export_us={} dropped_full={} dropped_contended={} dropped_poisoned={}",
-            dropped, EVENTS.loss_occurred(), first.is_some(), first.unwrap_or(0), last.unwrap_or(0),
+            dropped, loss_occurred, first.is_some(), first.unwrap_or(0), last.unwrap_or(0),
             std::mem::size_of::<encoder_telemetry::Record>(), std::mem::size_of::<encoder_telemetry::Queue>(),
-            stack_free_bytes, event_us(), EVENTS.dropped_full(), EVENTS.dropped_contended(), EVENTS.dropped_poisoned());
+            stack_free_bytes, observed_device_us, EVENTS.dropped_full(), EVENTS.dropped_contended(), EVENTS.dropped_poisoned());
     }
 }
 #[inline(never)]
 fn render_encoder_event(record: &encoder_telemetry::Record) {
+    if let Some(observation) = crate::device_metrics::project_encoder(record) {
+        crate::device_metrics::CACHE.publish_encoder(observation);
+    }
     use encoder_telemetry::Payload;
     match &record.payload {
         Payload::Window(window) => {

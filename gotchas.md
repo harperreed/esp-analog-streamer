@@ -996,3 +996,9 @@ Encoder reset acknowledgement retains the last actual output receipt. A ring
 reset alone publishes no audio, so recovered output can have a higher generation
 and a smaller positive sequence. Validate the pair and production timestamp;
 never invent a new-generation zero-sequence publication in harness fixtures.
+
+Accepted capture and raw publication progress are sampled separately. A later
+publication count can exceed the earlier accepted count without corruption.
+Validate each receipt's own provenance; do not reject the whole metrics response
+using a cross-read equality or ordering assumption. Backlog also needs matching
+operator epochs, because recovery retains the last actual encoded receipt.

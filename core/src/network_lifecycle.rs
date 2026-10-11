@@ -35,6 +35,10 @@ impl Network {
     pub fn snapshot(&self) -> Snapshot {
         *self.0.lock().unwrap()
     }
+    /// Returns no observation when the shared state is busy or poisoned.
+    pub fn try_snapshot(&self) -> Option<Snapshot> {
+        self.0.try_lock().ok().map(|snapshot| *snapshot)
+    }
     pub fn lease(&self) -> Option<Lease> {
         let snapshot = self.snapshot();
         snapshot.address.map(|address| Lease {
@@ -81,6 +85,36 @@ impl Network {
 mod tests {
     use super::*;
     const IP: Ipv4Addr = Ipv4Addr::new(192, 168, 200, 10);
+
+    #[test]
+    fn try_snapshot_reads_current_state_without_changing_it() {
+        let network = Network::new();
+        let ready = network.observe(network.snapshot(), Some(IP));
+        assert_eq!(network.try_snapshot(), Some(ready));
+        assert_eq!(network.snapshot(), ready);
+    }
+
+    #[test]
+    fn try_snapshot_skips_a_held_mutex() {
+        let network = Network::new();
+        let held = network.0.lock().unwrap();
+        assert_eq!(network.try_snapshot(), None);
+        drop(held);
+        assert_eq!(network.try_snapshot(), Some(network.snapshot()));
+    }
+
+    #[test]
+    fn try_snapshot_skips_a_poisoned_mutex() {
+        let network = Network::new();
+        let poisoned = network.clone();
+        assert!(std::thread::spawn(move || {
+            let _held = poisoned.0.lock().unwrap();
+            panic!("poison the network mutex");
+        })
+        .join()
+        .is_err());
+        assert_eq!(network.try_snapshot(), None);
+    }
 
     #[test]
     fn ready_address_yields_a_current_lease_shared_by_clones() {

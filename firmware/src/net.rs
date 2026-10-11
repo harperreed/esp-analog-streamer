@@ -20,6 +20,15 @@ use esp_shazam_core::network_lifecycle::{Network, Snapshot};
 mod policy;
 use policy::RadioPolicy;
 
+#[path = "network_observation.rs"]
+mod observation;
+static DRIVER_DISCONNECT_COUNT: observation::DisconnectCount = observation::DisconnectCount::new();
+
+/// Raw wrapping count of driver disconnect events since boot.
+pub fn disconnect_count() -> u32 {
+    DRIVER_DISCONNECT_COUNT.get()
+}
+
 const STREAMING_RADIO: RadioPolicy = RadioPolicy {
     protocol: (sys::WIFI_PROTOCOL_11B | sys::WIFI_PROTOCOL_11G | sys::WIFI_PROTOCOL_11N) as u8,
     power_save: sys::wifi_ps_type_t_WIFI_PS_NONE,
@@ -88,6 +97,7 @@ pub fn start_wifi(
             log_network_change(before, after);
         }
         if let WifiEvent::StaDisconnected(info) = event {
+            DRIVER_DISCONNECT_COUNT.observe();
             // Event Debug includes the SSID: report only the reason and signal strength.
             log::warn!(
                 "wifi: station disconnected, reason={} rssi={}dBm",

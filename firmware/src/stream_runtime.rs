@@ -144,6 +144,9 @@ impl Runtime {
             },
         ))
     }
+    pub fn try_active_format(&self) -> Option<OutputFormat> {
+        self.active.try_lock().ok().map(|epoch| epoch.format)
+    }
     pub fn active_format(&self) -> OutputFormat {
         self.active.lock().unwrap().format
     }
@@ -398,6 +401,27 @@ impl Worker {
 #[cfg(all(test, not(feature = "listener-loom")))]
 mod tests {
     use super::*;
+    #[test]
+    fn metrics_active_format_is_nonblocking_and_does_not_recover_poison() {
+        let (runtime, _worker) = Runtime::new(OutputFormat::Mp3, false).unwrap();
+        assert_eq!(runtime.try_active_format(), Some(OutputFormat::Mp3));
+        let guard = runtime.active.lock().unwrap();
+        let other = runtime.clone();
+        let (tx, rx) = mpsc::channel();
+        let reader = std::thread::spawn(move || tx.send(other.try_active_format()).unwrap());
+        assert_eq!(rx.recv_timeout(Duration::from_secs(5)).unwrap(), None);
+        reader.join().unwrap();
+        drop(guard);
+        assert_eq!(runtime.try_active_format(), Some(OutputFormat::Mp3));
+        let other = runtime.clone();
+        assert!(std::thread::spawn(move || {
+            let _guard = other.active.lock().unwrap();
+            panic!("poison fixture");
+        })
+        .join()
+        .is_err());
+        assert_eq!(runtime.try_active_format(), None);
+    }
     #[test]
     fn unhealthy_compressed_admission_does_not_wait_for_active_mutex() {
         let (runtime, _worker) = Runtime::new(OutputFormat::Mp3, false).unwrap();

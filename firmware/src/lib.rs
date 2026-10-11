@@ -64,6 +64,7 @@ pub fn run() -> Result<()> {
     // producers or the metrics exporter can become the first queue accessor.
     listener_telemetry::EVENTS.initialize();
     encoder_telemetry::EVENTS.initialize();
+    device_metrics::CACHE.initialize();
     // Raw frames feed WAV and one shared encoder; encoded frames hold the longer backlog.
     let (ring, stream_ring) = audio_in::spawn_capture(rx, store.clone())?;
     #[cfg(feature = "capture-fixture")]
@@ -76,6 +77,7 @@ pub fn run() -> Result<()> {
         CONFIG.wifi_ssid,
         CONFIG.wifi_pass,
     )?;
+    device_metrics_identity::initialize_after_wifi();
     let _sntp = net::start_sntp()?;
     let mut mdns = net::start_mdns(CONFIG.hostname)?;
 
@@ -96,6 +98,8 @@ pub fn run() -> Result<()> {
     net::supervise(wifi)
 }
 
+mod device_metrics;
+mod device_metrics_identity;
 #[cfg(feature = "encoder-probe")]
 mod encoder_probe;
 mod encoder_telemetry;

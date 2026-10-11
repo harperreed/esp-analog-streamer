@@ -11,6 +11,7 @@ mod device {
     use std::time::Duration;
 
     use super::{read_action, read_json_body, RequestError};
+    use crate::device_metrics::{ResponseError, Unavailable};
     use crate::recognizer::SharedStore;
     use crate::sonos::{Command, Handle};
     use esp_shazam_core::sonos_queue::{self as queue, Endpoint, QUEUE_PATH};
@@ -75,6 +76,41 @@ mod device {
                     ],
                 )?
                 .write_all(body.as_bytes())?;
+            Ok(())
+        })?;
+        let metrics = sonos.clone();
+        server.fn_handler::<anyhow::Error, _>("/api/metrics", Method::Get, move |request| {
+            let settings = metrics.metrics_settings();
+            let network = metrics.metrics_network();
+            let prepared = crate::device_metrics::prepare_response(
+                &crate::device_metrics::CACHE,
+                || unsafe { esp_idf_svc::sys::esp_timer_get_time() } as u64,
+                crate::device_metrics_identity::IDENTITY.get().copied(),
+                settings,
+                network,
+            );
+            let (status, reason, body) = match &prepared {
+                Ok(body) => (200, "OK", body.as_slice()),
+                Err(
+                    ResponseError::Unavailable(Unavailable::Contended | Unavailable::Poisoned)
+                    | ResponseError::Allocation
+                    | ResponseError::Serialization,
+                ) => (
+                    503,
+                    "Service Unavailable",
+                    b"{\"error\":\"metrics_unavailable\"}".as_slice(),
+                ),
+            };
+            request
+                .into_response(
+                    status,
+                    Some(reason),
+                    &[
+                        ("Content-Type", "application/json; charset=utf-8"),
+                        ("Cache-Control", "no-store"),
+                    ],
+                )?
+                .write_all(body)?;
             Ok(())
         })?;
         let status = sonos.clone();
