@@ -682,10 +682,14 @@ reproduction gate: phase timing remains unimplemented. Independent review and
 artifact checks support reconstructed-default-controls.md/.json; startup capture
 faults, false device attestation and the unarchived parser dependency stay explicit.
 
-The separate current reconstruction delivery trial failed after only 2.064 and
-2.184 decoded seconds. Its wrapper stopped before the slow-reader phase and
-cleaned up. The evidence report is pending. Current reconstructed unified image
+The separate current reconstruction delivery trial failed; final decoder files
+contain only 2.064 and 2.256 seconds. Its wrapper stopped before the slow-reader
+phase and cleaned up. Reviewed evidence is in reconstructed-listener-failure.md
+and .json; the earlier summary's 2.184-second snapshot remains unchanged.
+Current reconstructed unified image
 626456a3 remains installed, stopped MP3/Medium, with no source/UART owner.
 Kata ce69 tracks a confirmed reporting bug: producer generation resets and actual
-listener history loss both report FellBehind. A Sol 6.1 worker is scoping the
+listener history loss both report FellBehind. A Sol 6.1 worker is implementing the
 small diagnostic correction; stream termination and recovery policy stay intact.
+Plan 418609e passed independent review and a fresh Sol 6.1 worker is implementing
+its real ring/pipeline/telemetry/parser regressions before the production change.
