@@ -1,7 +1,7 @@
 # Finish the Kata hardening backlog
 
 Doctor Biz's active goal on October 10: finish all Kata work, then assess.
-Base c134069 on wip/kata-capture-protection. Compactions in this phase: 23.
+Base c134069 on wip/kata-capture-protection. Compactions in this phase: 24.
 Latest checkpoint: original-criteria review closed 8s9m, 21tp and 89g8.
 The wbz6 MP3 instruction-placement correction now passes matched hardware and
 all 27 canonical stages; its ordinary ELF equals the tested candidate exactly.
@@ -11,6 +11,17 @@ canonical checks, commits and every hardware action. Continue through batches;
 a phase checkpoint is not a reason to abandon the active goal.
 
 ## October 11 closure and work-selection checkpoint
+
+Doctor Biz subsequently selected HTTP/UPnP Sonos control ("skip tls for now").
+The active implementation is `2026-10-11-sonos-http.md`; this supersedes the
+pending external-TLS allocator experiment below. The first integrated HTTP
+candidate passes all 27 canonical stages in run.maDMyTMw, and a read-only host
+probe using its actual Rust client verifies the live coordinator and reads its
+transport/URI. Review fixes are accepted. Run.wVMBHa6B passed 26 stages; its
+Clippy-only test assertion failure is corrected, with final Clippy and all 40
+adapter tests passing. Exact scope and remaining gates are recorded in the
+sonos-http evidence. No candidate has been flashed, Stop policy is pending,
+and neither hardware acceptance nor a Kata closure is claimed.
 
 Current state supersedes the historical checkpoints below: amqe is closed in
 23310f6. Open count is 18, down from 19. Its live listener observations, rendered

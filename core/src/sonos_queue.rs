@@ -101,7 +101,7 @@ pub fn response(
     serde_json::to_string(&body).map_err(|_| Error::Invalid)
 }
 
-fn media_url(snapshot: &QueueSnapshot) -> String {
+pub fn media_url(snapshot: &QueueSnapshot) -> String {
     let url = format!(
         "http://{}:8000{}",
         snapshot.host,

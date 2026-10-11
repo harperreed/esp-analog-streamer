@@ -5,9 +5,9 @@ The later TLS diagnostic resolves one hidden failure: RSA returned -0x4290
 Heap reported after unwinding is not allocation-time headroom. Lowering the
 general threshold from 8191 to 2047 increased observed setup free RAM but still
 failed native TLS; that trial was reverted. Internal TLS allocation remains.
-An external-TLS allocator test is awaiting explicit approval because this ESP32
-would store TLS keys/plaintext in unencrypted PSRAM. Never bypass verification
-or assume that permission. See tls-verification-memory evidence.
+Doctor Biz superseded the external-TLS allocator proposal by selecting HTTP/UPnP
+Sonos control. Do not resume that experiment or weaken unrelated HTTPS settings.
+See tls-verification-memory evidence and the October 11 sonos-http plan.
 
 Cargo's ESP-IDF rebuild reset the temporary SDK diagnostic edits. Apply such
 throwaway patches after the IDF build, rebuild the affected native libraries,
@@ -1072,3 +1072,10 @@ actual socket headers and implementation do not expose. Verify declarations and
 implementation before suggesting runtime options. PCB nrtx resets and saturates;
 it is not a lifetime retransmission count. The public Wi-Fi statistics dump also
 lacks documented module masks and counter semantics in the inspected headers.
+
+Doctor Biz selected HTTP/UPnP Sonos control on October 11 ("skip tls for now")
+after reviewing successful workstation SOAP playback. The Sonos PSRAM TLS test
+is superseded; do not keep asking for it or resume the failed TLS experiments.
+Preserve standalone board controls, format/buffer settings and intent admission.
+SOAP URI checks are not atomic ownership; Stop policy was asked separately and
+automatic recovery must not reclaim a changed source. See the sonos-http plan.

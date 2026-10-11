@@ -1,4 +1,4 @@
-// ABOUTME: One bounded Sonos controller worker owns discovery, TLS and our playback session.
+// ABOUTME: One bounded Sonos controller worker owns discovery, HTTP control and our playback intent.
 // ABOUTME: The UI queues commands and reads snapshots without waiting for speaker I/O.
 
 use esp_shazam_core::network_lifecycle::{Lease, Network};
@@ -142,6 +142,7 @@ fn with_network<T>(
 }
 
 /// A sent create request must collect its bounded reply before reporting network loss.
+#[cfg(test)]
 fn with_create_send<T>(
     network: &Network,
     lease: Lease,
@@ -263,8 +264,55 @@ fn start_autoplay<E: std::fmt::Display>(
     }
 }
 
+pub fn http_transport_state(state: esp_shazam_core::sonos_upnp::TransportState) -> State {
+    use esp_shazam_core::sonos_upnp::TransportState;
+    match state {
+        TransportState::Playing => State::Playing,
+        TransportState::Transitioning => State::Buffering,
+        TransportState::Stopped | TransportState::Paused => State::Stopped,
+    }
+}
+
+/// Exact URI observations revoke the stored intent on a source change.
+pub struct HttpOwnership {
+    uri: Option<String>,
+}
+impl HttpOwnership {
+    pub fn new(uri: String) -> Self {
+        Self { uri: Some(uri) }
+    }
+    pub fn observe_owned_uri(
+        owned_uri: &mut Option<String>,
+        uri: &str,
+        playing: bool,
+    ) -> Option<State> {
+        let mut ownership = Self {
+            uri: owned_uri.take(),
+        };
+        let state = ownership.observe(uri, playing);
+        *owned_uri = ownership.uri;
+        state
+    }
+    pub fn matches(&self, uri: &str) -> bool {
+        self.uri.as_deref() == Some(uri)
+    }
+    pub fn observe(&mut self, uri: &str, playing: bool) -> Option<State> {
+        if self.uri.as_deref() != Some(uri) {
+            self.uri = None;
+            return None;
+        }
+        Some(if playing {
+            State::Playing
+        } else {
+            State::Buffering
+        })
+    }
+}
+
+#[cfg(any(test, feature = "sonos-fixture"))]
 const CHUNK_BYTES: usize = 1024;
 
+#[cfg(any(test, feature = "sonos-fixture"))]
 struct Chunk {
     opcode: u8,
     fin: bool,
@@ -273,12 +321,14 @@ struct Chunk {
     bytes: Vec<u8>,
 }
 
+#[cfg(any(test, feature = "sonos-fixture"))]
 #[derive(Default)]
 struct Incoming {
     message: protocol::MessageAssembler,
     frame: Option<(u8, bool, usize, usize)>,
 }
 
+#[cfg(any(test, feature = "sonos-fixture"))]
 impl Incoming {
     fn push(&mut self, chunk: Chunk) -> Result<Option<Vec<u8>>, protocol::Error> {
         let end = chunk
@@ -323,12 +373,14 @@ fn sample_level(sample: Option<(f32, std::time::Instant)>, now: std::time::Insta
 }
 
 // Error-only UART preview: fixed stack storage, no duplicate JSON tree or unbounded log line.
+#[cfg(any(test, feature = "sonos-fixture"))]
 struct Diagnostic {
     bytes: [u8; 1024],
     len: usize,
     truncated: bool,
 }
 
+#[cfg(any(test, feature = "sonos-fixture"))]
 impl Diagnostic {
     fn new(args: std::fmt::Arguments<'_>) -> Self {
         let mut preview = Self {
@@ -341,6 +393,7 @@ impl Diagnostic {
     }
 }
 
+#[cfg(any(test, feature = "sonos-fixture"))]
 impl std::fmt::Write for Diagnostic {
     fn write_str(&mut self, text: &str) -> std::fmt::Result {
         let mut take = text.len().min(self.bytes.len() - self.len);
@@ -358,6 +411,7 @@ impl std::fmt::Write for Diagnostic {
     }
 }
 
+#[cfg(any(test, feature = "sonos-fixture"))]
 impl std::fmt::Display for Diagnostic {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         formatter
@@ -402,6 +456,7 @@ impl LevelSamples {
     }
 }
 
+#[cfg(test)]
 fn scope_matches(
     header: &protocol::MessageHeader,
     household: &str,
@@ -427,9 +482,11 @@ fn resolve_group(advertisements: &[DiscoveryGroup], player: &str) -> Option<Disc
         .cloned()
 }
 
+#[cfg(any(test, feature = "sonos-fixture"))]
 #[derive(Default)]
 struct ReceiveDeadline(std::sync::atomic::AtomicU32);
 
+#[cfg(any(test, feature = "sonos-fixture"))]
 impl ReceiveDeadline {
     fn remaining(&self, now_ms: u32) -> Option<u32> {
         use std::sync::atomic::Ordering;
@@ -546,13 +603,40 @@ impl Queue {
         let id = self.snapshot.lock().unwrap().intent;
         id.is_none_or(|id| self.capacity.valid(id))
     }
+    fn revoke_cancelled(&self, commands: &Commands, generation: u64) -> bool {
+        if commands.is_current(generation) {
+            return false;
+        }
+        self.clear();
+        true
+    }
+    /// Caller holds the command token gate; an admitted Sonos listener needs no free slot.
+    fn play_current(&self, intent: u64) -> bool {
+        self.capacity.current(intent)
+    }
     /// Caller holds the command token gate; do not lock that token again.
+    #[cfg(test)]
     fn intent_current(&self) -> bool {
         let id = self.snapshot.lock().unwrap().intent;
         id.is_some_and(|id| self.capacity.current(id))
     }
 }
 
+/// Cancellation revokes local delivery while retaining the sole URI candidate for checked Stop.
+fn revoke_cancelled_play(
+    queue: &Queue,
+    commands: &Commands,
+    generation: u64,
+    state: &mut State,
+) -> bool {
+    if !queue.revoke_cancelled(commands, generation) {
+        return false;
+    }
+    *state = State::Stopped;
+    true
+}
+
+#[cfg(test)]
 fn release_session_after_error(
     session: &mut Option<String>,
     status: &mut Snapshot,
@@ -569,6 +653,7 @@ fn release_session_after_error(
     status.last_error = Some(error_code);
 }
 
+#[cfg(test)]
 fn queue_load_body(snapshot: &QueueSnapshot) -> serde_json::Value {
     serde_json::json!({ "queueBaseUrl": format!("http://{}{}", snapshot.host, sonos_queue::QUEUE_PATH),
         "queueVersion": snapshot.item_id, "itemId": snapshot.item_id, "playOnCompletion": true })
@@ -578,28 +663,21 @@ fn queue_load_body(snapshot: &QueueSnapshot) -> serde_json::Value {
 mod device {
     use super::*;
     use crate::recognizer;
-    use anyhow::{anyhow, bail, ensure, Context, Result};
+    use anyhow::{anyhow, ensure, Context, Result};
     use esp_idf_svc::{
-        hal::delay::TickType,
         nvs::{EspDefaultNvsPartition, EspNvs, NvsDefault},
         sys,
-        tls::X509,
-        ws::client::{EspWebSocketClientConfig, EspWebSocketTransport},
     };
-    use serde_json::{json, Value};
+    use esp_shazam_core::sonos_upnp::{Client, TransportState};
     use std::{
-        ffi::{c_void, CString},
         net::{Ipv4Addr, SocketAddr, UdpSocket},
         sync::{
-            atomic::{AtomicBool, Ordering},
-            mpsc::{self, Receiver, SyncSender},
+            mpsc::{self, Receiver},
             Arc, Mutex,
         },
         time::{Duration, Instant},
     };
-
     const TIMEOUT: Duration = Duration::from_secs(5);
-    const ROOTS: &[u8] = concat!(include_str!("../assets/sonos-roots.pem"), "\0").as_bytes();
 
     #[derive(Clone)]
     pub struct Handle {
@@ -691,9 +769,9 @@ mod device {
                         store: launch.store,
                         socket: None,
                         group: None,
-                        session: None,
+                        owned_uri: None,
                         queue,
-                        item_confirmed: false,
+                        poll_at: Instant::now(),
                         sequence: 0,
                         epoch: Instant::now(),
                         retry: None,
@@ -768,549 +846,575 @@ mod device {
         Ok(handle)
     }
 
-    fn protocol_error(error: protocol::Error) -> anyhow::Error {
-        anyhow!("Sonos protocol error: {error:?}")
-    }
-
-    enum WireEvent {
-        Connected,
-        Gone,
-        Data(Chunk),
-    }
-
-    struct Callback {
-        sender: SyncSender<WireEvent>,
-        failed: AtomicBool,
-        control: Arc<TransportControl>,
-    }
-
-    impl Callback {
-        fn fail(&self) {
-            self.failed.store(true, Ordering::Release);
-            self.control.cancelled.store(true, Ordering::Release);
+    #[cfg(feature = "sonos-fixture")]
+    #[allow(dead_code)]
+    mod fixture {
+        use super::*;
+        use anyhow::bail;
+        use esp_idf_svc::{
+            hal::delay::TickType,
+            tls::X509,
+            ws::client::{EspWebSocketClientConfig, EspWebSocketTransport},
+        };
+        use std::{
+            ffi::{c_void, CString},
+            sync::{
+                atomic::{AtomicBool, Ordering},
+                mpsc::SyncSender,
+            },
+        };
+        fn protocol_error(error: protocol::Error) -> anyhow::Error {
+            anyhow!("Sonos protocol error: {error:?}")
         }
-    }
 
-    // IDF calls this on its WebSocket task. No parser, I/O, status lock or blocking send belongs here.
-    unsafe extern "C" fn callback(
-        arg: *mut c_void,
-        _: sys::esp_event_base_t,
-        id: i32,
-        data: *mut c_void,
-    ) {
-        let context = &*(arg as *const Callback);
-        let event = match id {
-            sys::esp_websocket_event_id_t_WEBSOCKET_EVENT_CONNECTED => {
-                context.control.receive_deadline.reset();
-                WireEvent::Connected
+        enum WireEvent {
+            Connected,
+            Gone,
+            Data(Chunk),
+        }
+
+        struct Callback {
+            sender: SyncSender<WireEvent>,
+            failed: AtomicBool,
+            control: Arc<TransportControl>,
+        }
+
+        impl Callback {
+            fn fail(&self) {
+                self.failed.store(true, Ordering::Release);
+                self.control.cancelled.store(true, Ordering::Release);
             }
-            sys::esp_websocket_event_id_t_WEBSOCKET_EVENT_ERROR
-            | sys::esp_websocket_event_id_t_WEBSOCKET_EVENT_DISCONNECTED
-            | sys::esp_websocket_event_id_t_WEBSOCKET_EVENT_CLOSED => WireEvent::Gone,
-            sys::esp_websocket_event_id_t_WEBSOCKET_EVENT_DATA => {
-                if data.is_null() {
-                    context.fail();
-                    return;
-                }
-                let data = &*(data as *const sys::esp_websocket_event_data_t);
-                if data.payload_offset >= 0
-                    && data.data_len >= 0
-                    && data.payload_len >= 0
-                    && (data.payload_offset as usize + data.data_len as usize)
-                        >= data.payload_len as usize
-                {
+        }
+
+        // IDF calls this on its WebSocket task. No parser, I/O, status lock or blocking send belongs here.
+        unsafe extern "C" fn callback(
+            arg: *mut c_void,
+            _: sys::esp_event_base_t,
+            id: i32,
+            data: *mut c_void,
+        ) {
+            let context = &*(arg as *const Callback);
+            let event = match id {
+                sys::esp_websocket_event_id_t_WEBSOCKET_EVENT_CONNECTED => {
                     context.control.receive_deadline.reset();
+                    WireEvent::Connected
                 }
-                if matches!(data.op_code, 9 | 10) {
-                    return;
-                }
-                if data.op_code == 8 {
-                    WireEvent::Gone
-                } else {
-                    if !matches!(data.op_code, 0 | 1)
-                        || data.data_len < 0
-                        || data.data_len as usize > CHUNK_BYTES
-                        || data.payload_len < 0
-                        || data.payload_len as usize > protocol::MAX_MESSAGE_BYTES
-                        || data.payload_offset < 0
-                        || (data.data_len != 0 && data.data_ptr.is_null())
-                    {
+                sys::esp_websocket_event_id_t_WEBSOCKET_EVENT_ERROR
+                | sys::esp_websocket_event_id_t_WEBSOCKET_EVENT_DISCONNECTED
+                | sys::esp_websocket_event_id_t_WEBSOCKET_EVENT_CLOSED => WireEvent::Gone,
+                sys::esp_websocket_event_id_t_WEBSOCKET_EVENT_DATA => {
+                    if data.is_null() {
                         context.fail();
                         return;
                     }
-                    let bytes = if data.data_len == 0 {
-                        Vec::new()
+                    let data = &*(data as *const sys::esp_websocket_event_data_t);
+                    if data.payload_offset >= 0
+                        && data.data_len >= 0
+                        && data.payload_len >= 0
+                        && (data.payload_offset as usize + data.data_len as usize)
+                            >= data.payload_len as usize
+                    {
+                        context.control.receive_deadline.reset();
+                    }
+                    if matches!(data.op_code, 9 | 10) {
+                        return;
+                    }
+                    if data.op_code == 8 {
+                        WireEvent::Gone
                     } else {
-                        std::slice::from_raw_parts(data.data_ptr, data.data_len as usize).to_vec()
-                    };
-                    WireEvent::Data(Chunk {
-                        opcode: data.op_code,
-                        fin: data.fin,
-                        offset: data.payload_offset as usize,
-                        total: data.payload_len as usize,
-                        bytes,
-                    })
+                        if !matches!(data.op_code, 0 | 1)
+                            || data.data_len < 0
+                            || data.data_len as usize > CHUNK_BYTES
+                            || data.payload_len < 0
+                            || data.payload_len as usize > protocol::MAX_MESSAGE_BYTES
+                            || data.payload_offset < 0
+                            || (data.data_len != 0 && data.data_ptr.is_null())
+                        {
+                            context.fail();
+                            return;
+                        }
+                        let bytes = if data.data_len == 0 {
+                            Vec::new()
+                        } else {
+                            std::slice::from_raw_parts(data.data_ptr, data.data_len as usize)
+                                .to_vec()
+                        };
+                        WireEvent::Data(Chunk {
+                            opcode: data.op_code,
+                            fin: data.fin,
+                            offset: data.payload_offset as usize,
+                            total: data.payload_len as usize,
+                            bytes,
+                        })
+                    }
+                }
+                _ => return,
+            };
+            if context.sender.try_send(event).is_err() {
+                context.fail();
+            }
+        }
+
+        // IDF 1.8's receive loop does not check stop between frame chunks. Keep its WS/TLS
+        // implementations, but make each delegated TLS operation cancellable and nonblocking.
+        #[derive(Default)]
+        struct TransportControl {
+            cancelled: AtomicBool,
+            receive_deadline: ReceiveDeadline,
+        }
+
+        struct TransportGate {
+            ssl: sys::esp_transport_handle_t,
+            control: Arc<TransportControl>,
+        }
+
+        unsafe fn gate<'a>(handle: sys::esp_transport_handle_t) -> &'a TransportGate {
+            &*sys::esp_transport_get_context_data(handle).cast::<TransportGate>()
+        }
+
+        fn tick_ms() -> u32 {
+            (unsafe { sys::esp_timer_get_time() } / 1000) as u32
+        }
+
+        unsafe extern "C" fn gate_connect(
+            handle: sys::esp_transport_handle_t,
+            host: *const std::ffi::c_char,
+            port: i32,
+            _timeout: i32,
+        ) -> i32 {
+            let gate = gate(handle);
+            let start = Instant::now();
+            while !gate.control.cancelled.load(Ordering::Acquire) && start.elapsed() < TIMEOUT {
+                // This path sets esp_tls_cfg.non_block=true; synchronous SSL connect does not.
+                match sys::esp_transport_connect_async(gate.ssl, host, port, 5000) {
+                    1 => return 0,
+                    0 => std::thread::sleep(Duration::from_millis(5)),
+                    _ => return -1,
                 }
             }
-            _ => return,
-        };
-        if context.sender.try_send(event).is_err() {
-            context.fail();
-        }
-    }
-
-    // IDF 1.8's receive loop does not check stop between frame chunks. Keep its WS/TLS
-    // implementations, but make each delegated TLS operation cancellable and nonblocking.
-    #[derive(Default)]
-    struct TransportControl {
-        cancelled: AtomicBool,
-        receive_deadline: ReceiveDeadline,
-    }
-
-    struct TransportGate {
-        ssl: sys::esp_transport_handle_t,
-        control: Arc<TransportControl>,
-    }
-
-    unsafe fn gate<'a>(handle: sys::esp_transport_handle_t) -> &'a TransportGate {
-        &*sys::esp_transport_get_context_data(handle).cast::<TransportGate>()
-    }
-
-    fn tick_ms() -> u32 {
-        (unsafe { sys::esp_timer_get_time() } / 1000) as u32
-    }
-
-    unsafe extern "C" fn gate_connect(
-        handle: sys::esp_transport_handle_t,
-        host: *const std::ffi::c_char,
-        port: i32,
-        _timeout: i32,
-    ) -> i32 {
-        let gate = gate(handle);
-        let start = Instant::now();
-        while !gate.control.cancelled.load(Ordering::Acquire) && start.elapsed() < TIMEOUT {
-            // This path sets esp_tls_cfg.non_block=true; synchronous SSL connect does not.
-            match sys::esp_transport_connect_async(gate.ssl, host, port, 5000) {
-                1 => return 0,
-                0 => std::thread::sleep(Duration::from_millis(5)),
-                _ => return -1,
-            }
-        }
-        -1
-    }
-
-    unsafe extern "C" fn gate_read(
-        handle: sys::esp_transport_handle_t,
-        bytes: *mut std::ffi::c_char,
-        len: i32,
-        _timeout: i32,
-    ) -> i32 {
-        let gate = gate(handle);
-        while !gate.control.cancelled.load(Ordering::Acquire) {
-            let Some(remaining) = gate.control.receive_deadline.remaining(tick_ms()) else {
-                return -1;
-            };
-            let result = sys::esp_transport_read(gate.ssl, bytes, len, remaining.min(100) as i32);
-            // Stock nonblocking SSL maps WANT_READ to timeout(0). Preserve split TLS records.
-            if result != 0 && result != sys::ESP_TLS_ERR_SSL_WANT_WRITE {
-                return result;
-            }
-            std::thread::sleep(Duration::from_millis(1));
-        }
-        -1
-    }
-
-    unsafe extern "C" fn gate_write(
-        handle: sys::esp_transport_handle_t,
-        bytes: *const std::ffi::c_char,
-        len: i32,
-        _timeout: i32,
-    ) -> i32 {
-        let gate = gate(handle);
-        let start = Instant::now();
-        let mut written = 0;
-        while written < len
-            && !gate.control.cancelled.load(Ordering::Acquire)
-            && start.elapsed() < TIMEOUT
-        {
-            let result =
-                sys::esp_transport_write(gate.ssl, bytes.add(written as usize), len - written, 100);
-            if result > 0 {
-                written += result;
-            } else if matches!(
-                result,
-                0 | sys::ESP_TLS_ERR_SSL_WANT_READ | sys::ESP_TLS_ERR_SSL_WANT_WRITE
-            ) {
-                std::thread::sleep(Duration::from_millis(1));
-            } else {
-                return -1;
-            }
-        }
-        if written == len {
-            written
-        } else {
             -1
         }
-    }
 
-    unsafe extern "C" fn gate_poll_read(handle: sys::esp_transport_handle_t, timeout: i32) -> i32 {
-        let gate = gate(handle);
-        if gate.control.cancelled.load(Ordering::Acquire) {
-            return -1;
-        }
-        sys::esp_transport_poll_read(gate.ssl, timeout.clamp(0, 100))
-    }
-
-    unsafe extern "C" fn gate_poll_write(handle: sys::esp_transport_handle_t, timeout: i32) -> i32 {
-        let gate = gate(handle);
-        if gate.control.cancelled.load(Ordering::Acquire) {
-            return -1;
-        }
-        sys::esp_transport_poll_write(gate.ssl, timeout.clamp(0, 100))
-    }
-
-    unsafe extern "C" fn gate_close(handle: sys::esp_transport_handle_t) -> i32 {
-        sys::esp_transport_close(gate(handle).ssl)
-    }
-
-    struct Transports {
-        websocket: sys::esp_transport_handle_t,
-        gate: sys::esp_transport_handle_t,
-        context: Box<TransportGate>,
-    }
-
-    impl Transports {
-        fn new(
-            config: &sys::esp_websocket_client_config_t,
-            control: Arc<TransportControl>,
-        ) -> Result<Self> {
-            let ssl = unsafe { sys::esp_transport_ssl_init() };
-            ensure!(!ssl.is_null(), "Cannot allocate Sonos TLS transport");
-            let mut transports = Self {
-                websocket: std::ptr::null_mut(),
-                gate: std::ptr::null_mut(),
-                context: Box::new(TransportGate { ssl, control }),
-            };
-            // The external-transport path skips IDF's transport setup; retain the wrapper's
-            // explicit CA/subprotocol/headers here, with only the approved IP-name exception.
-            unsafe {
-                sys::esp_transport_ssl_set_cert_data(
-                    ssl,
-                    config.cert_pem,
-                    std::ffi::CStr::from_ptr(config.cert_pem).to_bytes().len() as i32,
-                );
-                if config.skip_cert_common_name_check {
-                    sys::esp_transport_ssl_skip_common_name_check(ssl);
+        unsafe extern "C" fn gate_read(
+            handle: sys::esp_transport_handle_t,
+            bytes: *mut std::ffi::c_char,
+            len: i32,
+            _timeout: i32,
+        ) -> i32 {
+            let gate = gate(handle);
+            while !gate.control.cancelled.load(Ordering::Acquire) {
+                let Some(remaining) = gate.control.receive_deadline.remaining(tick_ms()) else {
+                    return -1;
+                };
+                let result =
+                    sys::esp_transport_read(gate.ssl, bytes, len, remaining.min(100) as i32);
+                // Stock nonblocking SSL maps WANT_READ to timeout(0). Preserve split TLS records.
+                if result != 0 && result != sys::ESP_TLS_ERR_SSL_WANT_WRITE {
+                    return result;
                 }
-                transports.gate = sys::esp_transport_init();
-                ensure!(
-                    !transports.gate.is_null(),
-                    "Cannot allocate Sonos transport gate"
+                std::thread::sleep(Duration::from_millis(1));
+            }
+            -1
+        }
+
+        unsafe extern "C" fn gate_write(
+            handle: sys::esp_transport_handle_t,
+            bytes: *const std::ffi::c_char,
+            len: i32,
+            _timeout: i32,
+        ) -> i32 {
+            let gate = gate(handle);
+            let start = Instant::now();
+            let mut written = 0;
+            while written < len
+                && !gate.control.cancelled.load(Ordering::Acquire)
+                && start.elapsed() < TIMEOUT
+            {
+                let result = sys::esp_transport_write(
+                    gate.ssl,
+                    bytes.add(written as usize),
+                    len - written,
+                    100,
                 );
-                sys::esp!(sys::esp_transport_set_context_data(
-                    transports.gate,
-                    (&mut *transports.context as *mut TransportGate).cast()
-                ))?;
-                sys::esp!(sys::esp_transport_set_func(
-                    transports.gate,
-                    Some(gate_connect),
-                    Some(gate_read),
-                    Some(gate_write),
-                    Some(gate_close),
-                    Some(gate_poll_read),
-                    Some(gate_poll_write),
-                    None
-                ))?;
-                transports.websocket = sys::esp_transport_ws_init(transports.gate);
-                ensure!(
-                    !transports.websocket.is_null(),
-                    "Cannot allocate Sonos WebSocket transport"
-                );
-                sys::esp_transport_set_default_port(transports.websocket, 1443);
-                // Match the component's internal setup: PONG must reach its watchdog and
-                // every control-frame completion must reset our receive deadline.
-                let websocket_config = sys::esp_transport_ws_config_t {
-                    ws_path: c"/websocket/api".as_ptr(),
-                    sub_protocol: config.subprotocol,
-                    user_agent: config.user_agent,
-                    headers: config.headers,
-                    propagate_control_frames: true,
+                if result > 0 {
+                    written += result;
+                } else if matches!(
+                    result,
+                    0 | sys::ESP_TLS_ERR_SSL_WANT_READ | sys::ESP_TLS_ERR_SSL_WANT_WRITE
+                ) {
+                    std::thread::sleep(Duration::from_millis(1));
+                } else {
+                    return -1;
+                }
+            }
+            if written == len {
+                written
+            } else {
+                -1
+            }
+        }
+
+        unsafe extern "C" fn gate_poll_read(
+            handle: sys::esp_transport_handle_t,
+            timeout: i32,
+        ) -> i32 {
+            let gate = gate(handle);
+            if gate.control.cancelled.load(Ordering::Acquire) {
+                return -1;
+            }
+            sys::esp_transport_poll_read(gate.ssl, timeout.clamp(0, 100))
+        }
+
+        unsafe extern "C" fn gate_poll_write(
+            handle: sys::esp_transport_handle_t,
+            timeout: i32,
+        ) -> i32 {
+            let gate = gate(handle);
+            if gate.control.cancelled.load(Ordering::Acquire) {
+                return -1;
+            }
+            sys::esp_transport_poll_write(gate.ssl, timeout.clamp(0, 100))
+        }
+
+        unsafe extern "C" fn gate_close(handle: sys::esp_transport_handle_t) -> i32 {
+            sys::esp_transport_close(gate(handle).ssl)
+        }
+
+        struct Transports {
+            websocket: sys::esp_transport_handle_t,
+            gate: sys::esp_transport_handle_t,
+            context: Box<TransportGate>,
+        }
+
+        impl Transports {
+            fn new(
+                config: &sys::esp_websocket_client_config_t,
+                control: Arc<TransportControl>,
+            ) -> Result<Self> {
+                let ssl = unsafe { sys::esp_transport_ssl_init() };
+                ensure!(!ssl.is_null(), "Cannot allocate Sonos TLS transport");
+                let mut transports = Self {
+                    websocket: std::ptr::null_mut(),
+                    gate: std::ptr::null_mut(),
+                    context: Box::new(TransportGate { ssl, control }),
+                };
+                // The external-transport path skips IDF's transport setup; retain the wrapper's
+                // explicit CA/subprotocol/headers here, with only the approved IP-name exception.
+                unsafe {
+                    sys::esp_transport_ssl_set_cert_data(
+                        ssl,
+                        config.cert_pem,
+                        std::ffi::CStr::from_ptr(config.cert_pem).to_bytes().len() as i32,
+                    );
+                    if config.skip_cert_common_name_check {
+                        sys::esp_transport_ssl_skip_common_name_check(ssl);
+                    }
+                    transports.gate = sys::esp_transport_init();
+                    ensure!(
+                        !transports.gate.is_null(),
+                        "Cannot allocate Sonos transport gate"
+                    );
+                    sys::esp!(sys::esp_transport_set_context_data(
+                        transports.gate,
+                        (&mut *transports.context as *mut TransportGate).cast()
+                    ))?;
+                    sys::esp!(sys::esp_transport_set_func(
+                        transports.gate,
+                        Some(gate_connect),
+                        Some(gate_read),
+                        Some(gate_write),
+                        Some(gate_close),
+                        Some(gate_poll_read),
+                        Some(gate_poll_write),
+                        None
+                    ))?;
+                    transports.websocket = sys::esp_transport_ws_init(transports.gate);
+                    ensure!(
+                        !transports.websocket.is_null(),
+                        "Cannot allocate Sonos WebSocket transport"
+                    );
+                    sys::esp_transport_set_default_port(transports.websocket, 1443);
+                    // Match the component's internal setup: PONG must reach its watchdog and
+                    // every control-frame completion must reset our receive deadline.
+                    let websocket_config = sys::esp_transport_ws_config_t {
+                        ws_path: c"/websocket/api".as_ptr(),
+                        sub_protocol: config.subprotocol,
+                        user_agent: config.user_agent,
+                        headers: config.headers,
+                        propagate_control_frames: true,
+                        ..Default::default()
+                    };
+                    sys::esp!(sys::esp_transport_ws_set_config(
+                        transports.websocket,
+                        &websocket_config
+                    ))?;
+                }
+                Ok(transports)
+            }
+        }
+
+        impl Drop for Transports {
+            fn drop(&mut self) {
+                // Caller destroys/joins the client first. Each external transport owns only itself.
+                unsafe {
+                    if !self.websocket.is_null() {
+                        sys::esp_transport_destroy(self.websocket);
+                    }
+                    if !self.gate.is_null() {
+                        sys::esp_transport_destroy(self.gate);
+                    }
+                    sys::esp_transport_destroy(self.context.ssl);
+                }
+            }
+        }
+
+        struct Socket {
+            raw: sys::esp_websocket_client_handle_t,
+            callback: Option<Box<Callback>>,
+            transports: Option<Transports>,
+            receiver: Receiver<WireEvent>,
+            incoming: Incoming,
+            partial_since: Option<Instant>,
+        }
+
+        impl Socket {
+            fn connect_uri(uri: &str, roots: &'static [u8], skip_name_check: bool) -> Result<Self> {
+                log_heap("before_connect");
+                let (sender, receiver) = mpsc::sync_channel(12);
+                let control = Arc::new(TransportControl::default());
+                let mut callback_context = Box::new(Callback {
+                    sender,
+                    failed: AtomicBool::new(false),
+                    control: control.clone(),
+                });
+                let config = EspWebSocketClientConfig {
+                    disable_auto_reconnect: true,
+                    task_prio: 4,
+                    task_stack: 6144,
+                    buffer_size: CHUNK_BYTES,
+                    transport: EspWebSocketTransport::TransportOverSSL,
+                    subprotocol: Some("v1.api.smartspeaker.audio"),
+                    headers: Some("X-Sonos-Api-Key: 123e4567-e89b-12d3-a456-426655440000\r\n"),
+                    server_cert: Some(X509::pem_until_nul(roots)),
+                    // Approved exception for Sonos IP endpoints. The private CA chain remains required.
+                    skip_cert_common_name_check: skip_name_check,
+                    network_timeout_ms: TIMEOUT,
+                    pingpong_timeout_sec: Duration::from_secs(10),
+                    ping_interval_sec: Duration::from_secs(5),
                     ..Default::default()
                 };
-                sys::esp!(sys::esp_transport_ws_set_config(
-                    transports.websocket,
-                    &websocket_config
-                ))?;
-            }
-            Ok(transports)
-        }
-    }
-
-    impl Drop for Transports {
-        fn drop(&mut self) {
-            // Caller destroys/joins the client first. Each external transport owns only itself.
-            unsafe {
-                if !self.websocket.is_null() {
-                    sys::esp_transport_destroy(self.websocket);
-                }
-                if !self.gate.is_null() {
-                    sys::esp_transport_destroy(self.gate);
-                }
-                sys::esp_transport_destroy(self.context.ssl);
-            }
-        }
-    }
-
-    struct Socket {
-        raw: sys::esp_websocket_client_handle_t,
-        callback: Option<Box<Callback>>,
-        transports: Option<Transports>,
-        receiver: Receiver<WireEvent>,
-        incoming: Incoming,
-        partial_since: Option<Instant>,
-    }
-
-    impl Socket {
-        fn connect(group: &DiscoveryGroup) -> Result<Self> {
-            Self::connect_uri(
-                &format!("wss://{}:1443/websocket/api", group.host),
-                ROOTS,
-                true,
-            )
-        }
-
-        fn connect_uri(uri: &str, roots: &'static [u8], skip_name_check: bool) -> Result<Self> {
-            log_heap("before_connect");
-            let (sender, receiver) = mpsc::sync_channel(12);
-            let control = Arc::new(TransportControl::default());
-            let mut callback_context = Box::new(Callback {
-                sender,
-                failed: AtomicBool::new(false),
-                control: control.clone(),
-            });
-            let config = EspWebSocketClientConfig {
-                disable_auto_reconnect: true,
-                task_prio: 4,
-                task_stack: 6144,
-                buffer_size: CHUNK_BYTES,
-                transport: EspWebSocketTransport::TransportOverSSL,
-                subprotocol: Some("v1.api.smartspeaker.audio"),
-                headers: Some("X-Sonos-Api-Key: 123e4567-e89b-12d3-a456-426655440000\r\n"),
-                server_cert: Some(X509::pem_until_nul(roots)),
-                // Approved exception for Sonos IP endpoints. The private CA chain remains required.
-                skip_cert_common_name_check: skip_name_check,
-                network_timeout_ms: TIMEOUT,
-                pingpong_timeout_sec: Duration::from_secs(10),
-                ping_interval_sec: Duration::from_secs(5),
-                ..Default::default()
-            };
-            // svc 0.53's typed events discard FIN/offset and reject continuation opcodes.
-            // Use its config conversion with the generated IDF event ABI instead.
-            let (mut raw_config, _strings) =
-                <(sys::esp_websocket_client_config_t, _)>::try_from(&config)?;
-            let uri = CString::new(uri)?;
-            raw_config.uri = uri.as_ptr();
-            let transports = Transports::new(&raw_config, control)?;
-            raw_config.ext_transport = transports.websocket;
-            // IDF copies URI/headers during init; roots have static storage. The boxed callback
-            // remains at a stable address until destroy has joined the client task.
-            let raw = unsafe { sys::esp_websocket_client_init(&raw_config) };
-            ensure!(!raw.is_null(), "Cannot allocate Sonos WebSocket client");
-            let mut socket = Self {
-                raw,
-                callback: None,
-                transports: Some(transports),
-                receiver,
-                incoming: Incoming::default(),
-                partial_since: None,
-            };
-            let registered = unsafe {
-                sys::esp_websocket_register_events(
+                // svc 0.53's typed events discard FIN/offset and reject continuation opcodes.
+                // Use its config conversion with the generated IDF event ABI instead.
+                let (mut raw_config, _strings) =
+                    <(sys::esp_websocket_client_config_t, _)>::try_from(&config)?;
+                let uri = CString::new(uri)?;
+                raw_config.uri = uri.as_ptr();
+                let transports = Transports::new(&raw_config, control)?;
+                raw_config.ext_transport = transports.websocket;
+                // IDF copies URI/headers during init; roots have static storage. The boxed callback
+                // remains at a stable address until destroy has joined the client task.
+                let raw = unsafe { sys::esp_websocket_client_init(&raw_config) };
+                ensure!(!raw.is_null(), "Cannot allocate Sonos WebSocket client");
+                let mut socket = Self {
                     raw,
-                    sys::esp_websocket_event_id_t_WEBSOCKET_EVENT_ANY,
-                    Some(callback),
-                    (&mut *callback_context as *mut Callback).cast(),
-                )
-            };
-            sys::esp!(registered)?;
-            socket.callback = Some(callback_context);
-            sys::esp!(unsafe { sys::esp_websocket_client_start(raw) })?;
-            socket.check()?;
-            match socket.receiver.recv_timeout(TIMEOUT)? {
-                WireEvent::Connected => {
-                    log_heap("connected");
-                    Ok(socket)
+                    callback: None,
+                    transports: Some(transports),
+                    receiver,
+                    incoming: Incoming::default(),
+                    partial_since: None,
+                };
+                let registered = unsafe {
+                    sys::esp_websocket_register_events(
+                        raw,
+                        sys::esp_websocket_event_id_t_WEBSOCKET_EVENT_ANY,
+                        Some(callback),
+                        (&mut *callback_context as *mut Callback).cast(),
+                    )
+                };
+                sys::esp!(registered)?;
+                socket.callback = Some(callback_context);
+                sys::esp!(unsafe { sys::esp_websocket_client_start(raw) })?;
+                socket.check()?;
+                match socket.receiver.recv_timeout(TIMEOUT)? {
+                    WireEvent::Connected => {
+                        log_heap("connected");
+                        Ok(socket)
+                    }
+                    WireEvent::Gone => bail!("Sonos connection failed"),
+                    WireEvent::Data(_) => bail!("Sonos data arrived before connection"),
                 }
-                WireEvent::Gone => bail!("Sonos connection failed"),
-                WireEvent::Data(_) => bail!("Sonos data arrived before connection"),
             }
-        }
 
-        fn check(&self) -> Result<()> {
-            ensure!(
-                !self
-                    .callback
-                    .as_ref()
-                    .unwrap()
-                    .failed
-                    .load(Ordering::Acquire),
-                "Sonos receive queue overflow or invalid frame"
-            );
-            ensure!(
-                !self
-                    .partial_since
-                    .is_some_and(|start| start.elapsed() >= TIMEOUT),
-                "Sonos fragmented message timed out"
-            );
-            Ok(())
-        }
+            fn check(&self) -> Result<()> {
+                ensure!(
+                    !self
+                        .callback
+                        .as_ref()
+                        .unwrap()
+                        .failed
+                        .load(Ordering::Acquire),
+                    "Sonos receive queue overflow or invalid frame"
+                );
+                ensure!(
+                    !self
+                        .partial_since
+                        .is_some_and(|start| start.elapsed() >= TIMEOUT),
+                    "Sonos fragmented message timed out"
+                );
+                Ok(())
+            }
 
-        fn receive(&mut self, mut wait: Duration) -> Result<Option<protocol::Message>> {
-            // Drain ready IDF chunks without a worker sleep between them. The queue is bounded.
-            for _ in 0..12 {
-                self.check()?;
-                match self.receiver.recv_timeout(wait) {
-                    Ok(WireEvent::Gone) => bail!("Sonos connection lost"),
-                    Ok(WireEvent::Connected) => {}
-                    Ok(WireEvent::Data(chunk)) => {
-                        self.partial_since.get_or_insert_with(Instant::now);
-                        if let Some(bytes) = self.incoming.push(chunk).map_err(protocol_error)? {
-                            self.partial_since = None;
-                            return Ok(Some(
+            fn receive(&mut self, mut wait: Duration) -> Result<Option<protocol::Message>> {
+                // Drain ready IDF chunks without a worker sleep between them. The queue is bounded.
+                for _ in 0..12 {
+                    self.check()?;
+                    match self.receiver.recv_timeout(wait) {
+                        Ok(WireEvent::Gone) => bail!("Sonos connection lost"),
+                        Ok(WireEvent::Connected) => {}
+                        Ok(WireEvent::Data(chunk)) => {
+                            self.partial_since.get_or_insert_with(Instant::now);
+                            if let Some(bytes) =
+                                self.incoming.push(chunk).map_err(protocol_error)?
+                            {
+                                self.partial_since = None;
+                                return Ok(Some(
                                 protocol::parse_message(&bytes).map_err(|error| {
                                     let preview = Diagnostic::new(format_args!("{:?}", std::str::from_utf8(&bytes)));
                                     log::warn!("sonos: rejected_wire error={error:?} bytes={} truncated={} raw={preview}", bytes.len(), preview.truncated);
                                     protocol_error(error)
                                 })?,
                             ));
+                            }
                         }
+                        Err(mpsc::RecvTimeoutError::Timeout) => {
+                            self.check()?;
+                            return Ok(None);
+                        }
+                        Err(mpsc::RecvTimeoutError::Disconnected) => bail!("Sonos callback ended"),
                     }
-                    Err(mpsc::RecvTimeoutError::Timeout) => {
-                        self.check()?;
-                        return Ok(None);
-                    }
-                    Err(mpsc::RecvTimeoutError::Disconnected) => bail!("Sonos callback ended"),
+                    wait = Duration::ZERO;
                 }
-                wait = Duration::ZERO;
+                Ok(None)
             }
-            Ok(None)
+
+            fn send(&mut self, bytes: &[u8]) -> Result<()> {
+                self.check()?;
+                let ticks: TickType = TIMEOUT.into();
+                let sent = unsafe {
+                    sys::esp_websocket_client_send_text(
+                        self.raw,
+                        bytes.as_ptr().cast(),
+                        bytes.len() as _,
+                        ticks.0,
+                    )
+                };
+                ensure!(
+                    sent >= 0 && sent as usize == bytes.len(),
+                    "Sonos send failed"
+                );
+                Ok(())
+            }
         }
 
-        fn send(&mut self, bytes: &[u8]) -> Result<()> {
-            self.check()?;
-            let ticks: TickType = TIMEOUT.into();
-            let sent = unsafe {
-                sys::esp_websocket_client_send_text(
-                    self.raw,
-                    bytes.as_ptr().cast(),
-                    bytes.len() as _,
-                    ticks.0,
-                )
-            };
+        impl Drop for Socket {
+            fn drop(&mut self) {
+                // Interrupt the nonblocking transport gate BEFORE IDF waits for its task to exit.
+                self.transports
+                    .as_ref()
+                    .unwrap()
+                    .context
+                    .control
+                    .cancelled
+                    .store(true, Ordering::Release);
+                let result = unsafe { sys::esp_websocket_client_destroy(self.raw) };
+                if result != sys::ESP_OK {
+                    // Keep callback memory valid if IDF unexpectedly failed to stop its task.
+                    if let Some(callback) = self.callback.take() {
+                        std::mem::forget(callback);
+                    }
+                    if let Some(transports) = self.transports.take() {
+                        std::mem::forget(transports);
+                    }
+                    log::error!("Sonos client destroy failed: {result}");
+                }
+            }
+        }
+
+        /// Real TLS receive-only diagnostic, built solely for the explicit hardware fixture example.
+        #[cfg(feature = "sonos-fixture")]
+        #[allow(
+            dead_code,
+            reason = "Called by the example; Cargo also builds the normal library with this feature"
+        )]
+        pub fn check_transport(
+            uri: &str,
+            roots: &'static [u8],
+            cancel_after: Option<Duration>,
+        ) -> Result<()> {
+            let mut socket = Socket::connect_uri(uri, roots, false)?;
+            let connected = Instant::now();
+            log::info!("sonos-fixture: connected");
+            let mut baseline_seen = false;
+            let mut cancelled = false;
+            while connected.elapsed() < Duration::from_secs(15) {
+                if cancel_after.is_some_and(|after| connected.elapsed() >= after) {
+                    log::info!(
+                        "sonos-fixture: cancel_requested after_ms={}",
+                        connected.elapsed().as_millis()
+                    );
+                    cancelled = true;
+                    break;
+                }
+                match socket.receive(Duration::from_millis(50)) {
+                    Ok(Some(_)) => {
+                        baseline_seen = true;
+                        log::info!("sonos-fixture: complete protocol message");
+                    }
+                    Ok(None) => {}
+                    Err(error) => {
+                        log::info!(
+                            "sonos-fixture: receive_end after_ms={} reason={error}",
+                            connected.elapsed().as_millis()
+                        );
+                        break;
+                    }
+                }
+            }
+            let before_drop = Instant::now();
+            log::info!(
+                "sonos-fixture: destroy_begin after_ms={}",
+                connected.elapsed().as_millis()
+            );
+            drop(socket);
+            log::info!(
+                "sonos-fixture: destroyed after_ms={}",
+                before_drop.elapsed().as_millis()
+            );
+            log_heap("fixture_destroyed");
             ensure!(
-                sent >= 0 && sent as usize == bytes.len(),
-                "Sonos send failed"
+                baseline_seen,
+                "Fixture never delivered its baseline message"
+            );
+            ensure!(
+                cancel_after.is_none() || cancelled,
+                "Fixture ended before explicit cancellation"
             );
             Ok(())
         }
-    }
 
-    impl Drop for Socket {
-        fn drop(&mut self) {
-            // Interrupt the nonblocking transport gate BEFORE IDF waits for its task to exit.
-            self.transports
-                .as_ref()
-                .unwrap()
-                .context
-                .control
-                .cancelled
-                .store(true, Ordering::Release);
-            let result = unsafe { sys::esp_websocket_client_destroy(self.raw) };
-            if result != sys::ESP_OK {
-                // Keep callback memory valid if IDF unexpectedly failed to stop its task.
-                if let Some(callback) = self.callback.take() {
-                    std::mem::forget(callback);
-                }
-                if let Some(transports) = self.transports.take() {
-                    std::mem::forget(transports);
-                }
-                log::error!("Sonos client destroy failed: {result}");
-            }
+        fn log_heap(phase: &str) {
+            let caps = sys::MALLOC_CAP_INTERNAL | sys::MALLOC_CAP_8BIT;
+            let (free, largest) = unsafe {
+                (
+                    sys::heap_caps_get_free_size(caps),
+                    sys::heap_caps_get_largest_free_block(caps),
+                )
+            };
+            log::info!("sonos: phase={phase} internal_free={free} internal_largest={largest}");
         }
     }
-
-    /// Real TLS receive-only diagnostic, built solely for the explicit hardware fixture example.
     #[cfg(feature = "sonos-fixture")]
-    #[allow(
-        dead_code,
-        reason = "Called by the example; Cargo also builds the normal library with this feature"
-    )]
-    pub fn check_transport(
-        uri: &str,
-        roots: &'static [u8],
-        cancel_after: Option<Duration>,
-    ) -> Result<()> {
-        let mut socket = Socket::connect_uri(uri, roots, false)?;
-        let connected = Instant::now();
-        log::info!("sonos-fixture: connected");
-        let mut baseline_seen = false;
-        let mut cancelled = false;
-        while connected.elapsed() < Duration::from_secs(15) {
-            if cancel_after.is_some_and(|after| connected.elapsed() >= after) {
-                log::info!(
-                    "sonos-fixture: cancel_requested after_ms={}",
-                    connected.elapsed().as_millis()
-                );
-                cancelled = true;
-                break;
-            }
-            match socket.receive(Duration::from_millis(50)) {
-                Ok(Some(_)) => {
-                    baseline_seen = true;
-                    log::info!("sonos-fixture: complete protocol message");
-                }
-                Ok(None) => {}
-                Err(error) => {
-                    log::info!(
-                        "sonos-fixture: receive_end after_ms={} reason={error}",
-                        connected.elapsed().as_millis()
-                    );
-                    break;
-                }
-            }
-        }
-        let before_drop = Instant::now();
-        log::info!(
-            "sonos-fixture: destroy_begin after_ms={}",
-            connected.elapsed().as_millis()
-        );
-        drop(socket);
-        log::info!(
-            "sonos-fixture: destroyed after_ms={}",
-            before_drop.elapsed().as_millis()
-        );
-        log_heap("fixture_destroyed");
-        ensure!(
-            baseline_seen,
-            "Fixture never delivered its baseline message"
-        );
-        ensure!(
-            cancel_after.is_none() || cancelled,
-            "Fixture ended before explicit cancellation"
-        );
-        Ok(())
-    }
-
-    fn log_heap(phase: &str) {
-        let caps = sys::MALLOC_CAP_INTERNAL | sys::MALLOC_CAP_8BIT;
-        let (free, largest) = unsafe {
-            (
-                sys::heap_caps_get_free_size(caps),
-                sys::heap_caps_get_largest_free_block(caps),
-            )
-        };
-        log::info!("sonos: phase={phase} internal_free={free} internal_largest={largest}");
-    }
+    pub use fixture::check_transport;
 
     fn discover(
         selected: Option<&str>,
@@ -1377,11 +1481,11 @@ mod device {
         status: Arc<Mutex<Snapshot>>,
         nvs: EspNvs<NvsDefault>,
         store: recognizer::SharedStore,
-        socket: Option<Socket>,
+        socket: Option<Client>,
         group: Option<DiscoveryGroup>,
-        session: Option<String>,
+        owned_uri: Option<String>,
         queue: Queue,
-        item_confirmed: bool,
+        poll_at: Instant,
         policy: protocol::Autoplay,
         samples: LevelSamples,
         diagnostic_at: Instant,
@@ -1405,12 +1509,13 @@ mod device {
                                 Some("Sonos network changed".into());
                             continue;
                         }
+                        self.cancel_local_if_stale();
                         self.generation = queued.generation;
                         let command = queued.command;
-                        let controls_session =
+                        let controls_playback =
                             matches!(command, Command::Play | Command::Stop | Command::Select(_));
                         if let Err(error) = self.command(command, queued.network) {
-                            if controls_session {
+                            if controls_playback {
                                 self.fail(error);
                             } else {
                                 self.status.lock().unwrap().last_error = Some(error.to_string());
@@ -1444,25 +1549,17 @@ mod device {
                     let state = self.status.lock().unwrap().state;
                     log::info!("sonos: state={state:?} stack_free_min={stack} level_dbfs={level}");
                 }
-                for _ in 0..12 {
-                    let Some(socket) = &mut self.socket else {
-                        break;
-                    };
-                    let lease = self.socket_lease.expect("Connected Sonos network lease");
-                    match with_network(&self.network, lease, || socket.receive(Duration::ZERO))
-                        .map_err(|error| anyhow!(error))
-                        .and_then(|result| result)
-                    {
-                        Ok(Some(message)) => {
-                            if let Err(e) = self.event(&message) {
-                                self.fail(e);
-                                break;
-                            }
-                        }
-                        Ok(None) => break,
-                        Err(e) => {
-                            self.fail(e);
-                            break;
+                self.cancel_local_if_stale();
+                if self.owned_uri.is_some()
+                    && self.status.lock().unwrap().state != State::Stopped
+                    && Instant::now() >= self.poll_at
+                {
+                    self.poll_at = Instant::now() + Duration::from_secs(1);
+                    if let Err(error) = self.poll() {
+                        // Accepted cancellation can invalidate capacity during an observation.
+                        // Retain URI evidence for its queued Stop instead of treating it as I/O loss.
+                        if !self.cancel_local_if_stale() {
+                            self.fail(error);
                         }
                     }
                 }
@@ -1477,7 +1574,7 @@ mod device {
                         .and_then(|group| self.connect(group, lease))
                     {
                         Ok(()) => {
-                            // Reconnect observes status only. It never creates/reclaims a session.
+                            // Reconnect observes status only. It never creates/reclaims an intent.
                             self.status.lock().unwrap().state = State::Stopped;
                         }
                         Err(error) => {
@@ -1517,8 +1614,8 @@ mod device {
             // A failed transport is not permission to take over again. Forget ownership locally.
             self.socket = None;
             self.socket_lease = None;
-            self.item_confirmed = false;
-            self.session = None;
+            self.poll_at = Instant::now();
+            self.owned_uri = None;
             self.group = None;
             let mut status = self.status.lock().unwrap();
             status.active_player_id = None;
@@ -1612,31 +1709,13 @@ mod device {
 
         fn connect(&mut self, group: DiscoveryGroup, lease: Lease) -> Result<()> {
             self.socket = Some(
-                with_network(&self.network, lease, || Socket::connect(&group))
-                    .map_err(|error| anyhow!(error))??,
+                with_network(&self.network, lease, || {
+                    Client::connect(&group, Instant::now() + TIMEOUT)
+                })
+                .map_err(|error| anyhow!(error))??,
             );
             self.socket_lease = Some(lease);
-            self.group = Some(group.clone());
-            let info = self.request(
-                "info:1",
-                "getInfo",
-                protocol::Scope::Player(&group.player_id),
-                json!({}),
-            )?;
-            ensure!(
-                info["playerId"].as_str() == Some(&group.player_id)
-                    && info["householdId"].as_str() == Some(&group.household_id)
-                    && info["groupId"].as_str() == Some(&group.group_id),
-                "Sonos identity/topology changed since discovery"
-            );
-            // Identity is checked; release the parsed response before the next TLS write.
-            drop(info);
-            self.request(
-                "playback:1",
-                "subscribe",
-                protocol::Scope::Group(&group.group_id),
-                json!({}),
-            )?;
+            self.group = Some(group);
             Ok(())
         }
 
@@ -1647,8 +1726,8 @@ mod device {
             let lease = lease.context("Wi-Fi has no LAN address")?;
             let result = self.play_current(lease);
             if !self.commands.is_current(self.generation) {
-                // A create reply must still be collected so cleanup targets only our session.
-                self.stop()?;
+                // Keep URI evidence for the queued explicit Stop; revoke delivery and later Play.
+                self.cancel_local_if_stale();
                 return Ok(());
             }
             result
@@ -1736,86 +1815,76 @@ mod device {
                 "esp-{:02x}{:02x}{:02x}{:02x}{:02x}{:02x}",
                 mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]
             );
-            let body = self.request(
-                "playbackSession:1",
-                "createSession",
-                protocol::Scope::Group(&group.group_id),
-                json!({"appId":"com.espanalogstreamer.source", "appContext":context}),
-            )?;
-            let session = body["sessionId"]
-                .as_str()
-                .filter(|s| protocol::validate_id(s).is_ok())
-                .context("Sonos did not return a valid session")?
-                .to_owned();
-            // Later requests only need the owned session ID from this response.
-            drop(body);
-            self.session = Some(session.clone());
-            with_network(&self.network, lease, || ()).map_err(|error| anyhow!(error))?;
-            self.policy
-                .update(self.now(), protocol::AutoplayEvent::OwnershipAcquired);
-            self.status.lock().unwrap().active_player_id = Some(player);
-            let result = (|| -> Result<()> {
-                self.request(
-                    "playbackSession:1",
-                    "subscribe",
-                    protocol::Scope::Session(&session),
-                    json!({}),
-                )?;
-                ensure!(
-                    self.session.as_deref() == Some(&session),
-                    "Sonos session lost before load"
-                );
-                let item = format!("{context}-{}-{}", self.now(), self.sequence);
-                let queue = queue_for_play(
-                    item,
-                    lease.address,
-                    &self.status.lock().unwrap(),
-                    lease.generation,
-                    intent,
-                )
-                .map_err(|error| anyhow!("Invalid Sonos queue: {error:?}"))?;
-                let body = queue_load_body(&queue);
-                // Sonos can request the queue before the command reply arrives.
-                {
-                    ensure!(
-                        self.commands.is_current(self.generation),
-                        "Sonos Play cancelled"
-                    );
-                    let permit = play_token.lock().unwrap();
-                    ensure!(*permit, "Sonos Play cancelled");
-                    ensure!(self.queue.intent_current(), "Sonos reservation expired");
+            self.sequence = self
+                .sequence
+                .checked_add(1)
+                .context("Sonos intent counter exhausted")?;
+            let item = format!("{context}-{}-{}", self.now(), self.sequence);
+            let snapshot = queue_for_play(
+                item,
+                lease.address,
+                &self.status.lock().unwrap(),
+                lease.generation,
+                intent,
+            )
+            .map_err(|error| anyhow!("Invalid Sonos queue: {error:?}"))?;
+            let uri = sonos_queue::media_url(&snapshot);
+            // Publish before SetURI: a lost response may still have committed the URI.
+            self.commands
+                .run_if_current(self.generation, || -> Result<()> {
                     ensure!(
                         self.queue.capacity.current_ready(intent),
-                        "Sonos capacity unavailable before queue publication"
+                        "Sonos capacity unavailable"
                     );
-                    with_network(&self.network, lease, || self.queue.publish(queue))
+                    with_network(&self.network, lease, || self.queue.publish(snapshot))
                         .map_err(|error| anyhow!(error))?;
-                }
-                self.item_confirmed = false;
-                self.request(
-                    "playbackSession:1",
-                    "loadCloudQueue",
-                    protocol::Scope::Session(&session),
-                    body,
-                )?;
-                ensure!(
-                    self.session.as_deref() == Some(&session),
-                    "Sonos session lost during load"
-                );
-                with_network(&self.network, lease, || ()).map_err(|error| anyhow!(error))?;
-                let mut status = self.status.lock().unwrap();
-                if status.state != State::Playing {
-                    status.state = State::Buffering;
-                }
-                status.last_error = None;
-                Ok(())
-            })();
-            if result.is_err() {
-                let _ = self.stop();
-            } else {
-                cleanup.armed = false;
-            }
-            result
+                    Ok(())
+                })
+                .map_err(|error| anyhow!(error))??;
+            self.owned_uri = Some(uri.clone());
+            self.status.lock().unwrap().active_player_id = Some(player);
+            let client = self.socket.as_ref().context("Sonos disconnected")?;
+            with_network(&self.network, lease, || {
+                client.verify(Instant::now() + TIMEOUT)
+            })
+            .map_err(|error| anyhow!(error))??;
+            self.commands
+                .run_if_current(self.generation, || -> Result<()> {
+                    ensure!(
+                        self.queue.capacity.current_ready(intent),
+                        "Sonos capacity unavailable"
+                    );
+                    with_network(&self.network, lease, || {
+                        client.set_uri(&uri, Instant::now() + TIMEOUT)
+                    })
+                    .map_err(|error| anyhow!(error))??;
+                    Ok(())
+                })
+                .map_err(|error| anyhow!(error))??;
+            let observed = with_network(&self.network, lease, || {
+                client.media_uri(Instant::now() + TIMEOUT)
+            })
+            .map_err(|error| anyhow!(error))??;
+            ensure!(observed == uri, "Playback source changed before Play");
+            self.commands
+                .run_if_current(self.generation, || -> Result<()> {
+                    ensure!(
+                        self.queue.play_current(intent),
+                        "Sonos capacity unavailable"
+                    );
+                    with_network(&self.network, lease, || {
+                        client.play(Instant::now() + TIMEOUT)
+                    })
+                    .map_err(|error| anyhow!(error))??;
+                    Ok(())
+                })
+                .map_err(|error| anyhow!(error))??;
+            self.policy
+                .update(self.now(), protocol::AutoplayEvent::OwnershipAcquired);
+            self.status.lock().unwrap().state = State::Buffering;
+            self.status.lock().unwrap().last_error = None;
+            cleanup.armed = false;
+            Ok(())
         }
 
         fn stop(&mut self) -> Result<()> {
@@ -1823,28 +1892,34 @@ mod device {
             self.policy
                 .update(self.now(), protocol::AutoplayEvent::ManualStop);
             self.retry = None;
-            // Only our session ID is eligible for cleanup, even if playback ownership changed.
             let lease = self.socket_lease;
-            let result = match self.session.take() {
-                Some(session)
-                    if self.socket.is_some()
-                        && self
-                            .socket_lease
-                            .is_some_and(|lease| self.network.is_current(lease)) =>
+            let result = (|| -> Result<()> {
+                if let (Some(uri), Some(client), Some(lease)) =
+                    (self.owned_uri.take(), self.socket.as_ref(), lease)
                 {
-                    self.request(
-                        "playbackSession:1",
-                        "suspend",
-                        protocol::Scope::Session(&session),
-                        json!({}),
-                    )
-                    .map(|_| ())
+                    if self.network.is_current(lease) {
+                        with_network(&self.network, lease, || {
+                            client.verify(Instant::now() + TIMEOUT)
+                        })
+                        .map_err(|error| anyhow!(error))??;
+                        let current = with_network(&self.network, lease, || {
+                            client.media_uri(Instant::now() + TIMEOUT)
+                        })
+                        .map_err(|error| anyhow!(error))??;
+                        if HttpOwnership::new(uri).matches(&current) {
+                            // SOAP has an unavoidable observation-to-write takeover race.
+                            with_network(&self.network, lease, || {
+                                client.stop(Instant::now() + TIMEOUT)
+                            })
+                            .map_err(|error| anyhow!(error))??;
+                        }
+                    }
                 }
-                _ => Ok(()),
-            };
+                Ok(())
+            })();
             self.socket = None;
             self.socket_lease = None;
-            self.item_confirmed = false;
+            self.poll_at = Instant::now();
             self.group = None;
             let mut status = self.status.lock().unwrap();
             status.active_player_id = None;
@@ -1853,216 +1928,70 @@ mod device {
             stop_completion(&self.network, lease, result)
         }
 
-        fn event(&mut self, message: &protocol::Message) -> Result<()> {
-            let lease = self.socket_lease.context("Sonos is disconnected")?;
-            with_network(&self.network, lease, || ()).map_err(|error| anyhow!(error))?;
-            let item = self.queue.snapshot().map(|queue| queue.item_id);
-            let Some(group) = self.group.as_ref() else {
-                return Ok(());
-            };
-            let scope = if message.header.namespace.starts_with("playbackSession") {
-                let Some(session) = self.session.as_deref() else {
-                    return Ok(());
-                };
-                protocol::Scope::Session(session)
-            } else {
-                protocol::Scope::Group(&group.group_id)
-            };
-            if !scope_matches(&message.header, &group.household_id, &scope) {
-                return Ok(());
-            }
-            match message.event().map_err(|error| {
-                let header = Diagnostic::new(format_args!("{:?}", message.header));
-                log::warn!(
-                    "sonos: rejected_event error={error:?} header_truncated={} header={header}",
-                    header.truncated
+        fn cancel_local_if_stale(&mut self) -> bool {
+            let cancelled = {
+                let mut status = self.status.lock().unwrap();
+                let cancelled = revoke_cancelled_play(
+                    &self.queue,
+                    &self.commands,
+                    self.generation,
+                    &mut status.state,
                 );
-                let body = Diagnostic::new(format_args!("{}", message.body));
-                log::warn!(
-                    "sonos: rejected_event body_truncated={} body={body}",
-                    body.truncated
-                );
-                protocol_error(error)
-            })? {
-                Some(protocol::Event::SessionError(error)) => {
-                    // Household and owned session header scope were checked before event decoding.
-                    let now = self.now();
-                    release_session_after_error(
-                        &mut self.session,
-                        &mut self.status.lock().unwrap(),
-                        &self.queue,
-                        &mut self.policy,
-                        now,
-                        error.error_code,
-                    );
-                }
-                Some(protocol::Event::SessionStatus(event))
-                    if self.session.as_deref() == Some(&event.session_id) =>
-                {
-                    if !matches!(
-                        event.session_state.as_str(),
-                        "SESSION_STATE_CONNECTED" | "SESSION_STATE_ACTIVE"
-                    ) {
-                        self.policy
-                            .update(self.now(), protocol::AutoplayEvent::OwnershipLost);
-                        self.session = None;
-                        self.queue.clear();
-                        let mut status = self.status.lock().unwrap();
-                        status.active_player_id = None;
-                        status.state = State::Stopped;
-                        status.last_error = Some(format!("Session ended: {}", event.session_state));
-                    }
-                }
-                Some(protocol::Event::SessionInfo(info)) if info.suspended => {
-                    self.policy
-                        .update(self.now(), protocol::AutoplayEvent::OwnershipLost);
-                    self.session = None;
-                    self.queue.clear();
-                    let mut status = self.status.lock().unwrap();
+                if cancelled {
                     status.active_player_id = None;
-                    status.state = State::Stopped;
-                    status.last_error = Some("Our session was suspended".into());
                 }
-                Some(protocol::Event::PlaybackError(error))
-                    if self.session.is_some()
-                        && item.is_some()
-                        && error.item_id.as_ref() == item.as_ref() =>
-                {
-                    bail!("Sonos playback error: {}", error.error_code);
-                }
-                Some(protocol::Event::PlaybackStatus(event))
-                    if self.session.is_some() && item.is_some() =>
-                {
-                    if event.item_id.as_ref() != item.as_ref() {
-                        // Subscription snapshots from before load can arrive during its reply.
-                        if !self.item_confirmed {
-                            return Ok(());
-                        }
-                        self.policy
-                            .update(self.now(), protocol::AutoplayEvent::OwnershipLost);
-                        self.session = None;
-                        self.queue.clear();
-                        let mut status = self.status.lock().unwrap();
-                        status.active_player_id = None;
-                        status.state = State::Stopped;
-                        status.last_error = Some("Playback source changed".into());
-                    } else {
-                        self.item_confirmed = true;
-                        self.status.lock().unwrap().state = match event.playback_state.as_str() {
-                            "PLAYBACK_STATE_PLAYING" => State::Playing,
-                            "PLAYBACK_STATE_BUFFERING" => State::Buffering,
-                            _ => State::Stopped,
-                        };
-                    }
-                }
-                _ => {}
+                cancelled
+            };
+            if cancelled {
+                self.policy
+                    .update(self.now(), protocol::AutoplayEvent::OwnershipLost);
+                self.retry = None;
             }
-            Ok(())
+            cancelled
         }
 
-        fn request(
-            &mut self,
-            namespace: &str,
-            name: &str,
-            scope: protocol::Scope<'_>,
-            body: Value,
-        ) -> Result<Value> {
+        fn poll(&mut self) -> Result<()> {
+            if self.cancel_local_if_stale() {
+                return Ok(());
+            }
+            let lease = self.socket_lease.context("Sonos disconnected")?;
             ensure!(
                 self.queue.intent_valid(),
                 "Sonos reservation expired or cancelled"
             );
-            self.sequence = self
-                .sequence
-                .checked_add(1)
-                .context("Sonos command counter exhausted")?;
-            let id = self.sequence.to_string();
-            let group = self.group.as_ref().context("Sonos is disconnected")?;
-            let household = group.household_id.clone();
-            let command = protocol::Command {
-                namespace,
-                command: name,
-                household_id: &household,
-                cmd_id: &id,
-                scope,
-            };
-            let bytes = protocol::encode_command(&command, &body).map_err(protocol_error)?;
-            // Encoded bytes own the payload; release its parsed tree before TLS sends it.
-            drop(body);
-            let sent = self.now();
-            let pending = protocol::PendingCommand {
-                namespace,
-                command: name,
-                cmd_id: &id,
-                sent_at_ms: sent,
-                deadline_ms: sent + TIMEOUT.as_millis() as u64,
-            };
-            let lease = self.socket_lease.context("Sonos is disconnected")?;
-            let socket = self.socket.as_mut().context("Sonos is disconnected")?;
-            if matches!(name, "createSession" | "loadCloudQueue") {
-                self.commands
-                    .run_if_current(self.generation, || {
-                        if !self.queue.intent_current() {
-                            return Err("Sonos reservation expired");
-                        }
-                        if name == "createSession" {
-                            with_create_send(&self.network, lease, || socket.send(&bytes))
-                        } else {
-                            with_network(&self.network, lease, || socket.send(&bytes))
-                        }
-                    })
-                    .map_err(|error| anyhow!(error))?
-                    .map_err(|error| anyhow!(error))??;
+            let client = self.socket.as_ref().context("Sonos disconnected")?;
+            with_network(&self.network, lease, || {
+                client.verify(Instant::now() + TIMEOUT)
+            })
+            .map_err(|error| anyhow!(error))??;
+            let uri = with_network(&self.network, lease, || {
+                client.media_uri(Instant::now() + TIMEOUT)
+            })
+            .map_err(|error| anyhow!(error))??;
+            let transport = with_network(&self.network, lease, || {
+                client.transport_state(Instant::now() + TIMEOUT)
+            })
+            .map_err(|error| anyhow!(error))??;
+            let state = HttpOwnership::observe_owned_uri(
+                &mut self.owned_uri,
+                &uri,
+                transport == TransportState::Playing,
+            )
+            .context("Playback source changed")?;
+            let state = if state == State::Playing {
+                state
             } else {
-                with_network(&self.network, lease, || socket.send(&bytes))
-                    .map_err(|error| anyhow!(error))??;
+                http_transport_state(transport)
+            };
+            if state == State::Stopped {
+                self.queue.clear();
+                self.owned_uri = None;
+                self.policy
+                    .update(self.now(), protocol::AutoplayEvent::OwnershipLost);
+                self.status.lock().unwrap().active_player_id = None;
             }
-            while self.now() < pending.deadline_ms {
-                let socket = self.socket.as_mut().context("Sonos is disconnected")?;
-                let message = if name == "createSession" {
-                    socket.receive(Duration::from_millis(50))?
-                } else {
-                    ensure!(
-                        self.queue.intent_valid(),
-                        "Sonos reservation expired or cancelled"
-                    );
-                    with_network(&self.network, lease, || {
-                        socket.receive(Duration::from_millis(50))
-                    })
-                    .map_err(|error| anyhow!(error))??
-                };
-                if let Some(message) = message {
-                    if message.header.cmd_id.as_deref() == Some(&id)
-                        && !scope_matches(&message.header, &household, &command.scope)
-                    {
-                        continue;
-                    }
-                    match message.match_reply(&pending, self.now()) {
-                        protocol::ReplyMatch::Success => {
-                            ensure!(
-                                message.body.get("errorCode").is_none(),
-                                "Sonos rejected {name}: {}",
-                                message.body["errorCode"]
-                            );
-                            return Ok(message.body);
-                        }
-                        protocol::ReplyMatch::Failure => bail!(
-                            "Sonos rejected {name}: {}",
-                            message.body.get("errorCode").unwrap_or(&Value::Null)
-                        ),
-                        protocol::ReplyMatch::Expired => break,
-                        protocol::ReplyMatch::Unrelated if name == "createSession" => {
-                            // A malformed/unusable event must not discard the owned create reply.
-                            if let Err(error) = self.event(&message) {
-                                log::warn!(
-                                    "sonos: event rejected while collecting create reply: {error}"
-                                );
-                            }
-                        }
-                        protocol::ReplyMatch::Unrelated => self.event(&message)?,
-                    }
-                }
-            }
-            bail!("Sonos {name} timed out")
+            self.status.lock().unwrap().state = state;
+            Ok(())
         }
     }
 }
@@ -2921,6 +2850,136 @@ mod send_cancellation_tests {
             .is_err());
         assert!(received.try_recv().is_err());
     }
+    #[test]
+    fn cancellation_after_real_set_uri_send_prevents_play_send() {
+        use std::{
+            io::{Read, Write},
+            net::{TcpListener, TcpStream},
+        };
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let mut client = TcpStream::connect(listener.local_addr().unwrap()).unwrap();
+        let (mut peer, _) = listener.accept().unwrap();
+        peer.set_read_timeout(Some(Duration::from_millis(30)))
+            .unwrap();
+        let (commands, receiver) = Commands::new(network_tests::ready_network());
+        commands.submit(Command::Play).unwrap();
+        let play = receiver.recv().unwrap();
+        commands
+            .run_if_current(play.generation, || client.write_all(b"SetURI"))
+            .unwrap()
+            .unwrap();
+        commands.submit(Command::Stop).unwrap();
+        assert!(commands
+            .run_if_current(play.generation, || client.write_all(b"Play"))
+            .is_err());
+        let mut bytes = [0; 6];
+        peer.read_exact(&mut bytes).unwrap();
+        assert_eq!(&bytes, b"SetURI");
+        assert!(peer.read(&mut [0]).is_err());
+    }
+
+    #[test]
+    fn admitted_sonos_can_play_with_debug_filling_other_slot() {
+        use esp_shazam_core::stream_buffer::OutputFormat;
+        use esp_shazam_core::stream_wait::{Capacity, Slot};
+        let network = network_tests::ready_network();
+        let (commands, receiver) = Commands::new(network.clone());
+        commands.submit(Command::Play).unwrap();
+        let play = receiver.recv().unwrap();
+        let queue = Queue::new(network.clone());
+        let _debug = Slot::take(&queue.capacity, 2).unwrap();
+        let lease = network.lease().unwrap();
+        let peer = "192.0.2.20".parse().unwrap();
+        let intent = queue
+            .capacity
+            .reserve(
+                peer,
+                network,
+                lease,
+                commands.token(play.generation).unwrap(),
+                OutputFormat::Mp3,
+                None,
+                std::time::Instant::now(),
+            )
+            .unwrap();
+        assert!(commands
+            .run_if_current(play.generation, || queue.capacity.current_ready(intent))
+            .unwrap());
+        let _sonos = Capacity::admit(
+            &queue.capacity,
+            intent,
+            peer,
+            lease.generation,
+            OutputFormat::Mp3,
+            None,
+        )
+        .unwrap();
+        assert_eq!(queue.capacity.held(), 2);
+        assert!(!queue.capacity.current_ready(intent));
+        assert!(commands
+            .run_if_current(play.generation, || queue.play_current(intent))
+            .unwrap());
+        assert!(Slot::take(&queue.capacity, 2).is_none());
+        commands.submit(Command::Stop).unwrap();
+        assert!(commands
+            .run_if_current(play.generation, || queue.play_current(intent))
+            .is_err());
+        assert!(!queue.capacity.valid(intent));
+    }
+
+    #[test]
+    fn cancellation_releases_admission_and_stops_local_status() {
+        use esp_shazam_core::stream_buffer::OutputFormat;
+        use esp_shazam_core::stream_wait::Capacity;
+        for cancel in [Command::Stop, Command::SetAutoplay(false)] {
+            let network = network_tests::ready_network();
+            let (commands, receiver) = Commands::new(network.clone());
+            commands.submit(Command::Play).unwrap();
+            let play = receiver.recv().unwrap();
+            let queue = Queue::new(network.clone());
+            let lease = network.lease().unwrap();
+            let peer = "192.0.2.20".parse().unwrap();
+            let intent = queue
+                .capacity
+                .reserve(
+                    peer,
+                    network,
+                    lease,
+                    commands.token(play.generation).unwrap(),
+                    OutputFormat::Mp3,
+                    None,
+                    std::time::Instant::now(),
+                )
+                .unwrap();
+            queue.snapshot.lock().unwrap().intent = Some(intent);
+            let slot = Capacity::admit(
+                &queue.capacity,
+                intent,
+                peer,
+                lease.generation,
+                OutputFormat::Mp3,
+                None,
+            )
+            .unwrap();
+            commands.submit(cancel).unwrap();
+            let mut state = State::Playing;
+            assert!(revoke_cancelled_play(
+                &queue,
+                &commands,
+                play.generation,
+                &mut state
+            ));
+            assert_eq!(state, State::Stopped);
+            assert!(!queue.capacity.valid(intent));
+            assert!(commands
+                .run_if_current(play.generation, || panic!("late Play"))
+                .is_err());
+            assert_eq!(queue.snapshot.lock().unwrap().intent, None);
+            drop(slot);
+            assert_eq!(queue.capacity.held(), 0);
+        }
+    }
+
     #[test]
     fn stop_acceptance_waits_for_already_started_operation() {
         let (commands, receiver) = Commands::new(network_tests::ready_network());

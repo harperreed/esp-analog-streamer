@@ -37,3 +37,5 @@ pub mod stream_write;
 pub mod task_observation;
 pub mod time;
 pub mod wav;
+
+pub mod sonos_upnp;

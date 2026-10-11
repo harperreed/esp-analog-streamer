@@ -1,29 +1,14 @@
 // ABOUTME: Compile-only by default; sonos-fixture enables the real TLS receive-only diagnostic.
 // ABOUTME: Set SONOS_FIXTURE_URI and absolute SONOS_FIXTURE_CA at build time; never run on a speaker.
 
+#[cfg(feature = "sonos-fixture")]
 #[path = "../src/threads.rs"]
 mod threads;
 
-mod recognizer {
-    pub type SharedStore = std::sync::Arc<std::sync::Mutex<esp_shazam_core::store::SongStore>>;
-}
-#[path = "../src/sonos.rs"]
-mod sonos;
-
 fn main() -> anyhow::Result<()> {
     esp_idf_svc::sys::link_patches();
-    // Keep every public entry point reachable for target compile/link verification only.
-    let _ = sonos::start;
-    let _ = sonos::Handle::snapshot;
-    let _ = sonos::Handle::queue_snapshot;
-    let _ = sonos::Handle::submit;
-    let _ = [
-        sonos::Command::Discover,
-        sonos::Command::Select(String::new()),
-        sonos::Command::Play,
-        sonos::Command::Stop,
-        sonos::Command::SetAutoplay(false),
-    ];
+    // Link the real firmware library without starting its production services.
+    let _ = esp_shazam_firmware::run;
     #[cfg(feature = "sonos-fixture")]
     fixture()?;
     Ok(())
@@ -58,7 +43,12 @@ fn fixture() -> anyhow::Result<()> {
     }
     anyhow::ensure!(net::clock_synced(), "Fixture TLS requires a synced clock");
     // Keep all reused modules' public functions reachable without running mDNS/recognition.
-    let _ = (net::start_mdns, net::supervise, config::policy_config);
+    let _ = (
+        net::start_mdns,
+        net::supervise,
+        net::disconnect_count,
+        config::policy_config,
+    );
     let cancel_after = option_env!("SONOS_FIXTURE_CANCEL_MS")
         .map(str::parse::<u64>)
         .transpose()?
@@ -75,7 +65,7 @@ fn fixture() -> anyhow::Result<()> {
         stack_bytes: 16 * 1024,
     }
     .spawn(move || {
-        let result = sonos::check_transport(
+        let result = esp_shazam_firmware::check_transport(
             env!("SONOS_FIXTURE_URI"),
             concat!(include_str!(env!("SONOS_FIXTURE_CA")), "\0").as_bytes(),
             cancel_after,
@@ -85,7 +75,11 @@ fn fixture() -> anyhow::Result<()> {
     receiver.recv_timeout(Duration::from_secs(30))??;
     log::info!("sonos-fixture: finished; restore normal firmware before production use");
     // Retain the Wi-Fi driver while the parent collects UART evidence.
-    while wifi.is_connected().unwrap_or(false) {
+    let network = wifi.network();
+    let lease = network
+        .lease()
+        .ok_or_else(|| anyhow::anyhow!("Fixture Wi-Fi lease lost"))?;
+    while network.is_current(lease) {
         std::thread::sleep(Duration::from_secs(1));
     }
     Ok(())

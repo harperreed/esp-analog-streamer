@@ -16,6 +16,8 @@ mod recognizer;
 mod shazam_http;
 mod socket_close;
 mod sonos;
+#[cfg(feature = "sonos-fixture")]
+pub use sonos::check_transport;
 mod stream;
 mod stream_admission;
 mod stream_codec;
