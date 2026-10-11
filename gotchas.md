@@ -1,5 +1,11 @@
 # Gotchas
 
+Doctor Biz flagged prolonged work without fewer open Katas. Finish tickets
+against their original acceptance criteria; do not let extra diagnostic gates
+or unrelated audio failures keep completed work open. Reconcile implementation
+and evidence before starting another investigation. Keep genuine failed gates
+open, and never redefine scope or close tickets just to improve the count.
+
 The October 10 concurrent-admission trials both failed. One exposed a corrected
 host-driver reset-handling defect; the other returned the exact MP3 HTTP 200
 head then closed without payload on a replacement stream. Preserve the failed

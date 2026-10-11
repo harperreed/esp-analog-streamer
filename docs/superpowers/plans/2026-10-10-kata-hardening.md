@@ -1,12 +1,22 @@
 # Finish the Kata hardening backlog
 
 Doctor Biz's active goal on October 10: finish all Kata work, then assess.
-Base c134069 on wip/kata-capture-protection. Compactions in this phase: 19; latest firmware work is gated concurrent admission (host and target build pass; two device trials failed, resource acceptance pending).
+Base c134069 on wip/kata-capture-protection. Compactions in this phase: 20.
+Latest checkpoint: original-criteria review closed 8s9m, 21tp and 89g8;
+26 Katas remain open. Failed device audio trials remain failed.
 Use GPT-6.1 Sol subagents with clean contexts. Parent owns review, integration,
 canonical checks, commits and every hardware action. Continue through batches;
 a phase checkpoint is not a reason to abandon the active goal.
 
 ## Completion rules
+
+Doctor Biz corrected prolonged work without a decreasing open count. The
+[closure review](../../audit-evidence/2026-10-10/kata-closure-review.md) supersedes
+later-added closure gates in the historical checkpoints below. Admission,
+logging isolation and replay are closed with evidence. Do not repeat admission
+resource experiments merely to close 8s9m. Dashboard implementation and the MP3
+instruction-placement experiment have not started and are on hold. Pick the
+next bounded action from an open ticket's missing original criterion.
 
 A Kata closes only when its actual acceptance criteria have evidence. Keep
 hardware acceptance and implementation separate. Do not close an epic just

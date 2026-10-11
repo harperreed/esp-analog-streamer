@@ -131,3 +131,11 @@ not worst-case bounds. One query's elapsed interval was 231,388 microseconds;
 preemption can contribute, so it is not measured scanning CPU cost. Full UARTs
 contain 13/12 encoder Overrun boundaries. The memory evidence does not clear
 the audio, concurrent-load, TLS or failure-injection gates.
+
+Closure correction: original Kata 8s9m requires real socket admission tests,
+preserved ownership/capacity, measured device heap/stack/latency and canonical
+checks. Those criteria have evidence and the ticket is now closed after
+independent review. Combined TLS workload, sustained MP3 success and a global
+descriptor census were additional plan gates. They remain unproved and do not
+change the failed trial verdicts. See the October 10 kata-closure-review receipt;
+do not repeat this measurement campaign just to finish the closed ticket.
