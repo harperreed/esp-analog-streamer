@@ -12,6 +12,28 @@ a phase checkpoint is not a reason to abandon the active goal.
 
 ## October 11 closure and work-selection checkpoint
 
+Current state supersedes the historical checkpoints below: amqe is closed in
+23310f6. Open count is 18, down from 19. Its live listener observations, rendered
+dashboard and HTTP acceptance are recorded in
+`docs/audit-evidence/2026-10-11/live-listener-metrics.md` and `.json`.
+Do not repeat that acceptance or reopen it for the separate transport failures.
+
+Doctor Biz again flagged elapsed work without enough closures. Report actual
+closures separately from partial implementation and diagnostic evidence. Use
+each ticket's original acceptance; no new general soak or review gate is added.
+
+The immediate recovery blocker is native Sonos TLS allocation failure. Pinned
+SDK source traces the 4437-byte request to the dynamic TLS transmit buffer,
+including for a small WebSocket header, with internal-only allocation. Existing
+heap snapshots precede the failure and cannot identify the competing allocation.
+The next observation must capture allocation-time memory pressure and queued
+Sonos payloads, then drive a specific correction. Do not repeat the completed
+baseline/current comparison or change global TLS memory policy on speculation.
+Native playback alone will not close pqqq: ownership-safe recovery and its
+original real-device acceptance still remain.
+
+### Historical metrics checkpoint before 23310f6
+
 Metrics checkpoint: the bounded endpoint, collector and separate dashboard now
 pass all 27 canonical stages and a live two-boot / two-listener OFF/ON/OFF test.
 A real departure value reached Prometheus and Grafana's backend; source staleness
