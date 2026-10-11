@@ -1,7 +1,7 @@
 # Finish the Kata hardening backlog
 
 Doctor Biz's active goal on October 10: finish all Kata work, then assess.
-Base c134069 on wip/kata-capture-protection. Compactions in this phase: 16; latest firmware implementation checkpoint is 23bd686 (bounded listener frame-state diagnostic; delivery still fails).
+Base c134069 on wip/kata-capture-protection. Compactions in this phase: 17; latest firmware implementation checkpoint is 23bd686 (bounded listener frame-state diagnostic; delivery still fails).
 Use GPT-6.1 Sol subagents with clean contexts. Parent owns review, integration,
 canonical checks, commits and every hardware action. Continue through batches;
 a phase checkpoint is not a reason to abandon the active goal.
@@ -755,3 +755,20 @@ benchmark of the current shared encoder wrapper and allocator. The older
 benchmark's wrapper and build flags differ, so its results cannot certify the
 current 24 ms frame budget. No historical rate attribution or ADC fixture
 collection is reopened.
+
+The current shared-wrapper MP3 cost benchmark is complete and independently
+reviewed. All 27 canonical stages pass (run.GyzqljgW), the explicit example
+build/linked inspection passes, and all 20 parser tests pass. The example links
+the exact production C archive af005426. One complete bounded device acquisition
+measures repeated-block means 10.045/12.870/16.897/18.182 ms for zero/DC/tones/noise;
+all 512 measured calls fit 24 ms, with minimum 5,540 bytes acquisition stack free.
+This establishes isolated fixture headroom, not live input or application
+headroom. Live audio, throughput and radio root-cause gates remain open.
+
+The temporary example is archived as evidence and removed from the build tree.
+Exact candidate dc908452 is restored, fresh stopped MP3/Medium settings are
+verified, and no UART/aplay source owner remains. Public evidence lives in
+current-mp3-cost.md/.json under the October 10 audit directory. A clean Sol 6.1
+worker is assessing the smallest next measurement; no new diagnostic or
+production policy is yet approved or implemented. This landed-phase checkpoint
+continues the active all-Kata goal under the recorded root-replacement limit.

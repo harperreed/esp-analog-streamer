@@ -920,3 +920,11 @@ An encoded-ring generation reset invalidates every old cursor, even if retained
 capacity was sufficient. The old FellBehind label also covered this case and
 invalid offsets; it did not prove that a receiver exhausted history. Use explicit
 read reasons and align them with producer reset events when diagnosing delivery.
+
+A matching MP3 C archive does not establish matching live cost. The October 10
+current-wrapper standalone benchmark fit all repeated synthetic blocks within
+24ms, while the full application had missed that budget. Input content, heap
+conditions and executable layout remain different; do not call the discrepancy
+proof of contention or a cache defect. cc 1.6 debug command output also exposes
+its intentionally failing compiler-family `-?` probe. Keep that expected noise
+separate from the actual ten successful C compilations.

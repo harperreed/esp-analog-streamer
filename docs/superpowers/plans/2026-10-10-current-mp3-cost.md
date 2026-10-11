@@ -42,34 +42,34 @@ serial access. This plan authorizes no production implementation changes.
 
 ## Task 1: temporary example and receipts
 
-- [ ] Create `firmware/examples/current-mp3-cost.rs`, with ABOUTME lines and the
+- [x] Create `firmware/examples/current-mp3-cost.rs`, with ABOUTME lines and the
   shared modules above. Archive a copy under ignored
   `target/kata-hardening/current-mp3-cost/source/` before removing it later.
-- [ ] Allocate the fixture `Vec<i32>` for 2,304 samples and output `Vec<u8>` with
+- [x] Allocate the fixture `Vec<i32>` for 2,304 samples and output `Vec<u8>` with
   capacity 960 on the heap before spawning; move them into the closure. Never
   materialize a 4,608-byte PCM array on the main stack. Shared `Mp3Encoder::new`
   already constructs its private i16 storage on the heap; call it in the worker.
-- [ ] For each of zero, DC, tones and noise, preserve the old benchmark's exact
+- [x] For each of zero, DC, tones and noise, preserve the old benchmark's exact
   fixture formulas, seed `0x12345678`, amplitudes and channel order. Generate
   the 2,304 i16 values once per fixture, outside timed loops, store each as
   `i32::from(value) * 256`; shared `push` then recovers those exact i16 values.
   Reuse that block as the old isolated benchmark did; do not call this continuous
   noise or phase-continuous tones. Recreate encoder once per fixture, outside
   timing. No 192 kbps or internal-allocation matrix.
-- [ ] Fill via shared `push`, assert `frames_wanted() == 0`, then time one
+- [x] Fill via shared `push`, assert `frames_wanted() == 0`, then time one
   `encode_block` call. One warmup block followed by 128 measured attempts per
   fixture. Consume/checksum output outside each codec bracket. Check 960 bytes
   for every success. Preserve warmup as its own receipt, not in measured mean.
-- [ ] Explicit `sys::vTaskDelay(1)` between calls and before task-runtime
+- [x] Explicit `sys::vTaskDelay(1)` between calls and before task-runtime
   baselines; never substitute short Rust sleeps. This is an isolated cost test,
   not a paced real-time producer. Keep per-call UART out of acquisition: retain
   totals/max/counts in memory and print phase receipts after each bounded batch.
-- [ ] Use existing `vTaskGetInfo(NULL, ..., 0, eRunning)` runtime-counter pattern,
+- [x] Use existing `vTaskGetInfo(NULL, ..., 0, eRunning)` runtime-counter pattern,
   with wrapping subtraction and explicit counter-validity interval check; record
   worker `uxTaskGetStackHighWaterMark(NULL)` bytes and allocated-buffer address
   classification with `esp_ptr_external_ram`. Do not enable encoder-probe merely
   to obtain storage receipts; shared callback source establishes Shine policy.
-- [ ] Machine-readable lines have a fixed prefix and schema version. Each phase
+- [x] Machine-readable lines have a fixed prefix and schema version. Each phase
   includes fixture, attempted/succeeded/failed counts, input frames represented
   by successes, successful output bytes, codec wall sum/max, calls over 24,000 us,
   failed-call wall sum/max, batch elapsed, task runtime/validity, stack watermark
@@ -77,7 +77,7 @@ serial access. This plan authorizes no production implementation changes.
   by 128 if fewer succeeded. Record a fixture error and abort that fixture on
   encode error rather than reuse unspecified failed state. Remaining fixtures
   can start fresh, but overall success stays false.
-- [ ] Emit explicit `fixture_end` for each of the four fixtures with actual
+- [x] Emit explicit `fixture_end` for each of the four fixtures with actual
   attempts and status, including aborted fixture status; emit final `complete`
   containing exact expected/finished fixture counts and overall status. A panic,
   reset, watchdog, missing receipt/end marker, duplicate phase or partial line is
@@ -85,16 +85,16 @@ serial access. This plan authorizes no production implementation changes.
 
 ## Task 2: build identity and host verification
 
-- [ ] Freeze current unified B before building: ELF SHA256 must be
+- [x] Freeze current unified B before building: ELF SHA256 must be
   `dc9084526287470ce20796a1be14d19c578332224f6f757eb3bda26e9a9902da`.
   Preserve its matching bootloader, partitions and source/feature receipt in
   the ignored experiment directory. If identity differs, stop and reconcile;
   do not substitute an old FLAC or an unstated current build.
-- [ ] Retain current production `libshazam_mp3.a` and SHA256, source hashes for
+- [x] Retain current production `libshazam_mp3.a` and SHA256, source hashes for
   `mp3/build.rs`, bridge, vendored C and both included firmware modules, firmware
   lockfile and generated sdkconfig. Locate the actual archive from Cargo's
   `rustc-link-search` output rather than choosing an arbitrary cached build hash.
-- [ ] Build from firmware with
+- [x] Build from firmware with
   `CC_ENABLE_DEBUG_OUTPUT=1 cargo +esp build -vv --release --example current-mp3-cost`,
   redirecting full stdout/stderr to an ignored build log. This mechanism exists
   in lockfile-selected installed **cc 1.6.0**: its `src/lib.rs` documents the env
@@ -102,49 +102,49 @@ serial access. This plan authorizes no production implementation changes.
   Changing absent to 1 should rerun the C build; require the log to contain all
   actual Shine/bridge compile commands and their successful exits. No guessed
   CFLAGS, production build-script edit or historical archive is required.
-- [ ] Retain effective C argv, compiler path/version, archive and constituent
+- [x] Retain effective C argv, compiler path/version, archive and constituent
   object hashes, and final example ELF/build options. Confirm the benchmark's
   linked C archive matches the frozen production archive byte-for-byte. If it
   differs, inspect why before running; report a rebuilt current-source archive
   honestly if exact production identity cannot be retained. Do not claim exact
   production artifact cost from source equality alone. Preserve full commands
   and response-file contents if any, not only a selected flag summary.
-- [ ] Run canonical `scripts/check` and retain its complete receipt; it covers
+- [x] Run canonical `scripts/check` and retain its complete receipt; it covers
   existing host MP3 encoder/decode correctness and target production checks.
   Also format and target-build the temporary example explicitly: normal firmware
   fmt/build stages do not check this example. No mock scheduler TDD or test that
   restates a constant. These are existing correctness plus actual target checks
   for a throwaway diagnostic, not a new product feature.
-- [ ] Review source, timing boundaries, allocation/stack handling and completed
+- [x] Review source, timing boundaries, allocation/stack handling and completed
   build receipts before the parent flashes. Canonical production IRAM checks
   concern the production image; do not apply I2S symbol expectations to a
   standalone example that intentionally omits I2S.
 
 ## Task 3: parent acquisition and cleanup
 
-- [ ] Put runner/parser adaptations and raw evidence under ignored
+- [x] Put runner/parser adaptations and raw evidence under ignored
   `target/kata-hardening/current-mp3-cost/`. Reuse the old `run-device.py` bounded
   capture/error/finally structure, not its hardcoded filenames, old ELF or marker.
   Provide explicit input example and restoration paths, help text, structured
   failure report and bounded deadline. Keep parser separate from hardware access
   so saved logs can be checked without flashing. Exercise parser rejection of
   missing/duplicate end markers and failed encode with small local text fixtures.
-- [ ] Parent verifies no other UART/source owner and stopped MP3/Medium state;
+- [x] Parent verifies no other UART/source owner and stopped MP3/Medium state;
   no physical audio player is started. Parent flashes the frozen example with
   the canonical 80 MHz/4 MiB/ESP-IDF bootloader/partition settings in
   `scripts/flash`, preserving logs. Avoid rebuilding over a reviewed ELF during
   flash; use its existing exact `espflash` argument form on frozen paths.
-- [ ] Parent records one bounded boot through complete marker. Retain raw UART,
+- [x] Parent records one bounded boot through complete marker. Retain raw UART,
   parser report, actual ELF hash and explicit lack of device image attestation
   where applicable. Report each fixture mean/max and >24 ms count, wall/runtime
   validity and stack watermark. Missing completion or any failure rejects the
   benchmark; do not repeat indefinitely or silently omit a case.
-- [ ] In `finally`, parent restores **the frozen current unified B** with its
+- [x] In `finally`, parent restores **the frozen current unified B** with its
   matching bootloader/partitions even if collection fails. Verify fresh state is
   stopped MP3/Medium, autoplay/recognition off, with no UART/source owner. Record
   restoration failure separately and leave it visible. Never restore historical
   FLAC firmware. No analog routing needs modification.
-- [ ] Remove only the temporary example once its source copy/hashes are archived.
+- [x] Remove only the temporary example once its source copy/hashes are archived.
   Preserve the existing one-line listener-priority experiment and all unrelated
   work. Produce one result report; commit decisions belong to the parent.
 
@@ -176,4 +176,11 @@ af005426add1c4a071a20551e6712dc59767971f0acc6262496aadf7834ae148)
 using the cached Cargo dependency fingerprint chain and actual link-search
 output, alongside exact unified B restoration artifacts. Receipt:
 target/kata-hardening/current-mp3-cost/production-inputs/receipt.json.
-Source implementation is dispatched; builds and device acceptance are pending.
+Implementation, independent reviews, canonical 27 checks, explicit example build,
+linked inspection and one bounded hardware acquisition are complete. Public
+reviewed evidence: `docs/audit-evidence/2026-10-10/current-mp3-cost.md` and `.json`.
+All four isolated cases fit the 24 ms budget; noise mean 18.182 ms, max 18.404 ms.
+This does not clear live audio acceptance. The temporary example is removed
+from `firmware/examples` after an exact source copy was archived in the evidence
+subdirectory. Exact unified B is restored and fresh stopped MP3/Medium settings
+and sole-owner cleanup are verified. No production source policy changed.
