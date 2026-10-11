@@ -295,6 +295,7 @@ fn payload_counters_advance_only_after_a_whole_successful_write() {
             listener.step(&epoch, &mut scratch, &mut || Duration::ZERO, &mut || true),
             ListenerStep::Write { header: false, .. }
         ));
+        assert_eq!(listener.pending_oldest_accepted_us(), Some(0));
         assert_eq!(listener.frames_sent, 0);
         assert_eq!(listener.first_sent, None);
         assert_eq!(listener.last_sent, None);

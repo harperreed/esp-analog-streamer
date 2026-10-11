@@ -271,15 +271,17 @@ pub(crate) struct NetworkMetadata {
     pub disconnects: u32,
 }
 #[derive(Clone, Copy, Debug, serde::Serialize)]
-struct Response {
+struct Response<'a> {
+    listeners: [crate::listener_observation::Observation; 2],
     schema_version: u8,
     served_device_us: u64,
+    http_stack_free_bytes: Option<u32>,
     boot_token: Option<Hex<16>>,
     build_elf_sha256: Option<Hex<32>>,
     settings: Option<Settings>,
     network: Option<NetworkMetadata>,
     #[serde(flatten)]
-    snapshot: Snapshot,
+    snapshot: &'a Snapshot,
 }
 const _: () = assert!(std::mem::size_of::<Response>() <= 768);
 pub(crate) const MAX_BODY_BYTES: usize = 4096;
@@ -308,8 +310,11 @@ pub(crate) fn prepare_response(
     identity: Option<Identity>,
     settings: Option<Settings>,
     network: Option<NetworkMetadata>,
+    http_stack_free_bytes: Option<u32>,
+    sample_listeners: impl FnOnce() -> [crate::listener_observation::Observation; 2],
 ) -> Result<Vec<u8>, ResponseError> {
     let snapshot = cache.snapshot().map_err(ResponseError::Unavailable)?;
+    let listeners = sample_listeners();
     let served_device_us = clock();
     let mut body = Vec::new();
     body.try_reserve_exact(MAX_BODY_BYTES)
@@ -318,13 +323,15 @@ pub(crate) fn prepare_response(
     serde_json::to_writer(
         &mut writer,
         &Response {
+            listeners,
             schema_version: 1,
             served_device_us,
+            http_stack_free_bytes,
             boot_token: identity.map(|identity| identity.boot_token),
             build_elf_sha256: identity.and_then(|identity| identity.build_elf_sha256),
             settings,
             network,
-            snapshot,
+            snapshot: &snapshot,
         },
     )
     .map_err(|_| ResponseError::Serialization)?;
@@ -526,7 +533,15 @@ mod tests {
             assert!(!other.publish_encoder_loss(loss()));
             assert_eq!(other.snapshot().unwrap_err(), Unavailable::Contended);
             assert!(matches!(
-                prepare_response(&other, || 1, None, None, None),
+                prepare_response(
+                    &other,
+                    || panic!("served clock must not run under a held cache guard"),
+                    None,
+                    None,
+                    None,
+                    None,
+                    || panic!("listener sampling must not run under a held cache guard")
+                ),
                 Err(ResponseError::Unavailable(Unavailable::Contended))
             ));
             tx.send(()).unwrap();
@@ -644,7 +659,15 @@ mod tests {
                     .unwrap();
                 let mut request = [0; 128];
                 assert!(socket.read(&mut request).unwrap() > 0);
-                let prepared = prepare_response(&cache, || 1, None, None, None);
+                let prepared = prepare_response(
+                    &cache,
+                    || 1,
+                    None,
+                    None,
+                    None,
+                    None,
+                    || [crate::listener_observation::Observation::default(); 2],
+                );
                 let (status, body) = match prepared {
                     Ok(body) => (200, body),
                     Err(_) => (503, b"{\"error\":\"metrics_unavailable\"}".to_vec()),

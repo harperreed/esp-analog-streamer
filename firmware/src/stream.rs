@@ -583,11 +583,16 @@ fn stream_wav(
     bytes.extend_from_slice(&wav::endless_header_s24le(CAPTURE_RATE_HZ, 2));
     let age = esp_shazam_core::media_age::MediaAge::for_stream(None, OutputFormat::Flac);
     let mut oldest = None;
+    let observation = crate::listener_observation::REGISTRY.register(event_us());
     loop {
         if !network.is_current(lease) {
             return End::NetworkChanged;
         }
         let at = event_us();
+        let write_started_us = event_us();
+        if let (Some(owner), Some(oldest)) = (&observation, oldest) {
+            owner.begin(write_started_us, oldest);
+        }
         let result = if let Some(oldest) = oldest {
             let deadline = match age.deadline(
                 at,
@@ -601,6 +606,9 @@ fn stream_wav(
         } else {
             write_frame(&mut writer, &bytes, write_limit, peer)
         };
+        if let (Some(owner), Some(oldest)) = (&observation, oldest) {
+            owner.finish(event_us(), write_started_us, oldest, result.is_ok());
+        }
         if oldest.is_some_and(|oldest| age.check(event_us(), oldest).is_err()) {
             return End::MediaAge;
         }
@@ -926,6 +934,7 @@ fn stream_compressed(
     });
     let mut writer = DeadlineWriter::new(sock);
     let mut payload_started = None;
+    let observation = crate::listener_observation::REGISTRY.register(event_us());
     let end = loop {
         if !network.is_current(network_lease) {
             break End::NetworkChanged;
@@ -957,8 +966,16 @@ fn stream_compressed(
                         owner.begin(crate::listener_frame_state::now());
                     }
                 }
+                let write_started_us = event_us();
+                let oldest_us = listener.pending_oldest_accepted_us();
+                if let (Some(owner), Some(oldest)) = (&observation, oldest_us) {
+                    owner.begin(write_started_us, oldest);
+                }
                 let result =
                     writer.write_all_before(listener.write_bytes(bytes), socket_deadline(deadline));
+                if let (Some(owner), Some(oldest)) = (&observation, oldest_us) {
+                    owner.finish(event_us(), write_started_us, oldest, result.is_ok());
+                }
                 #[cfg(feature = "listener-frame-state")]
                 if !header {
                     if let Some(owner) = frame_state.as_deref_mut() {

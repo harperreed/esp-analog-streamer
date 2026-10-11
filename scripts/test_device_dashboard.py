@@ -41,6 +41,7 @@ class DeviceDashboard(unittest.TestCase):
             'device_capture_internal_minimum_sum_bytes': 'bytes',
             'device_capture_psram_minimum_sum_bytes': 'bytes',
             'device_encoder_stack_free_bytes': 'bytes',
+            'device_http_stack_free_bytes': 'bytes',
             'device_metrics_owner_stack_free_bytes': 'bytes',
             'device_encoder_window_raw_pcm_frames': 'short',
             'device_encoder_window_raw_overruns': 'short',
@@ -86,6 +87,24 @@ class DeviceDashboard(unittest.TestCase):
         self.assertIn('media_progress', introduction)
         self.assertIn('last_listener_departure', introduction)
         self.assertNotIn('Unavailable: publication head', introduction)
+
+    def test_live_listener_slots_units_and_state_labels(self):
+        for expr, unit in {'device_listener_available': 'short', 'device_listener_active': 'short',
+                           'device_listener_generation': 'short', 'device_listener_sample_age_seconds': 's',
+                           'device_listener_media_age_seconds': 's', 'device_listener_write_seconds': 's'}.items():
+            self.assertIn(expr, self.queries)
+            panel = self.queries[expr]
+            self.assertEqual(panel['fieldConfig']['defaults']['unit'], unit)
+            self.assertIn('{{slot}}', panel['targets'][0]['legendFormat'])
+            if expr in ('device_listener_media_age_seconds', 'device_listener_write_seconds'):
+                self.assertIn('{{state}}', panel['targets'][0]['legendFormat'])
+                self.assertIn('recorded', panel['description'])
+                self.assertFalse(panel['fieldConfig']['defaults']['custom']['spanNulls'])
+        defaults = self.queries['device_listener_available']['fieldConfig']['defaults']
+        self.assertEqual(defaults['thresholds']['steps'], [{'color': 'red', 'value': None}, {'color': 'green', 'value': 1}])
+        content = self.panels[0]['options']['content']
+        self.assertNotIn('Unavailable: live per-listener', content)
+        self.assertIn('MP3, FLAC and WAV', content)
 
     def test_identity_and_availability_colors(self):
         for expr in ('device_metrics_response_available', 'device_metrics_family_available',

@@ -2,6 +2,9 @@
 // ABOUTME: Uses production queues, probe phases and encoder turn scheduling.
 #![cfg(not(any(feature = "capture-loom", feature = "listener-loom")))]
 #[allow(dead_code)]
+#[path = "../../firmware/src/listener_observation.rs"]
+mod listener_observation;
+#[allow(dead_code)]
 #[path = "../../firmware/src/listener_telemetry.rs"]
 mod listener_telemetry;
 #[allow(dead_code)]
@@ -69,6 +72,8 @@ fn get(cache: Arc<Cache>, served: u64) -> (u16, serde_json::Value) {
                 connected: false,
                 disconnects: u32::MAX,
             }),
+            None,
+            || [listener_observation::Observation::default(); 2],
         );
         let (status, body) = match prepared {
             Ok(body) => (200, body),

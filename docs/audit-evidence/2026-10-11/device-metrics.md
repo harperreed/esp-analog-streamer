@@ -1,5 +1,7 @@
 # Device metrics checkpoint
 
+This historical checkpoint is followed by the [completed metrics acceptance](live-listener-metrics.md).
+
 amqe remains open. The numeric endpoint, bounded host collector and separate
 41-panel dashboard are implemented and checked. Live individual-listener
 observations and rendered dashboard acceptance remain incomplete.

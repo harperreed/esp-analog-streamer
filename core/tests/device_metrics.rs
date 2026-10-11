@@ -2,6 +2,9 @@
 // ABOUTME: Uses production queues, probe phases and encoder turn scheduling.
 #![cfg(not(any(feature = "capture-loom", feature = "listener-loom")))]
 #[allow(dead_code)]
+#[path = "../../firmware/src/listener_observation.rs"]
+mod listener_observation;
+#[allow(dead_code)]
 #[path = "../../firmware/src/listener_telemetry.rs"]
 mod listener_telemetry;
 #[allow(dead_code)]
@@ -37,9 +40,19 @@ use device_metrics::*;
 #[test]
 fn startup_is_unavailable() {
     let cache = Cache::new();
-    let json: serde_json::Value =
-        serde_json::from_slice(&prepare_response(&cache, || 10, None, None, None).unwrap())
-            .unwrap();
+    let json: serde_json::Value = serde_json::from_slice(
+        &prepare_response(
+            &cache,
+            || 10,
+            None,
+            None,
+            None,
+            None,
+            || [listener_observation::Observation::default(); 2],
+        )
+        .unwrap(),
+    )
+    .unwrap();
     assert_eq!(json["schema_version"], 1);
     for key in [
         "capture",
@@ -63,9 +76,19 @@ fn polling_preserves_acquisition_times() {
         metrics_stack_free_bytes: Some(0),
     });
     for served in [10, 20] {
-        let json: serde_json::Value =
-            serde_json::from_slice(&prepare_response(&cache, || served, None, None, None).unwrap())
-                .unwrap();
+        let json: serde_json::Value = serde_json::from_slice(
+            &prepare_response(
+                &cache,
+                || served,
+                None,
+                None,
+                None,
+                None,
+                || [listener_observation::Observation::default(); 2],
+            )
+            .unwrap(),
+        )
+        .unwrap();
         assert_eq!(json["served_device_us"], served);
         assert_eq!(json["listener_loss"]["observed_device_us"], 3);
         assert_eq!(json["listener_loss"]["metrics_stack_free_bytes"], 0);
@@ -200,8 +223,19 @@ fn capture_fields_keep_units_and_zero_wraps() {
     let cache = Cache::new();
     let capture = maximal_capture();
     cache.publish_capture(capture);
-    let json: serde_json::Value =
-        serde_json::from_slice(&prepare_response(&cache, || 1, None, None, None).unwrap()).unwrap();
+    let json: serde_json::Value = serde_json::from_slice(
+        &prepare_response(
+            &cache,
+            || 1,
+            None,
+            None,
+            None,
+            None,
+            || [listener_observation::Observation::default(); 2],
+        )
+        .unwrap(),
+    )
+    .unwrap();
     assert_eq!(json["capture"], serde_json::to_value(capture).unwrap());
     let mut zero = capture;
     zero.read_frames = 0;
@@ -211,6 +245,13 @@ fn capture_fields_keep_units_and_zero_wraps() {
 #[test]
 fn maximal_response_fits() {
     let cache = Cache::new();
+    let maximal_listeners = [listener_observation::Observation {
+        generation: u32::MAX,
+        state: listener_observation::State::Writing,
+        sample_us: u64::MAX,
+        media_age_us: Some(u64::MAX),
+        write_us: Some(u64::MAX),
+    }; 2];
     cache.publish_capture(maximal_capture());
     cache.publish_media_progress(maximal_stage());
     cache.publish_last_listener_departure(maximal_departure());
@@ -266,8 +307,16 @@ fn maximal_response_fits() {
             connected: false,
             disconnects: u32::MAX,
         }),
+        Some(u32::MAX),
+        || maximal_listeners,
     )
     .unwrap();
+    eprintln!(
+        "maximal body={} Snapshot={} Cache={}",
+        body.len(),
+        std::mem::size_of::<Snapshot>(),
+        std::mem::size_of::<Cache>()
+    );
     assert!(body.len() <= MAX_BODY_BYTES);
     let value: serde_json::Value = serde_json::from_slice(&body).unwrap();
     assert_eq!(value["capture"]["read_frames"], u32::MAX);
@@ -314,9 +363,19 @@ fn loss_receipts_are_independent() {
     let snapshot = cache.snapshot().unwrap();
     assert_eq!(snapshot.listener_loss, Some(listener));
     assert_eq!(snapshot.encoder_loss, Some(encoder));
-    let json: serde_json::Value =
-        serde_json::from_slice(&prepare_response(&cache, || 20, None, None, None).unwrap())
-            .unwrap();
+    let json: serde_json::Value = serde_json::from_slice(
+        &prepare_response(
+            &cache,
+            || 20,
+            None,
+            None,
+            None,
+            None,
+            || [listener_observation::Observation::default(); 2],
+        )
+        .unwrap(),
+    )
+    .unwrap();
     assert!(json["listener_loss"]["metrics_stack_free_bytes"].is_null());
     assert_eq!(json["encoder_loss"]["metrics_stack_free_bytes"], 0);
 }
@@ -342,7 +401,16 @@ fn response_identity_and_exact_settings() {
                 pga_gain: 255,
             };
             let value: serde_json::Value = serde_json::from_slice(
-                &prepare_response(&cache, || 10, Some(identity), Some(settings), None).unwrap(),
+                &prepare_response(
+                    &cache,
+                    || 10,
+                    Some(identity),
+                    Some(settings),
+                    None,
+                    None,
+                    || [listener_observation::Observation::default(); 2],
+                )
+                .unwrap(),
             )
             .unwrap();
             assert_eq!(value["boot_token"], "ab".repeat(16));
@@ -356,7 +424,16 @@ fn response_identity_and_exact_settings() {
     }
     let unknown = device_metrics_identity::Identity::new([1; 16], None);
     let value: serde_json::Value = serde_json::from_slice(
-        &prepare_response(&cache, || 20, Some(unknown), None, None).unwrap(),
+        &prepare_response(
+            &cache,
+            || 20,
+            Some(unknown),
+            None,
+            None,
+            None,
+            || [listener_observation::Observation::default(); 2],
+        )
+        .unwrap(),
     )
     .unwrap();
     assert!(value["build_elf_sha256"].is_null());
@@ -388,6 +465,8 @@ fn served_clock_follows_snapshot_and_runs_without_cache_guard() {
         None,
         None,
         None,
+        None,
+        || [listener_observation::Observation::default(); 2],
     )
     .unwrap();
     let value: serde_json::Value = serde_json::from_slice(&body).unwrap();
@@ -409,9 +488,19 @@ fn served_clock_follows_snapshot_and_runs_without_cache_guard() {
 #[test]
 fn stage_and_completed_departure_families_start_null_and_keep_timestamps() {
     let cache = Cache::new();
-    let empty: serde_json::Value =
-        serde_json::from_slice(&prepare_response(&cache, || 20, None, None, None).unwrap())
-            .unwrap();
+    let empty: serde_json::Value = serde_json::from_slice(
+        &prepare_response(
+            &cache,
+            || 20,
+            None,
+            None,
+            None,
+            None,
+            || [listener_observation::Observation::default(); 2],
+        )
+        .unwrap(),
+    )
+    .unwrap();
     assert!(empty["media_progress"].is_null());
     assert!(empty["last_listener_departure"].is_null());
     let stage = project_media_progress(
@@ -426,9 +515,19 @@ fn stage_and_completed_departure_families_start_null_and_keep_timestamps() {
     assert!(cache.publish_media_progress(stage));
     assert!(cache.publish_last_listener_departure(project_departure(12, 0, None)));
     for served in [20, 30] {
-        let value: serde_json::Value =
-            serde_json::from_slice(&prepare_response(&cache, || served, None, None, None).unwrap())
-                .unwrap();
+        let value: serde_json::Value = serde_json::from_slice(
+            &prepare_response(
+                &cache,
+                || served,
+                None,
+                None,
+                None,
+                None,
+                || [listener_observation::Observation::default(); 2],
+            )
+            .unwrap(),
+        )
+        .unwrap();
         assert_eq!(value["media_progress"]["observed_device_us"], 10);
         assert_eq!(value["media_progress"]["health"], "healthy");
         for key in ["accepted", "raw", "encoded", "backlog_frames"] {
@@ -642,7 +741,16 @@ fn network_metadata_has_only_numeric_allowlist_and_unknown_is_null() {
             disconnects: u32::MAX,
         };
         let value: serde_json::Value = serde_json::from_slice(
-            &prepare_response(&cache, || 20, None, None, Some(network)).unwrap(),
+            &prepare_response(
+                &cache,
+                || 20,
+                None,
+                None,
+                Some(network),
+                None,
+                || [listener_observation::Observation::default(); 2],
+            )
+            .unwrap(),
         )
         .unwrap();
         assert_eq!(
@@ -650,8 +758,108 @@ fn network_metadata_has_only_numeric_allowlist_and_unknown_is_null() {
             serde_json::json!({"generation":u32::MAX,"connected":connected,"disconnects":u32::MAX})
         );
     }
-    let value: serde_json::Value =
-        serde_json::from_slice(&prepare_response(&cache, || 20, None, None, None).unwrap())
-            .unwrap();
+    let value: serde_json::Value = serde_json::from_slice(
+        &prepare_response(
+            &cache,
+            || 20,
+            None,
+            None,
+            None,
+            None,
+            || [listener_observation::Observation::default(); 2],
+        )
+        .unwrap(),
+    )
+    .unwrap();
     assert!(value["network"].is_null());
+}
+#[test]
+fn http_stack_watermark_preserves_missing_zero_and_maximum() {
+    let cache = Cache::new();
+    for watermark in [None, Some(0), Some(u32::MAX)] {
+        let body = prepare_response(
+            &cache,
+            || 1,
+            None,
+            None,
+            None,
+            watermark,
+            || [listener_observation::Observation::default(); 2],
+        )
+        .unwrap();
+        let value: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        assert_eq!(
+            value["http_stack_free_bytes"],
+            serde_json::to_value(watermark).unwrap()
+        );
+    }
+}
+#[test]
+fn response_observes_live_listener_progress_without_logging_owner_publication() {
+    let cache = Cache::new();
+    cache.publish_capture(maximal_capture());
+    let registry = listener_observation::Registry::new();
+    let owner = registry.register(1).unwrap();
+    owner.begin(10, 0);
+    let response = |now| {
+        serde_json::from_slice::<serde_json::Value>(
+            &prepare_response(
+                &cache,
+                || now,
+                None,
+                None,
+                None,
+                None,
+                || registry.sample(|| now),
+            )
+            .unwrap(),
+        )
+        .unwrap()
+    };
+    let first = response(20);
+    let second = response(40);
+    assert_eq!(first["capture"], second["capture"]);
+    assert_eq!(first["listeners"][0]["write_us"], 10);
+    assert_eq!(second["listeners"][0]["write_us"], 30);
+    assert_eq!(second["listeners"][0]["sample_us"], 40);
+    drop(owner);
+    let released = response(50);
+    assert_eq!(released["listeners"][0]["state"], "idle");
+    assert_eq!(released["capture"], first["capture"]);
+}
+#[test]
+fn response_samples_listeners_after_cache_unlock_before_served_clock() {
+    let cache = Cache::new();
+    let capture = maximal_capture();
+    cache.publish_capture(capture);
+    let registry = listener_observation::Registry::new();
+    let owner = registry.register(1).unwrap();
+    owner.begin(10, 0);
+    let sampled = std::cell::Cell::new(false);
+    let body = prepare_response(
+        &cache,
+        || {
+            assert!(sampled.get());
+            21
+        },
+        None,
+        None,
+        None,
+        None,
+        || {
+            // This real nonblocking publication fails if the response kept its cache guard.
+            let mut later = capture;
+            later.read_frames = 0;
+            assert!(cache.publish_capture(later));
+            let observations = registry.sample(|| 20);
+            sampled.set(true);
+            observations
+        },
+    )
+    .unwrap();
+    let value: serde_json::Value = serde_json::from_slice(&body).unwrap();
+    assert_eq!(value["served_device_us"], 21);
+    assert_eq!(value["listeners"][0]["sample_us"], 20);
+    assert_eq!(value["capture"]["read_frames"], u32::MAX);
+    assert_eq!(cache.snapshot().unwrap().capture.unwrap().read_frames, 0);
 }

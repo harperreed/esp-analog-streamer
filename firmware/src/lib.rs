@@ -65,6 +65,7 @@ pub fn run() -> Result<()> {
     listener_telemetry::EVENTS.initialize();
     encoder_telemetry::EVENTS.initialize();
     device_metrics::CACHE.initialize();
+    listener_observation::REGISTRY.initialize();
     // Raw frames feed WAV and one shared encoder; encoded frames hold the longer backlog.
     let (ring, stream_ring) = audio_in::spawn_capture(rx, store.clone())?;
     #[cfg(feature = "capture-fixture")]
@@ -103,6 +104,7 @@ mod device_metrics_identity;
 #[cfg(feature = "encoder-probe")]
 mod encoder_probe;
 mod encoder_telemetry;
+mod listener_observation;
 
 #[cfg(feature = "listener-frame-state")]
 mod listener_frame_state;

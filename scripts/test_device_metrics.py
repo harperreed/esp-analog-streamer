@@ -15,6 +15,7 @@ import device_metrics as dm
 def snapshot():
     return dict(schema_version=1, served_device_us=20_000_000, boot_token=None,
                 build_attestation=None, capture=None, encoder=None,
+                listeners=[dict(generation=0, state="unavailable", sample_us=0, media_age_us=None, write_us=None) for _ in range(2)],
                 listener_loss=dict(observed_device_us=20_000_000, dropped=0,
                                    loss_occurred=False, metrics_stack_free_bytes=None), encoder_loss=None)
 
@@ -34,6 +35,68 @@ def stage_snapshot():
                    block_samples=1152, media=dict(last_age_us=100, max_age_us=200, queue_frames_max=2)))
     value['network'] = dict(generation=5, connected=True, disconnects=0)
     return value
+
+
+class LiveListeners(unittest.TestCase):
+    def test_live_values_fixed_slots_and_independent_source_freshness(self):
+        item = snapshot()
+        item['listeners'] = [dict(generation=9, state='writing', sample_us=19_000_000, media_age_us=500_000, write_us=300_000),
+                             dict(generation=12, state='ready', sample_us=1_000_000, media_age_us=700_000, write_us=400_000)]
+        item['listeners'][0]['secret'] = {'peer': ['x' * 4096]}
+        cache = dm.Collector(stale=5); cache.accept(item, 10)
+        text = cache.render(11)
+        self.assertIn('device_listener_available{slot="1"} 1', text)
+        self.assertIn('device_listener_available{slot="2"} 0', text)
+        self.assertIn('device_listener_media_age_seconds{slot="1",state="writing"} 0.5', text)
+        self.assertNotIn('state="ready"', text)
+        item['listeners'][0]['media_age_us'] = 999
+        item['listeners'][0]['secret'] = 'peer'
+        self.assertIn('state="writing"} 0.5', cache.render(12))
+        self.assertNotIn('secret', repr(cache.value))
+        self.assertNotIn('generation=', text)
+        self.assertIn('device_listener_generation{slot="1"} 9', text)
+        self.assertNotIn('device_listener_write_seconds', cache.render(16))
+
+    def test_ready_does_not_extrapolate_and_idle_differs_from_unknown(self):
+        item = snapshot()
+        item['listeners'][0].update(generation=1, state='ready', sample_us=20_000_000, media_age_us=100, write_us=0)
+        item['listeners'][1].update(state='idle', sample_us=20_000_000)
+        cache = dm.Collector(); cache.accept(item, 10)
+        text = cache.render(12)
+        self.assertIn('device_listener_media_age_seconds{slot="1",state="ready"} 0.0001', text)
+        self.assertIn('device_listener_active{slot="2"} 0', text)
+        self.assertIn('device_listener_available{slot="2"} 1', text)
+        item['served_device_us'] += 1; item['listeners'][1]['state'] = 'unavailable'
+        cache.accept(item, 13)
+        self.assertIn('device_listener_available{slot="2"} 0', cache.render(13))
+        self.assertNotIn('device_listener_active{slot="2"}', cache.render(13))
+
+    def test_http_stack_watermark_is_optional_bounded_and_fresh(self):
+        for number in (None, 0, (1 << 32) - 1):
+            item = snapshot(); item['http_stack_free_bytes'] = number
+            cache = dm.Collector(); cache.accept(item, 10)
+            item['http_stack_free_bytes'] = 99
+            text = cache.render(10)
+            if number is None: self.assertNotIn('device_http_stack_free_bytes', text)
+            else: self.assertIn('device_http_stack_free_bytes ' + str(number), text)
+            self.assertNotIn('device_http_stack_free_bytes', cache.render(41))
+        for number in (True, -1, 1 << 32, '1'):
+            item = snapshot(); item['http_stack_free_bytes'] = number
+            with self.assertRaises(ValueError): dm.validate(item)
+
+    def test_invalid_listener_wire_rejected(self):
+        for mutation in [lambda v: v.pop('listeners'), lambda v: v['listeners'].pop(),
+                         lambda v: v.update(listeners={}),
+                         lambda v: v['listeners'].__setitem__(0, None),
+                         lambda v: v['listeners'][0].update(state='peer'),
+                         lambda v: v['listeners'][0].update(generation=True),
+                         lambda v: v['listeners'][0].update(generation=1 << 32),
+                         lambda v: v['listeners'][0].update(sample_us=20_000_001),
+                         lambda v: v['listeners'][0].update(media_age_us=0),
+                         lambda v: v['listeners'][0].update(state='writing', generation=1, write_us=0),
+                         lambda v: v['listeners'][0].update(state='ready', generation=1, write_us=0, media_age_us=-1)]:
+            item = snapshot(); mutation(item)
+            with self.subTest(item=item), self.assertRaises(ValueError): dm.validate(item)
 
 
 class Validation(unittest.TestCase):
@@ -270,9 +333,22 @@ class Exporter(unittest.TestCase):
         self.assertEqual(client.getresponse().status, 200)
         self.assertLess(time.monotonic() - start, .6)
 
+    def test_oversize_exporter_response_is_503(self):
+        class OversizedCollector(dm.Collector):
+            def render(self, now):
+                return super().render(now) + '# ' + 'x' * 12288 + '\n'
+        cache = OversizedCollector(); cache.accept(snapshot(), time.monotonic())
+        server = dm.MetricsServer(cache, 0)
+        worker = threading.Thread(target=server.serve_forever); worker.start()
+        self.addCleanup(server.server_close); self.addCleanup(worker.join); self.addCleanup(server.shutdown)
+        client = http.client.HTTPConnection(*server.server_address, timeout=.5); self.addCleanup(client.close)
+        client.request('GET', '/metrics')
+        self.assertEqual(client.getresponse().status, 503)
+
     def test_maximum_prometheus_response(self):
         item = snapshot(); maximum = (1 << 64) - 1
         item['served_device_us'] = maximum
+        item['http_stack_free_bytes'] = (1 << 32) - 1
         item['capture'] = dict.fromkeys(('read_frames callbacks queue_overflows software_dropped_frames read_errors restarts supervisor_restarts overflow_restarts settling_discarded_frames discontinuities health_restart_requests read_service_delay_estimate_max_us raw_work_max_us meter_work_max_us store_work_max_us raw_read_max_us').split(), (1 << 32) - 1)
         item['capture'].update(dict.fromkeys('internal_free internal_largest internal_min_sum psram_free psram_largest psram_min_sum'.split(), maximum))
         item['capture'].update(capture_begin_us=maximum - 1, capture_end_us=maximum)
@@ -294,15 +370,16 @@ class Exporter(unittest.TestCase):
         departure['stats']['task_runtime_us'] = (1 << 32) - 1
         departure['stats']['media'] = dict(last_age_us=maximum, max_age_us=maximum, queue_frames_max=maximum)
         item.update(media_progress=progress, last_listener_departure=departure, network=dict(generation=(1 << 32) - 1, connected=True, disconnects=(1 << 32) - 1))
+        item['listeners'] = [dict(generation=(1 << 32) - 1, state=state, sample_us=maximum, media_age_us=maximum, write_us=maximum) for state in ('writing', 'ready')]
         cache = dm.Collector(); cache.accept(item, time.monotonic() - .123456789)
-        self.assertLessEqual(len(cache.render(time.monotonic()).encode()), 8192)
+        self.assertLessEqual(len(cache.render(time.monotonic()).encode()), 12288)
         server = dm.MetricsServer(cache, 0)
         worker = threading.Thread(target=server.serve_forever); worker.start()
         self.addCleanup(server.server_close); self.addCleanup(worker.join); self.addCleanup(server.shutdown)
         client = http.client.HTTPConnection(*server.server_address, timeout=.5); self.addCleanup(client.close)
         client.request('GET', '/metrics'); response = client.getresponse(); body = response.read()
         self.assertEqual(response.status, 200)
-        self.assertGreater(len(body), 4096); self.assertLessEqual(len(body), 8192)
+        self.assertGreater(len(body), 4096); self.assertLessEqual(len(body), 12288)
 
     def test_identity_whitelist_missing_and_stale(self):
         cache = dm.Collector(stale=.1, device_id='line-in')

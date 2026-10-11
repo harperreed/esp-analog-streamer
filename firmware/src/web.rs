@@ -22,7 +22,8 @@ mod device {
     /// Keep the returned server alive: dropping it stops serving.
     pub fn start(store: SharedStore, sonos: Handle) -> Result<EspHttpServer<'static>> {
         // Handlers run on httpd's task: 10 KiB of stack, above the 6 KiB default, as headroom.
-        // Nobody has measured the high-water mark. The JSON body grows on the heap, not the stack.
+        // Metrics requests sample the HTTP owner's historical stack watermark.
+        // The JSON body grows on the heap.
         let mut server = EspHttpServer::new(&Configuration {
             stack_size: 10 * 1024,
             ..Default::default()
@@ -82,12 +83,23 @@ mod device {
         server.fn_handler::<anyhow::Error, _>("/api/metrics", Method::Get, move |request| {
             let settings = metrics.metrics_settings();
             let network = metrics.metrics_network();
+            // Metadata guards have ended. NULL measures this HTTP owner in bytes.
+            // This historical watermark precedes this response write; later requests
+            // include earlier writes, rather than predicting the current peak.
+            let http_stack_free_bytes = Some(unsafe {
+                esp_idf_svc::sys::uxTaskGetStackHighWaterMark(std::ptr::null_mut())
+            });
             let prepared = crate::device_metrics::prepare_response(
                 &crate::device_metrics::CACHE,
                 || unsafe { esp_idf_svc::sys::esp_timer_get_time() } as u64,
                 crate::device_metrics_identity::IDENTITY.get().copied(),
                 settings,
                 network,
+                http_stack_free_bytes,
+                || {
+                    crate::listener_observation::REGISTRY
+                        .sample(|| unsafe { esp_idf_svc::sys::esp_timer_get_time() } as u64)
+                },
             );
             let (status, reason, body) = match &prepared {
                 Ok(body) => (200, "OK", body.as_slice()),

@@ -1002,3 +1002,9 @@ publication count can exceed the earlier accepted count without corruption.
 Validate each receipt's own provenance; do not reject the whole metrics response
 using a cross-read equality or ordering assumption. Backlog also needs matching
 operator epochs, because recovery retains the last actual encoded receipt.
+
+Live listener observations must not depend on the logging owner's cache refresh.
+An October 11 trial kept HTTP fresh while that owner had a 54-second acquisition
+gap. Copy the bounded listener registry after HTTP metadata/cache guards end,
+then record served time. Cached capture/encoder families still need independent
+freshness; a rendered historical graph is not a current-health assertion.

@@ -660,6 +660,14 @@ impl CompressedListener {
             Phase::End => panic!("listener stepped after termination"),
         }
     }
+    pub(crate) fn pending_oldest_accepted_us(&self) -> Option<u64> {
+        match self.phase {
+            Phase::Write { header: false, .. } => {
+                self.pending_source.map(|source| source.oldest_accepted_us)
+            }
+            _ => None,
+        }
+    }
     pub(crate) fn write_bytes<'a>(&'a self, scratch: &'a [u8]) -> &'a [u8] {
         match self.phase {
             Phase::Write { header: true, .. } => &self.header,

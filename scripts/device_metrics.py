@@ -31,16 +31,16 @@ WINDOW_U64 = ('window_start_us window_end_us telemetry_epoch telemetry_window en
               'encode_max_us raw_read_frames raw_read_overruns raw_read_retries encode_wall_total_us '
               'raw_wait_total_us raw_wait_max_us encoded_lock_wait_wall_total_us encoded_push_held_wall_total_us').split()
 CAPTURE_METRICS = {
-    'read_frames': ('read_pcm_frames', 'I2S read PCM frames; raw wrapping u32 count.'),
-    'queue_overflows': ('queue_overflows', 'Raw wrapping queue overflow count.'),
-    'software_dropped_frames': ('software_dropped_pcm_frames', 'Raw wrapping software dropped PCM frame count.'),
-    'read_errors': ('read_errors', 'Raw wrapping read error count.'),
-    'restarts': ('restarts', 'Raw wrapping capture restart count.'),
-    'internal_free': ('internal_free_bytes', 'Internal heap free bytes sampled after counters.'),
-    'internal_largest': ('internal_largest_bytes', 'Largest internal heap free block bytes.'),
-    'internal_min_sum': ('internal_minimum_sum_bytes', 'Sum of independent internal heap region lows; not simultaneous free bytes.'),
-    'psram_min_sum': ('psram_minimum_sum_bytes', 'Sum of independent PSRAM region lows; not simultaneous free bytes.'),
-    'psram_free': ('psram_free_bytes', 'PSRAM free bytes sampled after counters.'),
+    'read_frames': ('read_pcm_frames', 'I2S PCM frames; wrapping u32.'),
+    'queue_overflows': ('queue_overflows', 'Queue overflows; wrapping u32.'),
+    'software_dropped_frames': ('software_dropped_pcm_frames', 'Dropped PCM frames; wrapping u32.'),
+    'read_errors': ('read_errors', 'Read errors; wrapping u32.'),
+    'restarts': ('restarts', 'Restarts; wrapping u32.'),
+    'internal_free': ('internal_free_bytes', 'Internal heap free bytes.'),
+    'internal_largest': ('internal_largest_bytes', 'Largest internal free block.'),
+    'internal_min_sum': ('internal_minimum_sum_bytes', 'Independent internal region lows summed.'),
+    'psram_min_sum': ('psram_minimum_sum_bytes', 'Independent PSRAM region lows summed.'),
+    'psram_free': ('psram_free_bytes', 'PSRAM free bytes.'),
 }
 
 
@@ -125,7 +125,26 @@ def validate(value):
         if network is not None:
             if type(network) is not dict: raise ValueError('invalid network metadata')
             fields(network, ['generation', 'disconnects'], (1 << 32) - 1); boolean(network['connected'])
+        if value.get('http_stack_free_bytes') is not None:
+            integer(value['http_stack_free_bytes'], (1 << 32) - 1)
         served = value['served_device_us']
+        listeners = value['listeners']
+        if type(listeners) is not list or len(listeners) != 2:
+            raise ValueError('invalid listener slots')
+        for item in listeners:
+            if type(item) is not dict: raise ValueError('invalid listener observation')
+            integer(item['generation'], (1 << 32) - 1); integer(item['sample_us'])
+            state = item['state']
+            if state not in ('unavailable', 'idle', 'waiting', 'writing', 'ready'):
+                raise ValueError('invalid listener state')
+            if item['sample_us'] > served: raise ValueError('invalid listener timestamp')
+            if state in ('writing', 'ready'):
+                if item['generation'] == 0: raise ValueError('invalid active generation')
+                integer(item['media_age_us']); integer(item['write_us'])
+            elif item['media_age_us'] is not None or item['write_us'] is not None:
+                raise ValueError('invalid inactive listener values')
+            if state == 'waiting' and item['generation'] == 0:
+                raise ValueError('invalid active generation')
         for family in FAMILIES:
             item = value.get(family) if family in ('media_progress', 'last_listener_departure') else value[family]
             if item is None: continue
@@ -215,7 +234,8 @@ class Collector:
 
     def accept(self, value, now):
         validate(value)
-        owned = {key: value.get(key) for key in ('schema_version', 'served_device_us', 'boot_token', 'build_elf_sha256')}
+        owned = {key: value.get(key) for key in ('schema_version', 'served_device_us', 'boot_token', 'build_elf_sha256', 'http_stack_free_bytes')}
+        owned['listeners'] = [{key: item[key] for key in ('generation', 'state', 'sample_us', 'media_age_us', 'write_us')} for item in value['listeners']]
         owned['network'] = None if value.get('network') is None else {key: value['network'][key] for key in NETWORK}
         owned['settings'] = None if value.get('settings') is None else dict(value['settings'])
         for family in FAMILIES:
@@ -258,21 +278,39 @@ class Collector:
     def render(self, now):
         with self.lock: value, received = self.value, self.received
         output = []
-        def gauge(name, help_text, number, family=None, kind=None):
+        def gauge(name, help_text, number, family=None, kind=None, slot=None, state=None):
             if not any(line.startswith('# TYPE ' + name + ' ') for line in output):
-                output.extend([f'# HELP {name} {help_text}', f'# TYPE {name} gauge'])
+                output.append(f'# HELP {name} {help_text}')
+                output.append(f'# TYPE {name} gauge')
             label = '' if family is None else '{family="' + family + '"}'
             if kind is not None: label = '{kind="' + kind + '"}'
+            if slot is not None: label = '{slot="' + slot + '"' + (',state="' + state + '"' if state else '') + '}'
             output.append(f'{name}{label} {number}')
         host_age = None if received is None else max(0, now - received)
         available = host_age is not None and host_age <= self.stale
-        gauge('device_metrics_response_available', 'Validated response within host freshness limit.', int(available))
-        if host_age is not None: gauge('device_metrics_response_age_seconds', 'Host monotonic age of last validated response.', host_age)
+        gauge('device_metrics_response_available', 'Validated response fresh.', int(available))
+        if host_age is not None: gauge('device_metrics_response_age_seconds', 'Validated response host age.', host_age)
         for kind, key in [('boot', 'boot_token'), ('build', 'build_elf_sha256'), ('settings', 'settings')]:
-            gauge('device_metrics_identity_available', 'Identity metadata present within response freshness limit.', int(available and value.get(key) is not None), kind=kind)
+            gauge('device_metrics_identity_available', 'Fresh identity metadata present.', int(available and value.get(key) is not None), kind=kind)
         if available and value.get('network') is not None:
             for key, help_text in [('generation', 'Network generation; not disconnect count.'), ('connected', 'Network connection flag.'), ('disconnects', 'Raw wrapping u32 disconnect count.')]:
                 gauge('device_network_' + key, help_text, int(value['network'][key]))
+        if available and value.get('http_stack_free_bytes') is not None:
+            gauge('device_http_stack_free_bytes', 'HTTP task stack free watermark bytes.', value['http_stack_free_bytes'])
+        for index in range(2):
+            slot = str(index + 1)
+            item = None if value is None else value['listeners'][index]
+            age = None if item is None else (value['served_device_us'] - item['sample_us']) / 1e6 + host_age
+            fresh = available and item is not None and item['state'] != 'unavailable' and age <= self.stale
+            gauge('device_listener_available', 'Fresh known slot observation.', int(fresh), slot=slot)
+            if age is not None: gauge('device_listener_sample_age_seconds', 'Source sample age plus host time.', age, slot=slot)
+            if not fresh: continue
+            active = item['state'] != 'idle'
+            gauge('device_listener_active', 'Slot occupied; zero means idle.', int(active), slot=slot)
+            if active: gauge('device_listener_generation', 'Slot generation; no derivatives.', item['generation'], slot=slot)
+            if item['state'] in ('writing', 'ready'):
+                gauge('device_listener_media_age_seconds', 'Writing sampled; ready recorded age.', item['media_age_us'] / 1e6, slot=slot, state=item['state'])
+                gauge('device_listener_write_seconds', 'Payload write wall time.', item['write_us'] / 1e6, slot=slot, state=item['state'])
         for family in FAMILIES:
             item = None if value is None else value[family]
             age = None
@@ -281,47 +319,47 @@ class Collector:
                        ('window_end_us' if item.get('kind') == 'window' else 'event_us') if family == 'encoder' else 'observed_device_us')
                 age = (value['served_device_us'] - item[key]) / 1e6 + host_age
             fresh = available and age is not None and age <= self.stale
-            gauge('device_metrics_family_available', 'Source observation and response within freshness limit.', int(fresh), family)
-            if age is not None: gauge('device_metrics_family_age_seconds', 'Source acquisition age plus elapsed host time.', age, family)
+            gauge('device_metrics_family_available', 'Source and response fresh.', int(fresh), family)
+            if age is not None: gauge('device_metrics_family_age_seconds', 'Source age plus host time.', age, family)
             if not fresh: continue
             if family == 'capture':
                 for key, (suffix, help_text) in CAPTURE_METRICS.items(): gauge('device_capture_' + suffix, help_text, item[key])
             elif family == 'encoder' and item['kind'] == 'window':
-                gauge('device_encoder_window_codec_frames', 'Codec frames encoded in this window.', item['encoded_frames'])
-                gauge('device_encoder_window_seconds', 'Encoder observation window duration.', (item['window_end_us'] - item['window_start_us']) / 1e6)
-                gauge('device_encoder_encode_max_seconds', 'Maximum encode duration in window.', item['encode_max_us'] / 1e6)
-                for key, suffix, help_text in [('raw_read_frames', 'window_raw_pcm_frames', 'PCM frames read from raw ring in window.'), ('raw_read_overruns', 'window_raw_overruns', 'Raw ring overruns in window.'), ('resets', 'window_resets', 'Encoder resets in window.')]:
+                gauge('device_encoder_window_codec_frames', 'Window codec frames.', item['encoded_frames'])
+                gauge('device_encoder_window_seconds', 'Encoder window duration.', (item['window_end_us'] - item['window_start_us']) / 1e6)
+                gauge('device_encoder_encode_max_seconds', 'Window max encode time.', item['encode_max_us'] / 1e6)
+                for key, suffix, help_text in [('raw_read_frames', 'window_raw_pcm_frames', 'Window raw PCM frames.'), ('raw_read_overruns', 'window_raw_overruns', 'Window raw overruns.'), ('resets', 'window_resets', 'Window encoder resets.')]:
                     gauge('device_encoder_' + suffix, help_text, item[key])
                 if item['stack_free_bytes'] is not None:
-                    gauge('device_encoder_stack_free_bytes', 'Measured encoder stack free watermark bytes in window.', item['stack_free_bytes'])
-                gauge('device_encoder_runtime_valid', 'Whether charged task runtime is measured.', int(item['runtime_valid']))
-                if item['task_runtime_us'] is not None: gauge('device_encoder_task_runtime_seconds', 'Window charged task runtime including interrupts.', item['task_runtime_us'] / 1e6)
+                    gauge('device_encoder_stack_free_bytes', 'Encoder stack free watermark.', item['stack_free_bytes'])
+                gauge('device_encoder_runtime_valid', 'Task runtime measured.', int(item['runtime_valid']))
+                if item['task_runtime_us'] is not None: gauge('device_encoder_task_runtime_seconds', 'Window task runtime incl interrupts.', item['task_runtime_us'] / 1e6)
             elif family == 'media_progress':
                 def source_fresh(timestamp):
                     return timestamp is not None and (value['served_device_us'] - timestamp) / 1e6 + host_age <= self.stale
                 accepted, raw, encoded = (item[name] for name in ('accepted', 'raw', 'encoded'))
                 if accepted is not None and source_fresh(accepted['observed_device_us']):
-                    gauge('device_media_accepted_pcm_frames', 'Accepted PCM frame count in source generation.', accepted['frames'])
+                    gauge('device_media_accepted_pcm_frames', 'Generation accepted PCM frames.', accepted['frames'])
                 raw_fresh = raw is not None and source_fresh(raw['publication_device_us'])
-                if raw_fresh: gauge('device_media_published_pcm_frames', 'Committed raw PCM frames in source generation.', raw['committed_frames'])
+                if raw_fresh: gauge('device_media_published_pcm_frames', 'Generation committed PCM frames.', raw['committed_frames'])
                 encoded_fresh = encoded is not None and source_fresh(encoded['production_device_us']) and encoded['operator_epoch'] == item['operator_epoch'] and raw is not None and encoded['raw_generation'] == raw['generation']
                 if encoded_fresh:
-                    gauge('device_media_encoded_sequence', 'Latest encoded frame sequence in generation.', encoded['sequence'])
-                    gauge('device_media_encoded_age_seconds', 'Latest encoded production age.', (value['served_device_us'] - encoded['production_device_us']) / 1e6 + host_age)
+                    gauge('device_media_encoded_sequence', 'Generation encoded sequence.', encoded['sequence'])
+                    gauge('device_media_encoded_age_seconds', 'Encoded production age.', (value['served_device_us'] - encoded['production_device_us']) / 1e6 + host_age)
                 if item['backlog_frames'] is not None and raw_fresh and encoded_fresh:
-                    gauge('device_media_backlog_pcm_frames', 'Raw committed minus encoded source-end PCM frames in matching generations.', item['backlog_frames'])
+                    gauge('device_media_backlog_pcm_frames', 'Matching raw minus encoded PCM frames.', item['backlog_frames'])
             elif family == 'last_listener_departure':
-                gauge('device_last_listener_stack_free_bytes', 'Last completed listener stack free watermark bytes; not live.', item['listener_stack_free_bytes'])
+                gauge('device_last_listener_stack_free_bytes', 'Completed listener stack free watermark.', item['listener_stack_free_bytes'])
                 stats = item['stats']
                 if stats is not None:
-                    gauge('device_last_listener_bytes_sent', 'Bytes sent by last completed listener; not live.', stats['bytes_sent'])
-                    gauge('device_last_listener_frame_write_max_seconds', 'Last completed listener maximum frame write duration.', stats['frame_write_wall_max_us'] / 1e6)
-                    if stats['media'] is not None: gauge('device_last_listener_media_age_seconds', 'Last completed listener last frame media age; not live.', stats['media']['last_age_us'] / 1e6)
+                    gauge('device_last_listener_bytes_sent', 'Completed listener bytes sent.', stats['bytes_sent'])
+                    gauge('device_last_listener_frame_write_max_seconds', 'Completed listener max frame write time.', stats['frame_write_wall_max_us'] / 1e6)
+                    if stats['media'] is not None: gauge('device_last_listener_media_age_seconds', 'Completed listener recorded media age.', stats['media']['last_age_us'] / 1e6)
             elif family.endswith('_loss'):
                 if item['metrics_stack_free_bytes'] is not None:
-                    gauge('device_metrics_owner_stack_free_bytes', 'Measured metrics owner stack free watermark bytes at loss receipt.', item['metrics_stack_free_bytes'], family)
-                gauge('device_telemetry_dropped', 'Raw wrapping queue drop count; receipt observation.', item['dropped'], family)
-                gauge('device_telemetry_loss_occurred', 'Whether queue receipt reports loss.', int(item['loss_occurred']), family)
+                    gauge('device_metrics_owner_stack_free_bytes', 'Loss owner stack free watermark.', item['metrics_stack_free_bytes'], family)
+                gauge('device_telemetry_dropped', 'Receipt queue drops; wrapping u32.', item['dropped'], family)
+                gauge('device_telemetry_loss_occurred', 'Receipt reports loss.', int(item['loss_occurred']), family)
         return '\n'.join(output) + '\n'
 
 
@@ -343,7 +381,7 @@ class MetricsHandler(BaseHTTPRequestHandler):
         if self.path == '/metrics':
             body = self.server.cache.render(time.monotonic()).encode('ascii')
             content_type = 'text/plain; version=0.0.4'
-            limit = 8192
+            limit = 12288
         elif self.path == '/identity':
             body = json.dumps(self.server.cache.identity(time.monotonic()), allow_nan=False).encode('ascii')
             content_type = 'application/json'
