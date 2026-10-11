@@ -1,5 +1,15 @@
 # Gotchas
 
+The October 10 matched MP3 link test restored live encoder keep-up by placing
+Shine C instructions/literals in IRAM: flash control ran at 0.725x with raw loss;
+IRAM kept up with zero/one/two listeners and no added capture faults. The normal
+build produces the exact tested ELF. Cargo bundles C objects inside the MP3
+rlib, so selecting the standalone C archive in a linker script does nothing.
+Keep tables and Rust wrapper placement unchanged. This is a bounded placement
+correction, not proof of a specific cache cause or long-term transport health;
+joint delivery still measured about 98.9% of real time. See mp3-instruction-placement
+evidence before repeating the resolved input/placement investigation.
+
 Doctor Biz flagged prolonged work without fewer open Katas. Finish tickets
 against their original acceptance criteria; do not let extra diagnostic gates
 or unrelated audio failures keep completed work open. Reconcile implementation

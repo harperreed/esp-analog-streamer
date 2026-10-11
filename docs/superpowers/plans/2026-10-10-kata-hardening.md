@@ -2,8 +2,10 @@
 
 Doctor Biz's active goal on October 10: finish all Kata work, then assess.
 Base c134069 on wip/kata-capture-protection. Compactions in this phase: 20.
-Latest checkpoint: original-criteria review closed 8s9m, 21tp and 89g8;
-26 Katas remain open. Failed device audio trials remain failed.
+Latest checkpoint: original-criteria review closed 8s9m, 21tp and 89g8.
+The wbz6 MP3 instruction-placement correction now passes matched hardware and
+all 27 canonical stages; its ordinary ELF equals the tested candidate exactly.
+Prior failed device audio trials remain failed.
 Use GPT-6.1 Sol subagents with clean contexts. Parent owns review, integration,
 canonical checks, commits and every hardware action. Continue through batches;
 a phase checkpoint is not a reason to abandon the active goal.
@@ -14,9 +16,23 @@ Doctor Biz corrected prolonged work without a decreasing open count. The
 [closure review](../../audit-evidence/2026-10-10/kata-closure-review.md) supersedes
 later-added closure gates in the historical checkpoints below. Admission,
 logging isolation and replay are closed with evidence. Do not repeat admission
-resource experiments merely to close 8s9m. Dashboard implementation and the MP3
-instruction-placement experiment have not started and are on hold. Pick the
-next bounded action from an open ticket's missing original criterion.
+resource experiments merely to close 8s9m. Dashboard implementation remains
+on hold. The MP3 placement experiment was selected to satisfy wbz6's original
+bounded-correction criterion and is complete below. Pick each next bounded
+action from an open ticket's missing original criterion.
+
+The bounded wbz6 comparison is complete. Its flash control lost raw audio at
+0.725x; the IRAM candidate kept up under zero, one and two listeners with no raw
+loss or added active capture faults. Both receivers remained connected through
+59.824 seconds of overlap with exact saved-prefix sample counts. The durable
+build change passes canonical run.WKEIQEGi and produces the identical tested
+ELF bd8392cd041355bfd7a7fbd9b9eded48d741cf4e70600a2595293a4bec755490.
+The current installed image remains stopped MP3/Medium, recognition/autoplay off.
+No source or UART owner remains. Do not reopen the input-repetition or placement
+experiment merely because transport/recovery work remains. The next d2cb action
+is its original matched observer-overhead comparison on the corrected build;
+candidate joint delivery of about 98.9% still needs the transport gates. Full
+evidence: `docs/audit-evidence/2026-10-10/mp3-instruction-placement.md`.
 
 A Kata closes only when its actual acceptance criteria have evidence. Keep
 hardware acceptance and implementation separate. Do not close an epic just
