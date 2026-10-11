@@ -1,5 +1,17 @@
 # Capture publication isolation
 
+October 11 scope reconciliation: dp08's original reader-isolation acceptance is
+complete. The delayed-reader controls, three-cycle TLS setup, protocol tests,
+canonical checks and cost measurements below provide the evidence. Independent
+review confirmed this closure against the original ticket. The historical
+decision below incorrectly made full transport health an additional closure gate.
+All failed run verdicts remain unchanged. Separate startup/TLS DMA servicing
+failures remain open in 93hm, including the later initial Sonos TLS recurrence
+in [buffer-presets.md](buffer-presets.md). TCP delivery remains pd6c; this closure
+does not establish release readiness.
+
+Historical October 8 conclusion:
+
 The shared-ring implementation and host checks passed, but full hardware
 acceptance failed. Kata dp08 remains open. Production firmware and saved
 configuration are restored. The final two-listener failure below prevents a
