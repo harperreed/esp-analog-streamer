@@ -7,6 +7,13 @@ verdicts even when most cases pass. The first trial's full UART has 12 encoder
 overruns; its last periodic summary alone undercounts the tail. See the saved
 concurrent-admission-device evidence before retrying or assigning a cause.
 
+The matched admission-resource boots also failed compressed playback before
+their pending-head phase. UART listener receipts say the encoded-ring generation
+changed after encoder overruns; they do not identify the overrun's root cause.
+Ten-second task snapshots missed the brief live listener overlap. Separate
+admission-only evidence from combined-load acceptance instead of repeating a
+sequence whose known audio failure prevents the intended measurement.
+
 The October 10 listener frame-state diagnostic captured 174 Ready observations
 inside payload-write brackets, including 96 at observed ages >=100 ms. Ready
 includes sampler preemption; these counts cannot measure runnable wait time.

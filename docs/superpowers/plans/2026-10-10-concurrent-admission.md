@@ -10,7 +10,7 @@
 
 **Spec:** `target/kata-hardening/admission-resume.md`, with ownership details in `target/kata-hardening/admission-policy-decisions.md`. This tracked plan includes the binding decisions because those supporting audit artifacts are ignored.
 
-**State:** Tasks 1–2 implemented and independently reviewed; all 27 canonical stages pass. Two actual device trials failed; partial request successes do not clear Task 3. The default-off resource diagnostic passes source and linked review and builds, but live resource acceptance remains pending. Existing finish-all authorization covers implementation; no additional architecture permission gate. Compaction count: 1.
+**State:** Tasks 1–2 implemented and independently reviewed; all 27 canonical stages pass. Two request trials and both matched resource workloads failed audio. Partial idle/cleanup resource observations are retained; Task 3 remains open. Existing finish-all authorization covers implementation; no additional architecture permission gate. Compaction count: 1.
 
 ## Global Constraints
 
@@ -113,3 +113,21 @@ the feature build and independent source/linked reviews pass. Six receipt-parser
 tests pass. These checks do not establish live resource margins. Next: matched
 one-/two-worker resource measurements, preserving audio failure gates and the
 unmeasured TLS overlap and whole-device socket-census limits.
+
+Matched resource acquisition: each diagnostic ran once with one owned 150-second
+UART boot and 14 valid resource samples. Both workloads failed when stream 1
+terminated: the one-worker control was still acquiring stream 2; the two-worker
+image drained both for about 2.5 seconds. Neither reached pending-head load or
+TLS overlap. All owned sockets closed; final settings checks passed, with no
+cleanup errors or signals. The frozen default two-worker image was restored
+successfully afterward; no UART or source-player owner remains.
+
+Warm idle snapshots show 4,868–4,880 fewer free internal bytes with two workers;
+this is one pair of different linked images, not an exact allocation cost.
+Sampled task counts were 19 versus 20 throughout, missing the short live-stream
+interval. Historical unused admission stack minima were 1,664 bytes (one), and
+1,664/1,672 bytes (two); metrics minima were 1,084/1,100. These are observations,
+not worst-case bounds. One query's elapsed interval was 231,388 microseconds;
+preemption can contribute, so it is not measured scanning CPU cost. Full UARTs
+contain 13/12 encoder Overrun boundaries. The memory evidence does not clear
+the audio, concurrent-load, TLS or failure-injection gates.

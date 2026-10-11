@@ -829,8 +829,27 @@ with saved/active MP3, Medium, stopped playback and recognition/autoplay off.
 
 The default-off permanent-worker resource diagnostic passed all 27 canonical
 stages in run.uBzY2Yyr, an explicit feature build, source review and linked-code
-review. Its two-worker image remains unflashed. Next measure matched worker
-variants with bounded idle/stream workloads; TLS overlap and failure injection
+review. At that checkpoint its two-worker image was unflashed; the matched
+idle/stream measurements follow below. TLS overlap and failure injection
 remain separate outstanding gates. No blind request-suite rerun follows the
 header-only failure. Root-session replacement is unavailable; this checkpoint
 and fresh Sol 6.1 workers preserve continuity without claiming completion.
+
+Matched one-/two-worker resource runs are now complete and both failed audio.
+Each retained 14 samples and a 150-second UART boot; neither reached the
+pending-head workload. Idle free internal RAM differed by about 4.9 KB; sampled
+task counts were 19/20, and cleanup retained no owned sockets. Historical stack
+watermarks and query timing are partial observations, not full resource safety.
+The default two-worker image 01d2607f71524fc7b980fc37cc3516aa1f0e987f5ea0352bd2f3dca7bf113f04
+was restored, settings verified, and all process/UART owners reaped. Preserve
+both failed verdicts and review the evidence before selecting the next bounded
+diagnosis; do not automatically repeat either workload.
+
+Next bounded host work: collect pending-head resource evidence in a separate
+phase before compressed streams, since known generation resets prevented the
+existing sequence from reaching that phase. Keep combined-load and aggregate
+failure verdicts intact; a pending-only pass cannot clear audio or TLS gates.
+Test phase receipts and cleanup with real socket behavior before any new device
+run. The live-versus-isolated MP3 cost discrepancy still needs a discriminating
+cause; neither these resource results nor the completed input-repetition check
+justifies changing priorities, codec settings or buffers.
