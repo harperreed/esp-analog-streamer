@@ -216,6 +216,15 @@ class Trial:
         require(self.api('/api/state')['shazam_enabled'] is False, 'recognition must be off')
         return status
 
+    def discover(self):
+        require(self.action('discover').get('accepted') is True, 'board rejected discovery')
+        # A queued action can still report stopped; observe the worker before completion.
+        self.wait(lambda status: status['state'] == 'discovering')
+        status = self.wait(lambda status: status['state'] == 'stopped')
+        self.attest()
+        require(status['config'] == self.before['config'], 'configuration changed during discovery')
+        self.before = status
+
     def identify(self):
         selected = self.before['config']['player_id']
         groups = [row for row in self.before['groups'] if row['player_id'] == selected and row['is_leader']]
@@ -289,8 +298,14 @@ class Trial:
         self.coordinator()
         confirmed_cleanup_uri(self.owned_uri, self.soap('GetMediaInfo')['CurrentURI'])
         self.action('stop')
-        self.wait(lambda status: status['state'] == 'stopped', 15)
-        require(self.soap('GetTransportInfo')['CurrentTransportState'] == 'STOPPED', 'Sonos did not stop')
+        def stopped(status):
+            # Local intent revocation can precede the worker's remote SOAP Stop.
+            self.attest()
+            self.coordinator()
+            confirmed_cleanup_uri(self.owned_uri, self.soap('GetMediaInfo')['CurrentURI'])
+            transport = self.soap('GetTransportInfo')['CurrentTransportState']
+            return status['state'] == 'stopped' and transport == 'STOPPED'
+        self.wait(stopped, 15)
         self.play_sent = False
         self.owned_uri = None
 
@@ -332,6 +347,7 @@ class Trial:
                     raise
                 time.sleep(.5)
         require(self.before['config'] == pre_open['config'], 'configuration changed across UART open')
+        self.discover()
         self.result['before'] = self.before
         self.result['identity'] = dict(image=self.image, boot=self.boot)
         self.identify()

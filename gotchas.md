@@ -1,5 +1,18 @@
 # Gotchas
 
+Doctor Biz approved checked Stop and hardware playback testing on October 11:
+"proceed with board tests. you can play sonos, etc". Do not ask again for that
+choice or routine Sonos playback tests. The check/Stop source-switch race remains
+documented; this does not authorize blind automatic Play or SetURI after loss.
+Use the front headphone jack source, leave mixer/volume settings alone, and
+restore stopped MP3/Medium with autoplay and recognition off.
+
+The Sonos board API can report Stopped when intent revocation occurs, before
+the worker completes its checked remote Stop. Hardware gates must poll the
+same speaker/URI until remote STOPPED, with a bounded deadline, rather than
+asserting remote completion after the first local Stopped response. Re-discover
+selected groups after UART open resets the board. See sonos-http-board evidence.
+
 Report wmsy as the parent audit, with child progress and the central outcome
 separately. Doctor Biz flagged that an open epic looked unstarted: on October
 11 it had 21 closed children and 17 open children; the project-wide 18 open

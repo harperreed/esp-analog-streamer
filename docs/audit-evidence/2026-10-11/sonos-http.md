@@ -1,5 +1,10 @@
 # Sonos HTTP control candidate
 
+This records candidate preparation before deployment. Doctor Biz subsequently
+authorized checked Stop and real tests; see [board acceptance](sonos-http-board.md)
+for the installed image, passing both-codec playback and failed coexistence gate.
+The pending-choice and unflashed statements below describe the earlier phase.
+
 Doctor Biz selected HTTP/UPnP control on October 11, superseding the proposed
 Sonos TLS allocator experiment. This candidate uses the existing standalone
 controller and settings with peer-bound HTTP AVTransport commands. It preserves

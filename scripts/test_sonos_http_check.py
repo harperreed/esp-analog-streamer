@@ -7,9 +7,118 @@ import subprocess
 import sys
 import tempfile
 import json
+import threading
+from contextlib import contextmanager
+from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 from types import SimpleNamespace
 from sonos_http_check import stream_identity, payload_receipt, same_peer, verify_attestation, cleanup_attempt, confirmed_cleanup_uri, stop_owned_source, Trial, confirmed_observation_uri
+
+
+@contextmanager
+def discovery_protocol_fixture(root, rows, config):
+    # Exercise production HTTP parsing/guards using loopback protocol fixtures.
+    image = root / 'image.elf'
+    image.write_bytes(b'host discovery protocol fixture')
+    calls = []
+    class Handler(BaseHTTPRequestHandler):
+        def do_GET(self):
+            calls.append(('GET', self.path))
+            if self.path == '/api/metrics':
+                value = dict(build_elf_sha256=trial.image, boot_token='b' * 32,
+                             served_device_us=100)
+            else:
+                value = rows.pop(0)
+            self.reply(value)
+
+        def do_POST(self):
+            value = json.loads(self.rfile.read(int(self.headers['Content-Length'])))
+            calls.append(('POST', self.path, value))
+            self.reply(dict(accepted=True))
+
+        def reply(self, value):
+            data = json.dumps(value).encode()
+            self.send_response(200)
+            self.send_header('Content-Type', 'application/json')
+            self.send_header('Content-Length', str(len(data)))
+            self.end_headers()
+            self.wfile.write(data)
+
+        def log_message(self, format, *args):
+            pass
+
+    with HTTPServer(('127.0.0.1', 0), Handler) as server:
+        trial = Trial(SimpleNamespace(out=root / 'evidence', image=image,
+                                     host=f'127.0.0.1:{server.server_port}'))
+        trial.before = dict(state='stopped', groups=[], config=config)
+        worker = threading.Thread(target=server.serve_forever, daemon=True)
+        worker.start()
+        try:
+            yield trial, calls
+        finally:
+            server.shutdown()
+            worker.join(timeout=2)
+
+
+@contextmanager
+def stop_protocol_fixture(root, transports, takeover=False):
+    image = root / 'image.elf'
+    image.write_bytes(b'host stop protocol fixture')
+    calls = []
+    owned = 'http://192.168.23.47:8000/stream.flac?sonos_intent=41'
+    config = dict(player_id='SELECTED', autoplay=False)
+    class Handler(BaseHTTPRequestHandler):
+        def do_GET(self):
+            calls.append(('GET', self.path))
+            value = (dict(build_elf_sha256=trial.image, boot_token='b' * 32,
+                          served_device_us=100) if self.path == '/api/metrics' else
+                     dict(state='stopped', config=config))
+            self.reply(json.dumps(value).encode())
+
+        def do_POST(self):
+            raw = self.rfile.read(int(self.headers['Content-Length']))
+            if self.path == '/api/sonos':
+                calls.append(('board', json.loads(raw)))
+                self.reply(b'{"accepted":true}')
+                return
+            name = self.headers['SOAPAction'].strip('"').split('#')[-1]
+            calls.append(('soap', name))
+            if name == 'GetZoneGroupState':
+                values = '<ZoneGroupState>&lt;ZoneGroups&gt;&lt;ZoneGroup Coordinator="SELECTED"&gt;&lt;ZoneGroupMember UUID="SELECTED" Location="http://127.0.0.1:1400/device.xml"/&gt;&lt;/ZoneGroup&gt;&lt;/ZoneGroups&gt;</ZoneGroupState>'
+            elif name == 'GetMediaInfo':
+                changed = takeover and any(call == ('soap', 'GetTransportInfo') for call in calls)
+                values = '<CurrentURI>' + ('x-rincon:external' if changed else owned.replace('&', '&amp;')) + '</CurrentURI>'
+            else:
+                state = transports.pop(0) if len(transports) > 1 else transports[0]
+                values = '<CurrentTransportState>' + state + '</CurrentTransportState>'
+            self.reply(('<Envelope><Body>' + values + '</Body></Envelope>').encode())
+
+        def reply(self, data):
+            self.send_response(200)
+            self.send_header('Content-Length', str(len(data)))
+            self.end_headers()
+            self.wfile.write(data)
+
+        def log_message(self, format, *args):
+            pass
+
+    with HTTPServer(('127.0.0.1', 0), Handler) as server:
+        host = f'127.0.0.1:{server.server_port}'
+        trial = Trial(SimpleNamespace(out=root / 'evidence', image=image, host=host))
+        trial.before = dict(config=config)
+        trial.boot = 'b' * 32
+        trial.owned_uri = owned
+        trial.play_sent = True
+        trial.base = 'http://127.0.0.1:1400/device.xml'
+        trial.services = {f'urn:schemas-upnp-org:service:{name}:1': 'http://' + host + '/soap'
+                          for name in ('AVTransport', 'ZoneGroupTopology')}
+        worker = threading.Thread(target=server.serve_forever, daemon=True)
+        worker.start()
+        try:
+            yield trial, calls
+        finally:
+            server.shutdown()
+            worker.join(timeout=2)
 
 
 class Guards(unittest.TestCase):
@@ -121,6 +230,80 @@ class Guards(unittest.TestCase):
                 if trial.source.poll() is None:
                     trial.source.kill()
                     trial.source.wait(timeout=2)
+
+    def test_discovery_waits_for_worker_completion_before_refreshing_selected_group(self):
+        # A queued discovery initially still reports stopped, then runs to completion.
+        config = dict(player_id='RINCON_SELECTED', autoplay=False)
+        rows = [dict(state='stopped', groups=[], config=config),
+                dict(state='discovering', groups=[], config=config),
+                dict(state='discovering', groups=[], config=config),
+                dict(state='stopped', groups=[dict(player_id='RINCON_SELECTED',
+                     is_leader=True, host='192.168.23.205')], config=config)]
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            with discovery_protocol_fixture(root, rows, config) as (trial, calls):
+                trial.discover()
+                self.assertEqual(rows, [])
+                self.assertEqual(calls, [
+                    ('GET', '/api/metrics'), ('GET', '/api/sonos'),
+                    ('POST', '/api/sonos', dict(action='discover')),
+                    ('GET', '/api/sonos'), ('GET', '/api/sonos'),
+                    ('GET', '/api/sonos'), ('GET', '/api/metrics')])
+                self.assertEqual(trial.before['groups'][0]['player_id'], 'RINCON_SELECTED')
+
+    def test_discovery_rejects_config_drift_before_replacing_original_snapshot(self):
+        config = dict(player_id='RINCON_SELECTED', autoplay=False)
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            original = dict(state='stopped', groups=[], config=config)
+            rows = [original, dict(state='discovering', groups=[], config=config),
+                    dict(state='stopped', groups=[], config=dict(config, player_id='OTHER'))]
+            with discovery_protocol_fixture(root, rows, config) as (trial, calls):
+                trial.before = original
+                with self.assertRaisesRegex(ValueError, 'configuration changed during discovery'):
+                    trial.discover()
+                self.assertIs(trial.before, original)
+                self.assertEqual(rows, [])
+                self.assertEqual(calls[-1], ('GET', '/api/metrics'))
+
+    def test_stop_waits_for_remote_completion_without_repeating_board_stop(self):
+        with tempfile.TemporaryDirectory() as directory:
+            with stop_protocol_fixture(Path(directory), ['PLAYING', 'PLAYING', 'STOPPED']) as (trial, calls):
+                trial.stop()
+                self.assertEqual([call for call in calls if call[0] == 'board'],
+                                 [('board', dict(action='stop'))])
+                self.assertEqual(sum(call == ('soap', 'GetTransportInfo') for call in calls), 3)
+                self.assertIsNone(trial.owned_uri)
+                self.assertFalse(trial.play_sent)
+
+    def test_stop_rejects_takeover_while_waiting_without_more_writes(self):
+        with tempfile.TemporaryDirectory() as directory:
+            with stop_protocol_fixture(Path(directory), ['PLAYING'], takeover=True) as (trial, calls):
+                with self.assertRaisesRegex(ValueError, 'URI'):
+                    trial.stop()
+                self.assertEqual([call for call in calls if call[0] == 'board'],
+                                 [('board', dict(action='stop'))])
+                self.assertTrue(trial.play_sent)
+                self.assertIsNotNone(trial.owned_uri)
+
+    def test_stop_remote_wait_respects_existing_phase_deadline(self):
+        with tempfile.TemporaryDirectory() as directory:
+            with stop_protocol_fixture(Path(directory), ['PLAYING']) as (trial, calls):
+                trial.deadline = time.monotonic() + .6
+                with self.assertRaises(TimeoutError):
+                    trial.stop()
+                self.assertEqual([call for call in calls if call[0] == 'board'],
+                                 [('board', dict(action='stop'))])
+                self.assertTrue(trial.play_sent)
+
+    def test_identify_rejects_missing_or_ambiguous_selected_coordinator(self):
+        for groups in ([], [dict(player_id='OTHER', is_leader=True)],
+                       [dict(player_id='SELECTED', is_leader=False)],
+                       [dict(player_id='SELECTED', is_leader=True)] * 2):
+            trial = Trial.__new__(Trial)
+            trial.before = dict(config=dict(player_id='SELECTED'), groups=groups)
+            with self.assertRaisesRegex(ValueError, 'selected coordinator missing/ambiguous'):
+                trial.identify()
 
     def test_boot_or_image_change_rejected(self):
         record = dict(build_elf_sha256='a' * 64, boot_token='b' * 32)

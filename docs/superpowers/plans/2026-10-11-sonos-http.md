@@ -20,9 +20,10 @@ Reuse the existing media URL constructor so format, buffer, network generation
 and playback intent have one source of truth. No volume writes.
 
 Manual Play loads the current configured stream and starts it. Poll actual
-transport and current URI for status. The Stop choice is pending: fresh
-coordinator and exact URI checks followed by SOAP Stop, or local stream
-revocation with buffered audio draining. Neither option is silently selected.
+transport and current URI for status. Doctor Biz authorized checked Stop and
+real board playback on October 11: "proceed with board tests. you can play
+sonos, etc". Use fresh coordinator and exact URI checks followed by SOAP Stop;
+the observation-to-command source-switch race remains explicit.
 Relinquish local stream capacity on every terminal path. Preserve command
 cancellation at final media sends.
 
@@ -54,19 +55,31 @@ implementation and report the changed ownership limits.
       for settings, cancellation, reservation lifecycle, takeover observations
       and terminal cleanup. Preserve public API/UI contracts.
 - [x] Independent code review, focused fixes and canonical `scripts/check`.
-- [ ] Run actual board Play/Stop for both formats, settings transitions and
+- [x] Run actual board Play/Stop for both formats, settings transitions and
       listener contention. Save exact image/boot, status, URI, payload and
       cleanup evidence. Do not count Sonos PLAYING as sample-exact continuity.
-- [ ] Restore stopped MP3/Medium, autoplay/recognition off, no source process;
+- [x] Restore stopped MP3/Medium, autoplay/recognition off, no source process;
       commit verified work and update existing Katas against original criteria.
 
 ## State
 
-Protocol, worker and harness implementation and review are complete as a
-candidate with provisional checked Stop. Stop policy remains pending, so no
-candidate will be deployed until that choice arrives. Read-only probes using
-the actual Rust client verified the live coordinator, transport and URI; they
-changed no playback state. See `docs/audit-evidence/2026-10-11/sonos-http.md` for
-the two canonical runs, corrected Clippy stage and remaining hardware gates.
-Next action: apply the chosen Stop policy, then run the prepared device gate.
-The prior TLS tests remain failed historical evidence. No Kata closure claimed.
+Doctor Biz approved checked Stop and real playback. Candidate `87848e3` remains
+installed with ELF SHA-256
+`36d61e57439e102cc9b3c5b256ffeec8a7dddec9743a672b670a4aadce8fa2c3`.
+Actual FLAC/Medium and MP3/High playback, deferred settings and remote Stop passed
+in playback-03. The failed baseline and premature-Stop gate receipts remain.
+The gate now re-discovers after UART reset and waits for actual remote STOPPED;
+16 focused tests and all 27 canonical stages pass (`run.HvfuxuB4`).
+
+Contention-01 failed: the newer debug listener checked-closed before Sonos joined,
+but the older debug stream later exceeded its media-age budget after a long
+socket wait. The two-slot ceiling held; this does not satisfy coexistence or
+recovery. Active capture fault deltas were zero, with startup faults retained.
+Final checks confirmed stopped MP3/Medium, autoplay/recognition off, same candidate
+and no source player. No volume/mixer change or firmware rollback occurred.
+
+See `docs/audit-evidence/2026-10-11/sonos-http-board.md` and its JSON for exact
+boots, receipts, checks and limits. Keep 7vhq/pqqq open. The next hardware work
+must address the failed coexistence gate and establish actual-path network fault
+injection; neither another unchanged trial nor a larger age budget diagnoses the
+observed socket delay. Controlled recovery and sample-accounted soaks remain.

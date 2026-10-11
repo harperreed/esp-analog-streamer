@@ -49,8 +49,10 @@ of the recovery design using the selected HTTP transport.
    scripts/check, which includes host checks and firmware compilation. Preserve
    failing regression evidence and final exact-source verification logs.
 4. Record evidence in the existing pqqq/wmsy tickets. No closure from this slice.
-   Real Sonos acceptance remains required; the prepared HTTP image has not been
-   flashed and its separate Stop-policy choice remains unanswered.
+   Real Sonos acceptance remains required. Doctor Biz subsequently authorized
+   checked Stop and board playback. Image 87848e3 passed the bounded both-codec
+   playback gate, but coexistence failed. Controlled control-outage recovery
+   remains untested. See the sonos-http plan and sonos-http-board evidence.
 
 Parent owns integration, full checks, hardware and commits. Sol 6.1 workers own
 disjoint implementation files. Existing untracked files are outside this work.
