@@ -212,4 +212,20 @@ lifetimes cannot support matched phase-cost claims. Cost if wrong: a new
 instrumented image may alter the observed failure; treat it as inconclusive,
 not as proof of production scheduler behavior or a reason to tune priorities.
 
-Status: design reviewed; implementation pending. No Kata closes from this plan.
+Status: implementation committed as 23bd686 after two reviewed fix rounds,
+20 targeted tests, all 27 canonical stages and the feature-enabled target build.
+Linked inspection confirms ordinary-build exclusion, native atomics, internal
+static storage and the scoped task-query/teardown path. Supervisor frame grows
+272 to 608 bytes; the device retained 2772 bytes free in this trial.
+
+The ordinary and diagnostic two-listener trials both fail audio acceptance.
+The diagnostic exports one complete, invariant-valid receipt: 90/84 valid
+observations, all Ready, including 48/48 observed at write ages >=100 ms.
+Expiry occurs with both owners live, so owner-lifetime coverage is incomplete.
+The ordinary encoder runs about 0.86–0.87x with raw loss; the diagnostic runs
+about 1x with listener history loss. This does not establish runtime equivalence
+or isolated observer cost. Full evidence is in
+docs/audit-evidence/2026-10-10/listener-frame-state-device.md and paired JSON.
+No Kata closes from this measurement. Evidence review accepts the corrected
+1116-byte metrics minimum. The separate controlled scheduling experiment passes
+design review; its implementation and hardware acceptance remain pending.

@@ -1,7 +1,7 @@
 # Finish the Kata hardening backlog
 
 Doctor Biz's active goal on October 10: finish all Kata work, then assess.
-Base c134069 on wip/kata-capture-protection. Compactions in this phase: 15; latest firmware implementation checkpoint is e6a9b58 (distinct listener end reasons; delivery still fails).
+Base c134069 on wip/kata-capture-protection. Compactions in this phase: 16; latest firmware implementation checkpoint is 23bd686 (bounded listener frame-state diagnostic; delivery still fails).
 Use GPT-6.1 Sol subagents with clean contexts. Parent owns review, integration,
 canonical checks, commits and every hardware action. Continue through batches;
 a phase checkpoint is not a reason to abandon the active goal.
@@ -720,3 +720,21 @@ implementation and device acceptance remain pending. Sonos documentation now
 confirms a local WebSocket join workflow, but exact join messages and stale
 session write rejection remain unproven; pqqq stays open. Root replacement
 remains unavailable; this checkpoint and clean Sol 6.1 workers retain continuity.
+
+The frame-state diagnostic is committed as 23bd686 with 20 targeted tests,
+all 27 canonical stages (run.cP1QYu5Y), a feature-enabled target build and
+independent source/linked inspection. Ordinary and diagnostic hardware trials
+both fail audio: final decoded prefixes are 2.640/2.736 and 3.624/3.144 seconds.
+The diagnostic freezes one complete, invariant-valid receipt with 174 Ready
+observations, 96 at observed write ages >=100 ms. Both owners remain live at
+expiry; counts are qualitative observations, not wait-time fractions.
+Ordinary production is slower and loses raw history; diagnostic production
+stays near real time but both listeners lose encoded history. The image change
+therefore cannot isolate observer cost or prove a scheduler cause.
+
+Source/build/artifact hashes and single-boot provenance were rechecked; both
+trials cleaned up and fresh state is stopped MP3/Medium, autoplay/recognition
+off. Diagnostic image 5ddee0ff remains installed. The next bounded proposal
+tests listener-only priority 7 versus 8, preserving encoder priority and all
+audio gates. Scoped design review passes; production policy is unchanged. Evidence lives
+in listener-frame-state-device.md/.json under docs/audit-evidence/2026-10-10.

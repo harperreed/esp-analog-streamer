@@ -1,5 +1,12 @@
 # Gotchas
 
+The October 10 listener frame-state diagnostic captured 174 Ready observations
+inside payload-write brackets, including 96 at observed ages >=100 ms. Ready
+includes sampler preemption; these counts cannot measure runnable wait time.
+The diagnostic encoded near real time while the ordinary control lost raw
+history, so comparing the images cannot isolate sampling overhead. Both failed
+audio. See listener-frame-state-device evidence before changing scheduling.
+
 Mise 2026.9.15 accepts Rust's llvm-tools-preview install alias but can keep
 reporting the toolchain missing afterward. Pin the canonical llvm-tools component
 name; it selects the same bundled LLVM. Verify clean activation and exact rustc,
