@@ -1,7 +1,7 @@
 {
   "kata": "45k9",
   "date": "2026-10-11",
-  "status": "Sonos compatibility pending; transport trial failed",
+  "status": "Original benchmark and codec compatibility verified; native board TLS control and transport delivery failed",
   "codec": {
     "assignments": [
       1,
@@ -269,12 +269,84 @@
     "limitations": [
       "No playback or left-side Sonos compatibility result was acquired.",
       "Do not attribute control setup failure to the codec."
-    ]
+    ],
+    "tls_failure": {
+      "allocation_bytes": 4437,
+      "mbedtls_error": "MBEDTLS_ERR_SSL_ALLOC_FAILED",
+      "error_code": "-0x7F00",
+      "occurrences": 4,
+      "first_connected_internal_free": 17779,
+      "first_connected_internal_largest": 9216,
+      "following_window_internal_min_sum": 2995,
+      "causal_limit": "Immediate allocation failure is established; competing allocations and fragmentation history are not.",
+      "integration_risk": "Additional1344B internal encoderheap may contribute; no paired nativecontrol baseline excludes regression. Resolve before shipping native Play."
+    }
   },
   "limits": [
     "Reduced traffic is not proof network stalls are fixed",
     "UART arrival times are not device execution times",
     "Production image hash is host provenance, not device attestation",
     "Load capture validates complete prefixes; excluded tail bytes remain unvalidated"
-  ]
+  ],
+  "sonos_soap": {
+    "passed": true,
+    "scope": "Codec compatibility on actual production FLAC route, controlled by workstation SOAP; not native board TLS/control acceptance.",
+    "playing_observation_seconds": 30,
+    "positions": [
+      "0:00:00",
+      "0:00:02",
+      "0:00:05",
+      "0:00:08",
+      "0:00:10",
+      "0:00:12",
+      "0:00:15",
+      "0:00:17",
+      "0:00:20",
+      "0:00:22",
+      "0:00:24",
+      "0:00:27",
+      "0:00:29"
+    ],
+    "assignments": {
+      "8": 254
+    },
+    "decoded_prefix": {
+      "decoded_audio_frames": 1040384,
+      "decoded_seconds": 21.674666666666667,
+      "decoded_packets": 254,
+      "skipped_source_audio_frames": 0,
+      "duplicate_audio_frames": 0,
+      "decoded_discontinuities": 0,
+      "sample_hash_format": "SHA256, stereo pcm_s32le, packet boundaries",
+      "complete_coded_frames": 254,
+      "expected_sample_frames": 1040384,
+      "excluded_tail_bytes": 8640,
+      "excluded_tail_note": "final packet lacks a valid whole-frame CRC; truncation versus corruption is unresolved",
+      "complete_frame_bytes": 2295428
+    },
+    "cleanup_errors": [],
+    "prior_media_restored": true,
+    "volume_unchanged": true,
+    "board_restored": {
+      "state": "stopped",
+      "active_format": "mp3",
+      "buffer_preset": "med",
+      "autoplay": false
+    },
+    "uart_used": false,
+    "capture_fault_clearance": false,
+    "driver_sha256": "dfeed01e7b860fb60972c6be04cf8639ded84d8db6d2310c1cf0e14406e8d8fa",
+    "result_sha256": "2e07f1cc346b6219fc6763e41d9600dbee22b6b8ba49797c16de1c57869f3ad3",
+    "artifact": "target/kata-hardening/flac-stereo/sonos-soap-corrected/result.json",
+    "first_attempt": {
+      "passed": false,
+      "error": "AssertionError(\"TimeoutError('timed out')\")",
+      "cleanup_errors": [
+        "restore-media: <HTTPError 500: 'Internal Server Error'>"
+      ],
+      "capture_bytes": 42,
+      "artifact": "target/kata-hardening/flac-stereo/sonos-soap-compatibility/result.json",
+      "correction": "Two-second debug timeout was below production admission/write budgets. SetNext was redundant because all saved fields were already restored. Corrected driver retains decoder assertions and verifies restored fields."
+    }
+  }
 }

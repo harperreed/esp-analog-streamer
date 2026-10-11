@@ -1,6 +1,6 @@
 # FLAC stereo decorrelation (45k9)
 
-Status: implementation verified; Sonos compatibility blocked. Base d0b15aa; 20 open Katas. Original `kata show 45k9`
+Status: complete against original acceptance; Kata closure recorded separately. Base d0b15aa; 20 open Katas before closure. Original `kata show 45k9`
 is the acceptance contract. This work follows Doctor Biz's approved audit:
 independent stereo versus left/side only, preserving quantized 16-bit samples.
 
@@ -66,3 +66,18 @@ recognition disabled. No volume changes; source and UART helpers cleaned up.
 Next: resolve the Sonos control precondition under the existing recovery work,
 then repeat only this remaining compatibility gate. Count stays 20 open.
 Compaction count: 1 in this implementation phase; retire at this checkpoint.
+
+## Compatibility acceptance follow-up
+
+Original 45k9 requires actual Sonos codec compatibility, not a particular control
+route. Independent review accepted workstation SOAP control of the same production
+FLAC endpoint as a valid gate. Native board TLS setup remains failed, narrowed to
+repeated internal allocation failure for a 4,437-byte outgoing record; the competing
+allocation/fragmentation cause remains unresolved.
+
+One SOAP trial failed its short debug timeout and redundant NextURI cleanup. The
+corrected bounded trial passed: 30 seconds PLAYING, position 0→29, 254 assignment-8
+frames decoded exactly, prior media and stopped MP3/Medium restored, volume unchanged.
+Both failed trials remain in the evidence. No production source changed after the
+27-stage canonical pass. Independent gate review precedes closure; this does not
+clear transport or native-control failures. Next work follows remaining Katas.
