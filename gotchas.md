@@ -894,3 +894,9 @@ the peer. An arbitrary-text peer capture swallows the inner label, breaking
 exact endpoint matching while departure/close pairing still appears to work.
 Parse the socket-address token or the explicit `unknown peer` fallback and test
 the actual logger prefix. Correct peer parsing does not clear audio loss.
+
+The pinned embuild derives its workspace from OUT_DIR. Reconstructed firmware
+must retain its normal firmware/target layout: an external target directory can
+redirect SDK installation and relative configuration lookup. Activate mise in
+the trusted original repo before entering a copied source tree. Isolate the
+copies and caches; do not change trust settings to make a reconstruction build.

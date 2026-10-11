@@ -1,7 +1,7 @@
 # Finish the Kata hardening backlog
 
 Doctor Biz's active goal on October 10: finish all Kata work, then assess.
-Base c134069 on wip/kata-capture-protection. Compactions in this phase: 13; latest firmware implementation checkpoint is bacdecb (experimental crossover; audio acceptance failed).
+Base c134069 on wip/kata-capture-protection. Compactions in this phase: 14; latest firmware implementation checkpoint is 7c4ed7b (refusal deadlines; device admission acceptance remains open).
 Use GPT-6.1 Sol subagents with clean contexts. Parent owns review, integration,
 canonical checks, commits and every hardware action. Continue through batches;
 a phase checkpoint is not a reason to abandon the active goal.
@@ -674,3 +674,18 @@ config copies and isolated outputs; no worktrees or original-image mutations.
 Parent must first build and measure these uninstrumented baselines. Timing code
 remains unimplemented until their rate gap reproduces. Hardware is idle, stopped
 MP3/Medium on the archived unified default, with no source/UART owner.
+
+Both reconstructed baselines now built and passed their linked IRAM checks.
+The completed 90-second observations measured 0.999482x archived and 0.999629x
+current, with zero encoder overruns. This fails the historical rate-gap
+reproduction gate: phase timing remains unimplemented. Independent review and
+artifact checks support reconstructed-default-controls.md/.json; startup capture
+faults, false device attestation and the unarchived parser dependency stay explicit.
+
+The separate current reconstruction delivery trial failed after only 2.064 and
+2.184 decoded seconds. Its wrapper stopped before the slow-reader phase and
+cleaned up. The evidence report is pending. Current reconstructed unified image
+626456a3 remains installed, stopped MP3/Medium, with no source/UART owner.
+Kata ce69 tracks a confirmed reporting bug: producer generation resets and actual
+listener history loss both report FellBehind. A Sol 6.1 worker is scoping the
+small diagnostic correction; stream termination and recovery policy stay intact.

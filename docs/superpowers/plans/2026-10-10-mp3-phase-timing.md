@@ -1,5 +1,13 @@
 # Conditional three-phase Shine timing
 
+Status: the uninstrumented reconstruction gate failed. Both rebuilt contexts
+generated approximately 0.9995x real time, with zero encoder overruns in their
+90-second observations. The saved originals' rate gap did not reproduce. Keep
+this timing design unimplemented; the measurements cannot attribute that gap.
+Paired evidence is retained as reconstructed-default-controls.md/.json.
+The separate current-image delivery trial failed and cleaned up; its evidence
+report is pending. The wrapper stopped before its slow-reader phase.
+
 Doctor Biz, the input route is closed: archived FLAC-selected WAV failed after
 1.465s of the requested8s despite0.999743x FLAC generation and no encoder loss.
 There is no valid ADC host-work pair. This is the next bounded rate diagnosis,
