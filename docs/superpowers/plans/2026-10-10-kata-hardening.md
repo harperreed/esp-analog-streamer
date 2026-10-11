@@ -1,7 +1,7 @@
 # Finish the Kata hardening backlog
 
 Doctor Biz's active goal on October 10: finish all Kata work, then assess.
-Base c134069 on wip/kata-capture-protection. Compactions in this phase: 17; latest firmware implementation checkpoint is 23bd686 (bounded listener frame-state diagnostic; delivery still fails).
+Base c134069 on wip/kata-capture-protection. Compactions in this phase: 18; latest firmware implementation checkpoint is 23bd686 (bounded listener frame-state diagnostic; delivery still fails).
 Use GPT-6.1 Sol subagents with clean contexts. Parent owns review, integration,
 canonical checks, commits and every hardware action. Continue through batches;
 a phase checkpoint is not a reason to abandon the active goal.
@@ -768,7 +768,42 @@ headroom. Live audio, throughput and radio root-cause gates remain open.
 The temporary example is archived as evidence and removed from the build tree.
 Exact candidate dc908452 is restored, fresh stopped MP3/Medium settings are
 verified, and no UART/aplay source owner remains. Public evidence lives in
-current-mp3-cost.md/.json under the October 10 audit directory. A clean Sol 6.1
-worker is assessing the smallest next measurement; no new diagnostic or
-production policy is yet approved or implemented. This landed-phase checkpoint
-continues the active all-Kata goal under the recorded root-replacement limit.
+current-mp3-cost.md/.json under the October 10 audit directory. At that checkpoint a clean Sol 6.1 worker assessed the next bounded measurement;
+the completion below supersedes that historical pending state.
+
+## MP3 input repetition complete — October 10, 2026
+
+The approved cbe4b0a diagnostic ran one complete parent-owned boot. Repeated-A,
+fresh and repeated-B each completed 128 measured calls after separate warmups;
+means were 18.546359375 / 18.518 / 18.546859375 ms, maxima all 18.768 ms, with
+zero late calls or encode failures. Independent expected input identities match,
+including fresh state through warmup plus 128 measured blocks. Minimum
+acquisition stack free was 5,636 bytes. One fresh phase cannot prove
+repeatability or causation.
+
+All 27 canonical stages pass (`run.LZpbFw91`), explicit example format/build and
+independent implementation/build reviews pass, and 29 parser tests pass. Exact
+production C archive af005426 is retained. Raw receipts and parent postrun proof
+confirm acquisition/restoration success, empty errors, unchanged source/artifact
+hashes, stopped MP3/Medium with autoplay/recognition off, and clear UART/known
+aplay guards. Exact frozen B dc908452 is restored; source remains listener
+priority 7 while B retains experimental priority 8. No image attestation or
+full-flash readback is claimed. Expected debug cc detection and SDK I2C warnings
+remain visible in evidence.
+
+Public mp3-input-repetition.md/.json and exact example/parser/tests are archived
+under the October 10 audit directory. Independent evidence review accepted
+without findings
+(`target/kata-hardening/mp3-input-repetition/evidence-review.md`). Parent
+verified all three public copies and the temporary example byte-for-byte, then
+removed only that temporary build-tree example; cleanup is complete. All means
+fit, so isolated-input exploration ends; failure-only branches were not taken
+and no additional matrix/probe follows automatically. Live audio, ADC, radio
+root cause, capture/recovery, hosted/HIL and endurance acceptance remain open.
+The overall Kata goal remains active.
+
+Next selected work is independent concurrent admission 8s9m, accepted plan
+6e39a66, Task 1 in progress with a fresh Sol 6.1 worker. This records work in
+progress, not an implemented admission fix or target acceptance. Compaction
+count is 18; the parent retains the established landed-phase/root-replacement
+checkpoint obligation.
