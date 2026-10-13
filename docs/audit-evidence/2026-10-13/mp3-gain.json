@@ -1,0 +1,676 @@
+{
+  "source_revision": "65db167",
+  "upstream_pin": "ab5e3526b64af1a2eaa43aa6f441a7312e013519",
+  "verdict": "Integer/table quantizer does not explain common tone gain; exact analysis/synthesis normalization cause unresolved.",
+  "production_changed": false,
+  "hardware_used": false,
+  "decoder-controls": {
+    "reference_sha256": "5314d1ecdd3b556b3ddc55e126640d64c28de94fff566276fe7abcb0fba376b3",
+    "mp3_sha256": "1bc087cc6769697d8187bde8ef5e3e34c339a6617818d52441c5cdb78a349344",
+    "ffmpeg_version": "ffmpeg version 8.0.1-3ubuntu2 Copyright (c) 2000-2025 the FFmpeg developers",
+    "rows": [
+      {
+        "decoder": "mp3float",
+        "decoded_sample_frames": 483840,
+        "fit_start": 4608,
+        "fit_stop": 478175,
+        "alignment_samples": 1057,
+        "gain_per_channel": [
+          1.1248429040191465,
+          1.1248465228598967
+        ],
+        "gain_db_per_channel": [
+          1.0218374590521475,
+          1.0218654032216834
+        ],
+        "reference_peak": [
+          0.5,
+          0.5
+        ],
+        "decoded_peak": [
+          0.5625223517417908,
+          0.5625255107879639
+        ],
+        "pcm_sha256": "77df52ba06e3274376008a15fba349daf533e68ad1b12ea62693ab8e4169545e",
+        "command": [
+          "ffmpeg",
+          "-nostdin",
+          "-v",
+          "error",
+          "-c:a",
+          "mp3float",
+          "-i",
+          "/home/harper/workspace/personal/esp-analog-streamer/target/mp3-benchmark/host/tones-320.mp3",
+          "-f",
+          "f32le",
+          "-c:a",
+          "pcm_f32le",
+          "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-gain/mp3float.f32le"
+        ]
+      },
+      {
+        "decoder": "mp3",
+        "decoded_sample_frames": 483840,
+        "fit_start": 4608,
+        "fit_stop": 478175,
+        "alignment_samples": 1057,
+        "gain_per_channel": [
+          1.1248420325624218,
+          1.1248468578983881
+        ],
+        "gain_db_per_channel": [
+          1.021830729774805,
+          1.0218679903363415
+        ],
+        "reference_peak": [
+          0.5,
+          0.5
+        ],
+        "decoded_peak": [
+          0.562530517578125,
+          0.562530517578125
+        ],
+        "pcm_sha256": "24dea1abd3d1397e266e2ccde58153157e81958ecf1c2b1265c54885b7f0a68f",
+        "command": [
+          "ffmpeg",
+          "-nostdin",
+          "-v",
+          "error",
+          "-c:a",
+          "mp3",
+          "-i",
+          "/home/harper/workspace/personal/esp-analog-streamer/target/mp3-benchmark/host/tones-320.mp3",
+          "-f",
+          "f32le",
+          "-c:a",
+          "pcm_f32le",
+          "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-gain/mp3.f32le"
+        ]
+      }
+    ],
+    "limits": [
+      "Two implementations in FFmpeg, not two wholly independent libraries.",
+      "Fixed1057sample lag from prior nonperiodic fixture; steadywindow excludes transientedges.",
+      "Synthetic retained half-scale tones; no physical source or audiblequality claim."
+    ]
+  },
+  "current-bridge": {
+    "bytes": 403200,
+    "equal_retained_upstream": true,
+    "production_bridge_output_sha256": "1bc087cc6769697d8187bde8ef5e3e34c339a6617818d52441c5cdb78a349344",
+    "retained_upstream_sha256": "1bc087cc6769697d8187bde8ef5e3e34c339a6617818d52441c5cdb78a349344"
+  },
+  "flac-control": {
+    "decoded_sample_frames": 479232,
+    "reference_prefix_exact": true,
+    "gain_per_channel": [
+      1.0,
+      1.0
+    ],
+    "command": [
+      "ffmpeg",
+      "-nostdin",
+      "-v",
+      "error",
+      "-i",
+      "target/mp3-benchmark/host/production-tones.flac",
+      "-f",
+      "f32le",
+      "-c:a",
+      "pcm_f32le",
+      "target/kata-hardening/oct13-mp3-gain/flac-control.f32le"
+    ],
+    "flac_sha256": "452106075f9fb73f9a1c97851552da3dcb93aa4dea0aec2e11f88ce96fb8a57e"
+  },
+  "cause-experiments": {
+    "rows": [
+      {
+        "variant": "baseline",
+        "fixture": "tones",
+        "bitrate": 320,
+        "blocks": 420,
+        "input_sample_frames": 483840,
+        "pcm_gain_per_channel": [
+          1.1248429040191465,
+          1.1248465228598967
+        ],
+        "quantizer_gain": 0.9999105435971026,
+        "quantizer_snr_db": 77.8413989252858,
+        "step_min": -74,
+        "step_max": -72,
+        "mp3_matches_retained": true,
+        "artifacts": {
+          "baseline-tones-320.mp3": "1bc087cc6769697d8187bde8ef5e3e34c339a6617818d52441c5cdb78a349344",
+          "baseline-tones-320.boundary.i32le": "b61bbaa93187b1556befac83bc7474e118497c740156f22eec3b9ea8155f0d43",
+          "baseline-tones-320.steps.i32le": "e73477f6c2cfa4459d59c18ad335f4310cec0c9542e0e3aaabbb2360d027c1f1",
+          "baseline-tones-320.f32le": "77df52ba06e3274376008a15fba349daf533e68ad1b12ea62693ab8e4169545e"
+        }
+      },
+      {
+        "variant": "baseline",
+        "fixture": "tones",
+        "bitrate": 192,
+        "blocks": 420,
+        "input_sample_frames": 483840,
+        "pcm_gain_per_channel": [
+          1.1248429040191465,
+          1.1248465228598967
+        ],
+        "quantizer_gain": 0.9999105435971026,
+        "quantizer_snr_db": 77.8413989252858,
+        "step_min": -74,
+        "step_max": -72,
+        "mp3_matches_retained": true,
+        "artifacts": {
+          "baseline-tones-192.mp3": "5f704f3f79095edb3fe71b4dd26292aa883f170e02fc229df874d3feee73b17e",
+          "baseline-tones-192.boundary.i32le": "5eb741f05f18eb69df22057115994dac296f9a3d10b694a9933250d4c7583c97",
+          "baseline-tones-192.steps.i32le": "f152541e2904789691806f3d1d419e7e7f3ae8aca064e3f7e41fde168fa9d333",
+          "baseline-tones-192.f32le": "21948d00357c18981b9c7d678f414955f357c3baf916a0c4137417b0c5151bac"
+        }
+      },
+      {
+        "variant": "baseline",
+        "fixture": "noise",
+        "bitrate": 320,
+        "blocks": 420,
+        "input_sample_frames": 483840,
+        "pcm_gain_per_channel": [
+          1.146742795530303,
+          1.1475519374463923
+        ],
+        "quantizer_gain": 1.019707615373735,
+        "quantizer_snr_db": 12.949489784897743,
+        "step_min": -29,
+        "step_max": -28,
+        "mp3_matches_retained": true,
+        "artifacts": {
+          "baseline-noise-320.mp3": "6a51c135e876bd93039515f4c7f0cc521f61926373cef2d5af7cb78a2d6ff9c0",
+          "baseline-noise-320.boundary.i32le": "8f92bc8fecf91265bd94e45a7e582533b1442e3106fa185b4e8a8725b27fccaf",
+          "baseline-noise-320.steps.i32le": "6dda1781fe845801fc123472899fa49ab390008bedc63b1a0ce1f7dcb873ffd4",
+          "baseline-noise-320.f32le": "1a86d84acbce5d15876ace209e42b54077fc420e6507c1b7f1e728252ab02eee"
+        }
+      },
+      {
+        "variant": "baseline",
+        "fixture": "noise",
+        "bitrate": 192,
+        "blocks": 420,
+        "input_sample_frames": 483840,
+        "pcm_gain_per_channel": [
+          1.0742950053419236,
+          1.0751628480738322
+        ],
+        "quantizer_gain": 1.0364315838744511,
+        "quantizer_snr_db": 5.993465678707519,
+        "step_min": -23,
+        "step_max": -21,
+        "mp3_matches_retained": true,
+        "artifacts": {
+          "baseline-noise-192.mp3": "c7e489a35094fbe4ebd6b976669bdcdf467fe7cf0d97ba34a5d6f6d2587a7466",
+          "baseline-noise-192.boundary.i32le": "41267c8df6654375664f88fe489c1ce3920ea5cacba543aa1849ecf70ade9063",
+          "baseline-noise-192.steps.i32le": "6a8b3437ace313efaf734851c1115f98e78ad6bb60a84fa16e1147ca729d6df6",
+          "baseline-noise-192.f32le": "f77b20c772912b8c39c4d7922a1a0fba75369938e77dda96a68eec1194d14b52"
+        }
+      },
+      {
+        "variant": "direct-quantizer",
+        "fixture": "tones",
+        "bitrate": 320,
+        "blocks": 420,
+        "input_sample_frames": 483840,
+        "pcm_gain_per_channel": [
+          1.1249198121327586,
+          1.1249206973781791
+        ],
+        "quantizer_gain": 0.9999777438510128,
+        "quantizer_snr_db": 80.9689481120919,
+        "step_min": -74,
+        "step_max": -72,
+        "mp3_matches_retained": false,
+        "artifacts": {
+          "direct-quantizer-tones-320.mp3": "f79b096320ff79a1f1abedc552f7322e25c78073e089e238ca8b8feb1a08823c",
+          "direct-quantizer-tones-320.boundary.i32le": "fa683f7d738469ff98783926af0af95166d375a0b163364799a1e2fe89d07561",
+          "direct-quantizer-tones-320.steps.i32le": "3d248443666ec1a3be61ab3cf6f7ae5f1b85c69786e890e2c757d9ff0a36223e",
+          "direct-quantizer-tones-320.f32le": "445411966e9246118d8bb7197772406ce3fc56925c0adb6efd9a26271008ac58"
+        }
+      },
+      {
+        "variant": "direct-quantizer",
+        "fixture": "tones",
+        "bitrate": 192,
+        "blocks": 420,
+        "input_sample_frames": 483840,
+        "pcm_gain_per_channel": [
+          1.1249198121327586,
+          1.1249206973781791
+        ],
+        "quantizer_gain": 0.9999777438510128,
+        "quantizer_snr_db": 80.9689481120919,
+        "step_min": -74,
+        "step_max": -72,
+        "mp3_matches_retained": false,
+        "artifacts": {
+          "direct-quantizer-tones-192.mp3": "04bdb47a9a255e09443d70e8ceb79ec4e30be1176e8c8589a31572f8e583af90",
+          "direct-quantizer-tones-192.boundary.i32le": "82d721847c8d5cddb1e27dcd2b3fe600dc511bb5293ab695a73c493cdbc19bf7",
+          "direct-quantizer-tones-192.steps.i32le": "f152541e2904789691806f3d1d419e7e7f3ae8aca064e3f7e41fde168fa9d333",
+          "direct-quantizer-tones-192.f32le": "660d24be16b2d2a9963d8163e3edce9b49f6425576bc33e4544c5885be2f8d9b"
+        }
+      },
+      {
+        "variant": "direct-quantizer",
+        "fixture": "noise",
+        "bitrate": 320,
+        "blocks": 420,
+        "input_sample_frames": 483840,
+        "pcm_gain_per_channel": [
+          1.0643812165088014,
+          1.0651677127445092
+        ],
+        "quantizer_gain": 0.9465298373127891,
+        "quantizer_snr_db": 13.794781742794044,
+        "step_min": -30,
+        "step_max": -29,
+        "mp3_matches_retained": false,
+        "artifacts": {
+          "direct-quantizer-noise-320.mp3": "46b69b2e1cc23add957e7c7638568e2eb89188934ba2ee8291a61a61bb8aebba",
+          "direct-quantizer-noise-320.boundary.i32le": "b48eaa0198b31b3dc37cb1e6b603393a834957919150abed3fb234639ba1a0f0",
+          "direct-quantizer-noise-320.steps.i32le": "3b1c9aac9a07520b23db237008e67fda2e170419b12199182d116f5afbf7644f",
+          "direct-quantizer-noise-320.f32le": "f405f03035c9d79ad6b8818188bdaf66a0c355afdc674e2f0083cfc1c081fba7"
+        }
+      },
+      {
+        "variant": "direct-quantizer",
+        "fixture": "noise",
+        "bitrate": 192,
+        "blocks": 420,
+        "input_sample_frames": 483840,
+        "pcm_gain_per_channel": [
+          0.7174894739635039,
+          0.733251672866638
+        ],
+        "quantizer_gain": 0.9440736481834587,
+        "quantizer_snr_db": 6.561721188311643,
+        "step_min": -23,
+        "step_max": -21,
+        "mp3_matches_retained": false,
+        "artifacts": {
+          "direct-quantizer-noise-192.mp3": "565092e6a764e14128e7a99a549edbec6bfaae3b0c79d61cd958c7e89f935103",
+          "direct-quantizer-noise-192.boundary.i32le": "d71a7b0ae3368ee8fb733c27e73e53aeefdbba8beabeb1bcddff328f9cafd2fe",
+          "direct-quantizer-noise-192.steps.i32le": "99c08a8cde86fd7ee5a2cd66cb2aa88f655e80eed4b3efd7b620ae47dd2f7733",
+          "direct-quantizer-noise-192.f32le": "8d5b8db80960bc8755b2bf4afb04b00635dce179ba6f14d44049719bdb9ea4dc"
+        }
+      }
+    ],
+    "commands": [
+      [
+        "cc",
+        "-O3",
+        "-fsigned-char",
+        "-I",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/mp3-benchmark/source/shine/src/lib",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-gain/cause-probe.c",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/mp3-benchmark/source/shine/src/lib/bitstream.c",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/mp3-benchmark/source/shine/src/lib/huffman.c",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/mp3-benchmark/source/shine/src/lib/l3bitstream.c",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/mp3-benchmark/source/shine/src/lib/l3loop.c",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/mp3-benchmark/source/shine/src/lib/l3mdct.c",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/mp3-benchmark/source/shine/src/lib/l3subband.c",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/mp3-benchmark/source/shine/src/lib/layer3.c",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/mp3-benchmark/source/shine/src/lib/reservoir.c",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/mp3-benchmark/source/shine/src/lib/tables.c",
+        "-lm",
+        "-o",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-gain/cause-baseline"
+      ],
+      [
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-gain/cause-baseline",
+        "320",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/mp3-benchmark/host/tones.s16le",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-gain/baseline-tones-320.mp3",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-gain/baseline-tones-320.boundary.i32le",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-gain/baseline-tones-320.steps.i32le"
+      ],
+      [
+        "ffmpeg",
+        "-nostdin",
+        "-v",
+        "error",
+        "-y",
+        "-i",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-gain/baseline-tones-320.mp3",
+        "-f",
+        "f32le",
+        "-c:a",
+        "pcm_f32le",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-gain/baseline-tones-320.f32le"
+      ],
+      [
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-gain/cause-baseline",
+        "192",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/mp3-benchmark/host/tones.s16le",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-gain/baseline-tones-192.mp3",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-gain/baseline-tones-192.boundary.i32le",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-gain/baseline-tones-192.steps.i32le"
+      ],
+      [
+        "ffmpeg",
+        "-nostdin",
+        "-v",
+        "error",
+        "-y",
+        "-i",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-gain/baseline-tones-192.mp3",
+        "-f",
+        "f32le",
+        "-c:a",
+        "pcm_f32le",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-gain/baseline-tones-192.f32le"
+      ],
+      [
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-gain/cause-baseline",
+        "320",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/mp3-benchmark/host/noise.s16le",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-gain/baseline-noise-320.mp3",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-gain/baseline-noise-320.boundary.i32le",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-gain/baseline-noise-320.steps.i32le"
+      ],
+      [
+        "ffmpeg",
+        "-nostdin",
+        "-v",
+        "error",
+        "-y",
+        "-i",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-gain/baseline-noise-320.mp3",
+        "-f",
+        "f32le",
+        "-c:a",
+        "pcm_f32le",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-gain/baseline-noise-320.f32le"
+      ],
+      [
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-gain/cause-baseline",
+        "192",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/mp3-benchmark/host/noise.s16le",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-gain/baseline-noise-192.mp3",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-gain/baseline-noise-192.boundary.i32le",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-gain/baseline-noise-192.steps.i32le"
+      ],
+      [
+        "ffmpeg",
+        "-nostdin",
+        "-v",
+        "error",
+        "-y",
+        "-i",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-gain/baseline-noise-192.mp3",
+        "-f",
+        "f32le",
+        "-c:a",
+        "pcm_f32le",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-gain/baseline-noise-192.f32le"
+      ],
+      [
+        "cc",
+        "-O3",
+        "-fsigned-char",
+        "-I",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/mp3-benchmark/source/shine/src/lib",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-gain/cause-probe.c",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/mp3-benchmark/source/shine/src/lib/bitstream.c",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/mp3-benchmark/source/shine/src/lib/huffman.c",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/mp3-benchmark/source/shine/src/lib/l3bitstream.c",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-gain/l3loop-direct-quantizer.c",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/mp3-benchmark/source/shine/src/lib/l3mdct.c",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/mp3-benchmark/source/shine/src/lib/l3subband.c",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/mp3-benchmark/source/shine/src/lib/layer3.c",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/mp3-benchmark/source/shine/src/lib/reservoir.c",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/mp3-benchmark/source/shine/src/lib/tables.c",
+        "-lm",
+        "-o",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-gain/cause-direct-quantizer"
+      ],
+      [
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-gain/cause-direct-quantizer",
+        "320",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/mp3-benchmark/host/tones.s16le",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-gain/direct-quantizer-tones-320.mp3",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-gain/direct-quantizer-tones-320.boundary.i32le",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-gain/direct-quantizer-tones-320.steps.i32le"
+      ],
+      [
+        "ffmpeg",
+        "-nostdin",
+        "-v",
+        "error",
+        "-y",
+        "-i",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-gain/direct-quantizer-tones-320.mp3",
+        "-f",
+        "f32le",
+        "-c:a",
+        "pcm_f32le",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-gain/direct-quantizer-tones-320.f32le"
+      ],
+      [
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-gain/cause-direct-quantizer",
+        "192",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/mp3-benchmark/host/tones.s16le",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-gain/direct-quantizer-tones-192.mp3",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-gain/direct-quantizer-tones-192.boundary.i32le",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-gain/direct-quantizer-tones-192.steps.i32le"
+      ],
+      [
+        "ffmpeg",
+        "-nostdin",
+        "-v",
+        "error",
+        "-y",
+        "-i",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-gain/direct-quantizer-tones-192.mp3",
+        "-f",
+        "f32le",
+        "-c:a",
+        "pcm_f32le",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-gain/direct-quantizer-tones-192.f32le"
+      ],
+      [
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-gain/cause-direct-quantizer",
+        "320",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/mp3-benchmark/host/noise.s16le",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-gain/direct-quantizer-noise-320.mp3",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-gain/direct-quantizer-noise-320.boundary.i32le",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-gain/direct-quantizer-noise-320.steps.i32le"
+      ],
+      [
+        "ffmpeg",
+        "-nostdin",
+        "-v",
+        "error",
+        "-y",
+        "-i",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-gain/direct-quantizer-noise-320.mp3",
+        "-f",
+        "f32le",
+        "-c:a",
+        "pcm_f32le",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-gain/direct-quantizer-noise-320.f32le"
+      ],
+      [
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-gain/cause-direct-quantizer",
+        "192",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/mp3-benchmark/host/noise.s16le",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-gain/direct-quantizer-noise-192.mp3",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-gain/direct-quantizer-noise-192.boundary.i32le",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-gain/direct-quantizer-noise-192.steps.i32le"
+      ],
+      [
+        "ffmpeg",
+        "-nostdin",
+        "-v",
+        "error",
+        "-y",
+        "-i",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-gain/direct-quantizer-noise-192.mp3",
+        "-f",
+        "f32le",
+        "-c:a",
+        "pcm_f32le",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-gain/direct-quantizer-noise-192.f32le"
+      ]
+    ],
+    "source_hashes": {
+      "bitstream.c": "8d1dafb8df778839820268a2b8dbe5a97e79592fa25d3819768748fede9e515f",
+      "huffman.c": "3cbd7f3a410870493b0bf68a42913b53c54eb8bbfc2e4c37f8a09c920b972df3",
+      "l3bitstream.c": "6b8d01088f823b2d4c7d926bdb9e078faf3d0a93ef976df3da141f5a2e08fe60",
+      "l3loop.c": "ffea073349856b364e0decc1b0274fcc599a6b300d15e55fa7da2ad5dd8b8e8b",
+      "l3mdct.c": "d6c16ec6712b2ca5b9d0daab65b59f25a51448555b21a26c10ca2367c5eb64dc",
+      "l3subband.c": "b57f91616a2de613b837fead48d66d63bc5eda9b4470583c5f64c5077f2d7ba2",
+      "layer3.c": "de1a5d00cadf3b1d1a34de1473e71a9242869b2beeb108407f68861a8e4d2119",
+      "reservoir.c": "5754e370cc3dae68a02adf049fdf30a55628fe113191407d82ba32f8352c7770",
+      "tables.c": "94af116b5aa89c21116a7874f2d66b893dc8ec8342a19e03711c3a38a9bdd261"
+    },
+    "probe_sha256": "a4295d79e424287af01f2b1ae8bb4b384426b568c4af52cf805c8637d31b55b8",
+    "direct_quantizer_sha256": "7fa939de89bbd4c1ab1a22edb722b90ab9ce1e5b82067d276ee441f3182175e9",
+    "rules": {
+      "pcm_window": "start4608, stop=min(actualsource,actualdecode-1057)-4608; lag1057",
+      "boundary": "native little-endian int32 pairs mdct_freq,signedl3_enc for each frame/gr/ch/bin; stepspairs quantizerStepSize,global_gain",
+      "inverse_quantizer": "sign(q)*abs(q)^(4/3)*2^((global_gain-210)/4); allscalefactorszero",
+      "spectral_window": "discardfirstandlast8granule/channelrows",
+      "direct_variant": "Only quantize() replaced with real-valued3/4power and same -.0946+.5 rounding as originallookup; no productionchanges"
+    }
+  },
+  "boundary-coverage": {
+    "rows": [
+      {
+        "label": "baseline-tones-320",
+        "granule_channel_rows": 1680,
+        "omitted_zero_positions": 37314,
+        "nonzero_untransmitted_positions": 0,
+        "source_formatter_coverage_verified": true,
+        "mp3_sha256": "1bc087cc6769697d8187bde8ef5e3e34c339a6617818d52441c5cdb78a349344"
+      },
+      {
+        "label": "baseline-tones-192",
+        "granule_channel_rows": 1680,
+        "omitted_zero_positions": 38346,
+        "nonzero_untransmitted_positions": 0,
+        "source_formatter_coverage_verified": true,
+        "mp3_sha256": "5f704f3f79095edb3fe71b4dd26292aa883f170e02fc229df874d3feee73b17e"
+      },
+      {
+        "label": "baseline-noise-320",
+        "granule_channel_rows": 1680,
+        "omitted_zero_positions": 150,
+        "nonzero_untransmitted_positions": 0,
+        "source_formatter_coverage_verified": true,
+        "mp3_sha256": "6a51c135e876bd93039515f4c7f0cc521f61926373cef2d5af7cb78a2d6ff9c0"
+      },
+      {
+        "label": "baseline-noise-192",
+        "granule_channel_rows": 1680,
+        "omitted_zero_positions": 1842,
+        "nonzero_untransmitted_positions": 0,
+        "source_formatter_coverage_verified": true,
+        "mp3_sha256": "c7e489a35094fbe4ebd6b976669bdcdf467fe7cf0d97ba34a5d6f6d2587a7466"
+      },
+      {
+        "label": "direct-quantizer-tones-320",
+        "granule_channel_rows": 1680,
+        "omitted_zero_positions": 37314,
+        "nonzero_untransmitted_positions": 0,
+        "source_formatter_coverage_verified": true,
+        "mp3_sha256": "f79b096320ff79a1f1abedc552f7322e25c78073e089e238ca8b8feb1a08823c"
+      },
+      {
+        "label": "direct-quantizer-tones-192",
+        "granule_channel_rows": 1680,
+        "omitted_zero_positions": 38346,
+        "nonzero_untransmitted_positions": 0,
+        "source_formatter_coverage_verified": true,
+        "mp3_sha256": "04bdb47a9a255e09443d70e8ceb79ec4e30be1176e8c8589a31572f8e583af90"
+      },
+      {
+        "label": "direct-quantizer-noise-320",
+        "granule_channel_rows": 1680,
+        "omitted_zero_positions": 134,
+        "nonzero_untransmitted_positions": 0,
+        "source_formatter_coverage_verified": true,
+        "mp3_sha256": "46b69b2e1cc23add957e7c7638568e2eb89188934ba2ee8291a61a61bb8aebba"
+      },
+      {
+        "label": "direct-quantizer-noise-192",
+        "granule_channel_rows": 1680,
+        "omitted_zero_positions": 1668,
+        "nonzero_untransmitted_positions": 0,
+        "source_formatter_coverage_verified": true,
+        "mp3_sha256": "565092e6a764e14128e7a99a549edbec6bfaae3b0c79d61cd958c7e89f935103"
+      }
+    ],
+    "limitation": "Uses actual side-info plus the pinned formatter and run-length rules; does not independently decode Huffman main data. Boundary metrics refer to stored quantizer coefficients.",
+    "source_pointers": [
+      "src/lib/l3loop.c:429 calc_runlen",
+      "src/lib/l3bitstream.c:32 signs",
+      "src/lib/l3bitstream.c:145 Huffmancodebits",
+      "src/lib/l3bitstream.c:122 transmitted global_gain"
+    ]
+  },
+  "parent-verification": {
+    "cases": [
+      {
+        "case": "baseline-tones-320",
+        "decoded_stereo_sample_frames": 483840,
+        "raw_pcm_bytes": 3870720
+      },
+      {
+        "case": "baseline-tones-192",
+        "decoded_stereo_sample_frames": 483840,
+        "raw_pcm_bytes": 3870720
+      },
+      {
+        "case": "baseline-noise-320",
+        "decoded_stereo_sample_frames": 483840,
+        "raw_pcm_bytes": 3870720
+      },
+      {
+        "case": "baseline-noise-192",
+        "decoded_stereo_sample_frames": 483840,
+        "raw_pcm_bytes": 3870720
+      },
+      {
+        "case": "direct-quantizer-tones-320",
+        "decoded_stereo_sample_frames": 483840,
+        "raw_pcm_bytes": 3870720
+      },
+      {
+        "case": "direct-quantizer-tones-192",
+        "decoded_stereo_sample_frames": 483840,
+        "raw_pcm_bytes": 3870720
+      },
+      {
+        "case": "direct-quantizer-noise-320",
+        "decoded_stereo_sample_frames": 483840,
+        "raw_pcm_bytes": 3870720
+      },
+      {
+        "case": "direct-quantizer-noise-192",
+        "decoded_stereo_sample_frames": 483840,
+        "raw_pcm_bytes": 3870720
+      }
+    ],
+    "hashes_match": true,
+    "empty_diagnostic_logs": 22
+  },
+  "review_sha256": "13834b5feea8ada0a951bc2224da2d4a3529f7dfded845997c14a799db296e02",
+  "source_sha256": {
+    "decoder-controls.py": "d7b27b16bda4acef26872acc0c742cd6845ccd9d338b8d1a7f70621bfa0b41fe",
+    "boundary-coverage.py": "c3d110e797b0e75bc8194deed7c135fefadfe61a2ecbf2aabc0184194d78b00f",
+    "current-bridge.c": "0d685f7cfecafa6823b7544442c5ac584dddfb3963c2bf586c92e60d9b4094d8",
+    "cause-experiments.py": "1f3249a63fe439c07005b32e8163684679950fd14ccbb34d760d94cbc6e2985d",
+    "cause-probe.c": "a4295d79e424287af01f2b1ae8bb4b384426b568c4af52cf805c8637d31b55b8"
+  },
+  "fixtures": {
+    "tones": "5314d1ecdd3b556b3ddc55e126640d64c28de94fff566276fe7abcb0fba376b3",
+    "noise": "433357dd39e3d4a506399a26352f560cd039dea55e4ed99485f9c62a78bf57be"
+  }
+}

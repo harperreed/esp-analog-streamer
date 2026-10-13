@@ -3,7 +3,7 @@
 Doctor Biz's active goal on October 10: finish all Kata work, then assess.
 Base c134069 on wip/kata-capture-protection. Prior phase compactions: 25;
 October 13 setup/reconnect acceptance phase compactions: 1.
-Latest checkpoint: Shine review and missing change notices; distribution gate remains.
+Latest checkpoint: MP3 gain localized beyond quantizer hypothesis; exact cause remains.
 Original-criteria review closed 93hm; 23 of 38 children remain closed.
 The wbz6 MP3 instruction-placement correction now passes matched hardware and
 all 27 canonical stages; its ordinary ELF equals the tested candidate exactly.
@@ -11,6 +11,24 @@ Prior failed device audio trials remain failed.
 Use GPT-6.1 Sol subagents with clean contexts. Parent owns review, integration,
 canonical checks, commits and every hardware action. Continue through batches;
 a phase checkpoint is not a reason to abandon the active goal.
+
+## October 13 MP3 gain checkpoint
+
+Offline controls reproduce +1.022 dB on synthetic tones in the current bridge
+and exact upstream encoder. Fixed/float FFmpeg agree; the FLAC control is
+sample-exact at unity. An instrumented baseline and one direct-quantizer
+hypothesis variant keep stored spectral gain near unity while decoded tone
+gain remains near 1.125. This rules out that quantizer explanation without proving
+a normalization defect. Noise differs and no fitted correction is justified.
+All eight decodes have the expected actual counts and artifact hashes; Sol
+review independently recomputed the metrics. Production and board untouched.
+See October 13 mp3-gain evidence and archived throwaway sources.
+
+Next gain work must derive analysis/synthesis normalization independently;
+do not repeat decoder controls or add 8/9 compensation based on the scalar fit.
+7vhq still needs its recorded physical-source prerequisite; quiet input cannot
+replace that failed contention gate. No Kata closes: 23/38 closed, 15 open.
+The active goal remains; this bounded phase has no compactions.
 
 ## October 13 Shine review checkpoint
 
