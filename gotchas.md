@@ -1,5 +1,12 @@
 # Gotchas
 
+Doctor Biz confirmed on October 12 that no AP access is available. Record the
+unavailable AP acquisition explicitly; pd6c allows that investigation outcome.
+It does not establish a transport root cause or complete recovery acceptance.
+The workstation now defaults to Wi-Fi for the board despite Ethernet remaining
+up. Pin and record the receiver interface for comparisons; do not reinterpret
+the earlier wired traces as wireless.
+
 Doctor Biz approved checked Stop and hardware playback testing on October 11:
 "proceed with board tests. you can play sonos, etc". Do not ask again for that
 choice or routine Sonos playback tests. The check/Stop source-switch race remains

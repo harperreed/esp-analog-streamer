@@ -10,6 +10,24 @@ Use GPT-6.1 Sol subagents with clean contexts. Parent owns review, integration,
 canonical checks, commits and every hardware action. Continue through batches;
 a phase checkpoint is not a reason to abandon the active goal.
 
+## October 12 continuation checkpoint
+
+Doctor Biz resumed the full goal. The prior status-only turn made no progress.
+Current HEAD at restart was `7a0d320`; both-codec HTTP playback and checked Stop
+passed, while debug coexistence failed. See the October 11 sonos-http plan for
+those actual board results; it supersedes the older unflashed/Stop-pending notes.
+
+Doctor Biz now confirms no AP access is available. Independent original-criteria
+review accepts pd6c's investigation with its precise missing-evidence statement.
+Its acceptance receipt is updated; closing this investigation does not close
+coexistence, recovery or release gates. Current routing also changed to workstation
+Wi-Fi; future receiver comparisons must explicitly use the recorded interface.
+
+Continue the bounded timeout-receipt correction: the terminal write used an
+age-clipped deadline, but its log printed the nominal socket limit. Do not alter
+the enforced deadline or buffering policy. Separate host quantization measurements
+and refreshed CI-publication preparation remain partial work with explicit gates.
+
 ## October 11 closure and work-selection checkpoint
 
 Doctor Biz subsequently selected HTTP/UPnP Sonos control ("skip tls for now").

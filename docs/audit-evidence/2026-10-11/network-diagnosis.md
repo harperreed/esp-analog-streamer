@@ -1,8 +1,11 @@
 # TCP delivery investigation: acceptance evidence
 
-Reviewed pd6c receipt, October 11. This adds a read-only pinned-source
-inventory. It neither changes firmware nor claims reliable delivery or a located
-root cause. pd6c explicitly permits precisely documenting unavailable evidence.
+Reviewed pd6c receipt, October 11; acceptance resolved October 12. This records
+a read-only pinned-source inventory. It neither changes firmware nor claims
+reliable delivery or a located root cause. pd6c explicitly permits precisely
+documenting unavailable evidence. Doctor Biz confirmed: "No AP access is
+available." Independent review accepts the investigation against its original
+criteria with the acquisition limits below; coexistence and recovery remain open.
 
 ## Pinned API and counter inventory
 
@@ -63,7 +66,7 @@ neither a pure task-blocked-time claim nor a current-lag claim is supported.
 | Original criterion | Existing evidence / precise limit |
 | --- | --- |
 | Reproducible full/half-rate audio-free controls and one/two-listener production comparisons | [Historical radio controls](../2026-10-07/wired-radio-comparison.json) retain deterministic two-peer full/half/full controls at 135168/67584 bytes per second per peer, with full-rate failures and half-rate completion. [Sender overhead](../2026-10-10/sender-overhead.md) retains current 16-bit source MP3/FLAC/MP3 production trials: 30 seconds solo then approximately 60 seconds joint. Historical absolute transport rates are not declared equivalent to today's encoded workload. These independent controls do not locate a cause. |
-| Simultaneous sender/AP/receiver evidence where access allows, drops and actual route | [Receiver correlation](../2026-10-08/stream-packet-correlation.md) and its JSON retain simultaneous UART/receiver acquisition, wired receiver interface `enp5s0`, 7945 packets and zero kernel drops. Parent read-only verification on October 11 reports `ip route get 192.168.23.217`: direct via `enp5s0`, source `192.168.23.153`; default gateway `192.168.23.1`, interface UP. This establishes the receiver route, not AP radio topology. There is no retained AP-side or sender packet capture. No AP capture/control method has been supplied or AP-management tool identified; Doctor Biz's access answer is pending. Parent's `sudo -n true` requires interactive authentication; the October 8 receiver capture was user-started. AP reachability/access impossibility is not claimed. |
+| Simultaneous sender/AP/receiver evidence where access allows, drops and actual route | [Receiver correlation](../2026-10-08/stream-packet-correlation.md) and its JSON retain simultaneous UART/receiver acquisition, wired receiver interface `enp5s0`, 7945 packets and zero kernel drops. Parent read-only verification on October 11 reports `ip route get 192.168.23.217`: direct via `enp5s0`, source `192.168.23.153`; default gateway `192.168.23.1`, interface UP. This establishes the receiver route, not AP radio topology. There is no retained AP-side or sender packet capture. Doctor Biz confirmed on October 12 that no AP access is available. AP capture/control evidence therefore remains unavailable. Parent's `sudo -n true` requires interactive authentication; the October 8 receiver capture was user-started. AP reachability/access impossibility is not claimed. |
 | Correlate holes, ACK progress, send pressure, lag and capture health; quantify overhead | Receiver correlation retains sequence-hole/ACK/window analysis and exact failed-stream body reconciliation. [Sender analysis](../2026-10-10/sender-analysis.md) separates send-call wall from writable-poll wall and capture/encoder health; [sender overhead](../2026-10-10/sender-overhead.md) quantifies the matched ON/OFF bundle. [Live metrics](live-listener-metrics.md) supplies current listener media-age/write and network observations. These are separate acquisitions: no exact cross-clock sender/AP/receiver pressure-to-hole correlation exists. UART arrival times are not an exact device clock mapping. |
 | Implicated hop or precisely missing evidence; no receiver-only root cause | Receiver delayed in-order delivery is established; its captured windows never reached zero. Long MP3 send calls and FLAC writable waits identify observed boundaries on other runs. Missing evidence is same-run TCP stack output/ACK and byte/pbuf state, Wi-Fi TX allocation/retry state, and AP ingress/egress/queue/radio observations with clock mapping and drop counts. Sender scheduling/mailbox/copy work, Wi-Fi/AP service and downstream loss remain unseparated. |
 | Pinned buffer tradeoffs; no blind enlargement or endless soak | The inventory and tradeoffs above record source-backed meanings and unavailable counters. This receipt performs no soak, tuning, hardware action or firmware build. |
@@ -73,10 +76,30 @@ accepted-byte counters mean stack acceptance, including partial final writes,
 not receiver delivery or acknowledgment. Reporting and storage remain bounded;
 the matched overhead receipt retains its code-layout and sequential-run limits.
 
-Failed production FLAC, WAV and MP3 trials remain failed. An investigation
-acceptance decision must not erase those failures or imply a streaming release.
-Independent acceptance review leaves pd6c open. The AP-access answer is pending:
-if access is available, collect the synchronized evidence; otherwise document
-the specific unavailable acquisition. A pending access answer is not evidence
-that collection was impossible. A proven root cause, successful streaming or
-another general soak is not required to finish this investigation ticket.
+Failed production FLAC, WAV and MP3 trials remain failed. The completed
+investigation does not imply a streaming release. Independent original-criteria
+review accepts pd6c after Doctor Biz's October 12 confirmation that no AP access
+is available. The issue permits collection where access allows and an exact
+statement of missing evidence; a proved root cause or a passing production
+stream is not its completion condition. Synchronized AP ingress/egress, queue,
+radio and sender-stack observations remain unavailable. Do not replace those
+limits with an assertion that a particular hop caused the failures.
+
+The later [HTTP contention trial](sonos-http-board.md) adds a current-format
+failure with zero active capture-fault deltas. Its largest write/poll durations
+are lifetime maxima, not the terminal frame: that frame timed out after 782 ms.
+The displayed 8021 ms was the nominal socket limit; its actual deadline had been
+shortened by the diagnostic stream's four-second media-age limit. This calls
+for an accurate timeout receipt, not a larger buffer or a claimed transport fix.
+A bounded sender-stack ACK/capacity/readiness trace is the next useful diagnostic;
+it is follow-up recovery work, not an added condition for closing pd6c.
+
+October 12 route verification found the workstation now selects `wlp6s0`, source
+`192.168.23.49`, for the board. Ethernet `enp5s0`/`192.168.23.153` remains up;
+explicitly bound Ethernet HTTP reads reached the same candidate image and boot.
+This changes future test setup, not the retained historical wired path. Pin and
+record the receiver interface for future comparisons.
+
+The independent acceptance review and current route/identity observations live
+under `target/kata-hardening/oct12-stall/`. No hardware settings, packet filters,
+volume, firmware or buffer policies changed during this acceptance reconciliation.
