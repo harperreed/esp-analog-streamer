@@ -1,5 +1,6 @@
 /* Local modifications by the esp-analog-streamer project, 2026-10-09:
  * Store each encoder instance's deallocator and allocation context.
+ * 2026-10-13: Share the MDCT headroom scale with decoder gain compensation.
  * Notice recorded 2026-10-13; see UPSTREAM.md for provenance.
  */
 
@@ -13,6 +14,8 @@
 #include <math.h>
 
 #define GRANULE_SIZE 576
+/* One coefficient bit keeps every signed 16-bit input's transform in int32. */
+#define SHINE_MDCT_HEADROOM_BITS 1
 
 #include "bitstream.h"
 #include "layer3.h"

@@ -1,5 +1,5 @@
 /* L3mdct */
-/* Local modification, 2026-10-13: normalize the long-block MDCT coefficients. */
+/* Local modification, 2026-10-13: normalize long-block coefficients and reserve headroom. */
 
 #include "l3mdct.h"
 #include "l3subband.h"
@@ -36,14 +36,16 @@ void shine_mdct_initialise(shine_global_config *config) {
 
   /* prepare the mdct coefficients */
   /* Analysis and MDCT fixed-point scaling gives 1/8; inverse overlap gives 9.
-   * Normalize by 8/9 so the reconstructed PCM retains unity gain. */
+   * Normalize by 8/9. Divide the integer table for transform headroom;
+   * global_gain restores that power of two in the decoder. */
   for (m = 18; m--;)
     for (k = 36; k--;)
       /* combine window and mdct coefficients into a single table */
       /* scale and convert to fixed point before storing */
       config->mdct.cos_l[m][k] =
           (int32_t)((8.0 / 9.0) * sin(PI36 * (k + 0.5)) *
-                    cos((PI / 72) * (2 * k + 19) * (2 * m + 1)) * 0x7fffffff);
+                    cos((PI / 72) * (2 * k + 19) * (2 * m + 1)) * 0x7fffffff) /
+          (1 << SHINE_MDCT_HEADROOM_BITS);
 }
 
 /*

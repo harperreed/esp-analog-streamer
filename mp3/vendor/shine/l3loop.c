@@ -2,6 +2,7 @@
 
 /* Local modifications by the esp-analog-streamer project, 2026-10-09:
  * Make signedness comparisons and unused parameters explicit.
+ * 2026-10-13: Restore MDCT headroom scaling through the decoder's global gain.
  * Notice recorded 2026-10-13; see UPSTREAM.md for provenance.
  */
 
@@ -166,7 +167,9 @@ void shine_iteration_loop(shine_global_config *config) {
             shine_outer_loop(max_bits, &l3_xmin, ix, gr, ch, config);
 
       shine_ResvAdjust(cod_info, config);
-      cod_info->global_gain = cod_info->quantizerStepSize + 210;
+      /* One global_gain step multiplies reconstructed coefficients by 2^(1/4). */
+      cod_info->global_gain =
+          cod_info->quantizerStepSize + 210 + 4 * SHINE_MDCT_HEADROOM_BITS;
 
     } /* for gr */
   }   /* for ch */

@@ -29,6 +29,12 @@ Local patches:
   initialization. Analysis and MDCT fixed-point products otherwise contribute
   1/8, while inverse overlap contributes 9. See the
   [normalization evidence](../../../docs/audit-evidence/2026-10-13/mp3-normalization.md).
+- `l3mdct.c`, `types.h`, `l3loop.c`: reserve one additional coefficient bit by
+  halving the integer MDCT table and adding four to emitted `global_gain`.
+  This prevents transform overflow while preserving decoded scale. See the
+  [headroom evidence](../../../docs/audit-evidence/2026-10-13/mp3-headroom.md).
+- `l3subband.c`: convert signed PCM to Q31 using multiplication instead of
+  left-shifting negative values, which C leaves undefined.
 - Patched files use LF line endings.
 
 The Rust API permits only 48 kHz stereo 320 kbps. Its bridge checks each frame's
@@ -65,7 +71,11 @@ as provenance, not the current expected output.
 The October 13 independent build applies only MDCT coefficient normalization
 to that pinned source. It produces SHA256
 `9e76b1a9ad1d4c703d0512ce815e1eae37f31a73afc5ccf41e1214084b3350ec`;
-FNV-1a-64 `ece25e7178a4d8df`. The Rust integration test recreates the fixture
-and checks that complete output. Production also matches the normalized
-upstream build byte-for-byte on the retained tones and noise fixtures.
+FNV-1a-64 `ece25e7178a4d8df`. This records the normalization-only result.
+
+Adding the proved headroom bit and decoder gain compensation to that independent
+upstream build produces SHA256
+`d0209ba118ab74e5bab381c0e8be7142da2e48a1cbb6ed44762248def867d554`;
+FNV-1a-64 `3d8d37fffb18a62e`. The Rust integration test checks this current
+reference. Production also matches that build on the retained tones and noise.
 These comparisons do not prove identical output for every PCM input.

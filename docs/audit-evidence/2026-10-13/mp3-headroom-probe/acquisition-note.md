@@ -1,0 +1,1 @@
+An in-flight verification rerun overlapped parent edits to production sources. Its entire directory is preserved as ../oct13-mp3-headroom-transitional; source hashes and compile timing are not treated as a stable baseline. This directory reruns the baseline against an exact HEAD snapshot. Prior six observed streams and original integer bounds remain in the transitional archive.

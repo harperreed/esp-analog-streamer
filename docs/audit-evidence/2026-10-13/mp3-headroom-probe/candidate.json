@@ -1,0 +1,4877 @@
+{
+  "scope": "Throwaway offline actual production bridge headroom characterization; no production edits or playback.",
+  "reproduce": [
+    "uv",
+    "run",
+    "--quiet",
+    "--locked",
+    "python3",
+    "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom-fixed/probe.py"
+  ],
+  "versions": {
+    "ffmpeg": "ffmpeg version 8.0.1-3ubuntu2 Copyright (c) 2000-2025 the FFmpeg developers\nbuilt with gcc 15 (Ubuntu 15.2.0-13ubuntu3)\nconfiguration: --prefix=/usr --extra-version=3ubuntu2 --toolchain=hardened --libdir=/usr/lib/x86_64-linux-gnu --incdir=/usr/include/x86_64-linux-gnu --arch=amd64 --enable-gpl --disable-stripping --disable-pocketsphinx --disable-libcaca --disable-libmfx --disable-omx --enable-gnutls --enable-libaom --enable-libass --enable-libbs2b --enable-libcdio --enable-libcodec2 --enable-libdav1d --enable-libflite --enable-libfontconfig --enable-libfreetype --enable-libfribidi --enable-libglslang --enable-libgme --enable-libgsm --enable-libharfbuzz --enable-libmp3lame --enable-libmysofa --enable-libopenjpeg --enable-libopenmpt --enable-libopus --enable-librubberband --enable-libshine --enable-libsnappy --enable-libsoxr --enable-libspeex --enable-libtheora --enable-libtwolame --enable-libvidstab --enable-libvorbis --enable-libvpx --enable-libwebp --enable-libx265 --enable-libxml2 --enable-libxvid --enable-libzimg --enable-openal --enable-opencl --enable-opengl --disable-sndio --enable-libvpl --enable-libdc1394 --enable-libdrm --enable-libiec61883 --enable-chromaprint --enable-frei0r --enable-ladspa --enable-libbluray --enable-libdvdnav --enable-libdvdread --enable-libjack --enable-libjxl --enable-libpulse --enable-librabbitmq --enable-librist --enable-libsrt --enable-libssh --enable-libsvtav1 --enable-libx264 --enable-libzmq --enable-libzvbi --enable-lv2 --enable-sdl2 --enable-libplacebo --enable-librav1e --enable-librsvg --enable-shared\nlibavutil      60.  8.100 / 60.  8.100\nlibavcodec     62. 11.100 / 62. 11.100\nlibavformat    62.  3.100 / 62.  3.100\nlibavdevice    62.  1.100 / 62.  1.100\nlibavfilter    11.  4.100 / 11.  4.100\nlibswscale      9.  1.100 /  9.  1.100\nlibswresample   6.  1.100 /  6.  1.100\n\nExiting with exit code 0\n",
+    "cc": "cc (Ubuntu 15.2.0-16ubuntu1) 15.2.0\nCopyright (C) 2025 Free Software Foundation, Inc.\nThis is free software; see the source for copying conditions.  There is NO\nwarranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n",
+    "git_head": "db8a0868ef66cbd354a05bc7e89ca937cec75446",
+    "numpy": "2.4.4",
+    "python": "3.12.14 (main, Sep 24 2026, 17:57:43) [Clang 22.1.3 ]"
+  },
+  "ffmpeg_binary": "/usr/bin/ffmpeg",
+  "ffmpeg_binary_sha256": "bdf6aabffdba7411edff8d36c389d695257fcdf823d196020176e117612862f6",
+  "sources_sha256": {
+    "docs/audit-evidence/2026-10-13/mp3-gain-probe/current-bridge.c": "0d685f7cfecafa6823b7544442c5ac584dddfb3963c2bf586c92e60d9b4094d8",
+    "target/kata-hardening/oct13-mp3-headroom-fixed/candidate-source/mp3/src/bridge.c": "abc352b6740f607e9fa22c7761e7e63d9963d0feca0a0f7bb0c2afed17524d6a",
+    "target/kata-hardening/oct13-mp3-headroom-fixed/candidate-source/mp3/vendor/shine/bitstream.c": "44665c9d1516e4a48ebb459064c81d7bd828fe84a522adb0d38fc1546cf8526e",
+    "target/kata-hardening/oct13-mp3-headroom-fixed/candidate-source/mp3/vendor/shine/huffman.c": "3cbd7f3a410870493b0bf68a42913b53c54eb8bbfc2e4c37f8a09c920b972df3",
+    "target/kata-hardening/oct13-mp3-headroom-fixed/candidate-source/mp3/vendor/shine/l3bitstream.c": "6b8d01088f823b2d4c7d926bdb9e078faf3d0a93ef976df3da141f5a2e08fe60",
+    "target/kata-hardening/oct13-mp3-headroom-fixed/candidate-source/mp3/vendor/shine/l3loop.c": "a5677927bc4fbd8795f5de47b1c3fb3dbe5a7fc57df9b26fb00209911f8243dd",
+    "target/kata-hardening/oct13-mp3-headroom-fixed/candidate-source/mp3/vendor/shine/l3mdct.c": "dfc90eb9f3c31577d467d42abb8d2c2da40366e58b6cd02d707517f040874a43",
+    "target/kata-hardening/oct13-mp3-headroom-fixed/candidate-source/mp3/vendor/shine/l3subband.c": "fccfcc3c5b7b7d0bffb47c35df734bea42d291982730c5715fd8c4e7cc78d3a3",
+    "target/kata-hardening/oct13-mp3-headroom-fixed/candidate-source/mp3/vendor/shine/layer3.c": "6d41c15cf6a2d57ac2969f848c445004eea37727efa011007f19cce0e7c26c38",
+    "target/kata-hardening/oct13-mp3-headroom-fixed/candidate-source/mp3/vendor/shine/reservoir.c": "5754e370cc3dae68a02adf049fdf30a55628fe113191407d82ba32f8352c7770",
+    "target/kata-hardening/oct13-mp3-headroom-fixed/candidate-source/mp3/vendor/shine/tables.c": "94af116b5aa89c21116a7874f2d66b893dc8ec8342a19e03711c3a38a9bdd261",
+    "target/kata-hardening/oct13-mp3-headroom-fixed/candidate-source/mp3/vendor/shine/types.h": "668de0f839dea6b6b994f5e78d89ca18a48b9da9fefdd30fb44cc33defacfe46",
+    "target/kata-hardening/oct13-mp3-headroom-fixed/candidate-source/mp3/vendor/shine/l3loop.h": "1e4cc8d8200b1e7ab7445dcb2c8ccdc41f55873f2bc921e2b281b66f18502716",
+    "target/kata-hardening/oct13-mp3-headroom-fixed/candidate-source/mp3/vendor/shine/reservoir.h": "6a24ddb678f635b1d97703468c91d7209a76d47b8d5265d195b95f3222734b92",
+    "target/kata-hardening/oct13-mp3-headroom-fixed/candidate-source/mp3/vendor/shine/huffman.h": "5c0daa50a28c8ac836fd3e7be61df75d3e0506267e8e79b4f63b955c04a656d4",
+    "target/kata-hardening/oct13-mp3-headroom-fixed/candidate-source/mp3/vendor/shine/mult_mips_gcc.h": "3b69725742c3303ed2e899e92670373ecbcbee33605cf590e84e6a5fa1f4b56b",
+    "target/kata-hardening/oct13-mp3-headroom-fixed/candidate-source/mp3/vendor/shine/l3mdct.h": "acf6ce1571ebee244044a68b24dd03777b789df7be733ea27e21a35d54530e6b",
+    "target/kata-hardening/oct13-mp3-headroom-fixed/candidate-source/mp3/vendor/shine/tables.h": "c6e3872b6b480cea63989f6ddefe20409deb21b9207cde1e0616143981a3cd55",
+    "target/kata-hardening/oct13-mp3-headroom-fixed/candidate-source/mp3/vendor/shine/bitstream.h": "041a4afa73d1d3be06ef0825dffcc3d7ce1140d480cba97ea2d23587bc3cbf57",
+    "target/kata-hardening/oct13-mp3-headroom-fixed/candidate-source/mp3/vendor/shine/l3subband.h": "d25f8a66fdc2401eb6d6f571d69594fae6a8fb34728d4efddf1d0b1212de4251",
+    "target/kata-hardening/oct13-mp3-headroom-fixed/candidate-source/mp3/vendor/shine/layer3.h": "80bf1187280edf4886ca24e27c62393023b5a7ed227f694ff3cf4138f00f3f90",
+    "target/kata-hardening/oct13-mp3-headroom-fixed/candidate-source/mp3/vendor/shine/l3bitstream.h": "7d09cbf7107191de7692e4d9d07d261a7f8ab9bcc40df2b887658c83642bb880",
+    "target/kata-hardening/oct13-mp3-headroom-fixed/candidate-source/mp3/vendor/shine/mult_sarm_gcc.h": "39b8c8166614b0b53bf8e63392ace988813dfe520149af5596a038f34af552e5",
+    "target/kata-hardening/oct13-mp3-headroom-fixed/candidate-source/mp3/vendor/shine/mult_noarch_gcc.h": "f6094c3ab0ad58130a027867ed8d1a646d63dd4c83ecddd751adec07c6c4e60a"
+  },
+  "source_tree": "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom-fixed/candidate-source",
+  "encoder_sha256": "988590408330bbe607191ecd756d11312233d995abff45d56426a8bb837f8d40",
+  "script_sha256": "f1145986f39c9d59c75b3fbfa6038c0a4efc79230cc9352ff29c2cd6595c62de",
+  "sample_rate": 48000,
+  "channels": 2,
+  "bitrate_kbps": 320,
+  "frames_per_case": 110592,
+  "design": "Seven patterns at half and 0.98 scale: unequal tones cover both channel frequencies; same/opposite and each hard-pan cover stereo extremes; silence-separated impulse and abrupt tone gates cover transients; PCG64(seed0xD0C70B12) uniform independent noise covers broadband quantization. This is a bounded set, not a Cartesian sweep.",
+  "fixtures": [
+    {
+      "name": "tones_independent_half",
+      "pattern": "tones_independent",
+      "nominal_amplitude": 0.5,
+      "input_frames": 110592,
+      "encoded_frames": 96,
+      "decoded_sample_frames": 110592,
+      "alignment_samples": 1057,
+      "aligned_source_start": 0,
+      "aligned_source_stop": 109535,
+      "steady_source_start": 4608,
+      "steady_source_stop": 104927,
+      "aligned": [
+        {
+          "channel": 0,
+          "frames": 109535,
+          "input_rms": 0.3535463558041192,
+          "decoded_rms": 0.3534957967318524,
+          "rms_ratio": 0.9998569945031627,
+          "least_squares_gain": 0.9998569773181643,
+          "error_rms": 8.277861102369782e-05,
+          "relative_error_rms": 0.00023413792750153804,
+          "snr_db": 72.61056460343187,
+          "input_peak": 0.5,
+          "decoded_peak": 0.5004093050956726,
+          "decoded_min": -0.5004093050956726,
+          "decoded_max": 0.5003117918968201,
+          "outside_unit_interval": 0,
+          "nonfinite": 0
+        },
+        {
+          "channel": 1,
+          "frames": 109535,
+          "input_rms": 0.3535501504724718,
+          "decoded_rms": 0.35349709145176084,
+          "rms_ratio": 0.9998499250512549,
+          "least_squares_gain": 0.9998498829297332,
+          "error_rms": 0.00011552249608026157,
+          "relative_error_rms": 0.0003267499559139812,
+          "snr_db": 69.71568924687283,
+          "input_peak": 0.5,
+          "decoded_peak": 0.5024027824401855,
+          "decoded_min": -0.5009331107139587,
+          "decoded_max": 0.5024027824401855,
+          "outside_unit_interval": 0,
+          "nonfinite": 0
+        }
+      ],
+      "steady": [
+        {
+          "channel": 0,
+          "frames": 100319,
+          "input_rms": 0.3535633243941153,
+          "decoded_rms": 0.35351336517220794,
+          "rms_ratio": 0.999858697951794,
+          "least_squares_gain": 0.9998586934178382,
+          "error_rms": 6.024513727416207e-05,
+          "relative_error_rms": 0.00017039419282925144,
+          "snr_db": 75.37090420842715,
+          "input_peak": 0.5,
+          "decoded_peak": 0.5000138282775879,
+          "decoded_min": -0.5000138282775879,
+          "decoded_max": 0.5000133514404297,
+          "outside_unit_interval": 0,
+          "nonfinite": 0
+        },
+        {
+          "channel": 1,
+          "frames": 100319,
+          "input_rms": 0.3535497677452678,
+          "decoded_rms": 0.35349683246152724,
+          "rms_ratio": 0.9998502748733845,
+          "least_squares_gain": 0.9998502696562864,
+          "error_rms": 6.408113640795471e-05,
+          "relative_error_rms": 0.00018125068166958914,
+          "snr_db": 74.8344070281287,
+          "input_peak": 0.5,
+          "decoded_peak": 0.500041663646698,
+          "decoded_min": -0.500041663646698,
+          "decoded_max": 0.5000239610671997,
+          "outside_unit_interval": 0,
+          "nonfinite": 0
+        }
+      ],
+      "all_decoded": [
+        {
+          "channel": 0,
+          "frames": 110592,
+          "decoded_rms": 0.35180245045496544,
+          "decoded_peak": 0.5004093050956726,
+          "decoded_min": -0.5004093050956726,
+          "decoded_max": 0.5003117918968201,
+          "outside_unit_interval": 0,
+          "nonfinite": 0
+        },
+        {
+          "channel": 1,
+          "frames": 110592,
+          "decoded_rms": 0.351803746725118,
+          "decoded_peak": 0.5024027824401855,
+          "decoded_min": -0.5009331107139587,
+          "decoded_max": 0.5024027824401855,
+          "outside_unit_interval": 0,
+          "nonfinite": 0
+        }
+      ],
+      "artifacts": {
+        "tones_independent_half.s16le": {
+          "sha256": "4a0a1300c0208bcc6fe1fd6b6a1d92f0ea045b9aec49eafa25582d2e9746a35f",
+          "bytes": 442368
+        },
+        "tones_independent_half.mp3": {
+          "sha256": "63b68659665eed5095e2e89e24315cede660cefc9ebf5ac022adfeb23d76a029",
+          "bytes": 92160
+        },
+        "tones_independent_half.f32le": {
+          "sha256": "e533e415d73d2758782d4de782bef547185bfcae7e1e179d33db785cb03beb83",
+          "bytes": 884736
+        }
+      },
+      "errors": {
+        "encode_exit": 0,
+        "decode_exit": 0,
+        "encoder_log_bytes": 0,
+        "decoder_log_bytes": 0
+      }
+    },
+    {
+      "name": "tones_independent_nearfull",
+      "pattern": "tones_independent",
+      "nominal_amplitude": 0.98,
+      "input_frames": 110592,
+      "encoded_frames": 96,
+      "decoded_sample_frames": 110592,
+      "alignment_samples": 1057,
+      "aligned_source_start": 0,
+      "aligned_source_stop": 109535,
+      "steady_source_start": 4608,
+      "steady_source_stop": 104927,
+      "aligned": [
+        {
+          "channel": 0,
+          "frames": 109535,
+          "input_rms": 0.6929510310090513,
+          "decoded_rms": 0.6928426043798781,
+          "rms_ratio": 0.9998435291610501,
+          "least_squares_gain": 0.999843509441469,
+          "error_rms": 0.00017519781831570278,
+          "relative_error_rms": 0.00025282857009475225,
+          "snr_db": 71.94347703078215,
+          "input_peak": 0.980010986328125,
+          "decoded_peak": 0.981529712677002,
+          "decoded_min": -0.981529712677002,
+          "decoded_max": 0.9808107614517212,
+          "outside_unit_interval": 0,
+          "nonfinite": 0
+        },
+        {
+          "channel": 1,
+          "frames": 109535,
+          "input_rms": 0.6929584701220688,
+          "decoded_rms": 0.692859077017179,
+          "rms_ratio": 0.9998565670106141,
+          "least_squares_gain": 0.9998565357754832,
+          "error_rms": 0.0001996914484570603,
+          "relative_error_rms": 0.000288172317775239,
+          "snr_db": 70.80695480873887,
+          "input_peak": 0.980010986328125,
+          "decoded_peak": 0.9830865859985352,
+          "decoded_min": -0.9824380874633789,
+          "decoded_max": 0.9830865859985352,
+          "outside_unit_interval": 0,
+          "nonfinite": 0
+        }
+      ],
+      "steady": [
+        {
+          "channel": 0,
+          "frames": 100319,
+          "input_rms": 0.692984289867837,
+          "decoded_rms": 0.6928776898215789,
+          "rms_ratio": 0.9998461724921953,
+          "least_squares_gain": 0.9998461682211909,
+          "error_rms": 0.00012436106794522917,
+          "relative_error_rms": 0.00017945726874839656,
+          "snr_db": 74.92077892567451,
+          "input_peak": 0.980010986328125,
+          "decoded_peak": 0.980011522769928,
+          "decoded_min": -0.9800070524215698,
+          "decoded_max": 0.980011522769928,
+          "outside_unit_interval": 0,
+          "nonfinite": 0
+        },
+        {
+          "channel": 1,
+          "frames": 100319,
+          "input_rms": 0.6929577014062164,
+          "decoded_rms": 0.6928573482892505,
+          "rms_ratio": 0.9998551814681296,
+          "least_squares_gain": 0.9998551766069069,
+          "error_rms": 0.00012140581934744011,
+          "relative_error_rms": 0.00017519946614500678,
+          "snr_db": 75.12934443032576,
+          "input_peak": 0.980010986328125,
+          "decoded_peak": 0.9800344109535217,
+          "decoded_min": -0.9800131916999817,
+          "decoded_max": 0.9800344109535217,
+          "outside_unit_interval": 0,
+          "nonfinite": 0
+        }
+      ],
+      "all_decoded": [
+        {
+          "channel": 0,
+          "frames": 110592,
+          "decoded_rms": 0.6895236887793441,
+          "decoded_peak": 0.981529712677002,
+          "decoded_min": -0.981529712677002,
+          "decoded_max": 0.9808107614517212,
+          "outside_unit_interval": 0,
+          "nonfinite": 0
+        },
+        {
+          "channel": 1,
+          "frames": 110592,
+          "decoded_rms": 0.689540091735207,
+          "decoded_peak": 0.9830865859985352,
+          "decoded_min": -0.9824380874633789,
+          "decoded_max": 0.9830865859985352,
+          "outside_unit_interval": 0,
+          "nonfinite": 0
+        }
+      ],
+      "artifacts": {
+        "tones_independent_nearfull.s16le": {
+          "sha256": "9ce0c335840e05bd80a5d2fd0f93de931e0148bac7d79f79ec1b9ad76e49582f",
+          "bytes": 442368
+        },
+        "tones_independent_nearfull.mp3": {
+          "sha256": "482d6df6db9cade0b45ccf707e333f49bef699ca6e1ab6d4c821c7a3bfce3dff",
+          "bytes": 92160
+        },
+        "tones_independent_nearfull.f32le": {
+          "sha256": "0c6402ba912fe5471af665de8b8e0fad5286a63e19c64860f270af5682d3b457",
+          "bytes": 884736
+        }
+      },
+      "errors": {
+        "encode_exit": 0,
+        "decode_exit": 0,
+        "encoder_log_bytes": 0,
+        "decoder_log_bytes": 0
+      }
+    },
+    {
+      "name": "tones_same_half",
+      "pattern": "tones_same",
+      "nominal_amplitude": 0.5,
+      "input_frames": 110592,
+      "encoded_frames": 96,
+      "decoded_sample_frames": 110592,
+      "alignment_samples": 1057,
+      "aligned_source_start": 0,
+      "aligned_source_stop": 109535,
+      "steady_source_start": 4608,
+      "steady_source_stop": 104927,
+      "aligned": [
+        {
+          "channel": 0,
+          "frames": 109535,
+          "input_rms": 0.3535463558041192,
+          "decoded_rms": 0.3534957967318524,
+          "rms_ratio": 0.9998569945031627,
+          "least_squares_gain": 0.9998569773181643,
+          "error_rms": 8.277861102369782e-05,
+          "relative_error_rms": 0.00023413792750153804,
+          "snr_db": 72.61056460343187,
+          "input_peak": 0.5,
+          "decoded_peak": 0.5004093050956726,
+          "decoded_min": -0.5004093050956726,
+          "decoded_max": 0.5003117918968201,
+          "outside_unit_interval": 0,
+          "nonfinite": 0
+        },
+        {
+          "channel": 1,
+          "frames": 109535,
+          "input_rms": 0.3535463558041192,
+          "decoded_rms": 0.3534957967318524,
+          "rms_ratio": 0.9998569945031627,
+          "least_squares_gain": 0.9998569773181643,
+          "error_rms": 8.277861102369782e-05,
+          "relative_error_rms": 0.00023413792750153804,
+          "snr_db": 72.61056460343187,
+          "input_peak": 0.5,
+          "decoded_peak": 0.5004093050956726,
+          "decoded_min": -0.5004093050956726,
+          "decoded_max": 0.5003117918968201,
+          "outside_unit_interval": 0,
+          "nonfinite": 0
+        }
+      ],
+      "steady": [
+        {
+          "channel": 0,
+          "frames": 100319,
+          "input_rms": 0.3535633243941153,
+          "decoded_rms": 0.35351336517220794,
+          "rms_ratio": 0.999858697951794,
+          "least_squares_gain": 0.9998586934178382,
+          "error_rms": 6.024513727416207e-05,
+          "relative_error_rms": 0.00017039419282925144,
+          "snr_db": 75.37090420842715,
+          "input_peak": 0.5,
+          "decoded_peak": 0.5000138282775879,
+          "decoded_min": -0.5000138282775879,
+          "decoded_max": 0.5000133514404297,
+          "outside_unit_interval": 0,
+          "nonfinite": 0
+        },
+        {
+          "channel": 1,
+          "frames": 100319,
+          "input_rms": 0.3535633243941153,
+          "decoded_rms": 0.35351336517220794,
+          "rms_ratio": 0.999858697951794,
+          "least_squares_gain": 0.9998586934178382,
+          "error_rms": 6.024513727416207e-05,
+          "relative_error_rms": 0.00017039419282925144,
+          "snr_db": 75.37090420842715,
+          "input_peak": 0.5,
+          "decoded_peak": 0.5000138282775879,
+          "decoded_min": -0.5000138282775879,
+          "decoded_max": 0.5000133514404297,
+          "outside_unit_interval": 0,
+          "nonfinite": 0
+        }
+      ],
+      "all_decoded": [
+        {
+          "channel": 0,
+          "frames": 110592,
+          "decoded_rms": 0.35180245045496544,
+          "decoded_peak": 0.5004093050956726,
+          "decoded_min": -0.5004093050956726,
+          "decoded_max": 0.5003117918968201,
+          "outside_unit_interval": 0,
+          "nonfinite": 0
+        },
+        {
+          "channel": 1,
+          "frames": 110592,
+          "decoded_rms": 0.35180245045496544,
+          "decoded_peak": 0.5004093050956726,
+          "decoded_min": -0.5004093050956726,
+          "decoded_max": 0.5003117918968201,
+          "outside_unit_interval": 0,
+          "nonfinite": 0
+        }
+      ],
+      "artifacts": {
+        "tones_same_half.s16le": {
+          "sha256": "692199d75228daf0eb5d7832f8fcba805d05222e3d62a2c3f605c0cbf3ae2962",
+          "bytes": 442368
+        },
+        "tones_same_half.mp3": {
+          "sha256": "ef7490ef7d97b26e956fdb93d1c8d565d1c9b3f1a48931405bb5454da0e32109",
+          "bytes": 92160
+        },
+        "tones_same_half.f32le": {
+          "sha256": "fa108c466e58eab3585ace44dfaf7dd99c0272ac9047a3ca0f76078861ca9dfe",
+          "bytes": 884736
+        }
+      },
+      "errors": {
+        "encode_exit": 0,
+        "decode_exit": 0,
+        "encoder_log_bytes": 0,
+        "decoder_log_bytes": 0
+      }
+    },
+    {
+      "name": "tones_same_nearfull",
+      "pattern": "tones_same",
+      "nominal_amplitude": 0.98,
+      "input_frames": 110592,
+      "encoded_frames": 96,
+      "decoded_sample_frames": 110592,
+      "alignment_samples": 1057,
+      "aligned_source_start": 0,
+      "aligned_source_stop": 109535,
+      "steady_source_start": 4608,
+      "steady_source_stop": 104927,
+      "aligned": [
+        {
+          "channel": 0,
+          "frames": 109535,
+          "input_rms": 0.6929510310090513,
+          "decoded_rms": 0.6928426043798781,
+          "rms_ratio": 0.9998435291610501,
+          "least_squares_gain": 0.999843509441469,
+          "error_rms": 0.00017519781831570278,
+          "relative_error_rms": 0.00025282857009475225,
+          "snr_db": 71.94347703078215,
+          "input_peak": 0.980010986328125,
+          "decoded_peak": 0.981529712677002,
+          "decoded_min": -0.981529712677002,
+          "decoded_max": 0.9808107614517212,
+          "outside_unit_interval": 0,
+          "nonfinite": 0
+        },
+        {
+          "channel": 1,
+          "frames": 109535,
+          "input_rms": 0.6929510310090513,
+          "decoded_rms": 0.6928426043798781,
+          "rms_ratio": 0.9998435291610501,
+          "least_squares_gain": 0.999843509441469,
+          "error_rms": 0.00017519781831570278,
+          "relative_error_rms": 0.00025282857009475225,
+          "snr_db": 71.94347703078215,
+          "input_peak": 0.980010986328125,
+          "decoded_peak": 0.981529712677002,
+          "decoded_min": -0.981529712677002,
+          "decoded_max": 0.9808107614517212,
+          "outside_unit_interval": 0,
+          "nonfinite": 0
+        }
+      ],
+      "steady": [
+        {
+          "channel": 0,
+          "frames": 100319,
+          "input_rms": 0.692984289867837,
+          "decoded_rms": 0.6928776898215789,
+          "rms_ratio": 0.9998461724921953,
+          "least_squares_gain": 0.9998461682211909,
+          "error_rms": 0.00012436106794522917,
+          "relative_error_rms": 0.00017945726874839656,
+          "snr_db": 74.92077892567451,
+          "input_peak": 0.980010986328125,
+          "decoded_peak": 0.980011522769928,
+          "decoded_min": -0.9800070524215698,
+          "decoded_max": 0.980011522769928,
+          "outside_unit_interval": 0,
+          "nonfinite": 0
+        },
+        {
+          "channel": 1,
+          "frames": 100319,
+          "input_rms": 0.692984289867837,
+          "decoded_rms": 0.6928776898215789,
+          "rms_ratio": 0.9998461724921953,
+          "least_squares_gain": 0.9998461682211909,
+          "error_rms": 0.00012436106794522917,
+          "relative_error_rms": 0.00017945726874839656,
+          "snr_db": 74.92077892567451,
+          "input_peak": 0.980010986328125,
+          "decoded_peak": 0.980011522769928,
+          "decoded_min": -0.9800070524215698,
+          "decoded_max": 0.980011522769928,
+          "outside_unit_interval": 0,
+          "nonfinite": 0
+        }
+      ],
+      "all_decoded": [
+        {
+          "channel": 0,
+          "frames": 110592,
+          "decoded_rms": 0.6895236887793441,
+          "decoded_peak": 0.981529712677002,
+          "decoded_min": -0.981529712677002,
+          "decoded_max": 0.9808107614517212,
+          "outside_unit_interval": 0,
+          "nonfinite": 0
+        },
+        {
+          "channel": 1,
+          "frames": 110592,
+          "decoded_rms": 0.6895236887793441,
+          "decoded_peak": 0.981529712677002,
+          "decoded_min": -0.981529712677002,
+          "decoded_max": 0.9808107614517212,
+          "outside_unit_interval": 0,
+          "nonfinite": 0
+        }
+      ],
+      "artifacts": {
+        "tones_same_nearfull.s16le": {
+          "sha256": "31dd1b1933320d61cdf56c83f0d58b4f789d3a9a082174a41e012be5356525a5",
+          "bytes": 442368
+        },
+        "tones_same_nearfull.mp3": {
+          "sha256": "d43ab53836ec1d7486b7d2184fccf8b049c6d277f099e1cf66702f6d81a707fb",
+          "bytes": 92160
+        },
+        "tones_same_nearfull.f32le": {
+          "sha256": "a5ad98f1f20e4ff49e8895a961be9bd83ac71539834e2c015ef26d0633644257",
+          "bytes": 884736
+        }
+      },
+      "errors": {
+        "encode_exit": 0,
+        "decode_exit": 0,
+        "encoder_log_bytes": 0,
+        "decoder_log_bytes": 0
+      }
+    },
+    {
+      "name": "tones_opposite_half",
+      "pattern": "tones_opposite",
+      "nominal_amplitude": 0.5,
+      "input_frames": 110592,
+      "encoded_frames": 96,
+      "decoded_sample_frames": 110592,
+      "alignment_samples": 1057,
+      "aligned_source_start": 0,
+      "aligned_source_stop": 109535,
+      "steady_source_start": 4608,
+      "steady_source_stop": 104927,
+      "aligned": [
+        {
+          "channel": 0,
+          "frames": 109535,
+          "input_rms": 0.3535463558041192,
+          "decoded_rms": 0.3534957967318524,
+          "rms_ratio": 0.9998569945031627,
+          "least_squares_gain": 0.9998569773181643,
+          "error_rms": 8.277861102369782e-05,
+          "relative_error_rms": 0.00023413792750153804,
+          "snr_db": 72.61056460343187,
+          "input_peak": 0.5,
+          "decoded_peak": 0.5004093050956726,
+          "decoded_min": -0.5004093050956726,
+          "decoded_max": 0.5003117918968201,
+          "outside_unit_interval": 0,
+          "nonfinite": 0
+        },
+        {
+          "channel": 1,
+          "frames": 109535,
+          "input_rms": 0.3535463558041192,
+          "decoded_rms": 0.3534957964685504,
+          "rms_ratio": 0.9998569937584173,
+          "least_squares_gain": 0.9998569765712917,
+          "error_rms": 8.278198348143593e-05,
+          "relative_error_rms": 0.00023414746644228156,
+          "snr_db": 72.61021074150219,
+          "input_peak": 0.5,
+          "decoded_peak": 0.5004093050956726,
+          "decoded_min": -0.5003117322921753,
+          "decoded_max": 0.5004093050956726,
+          "outside_unit_interval": 0,
+          "nonfinite": 0
+        }
+      ],
+      "steady": [
+        {
+          "channel": 0,
+          "frames": 100319,
+          "input_rms": 0.3535633243941153,
+          "decoded_rms": 0.35351336517220794,
+          "rms_ratio": 0.999858697951794,
+          "least_squares_gain": 0.9998586934178382,
+          "error_rms": 6.024513727416207e-05,
+          "relative_error_rms": 0.00017039419282925144,
+          "snr_db": 75.37090420842715,
+          "input_peak": 0.5,
+          "decoded_peak": 0.5000138282775879,
+          "decoded_min": -0.5000138282775879,
+          "decoded_max": 0.5000133514404297,
+          "outside_unit_interval": 0,
+          "nonfinite": 0
+        },
+        {
+          "channel": 1,
+          "frames": 100319,
+          "input_rms": 0.3535633243941153,
+          "decoded_rms": 0.35351336557979146,
+          "rms_ratio": 0.999858699104582,
+          "least_squares_gain": 0.9998586945697688,
+          "error_rms": 6.0246577926439464e-05,
+          "relative_error_rms": 0.00017039826749474417,
+          "snr_db": 75.37069650374524,
+          "input_peak": 0.5,
+          "decoded_peak": 0.5000138282775879,
+          "decoded_min": -0.5000138282775879,
+          "decoded_max": 0.5000133514404297,
+          "outside_unit_interval": 0,
+          "nonfinite": 0
+        }
+      ],
+      "all_decoded": [
+        {
+          "channel": 0,
+          "frames": 110592,
+          "decoded_rms": 0.35180245045496544,
+          "decoded_peak": 0.5004093050956726,
+          "decoded_min": -0.5004093050956726,
+          "decoded_max": 0.5003117918968201,
+          "outside_unit_interval": 0,
+          "nonfinite": 0
+        },
+        {
+          "channel": 1,
+          "frames": 110592,
+          "decoded_rms": 0.35180245019292467,
+          "decoded_peak": 0.5004093050956726,
+          "decoded_min": -0.5003117322921753,
+          "decoded_max": 0.5004093050956726,
+          "outside_unit_interval": 0,
+          "nonfinite": 0
+        }
+      ],
+      "artifacts": {
+        "tones_opposite_half.s16le": {
+          "sha256": "30963b8e645a3ed780e469a991720dbe2780b8d73e0450cdf68a40e5e1fa053c",
+          "bytes": 442368
+        },
+        "tones_opposite_half.mp3": {
+          "sha256": "1030252e8e9b33c5b3f2e4b29160365cd3efd981ec76c69f5af91918ad96c146",
+          "bytes": 92160
+        },
+        "tones_opposite_half.f32le": {
+          "sha256": "e5dc77a9f5c2dfccd021d02fd904afb53a3944edd33be2f78d0696c491d69a08",
+          "bytes": 884736
+        }
+      },
+      "errors": {
+        "encode_exit": 0,
+        "decode_exit": 0,
+        "encoder_log_bytes": 0,
+        "decoder_log_bytes": 0
+      }
+    },
+    {
+      "name": "tones_opposite_nearfull",
+      "pattern": "tones_opposite",
+      "nominal_amplitude": 0.98,
+      "input_frames": 110592,
+      "encoded_frames": 96,
+      "decoded_sample_frames": 110592,
+      "alignment_samples": 1057,
+      "aligned_source_start": 0,
+      "aligned_source_stop": 109535,
+      "steady_source_start": 4608,
+      "steady_source_stop": 104927,
+      "aligned": [
+        {
+          "channel": 0,
+          "frames": 109535,
+          "input_rms": 0.6929510310090513,
+          "decoded_rms": 0.6928426043798781,
+          "rms_ratio": 0.9998435291610501,
+          "least_squares_gain": 0.999843509441469,
+          "error_rms": 0.00017519781831570278,
+          "relative_error_rms": 0.00025282857009475225,
+          "snr_db": 71.94347703078215,
+          "input_peak": 0.980010986328125,
+          "decoded_peak": 0.981529712677002,
+          "decoded_min": -0.981529712677002,
+          "decoded_max": 0.9808107614517212,
+          "outside_unit_interval": 0,
+          "nonfinite": 0
+        },
+        {
+          "channel": 1,
+          "frames": 109535,
+          "input_rms": 0.6929510310090513,
+          "decoded_rms": 0.6928426044455409,
+          "rms_ratio": 0.9998435292558082,
+          "least_squares_gain": 0.9998435095347835,
+          "error_rms": 0.00017520173381414632,
+          "relative_error_rms": 0.00025283422056393166,
+          "snr_db": 71.94328291188471,
+          "input_peak": 0.980010986328125,
+          "decoded_peak": 0.981529712677002,
+          "decoded_min": -0.9808065891265869,
+          "decoded_max": 0.981529712677002,
+          "outside_unit_interval": 0,
+          "nonfinite": 0
+        }
+      ],
+      "steady": [
+        {
+          "channel": 0,
+          "frames": 100319,
+          "input_rms": 0.692984289867837,
+          "decoded_rms": 0.6928776898215789,
+          "rms_ratio": 0.9998461724921953,
+          "least_squares_gain": 0.9998461682211909,
+          "error_rms": 0.00012436106794522917,
+          "relative_error_rms": 0.00017945726874839656,
+          "snr_db": 74.92077892567451,
+          "input_peak": 0.980010986328125,
+          "decoded_peak": 0.980011522769928,
+          "decoded_min": -0.9800070524215698,
+          "decoded_max": 0.980011522769928,
+          "outside_unit_interval": 0,
+          "nonfinite": 0
+        },
+        {
+          "channel": 1,
+          "frames": 100319,
+          "input_rms": 0.692984289867837,
+          "decoded_rms": 0.6928776901172335,
+          "rms_ratio": 0.9998461729188352,
+          "least_squares_gain": 0.9998461686454273,
+          "error_rms": 0.00012437009419243928,
+          "relative_error_rms": 0.0001794702939314232,
+          "snr_db": 74.92014851823804,
+          "input_peak": 0.980010986328125,
+          "decoded_peak": 0.9800122976303101,
+          "decoded_min": -0.980011522769928,
+          "decoded_max": 0.9800122976303101,
+          "outside_unit_interval": 0,
+          "nonfinite": 0
+        }
+      ],
+      "all_decoded": [
+        {
+          "channel": 0,
+          "frames": 110592,
+          "decoded_rms": 0.6895236887793441,
+          "decoded_peak": 0.981529712677002,
+          "decoded_min": -0.981529712677002,
+          "decoded_max": 0.9808107614517212,
+          "outside_unit_interval": 0,
+          "nonfinite": 0
+        },
+        {
+          "channel": 1,
+          "frames": 110592,
+          "decoded_rms": 0.6895236888446922,
+          "decoded_peak": 0.981529712677002,
+          "decoded_min": -0.9808065891265869,
+          "decoded_max": 0.981529712677002,
+          "outside_unit_interval": 0,
+          "nonfinite": 0
+        }
+      ],
+      "artifacts": {
+        "tones_opposite_nearfull.s16le": {
+          "sha256": "34b2008578485923859a39f4cf97696c0e0b8be3b46dc46bd0ebecb3f0edcc0f",
+          "bytes": 442368
+        },
+        "tones_opposite_nearfull.mp3": {
+          "sha256": "e796d6f15e74be390b5a76239cdb1fdd1ba8e23e2b6aa91bcc88be746d35d0d4",
+          "bytes": 92160
+        },
+        "tones_opposite_nearfull.f32le": {
+          "sha256": "9818fc2b31060be0209623fdae8eae06334f0afa7f7b1ce4c60ad3e121782dba",
+          "bytes": 884736
+        }
+      },
+      "errors": {
+        "encode_exit": 0,
+        "decode_exit": 0,
+        "encoder_log_bytes": 0,
+        "decoder_log_bytes": 0
+      }
+    },
+    {
+      "name": "tone_left_only_half",
+      "pattern": "tone_left_only",
+      "nominal_amplitude": 0.5,
+      "input_frames": 110592,
+      "encoded_frames": 96,
+      "decoded_sample_frames": 110592,
+      "alignment_samples": 1057,
+      "aligned_source_start": 0,
+      "aligned_source_stop": 109535,
+      "steady_source_start": 4608,
+      "steady_source_stop": 104927,
+      "aligned": [
+        {
+          "channel": 0,
+          "frames": 109535,
+          "input_rms": 0.3535463558041192,
+          "decoded_rms": 0.3534957967318524,
+          "rms_ratio": 0.9998569945031627,
+          "least_squares_gain": 0.9998569773181643,
+          "error_rms": 8.277861102369782e-05,
+          "relative_error_rms": 0.00023413792750153804,
+          "snr_db": 72.61056460343187,
+          "input_peak": 0.5,
+          "decoded_peak": 0.5004093050956726,
+          "decoded_min": -0.5004093050956726,
+          "decoded_max": 0.5003117918968201,
+          "outside_unit_interval": 0,
+          "nonfinite": 0
+        },
+        {
+          "channel": 1,
+          "frames": 109535,
+          "input_rms": 0.0,
+          "decoded_rms": 0.0,
+          "rms_ratio": null,
+          "least_squares_gain": null,
+          "error_rms": 0.0,
+          "relative_error_rms": null,
+          "snr_db": null,
+          "input_peak": 0.0,
+          "decoded_peak": 0.0,
+          "decoded_min": 0.0,
+          "decoded_max": 0.0,
+          "outside_unit_interval": 0,
+          "nonfinite": 0
+        }
+      ],
+      "steady": [
+        {
+          "channel": 0,
+          "frames": 100319,
+          "input_rms": 0.3535633243941153,
+          "decoded_rms": 0.35351336517220794,
+          "rms_ratio": 0.999858697951794,
+          "least_squares_gain": 0.9998586934178382,
+          "error_rms": 6.024513727416207e-05,
+          "relative_error_rms": 0.00017039419282925144,
+          "snr_db": 75.37090420842715,
+          "input_peak": 0.5,
+          "decoded_peak": 0.5000138282775879,
+          "decoded_min": -0.5000138282775879,
+          "decoded_max": 0.5000133514404297,
+          "outside_unit_interval": 0,
+          "nonfinite": 0
+        },
+        {
+          "channel": 1,
+          "frames": 100319,
+          "input_rms": 0.0,
+          "decoded_rms": 0.0,
+          "rms_ratio": null,
+          "least_squares_gain": null,
+          "error_rms": 0.0,
+          "relative_error_rms": null,
+          "snr_db": null,
+          "input_peak": 0.0,
+          "decoded_peak": 0.0,
+          "decoded_min": 0.0,
+          "decoded_max": 0.0,
+          "outside_unit_interval": 0,
+          "nonfinite": 0
+        }
+      ],
+      "all_decoded": [
+        {
+          "channel": 0,
+          "frames": 110592,
+          "decoded_rms": 0.35180245045496544,
+          "decoded_peak": 0.5004093050956726,
+          "decoded_min": -0.5004093050956726,
+          "decoded_max": 0.5003117918968201,
+          "outside_unit_interval": 0,
+          "nonfinite": 0
+        },
+        {
+          "channel": 1,
+          "frames": 110592,
+          "decoded_rms": 0.0,
+          "decoded_peak": 0.0,
+          "decoded_min": 0.0,
+          "decoded_max": 0.0,
+          "outside_unit_interval": 0,
+          "nonfinite": 0
+        }
+      ],
+      "artifacts": {
+        "tone_left_only_half.s16le": {
+          "sha256": "6d7e191456bd0e4f6e48c7f20533b5efa4737527d76ad06ecd487262f17769bd",
+          "bytes": 442368
+        },
+        "tone_left_only_half.mp3": {
+          "sha256": "e89e95d63519e8865eddc4f145cc07661c32946bc808a002773d3a89969dc4ac",
+          "bytes": 92160
+        },
+        "tone_left_only_half.f32le": {
+          "sha256": "e534328a946ebd21faf14f5d3443991c991a02e259213954c8919c711b0cd3fb",
+          "bytes": 884736
+        }
+      },
+      "errors": {
+        "encode_exit": 0,
+        "decode_exit": 0,
+        "encoder_log_bytes": 0,
+        "decoder_log_bytes": 0
+      }
+    },
+    {
+      "name": "tone_left_only_nearfull",
+      "pattern": "tone_left_only",
+      "nominal_amplitude": 0.98,
+      "input_frames": 110592,
+      "encoded_frames": 96,
+      "decoded_sample_frames": 110592,
+      "alignment_samples": 1057,
+      "aligned_source_start": 0,
+      "aligned_source_stop": 109535,
+      "steady_source_start": 4608,
+      "steady_source_stop": 104927,
+      "aligned": [
+        {
+          "channel": 0,
+          "frames": 109535,
+          "input_rms": 0.6929510310090513,
+          "decoded_rms": 0.6928426043798781,
+          "rms_ratio": 0.9998435291610501,
+          "least_squares_gain": 0.999843509441469,
+          "error_rms": 0.00017519781831570278,
+          "relative_error_rms": 0.00025282857009475225,
+          "snr_db": 71.94347703078215,
+          "input_peak": 0.980010986328125,
+          "decoded_peak": 0.981529712677002,
+          "decoded_min": -0.981529712677002,
+          "decoded_max": 0.9808107614517212,
+          "outside_unit_interval": 0,
+          "nonfinite": 0
+        },
+        {
+          "channel": 1,
+          "frames": 109535,
+          "input_rms": 0.0,
+          "decoded_rms": 0.0,
+          "rms_ratio": null,
+          "least_squares_gain": null,
+          "error_rms": 0.0,
+          "relative_error_rms": null,
+          "snr_db": null,
+          "input_peak": 0.0,
+          "decoded_peak": 0.0,
+          "decoded_min": 0.0,
+          "decoded_max": 0.0,
+          "outside_unit_interval": 0,
+          "nonfinite": 0
+        }
+      ],
+      "steady": [
+        {
+          "channel": 0,
+          "frames": 100319,
+          "input_rms": 0.692984289867837,
+          "decoded_rms": 0.6928776898215789,
+          "rms_ratio": 0.9998461724921953,
+          "least_squares_gain": 0.9998461682211909,
+          "error_rms": 0.00012436106794522917,
+          "relative_error_rms": 0.00017945726874839656,
+          "snr_db": 74.92077892567451,
+          "input_peak": 0.980010986328125,
+          "decoded_peak": 0.980011522769928,
+          "decoded_min": -0.9800070524215698,
+          "decoded_max": 0.980011522769928,
+          "outside_unit_interval": 0,
+          "nonfinite": 0
+        },
+        {
+          "channel": 1,
+          "frames": 100319,
+          "input_rms": 0.0,
+          "decoded_rms": 0.0,
+          "rms_ratio": null,
+          "least_squares_gain": null,
+          "error_rms": 0.0,
+          "relative_error_rms": null,
+          "snr_db": null,
+          "input_peak": 0.0,
+          "decoded_peak": 0.0,
+          "decoded_min": 0.0,
+          "decoded_max": 0.0,
+          "outside_unit_interval": 0,
+          "nonfinite": 0
+        }
+      ],
+      "all_decoded": [
+        {
+          "channel": 0,
+          "frames": 110592,
+          "decoded_rms": 0.6895236887793441,
+          "decoded_peak": 0.981529712677002,
+          "decoded_min": -0.981529712677002,
+          "decoded_max": 0.9808107614517212,
+          "outside_unit_interval": 0,
+          "nonfinite": 0
+        },
+        {
+          "channel": 1,
+          "frames": 110592,
+          "decoded_rms": 0.0,
+          "decoded_peak": 0.0,
+          "decoded_min": 0.0,
+          "decoded_max": 0.0,
+          "outside_unit_interval": 0,
+          "nonfinite": 0
+        }
+      ],
+      "artifacts": {
+        "tone_left_only_nearfull.s16le": {
+          "sha256": "3dfd5c56f59de4bab27de1a99fa335e70ee3ccc737277f905012d921bf3200c3",
+          "bytes": 442368
+        },
+        "tone_left_only_nearfull.mp3": {
+          "sha256": "05eafc0b6fc5fba55d3c12bb9ec636f79f9cd52568561e5eb205c1f26a16f5bc",
+          "bytes": 92160
+        },
+        "tone_left_only_nearfull.f32le": {
+          "sha256": "49c7f62d8941b37cb2de9f24f3d2a086c16ac1b9859953a89789d614d0f5d147",
+          "bytes": 884736
+        }
+      },
+      "errors": {
+        "encode_exit": 0,
+        "decode_exit": 0,
+        "encoder_log_bytes": 0,
+        "decoder_log_bytes": 0
+      }
+    },
+    {
+      "name": "tone_right_only_half",
+      "pattern": "tone_right_only",
+      "nominal_amplitude": 0.5,
+      "input_frames": 110592,
+      "encoded_frames": 96,
+      "decoded_sample_frames": 110592,
+      "alignment_samples": 1057,
+      "aligned_source_start": 0,
+      "aligned_source_stop": 109535,
+      "steady_source_start": 4608,
+      "steady_source_stop": 104927,
+      "aligned": [
+        {
+          "channel": 0,
+          "frames": 109535,
+          "input_rms": 0.0,
+          "decoded_rms": 0.0,
+          "rms_ratio": null,
+          "least_squares_gain": null,
+          "error_rms": 0.0,
+          "relative_error_rms": null,
+          "snr_db": null,
+          "input_peak": 0.0,
+          "decoded_peak": 0.0,
+          "decoded_min": 0.0,
+          "decoded_max": 0.0,
+          "outside_unit_interval": 0,
+          "nonfinite": 0
+        },
+        {
+          "channel": 1,
+          "frames": 109535,
+          "input_rms": 0.3535501504724718,
+          "decoded_rms": 0.35349709145176084,
+          "rms_ratio": 0.9998499250512549,
+          "least_squares_gain": 0.9998498829297332,
+          "error_rms": 0.00011552249608026157,
+          "relative_error_rms": 0.0003267499559139812,
+          "snr_db": 69.71568924687283,
+          "input_peak": 0.5,
+          "decoded_peak": 0.5024027824401855,
+          "decoded_min": -0.5009331107139587,
+          "decoded_max": 0.5024027824401855,
+          "outside_unit_interval": 0,
+          "nonfinite": 0
+        }
+      ],
+      "steady": [
+        {
+          "channel": 0,
+          "frames": 100319,
+          "input_rms": 0.0,
+          "decoded_rms": 0.0,
+          "rms_ratio": null,
+          "least_squares_gain": null,
+          "error_rms": 0.0,
+          "relative_error_rms": null,
+          "snr_db": null,
+          "input_peak": 0.0,
+          "decoded_peak": 0.0,
+          "decoded_min": 0.0,
+          "decoded_max": 0.0,
+          "outside_unit_interval": 0,
+          "nonfinite": 0
+        },
+        {
+          "channel": 1,
+          "frames": 100319,
+          "input_rms": 0.3535497677452678,
+          "decoded_rms": 0.35349683246152724,
+          "rms_ratio": 0.9998502748733845,
+          "least_squares_gain": 0.9998502696562864,
+          "error_rms": 6.408113640795471e-05,
+          "relative_error_rms": 0.00018125068166958914,
+          "snr_db": 74.8344070281287,
+          "input_peak": 0.5,
+          "decoded_peak": 0.500041663646698,
+          "decoded_min": -0.500041663646698,
+          "decoded_max": 0.5000239610671997,
+          "outside_unit_interval": 0,
+          "nonfinite": 0
+        }
+      ],
+      "all_decoded": [
+        {
+          "channel": 0,
+          "frames": 110592,
+          "decoded_rms": 0.0,
+          "decoded_peak": 0.0,
+          "decoded_min": 0.0,
+          "decoded_max": 0.0,
+          "outside_unit_interval": 0,
+          "nonfinite": 0
+        },
+        {
+          "channel": 1,
+          "frames": 110592,
+          "decoded_rms": 0.351803746725118,
+          "decoded_peak": 0.5024027824401855,
+          "decoded_min": -0.5009331107139587,
+          "decoded_max": 0.5024027824401855,
+          "outside_unit_interval": 0,
+          "nonfinite": 0
+        }
+      ],
+      "artifacts": {
+        "tone_right_only_half.s16le": {
+          "sha256": "dca109cd0d56f0cf794dae47761c48be2194ae673cc45f1915050137bca094b6",
+          "bytes": 442368
+        },
+        "tone_right_only_half.mp3": {
+          "sha256": "54cc7cfab76ad9685fa09f3e4a9ae70f225e23c2046aaa457144fb32c9fe8db1",
+          "bytes": 92160
+        },
+        "tone_right_only_half.f32le": {
+          "sha256": "062c84100fd741307e155311818840bf18db68cdc221a11a6dd9547fb1fe2637",
+          "bytes": 884736
+        }
+      },
+      "errors": {
+        "encode_exit": 0,
+        "decode_exit": 0,
+        "encoder_log_bytes": 0,
+        "decoder_log_bytes": 0
+      }
+    },
+    {
+      "name": "tone_right_only_nearfull",
+      "pattern": "tone_right_only",
+      "nominal_amplitude": 0.98,
+      "input_frames": 110592,
+      "encoded_frames": 96,
+      "decoded_sample_frames": 110592,
+      "alignment_samples": 1057,
+      "aligned_source_start": 0,
+      "aligned_source_stop": 109535,
+      "steady_source_start": 4608,
+      "steady_source_stop": 104927,
+      "aligned": [
+        {
+          "channel": 0,
+          "frames": 109535,
+          "input_rms": 0.0,
+          "decoded_rms": 0.0,
+          "rms_ratio": null,
+          "least_squares_gain": null,
+          "error_rms": 0.0,
+          "relative_error_rms": null,
+          "snr_db": null,
+          "input_peak": 0.0,
+          "decoded_peak": 0.0,
+          "decoded_min": 0.0,
+          "decoded_max": 0.0,
+          "outside_unit_interval": 0,
+          "nonfinite": 0
+        },
+        {
+          "channel": 1,
+          "frames": 109535,
+          "input_rms": 0.6929584701220688,
+          "decoded_rms": 0.692859077017179,
+          "rms_ratio": 0.9998565670106141,
+          "least_squares_gain": 0.9998565357754832,
+          "error_rms": 0.0001996914484570603,
+          "relative_error_rms": 0.000288172317775239,
+          "snr_db": 70.80695480873887,
+          "input_peak": 0.980010986328125,
+          "decoded_peak": 0.9830865859985352,
+          "decoded_min": -0.9824380874633789,
+          "decoded_max": 0.9830865859985352,
+          "outside_unit_interval": 0,
+          "nonfinite": 0
+        }
+      ],
+      "steady": [
+        {
+          "channel": 0,
+          "frames": 100319,
+          "input_rms": 0.0,
+          "decoded_rms": 0.0,
+          "rms_ratio": null,
+          "least_squares_gain": null,
+          "error_rms": 0.0,
+          "relative_error_rms": null,
+          "snr_db": null,
+          "input_peak": 0.0,
+          "decoded_peak": 0.0,
+          "decoded_min": 0.0,
+          "decoded_max": 0.0,
+          "outside_unit_interval": 0,
+          "nonfinite": 0
+        },
+        {
+          "channel": 1,
+          "frames": 100319,
+          "input_rms": 0.6929577014062164,
+          "decoded_rms": 0.6928573482892505,
+          "rms_ratio": 0.9998551814681296,
+          "least_squares_gain": 0.9998551766069069,
+          "error_rms": 0.00012140581934744011,
+          "relative_error_rms": 0.00017519946614500678,
+          "snr_db": 75.12934443032576,
+          "input_peak": 0.980010986328125,
+          "decoded_peak": 0.9800344109535217,
+          "decoded_min": -0.9800131916999817,
+          "decoded_max": 0.9800344109535217,
+          "outside_unit_interval": 0,
+          "nonfinite": 0
+        }
+      ],
+      "all_decoded": [
+        {
+          "channel": 0,
+          "frames": 110592,
+          "decoded_rms": 0.0,
+          "decoded_peak": 0.0,
+          "decoded_min": 0.0,
+          "decoded_max": 0.0,
+          "outside_unit_interval": 0,
+          "nonfinite": 0
+        },
+        {
+          "channel": 1,
+          "frames": 110592,
+          "decoded_rms": 0.689540091735207,
+          "decoded_peak": 0.9830865859985352,
+          "decoded_min": -0.9824380874633789,
+          "decoded_max": 0.9830865859985352,
+          "outside_unit_interval": 0,
+          "nonfinite": 0
+        }
+      ],
+      "artifacts": {
+        "tone_right_only_nearfull.s16le": {
+          "sha256": "4c212c40c1f3386d4c80725032ebbb6121ddf7a3c7018fb91b70c29eae7156bb",
+          "bytes": 442368
+        },
+        "tone_right_only_nearfull.mp3": {
+          "sha256": "4e2c8bac9801fcd838611b60d8d30da1e106b4d9806b9b50989d6eb76be6416a",
+          "bytes": 92160
+        },
+        "tone_right_only_nearfull.f32le": {
+          "sha256": "8aac908112d39510cc0257671418f328129837ff8f5cdc804827fbea34daeec2",
+          "bytes": 884736
+        }
+      },
+      "errors": {
+        "encode_exit": 0,
+        "decode_exit": 0,
+        "encoder_log_bytes": 0,
+        "decoder_log_bytes": 0
+      }
+    },
+    {
+      "name": "impulse_and_gated_tones_half",
+      "pattern": "impulse_and_gated_tones",
+      "nominal_amplitude": 0.5,
+      "input_frames": 110592,
+      "encoded_frames": 96,
+      "decoded_sample_frames": 110592,
+      "alignment_samples": 1057,
+      "aligned_source_start": 0,
+      "aligned_source_stop": 109535,
+      "steady_source_start": 4608,
+      "steady_source_stop": 104927,
+      "aligned": [
+        {
+          "channel": 0,
+          "frames": 109535,
+          "input_rms": 0.08088633495490663,
+          "decoded_rms": 0.08085592349915306,
+          "rms_ratio": 0.9996240223299704,
+          "least_squares_gain": 0.999541858970708,
+          "error_rms": 0.0010373276776954403,
+          "relative_error_rms": 0.012824510818468172,
+          "snr_db": 37.839183834875314,
+          "input_peak": 0.5,
+          "decoded_peak": 0.6211308240890503,
+          "decoded_min": -0.5106341242790222,
+          "decoded_max": 0.6211308240890503,
+          "outside_unit_interval": 0,
+          "nonfinite": 0
+        },
+        {
+          "channel": 1,
+          "frames": 109535,
+          "input_rms": 0.08094225134504372,
+          "decoded_rms": 0.08092509470410293,
+          "rms_ratio": 0.9997880385008361,
+          "least_squares_gain": 0.9996865841782779,
+          "error_rms": 0.0011531176782979308,
+          "relative_error_rms": 0.014246177480070038,
+          "snr_db": 36.926032989615685,
+          "input_peak": 0.5,
+          "decoded_peak": 0.6211308240890503,
+          "decoded_min": -0.6211308240890503,
+          "decoded_max": 0.508907675743103,
+          "outside_unit_interval": 0,
+          "nonfinite": 0
+        }
+      ],
+      "steady": [
+        {
+          "channel": 0,
+          "frames": 100319,
+          "input_rms": 0.0845201028044258,
+          "decoded_rms": 0.08448832513310274,
+          "rms_ratio": 0.9996240223299705,
+          "least_squares_gain": 0.999541858970708,
+          "error_rms": 0.0010839289727934008,
+          "relative_error_rms": 0.012824510818468174,
+          "snr_db": 37.839183834875314,
+          "input_peak": 0.5,
+          "decoded_peak": 0.6211308240890503,
+          "decoded_min": -0.5106341242790222,
+          "decoded_max": 0.6211308240890503,
+          "outside_unit_interval": 0,
+          "nonfinite": 0
+        },
+        {
+          "channel": 1,
+          "frames": 100319,
+          "input_rms": 0.08457853120330769,
+          "decoded_rms": 0.08456060381103676,
+          "rms_ratio": 0.9997880385008362,
+          "least_squares_gain": 0.9996865841782779,
+          "error_rms": 0.001204920766525963,
+          "relative_error_rms": 0.014246177480070038,
+          "snr_db": 36.926032989615685,
+          "input_peak": 0.5,
+          "decoded_peak": 0.6211308240890503,
+          "decoded_min": -0.6211308240890503,
+          "decoded_max": 0.508907675743103,
+          "outside_unit_interval": 0,
+          "nonfinite": 0
+        }
+      ],
+      "all_decoded": [
+        {
+          "channel": 0,
+          "frames": 110592,
+          "decoded_rms": 0.0804685993553864,
+          "decoded_peak": 0.6211308240890503,
+          "decoded_min": -0.5106341242790222,
+          "decoded_max": 0.6211308240890503,
+          "outside_unit_interval": 0,
+          "nonfinite": 0
+        },
+        {
+          "channel": 1,
+          "frames": 110592,
+          "decoded_rms": 0.08053743920950172,
+          "decoded_peak": 0.6211308240890503,
+          "decoded_min": -0.6211308240890503,
+          "decoded_max": 0.508907675743103,
+          "outside_unit_interval": 0,
+          "nonfinite": 0
+        }
+      ],
+      "artifacts": {
+        "impulse_and_gated_tones_half.s16le": {
+          "sha256": "5810de5dbb0f9e1bfad860c34c5f6a7761cbbb55e6ad1577869588df3e1a4411",
+          "bytes": 442368
+        },
+        "impulse_and_gated_tones_half.mp3": {
+          "sha256": "d0ee700129536c33abd0a24c809b0ed3f55fc7fa387edd048ff0f1593169f6a9",
+          "bytes": 92160
+        },
+        "impulse_and_gated_tones_half.f32le": {
+          "sha256": "12c8960cac650b60f5d5b7d7b67721da8ff59330d6845b9ec30c461b82a68fe8",
+          "bytes": 884736
+        }
+      },
+      "errors": {
+        "encode_exit": 0,
+        "decode_exit": 0,
+        "encoder_log_bytes": 0,
+        "decoder_log_bytes": 0
+      },
+      "segments": {
+        "isolated_impulse": [
+          {
+            "channel": 0,
+            "frames": 10000,
+            "input_rms": 0.005,
+            "decoded_rms": 0.006369785168956486,
+            "rms_ratio": 1.2739570337912973,
+            "least_squares_gain": 1.2422616481781006,
+            "error_rms": 0.0018603979922997619,
+            "relative_error_rms": 0.37207959845995237,
+            "snr_db": 8.58728284354513,
+            "input_peak": 0.5,
+            "decoded_peak": 0.6211308240890503,
+            "decoded_min": -0.038556311279535294,
+            "decoded_max": 0.6211308240890503,
+            "outside_unit_interval": 0,
+            "nonfinite": 0
+          },
+          {
+            "channel": 1,
+            "frames": 10000,
+            "input_rms": 0.005,
+            "decoded_rms": 0.006369785170427427,
+            "rms_ratio": 1.2739570340854853,
+            "least_squares_gain": 1.2422616481781006,
+            "error_rms": 0.001860397997336089,
+            "relative_error_rms": 0.37207959946721775,
+            "snr_db": 8.587282820031357,
+            "input_peak": 0.5,
+            "decoded_peak": 0.6211308240890503,
+            "decoded_min": -0.6211308240890503,
+            "decoded_max": 0.03855659067630768,
+            "outside_unit_interval": 0,
+            "nonfinite": 0
+          }
+        ],
+        "gated_tones": [
+          {
+            "channel": 0,
+            "frames": 43000,
+            "input_rms": 0.12907484771538794,
+            "decoded_rms": 0.12901226524875342,
+            "rms_ratio": 0.9995151459192693,
+            "least_squares_gain": 0.9994571570035503,
+            "error_rms": 0.0013914538878982469,
+            "relative_error_rms": 0.010780209409709508,
+            "snr_db": 39.34745605460348,
+            "input_peak": 0.5,
+            "decoded_peak": 0.5106341242790222,
+            "decoded_min": -0.5106341242790222,
+            "decoded_max": 0.5063564777374268,
+            "outside_unit_interval": 0,
+            "nonfinite": 0
+          },
+          {
+            "channel": 1,
+            "frames": 43000,
+            "input_rms": 0.12916410775334947,
+            "decoded_rms": 0.12912269612895286,
+            "rms_ratio": 0.999679387524004,
+            "least_squares_gain": 0.9996020496738093,
+            "error_rms": 0.0016069307255493805,
+            "relative_error_rms": 0.012441000472189687,
+            "snr_db": 38.10289386865937,
+            "input_peak": 0.5,
+            "decoded_peak": 0.508907675743103,
+            "decoded_min": -0.5073854923248291,
+            "decoded_max": 0.508907675743103,
+            "outside_unit_interval": 0,
+            "nonfinite": 0
+          }
+        ]
+      }
+    },
+    {
+      "name": "impulse_and_gated_tones_nearfull",
+      "pattern": "impulse_and_gated_tones",
+      "nominal_amplitude": 0.98,
+      "input_frames": 110592,
+      "encoded_frames": 96,
+      "decoded_sample_frames": 110592,
+      "alignment_samples": 1057,
+      "aligned_source_start": 0,
+      "aligned_source_stop": 109535,
+      "steady_source_start": 4608,
+      "steady_source_stop": 104927,
+      "aligned": [
+        {
+          "channel": 0,
+          "frames": 109535,
+          "input_rms": 0.1585372438007594,
+          "decoded_rms": 0.15844262598886347,
+          "rms_ratio": 0.9994031824344388,
+          "least_squares_gain": 0.9993271148317159,
+          "error_rms": 0.0019577353135555105,
+          "relative_error_rms": 0.012348740690962692,
+          "snr_db": 38.16754657902009,
+          "input_peak": 0.980010986328125,
+          "decoded_peak": 1.1662423610687256,
+          "decoded_min": -0.9979668259620667,
+          "decoded_max": 1.1662423610687256,
+          "outside_unit_interval": 1,
+          "nonfinite": 0
+        },
+        {
+          "channel": 1,
+          "frames": 109535,
+          "input_rms": 0.15864684769937254,
+          "decoded_rms": 0.15858500796604671,
+          "rms_ratio": 0.9996102050924893,
+          "least_squares_gain": 0.9995212595391141,
+          "error_rms": 0.0021168688680427987,
+          "relative_error_rms": 0.013343277214396054,
+          "snr_db": 37.494749823187036,
+          "input_peak": 0.980010986328125,
+          "decoded_peak": 1.1662423610687256,
+          "decoded_min": -1.1662423610687256,
+          "decoded_max": 0.9982690811157227,
+          "outside_unit_interval": 1,
+          "nonfinite": 0
+        }
+      ],
+      "steady": [
+        {
+          "channel": 0,
+          "frames": 100319,
+          "input_rms": 0.16565943001176459,
+          "decoded_rms": 0.16556056155403273,
+          "rms_ratio": 0.9994031824344389,
+          "least_squares_gain": 0.9993271148317159,
+          "error_rms": 0.0020456853442279636,
+          "relative_error_rms": 0.012348740690962692,
+          "snr_db": 38.16754657902009,
+          "input_peak": 0.980010986328125,
+          "decoded_peak": 1.1662423610687256,
+          "decoded_min": -0.9979668259620667,
+          "decoded_max": 1.1662423610687256,
+          "outside_unit_interval": 1,
+          "nonfinite": 0
+        },
+        {
+          "channel": 1,
+          "frames": 100319,
+          "input_rms": 0.1657739577967571,
+          "decoded_rms": 0.16570933995221002,
+          "rms_ratio": 0.9996102050924892,
+          "least_squares_gain": 0.9995212595391141,
+          "error_rms": 0.002211967873809722,
+          "relative_error_rms": 0.013343277214396054,
+          "snr_db": 37.494749823187036,
+          "input_peak": 0.980010986328125,
+          "decoded_peak": 1.1662423610687256,
+          "decoded_min": -1.1662423610687256,
+          "decoded_max": 0.9982690811157227,
+          "outside_unit_interval": 1,
+          "nonfinite": 0
+        }
+      ],
+      "all_decoded": [
+        {
+          "channel": 0,
+          "frames": 110592,
+          "decoded_rms": 0.15768363825127463,
+          "decoded_peak": 1.1662423610687256,
+          "decoded_min": -0.9979668259620667,
+          "decoded_max": 1.1662423610687256,
+          "outside_unit_interval": 1,
+          "nonfinite": 0
+        },
+        {
+          "channel": 1,
+          "frames": 110592,
+          "decoded_rms": 0.15782533817604893,
+          "decoded_peak": 1.1662423610687256,
+          "decoded_min": -1.1662423610687256,
+          "decoded_max": 0.9982690811157227,
+          "outside_unit_interval": 1,
+          "nonfinite": 0
+        }
+      ],
+      "artifacts": {
+        "impulse_and_gated_tones_nearfull.s16le": {
+          "sha256": "76cea4e670dd4ab07a1a7ddfe9c1ddf73333367271fd93d5c6edf1f7b5958e3d",
+          "bytes": 442368
+        },
+        "impulse_and_gated_tones_nearfull.mp3": {
+          "sha256": "781dd42492e8eb9cea2445905a15292d2280c52a987134fb1a6f54d4bd508ded",
+          "bytes": 92160
+        },
+        "impulse_and_gated_tones_nearfull.f32le": {
+          "sha256": "b7a9201a3ea623486fa3e71bcbdaf033ecc0c440075703ca9b7ee415880c17e9",
+          "bytes": 884736
+        }
+      },
+      "errors": {
+        "encode_exit": 0,
+        "decode_exit": 0,
+        "encoder_log_bytes": 0,
+        "decoder_log_bytes": 0
+      },
+      "segments": {
+        "isolated_impulse": [
+          {
+            "channel": 0,
+            "frames": 10000,
+            "input_rms": 0.00980010986328125,
+            "decoded_rms": 0.011860594274145937,
+            "rms_ratio": 1.2102511542839787,
+            "least_squares_gain": 1.190029884704014,
+            "error_rms": 0.002851277705619922,
+            "relative_error_rms": 0.29094344302230746,
+            "snr_db": 10.723828520662025,
+            "input_peak": 0.980010986328125,
+            "decoded_peak": 1.1662423610687256,
+            "decoded_min": -0.06240517646074295,
+            "decoded_max": 1.1662423610687256,
+            "outside_unit_interval": 1,
+            "nonfinite": 0
+          },
+          {
+            "channel": 1,
+            "frames": 10000,
+            "input_rms": 0.00980010986328125,
+            "decoded_rms": 0.01186059426149283,
+            "rms_ratio": 1.2102511529928597,
+            "least_squares_gain": 1.190029884704014,
+            "error_rms": 0.002851277652986192,
+            "relative_error_rms": 0.290943437651579,
+            "snr_db": 10.72382868100094,
+            "input_peak": 0.980010986328125,
+            "decoded_peak": 1.1662423610687256,
+            "decoded_min": -1.1662423610687256,
+            "decoded_max": 0.06240683048963547,
+            "outside_unit_interval": 1,
+            "nonfinite": 0
+          }
+        ],
+        "gated_tones": [
+          {
+            "channel": 0,
+            "frames": 43000,
+            "input_rms": 0.25298674409444166,
+            "decoded_rms": 0.2528151775873836,
+            "rms_ratio": 0.9993218359812793,
+            "least_squares_gain": 0.9992605637831413,
+            "error_rms": 0.0028058077952768275,
+            "relative_error_rms": 0.011090730485979139,
+            "snr_db": 39.10079696595822,
+            "input_peak": 0.980010986328125,
+            "decoded_peak": 0.9979668259620667,
+            "decoded_min": -0.9979668259620667,
+            "decoded_max": 0.9954462647438049,
+            "outside_unit_interval": 0,
+            "nonfinite": 0
+          },
+          {
+            "channel": 1,
+            "frames": 43000,
+            "input_rms": 0.2531617061791638,
+            "decoded_rms": 0.2530424822088168,
+            "rms_ratio": 0.9995290600140663,
+            "least_squares_gain": 0.9994548681052718,
+            "error_rms": 0.0030861398660466184,
+            "relative_error_rms": 0.012190389741893043,
+            "snr_db": 38.2796481845188,
+            "input_peak": 0.980010986328125,
+            "decoded_peak": 0.9982690811157227,
+            "decoded_min": -0.9935740232467651,
+            "decoded_max": 0.9982690811157227,
+            "outside_unit_interval": 0,
+            "nonfinite": 0
+          }
+        ]
+      }
+    },
+    {
+      "name": "noise_independent_half",
+      "pattern": "noise_independent",
+      "nominal_amplitude": 0.5,
+      "input_frames": 110592,
+      "encoded_frames": 96,
+      "decoded_sample_frames": 110592,
+      "alignment_samples": 1057,
+      "aligned_source_start": 0,
+      "aligned_source_stop": 109535,
+      "steady_source_start": 4608,
+      "steady_source_stop": 104927,
+      "aligned": [
+        {
+          "channel": 0,
+          "frames": 109535,
+          "input_rms": 0.28831459149776334,
+          "decoded_rms": 0.3036557380084133,
+          "rms_ratio": 1.0532097471409765,
+          "least_squares_gain": 1.0269961764246969,
+          "error_rms": 0.06777442606485257,
+          "relative_error_rms": 0.23507109270041346,
+          "snr_db": 12.576015478120668,
+          "input_peak": 0.5,
+          "decoded_peak": 0.7762261033058167,
+          "decoded_min": -0.7423536777496338,
+          "decoded_max": 0.7762261033058167,
+          "outside_unit_interval": 0,
+          "nonfinite": 0
+        },
+        {
+          "channel": 1,
+          "frames": 109535,
+          "input_rms": 0.28809613307830656,
+          "decoded_rms": 0.3036388903734011,
+          "rms_ratio": 1.0539498990459197,
+          "least_squares_gain": 1.027841635283678,
+          "error_rms": 0.06764256658016843,
+          "relative_error_rms": 0.2347916504723883,
+          "snr_db": 12.586347025681231,
+          "input_peak": 0.5,
+          "decoded_peak": 0.739716649055481,
+          "decoded_min": -0.739716649055481,
+          "decoded_max": 0.7326463460922241,
+          "outside_unit_interval": 0,
+          "nonfinite": 0
+        }
+      ],
+      "steady": [
+        {
+          "channel": 0,
+          "frames": 100319,
+          "input_rms": 0.2882764643376027,
+          "decoded_rms": 0.3037985670670697,
+          "rms_ratio": 1.053844502238965,
+          "least_squares_gain": 1.0275570333717432,
+          "error_rms": 0.0678976254513988,
+          "relative_error_rms": 0.2355295483709117,
+          "snr_db": 12.559092013636786,
+          "input_peak": 0.5,
+          "decoded_peak": 0.7762261033058167,
+          "decoded_min": -0.7423536777496338,
+          "decoded_max": 0.7762261033058167,
+          "outside_unit_interval": 0,
+          "nonfinite": 0
+        },
+        {
+          "channel": 1,
+          "frames": 100319,
+          "input_rms": 0.2880918317971861,
+          "decoded_rms": 0.30350470731327134,
+          "rms_ratio": 1.0534998698850155,
+          "least_squares_gain": 1.027343410934068,
+          "error_rms": 0.06767101989113114,
+          "relative_error_rms": 0.23489392069529721,
+          "snr_db": 12.582564461608516,
+          "input_peak": 0.5,
+          "decoded_peak": 0.739716649055481,
+          "decoded_min": -0.739716649055481,
+          "decoded_max": 0.7326463460922241,
+          "outside_unit_interval": 0,
+          "nonfinite": 0
+        }
+      ],
+      "all_decoded": [
+        {
+          "channel": 0,
+          "frames": 110592,
+          "decoded_rms": 0.30220653294186683,
+          "decoded_peak": 0.7762261033058167,
+          "decoded_min": -0.7423536777496338,
+          "decoded_max": 0.7762261033058167,
+          "outside_unit_interval": 0,
+          "nonfinite": 0
+        },
+        {
+          "channel": 1,
+          "frames": 110592,
+          "decoded_rms": 0.3021883725314634,
+          "decoded_peak": 0.739716649055481,
+          "decoded_min": -0.739716649055481,
+          "decoded_max": 0.7326463460922241,
+          "outside_unit_interval": 0,
+          "nonfinite": 0
+        }
+      ],
+      "artifacts": {
+        "noise_independent_half.s16le": {
+          "sha256": "83bfde1afb8e4b102f7c96cc50ff6bc1f24a47ec26b6534c8e105ee9b8a50bf8",
+          "bytes": 442368
+        },
+        "noise_independent_half.mp3": {
+          "sha256": "5b602fffb2f2db6e7b8e2776117142543be6eb5032a300daf4e38f35341f4e0d",
+          "bytes": 92160
+        },
+        "noise_independent_half.f32le": {
+          "sha256": "ca4012b0bc058262fb827aeeb4f555133a9136913ddbf25675f3bc067ee362e1",
+          "bytes": 884736
+        }
+      },
+      "errors": {
+        "encode_exit": 0,
+        "decode_exit": 0,
+        "encoder_log_bytes": 0,
+        "decoder_log_bytes": 0
+      }
+    },
+    {
+      "name": "noise_independent_nearfull",
+      "pattern": "noise_independent",
+      "nominal_amplitude": 0.98,
+      "input_frames": 110592,
+      "encoded_frames": 96,
+      "decoded_sample_frames": 110592,
+      "alignment_samples": 1057,
+      "aligned_source_start": 0,
+      "aligned_source_stop": 109535,
+      "steady_source_start": 4608,
+      "steady_source_stop": 104927,
+      "aligned": [
+        {
+          "channel": 0,
+          "frames": 109535,
+          "input_rms": 0.5650965589098009,
+          "decoded_rms": 0.5937093857869156,
+          "rms_ratio": 1.0506335181589412,
+          "least_squares_gain": 1.0246150220670769,
+          "error_rms": 0.1320449961745572,
+          "relative_error_rms": 0.2336680237963258,
+          "snr_db": 12.62801428779526,
+          "input_peak": 0.980010986328125,
+          "decoded_peak": 1.5406123399734497,
+          "decoded_min": -1.4584472179412842,
+          "decoded_max": 1.5406123399734497,
+          "outside_unit_interval": 5942,
+          "nonfinite": 0
+        },
+        {
+          "channel": 1,
+          "frames": 109535,
+          "input_rms": 0.5646685002296313,
+          "decoded_rms": 0.5933381511042702,
+          "rms_ratio": 1.0507725344391974,
+          "least_squares_gain": 1.024751935433697,
+          "error_rms": 0.1319670855788928,
+          "relative_error_rms": 0.23370718487967065,
+          "snr_db": 12.626558717013916,
+          "input_peak": 0.97998046875,
+          "decoded_peak": 1.5074435472488403,
+          "decoded_min": -1.5074435472488403,
+          "decoded_max": 1.3870725631713867,
+          "outside_unit_interval": 5799,
+          "nonfinite": 0
+        }
+      ],
+      "steady": [
+        {
+          "channel": 0,
+          "frames": 100319,
+          "input_rms": 0.5650218171000849,
+          "decoded_rms": 0.5939921872618684,
+          "rms_ratio": 1.0512730115634663,
+          "least_squares_gain": 1.025148077008145,
+          "error_rms": 0.13236326896813513,
+          "relative_error_rms": 0.23426222662954094,
+          "snr_db": 12.605954662449733,
+          "input_peak": 0.980010986328125,
+          "decoded_peak": 1.5406123399734497,
+          "decoded_min": -1.4584472179412842,
+          "decoded_max": 1.5406123399734497,
+          "outside_unit_interval": 5465,
+          "nonfinite": 0
+        },
+        {
+          "channel": 1,
+          "frames": 100319,
+          "input_rms": 0.5646600869021996,
+          "decoded_rms": 0.5931411461140914,
+          "rms_ratio": 1.0504392994520697,
+          "least_squares_gain": 1.0244167421555768,
+          "error_rms": 0.1319291015314441,
+          "relative_error_rms": 0.23364339819948088,
+          "snr_db": 12.62892971680725,
+          "input_peak": 0.97998046875,
+          "decoded_peak": 1.5074435472488403,
+          "decoded_min": -1.5074435472488403,
+          "decoded_max": 1.3870725631713867,
+          "outside_unit_interval": 5305,
+          "nonfinite": 0
+        }
+      ],
+      "all_decoded": [
+        {
+          "channel": 0,
+          "frames": 110592,
+          "decoded_rms": 0.5908750160864154,
+          "decoded_peak": 1.5406123399734497,
+          "decoded_min": -1.4584472179412842,
+          "decoded_max": 1.5406123399734497,
+          "outside_unit_interval": 5942,
+          "nonfinite": 0
+        },
+        {
+          "channel": 1,
+          "frames": 110592,
+          "decoded_rms": 0.590503989435698,
+          "decoded_peak": 1.5074435472488403,
+          "decoded_min": -1.5074435472488403,
+          "decoded_max": 1.3870725631713867,
+          "outside_unit_interval": 5799,
+          "nonfinite": 0
+        }
+      ],
+      "artifacts": {
+        "noise_independent_nearfull.s16le": {
+          "sha256": "c9533374940ae3e78f7b6f314d6f13888c816f2e0d4f78617ea41a52cf5521eb",
+          "bytes": 442368
+        },
+        "noise_independent_nearfull.mp3": {
+          "sha256": "385d2f73f8973ca4fa4f1161d9966cbc1d184299a5ee8eabec436a90ba5c7b0a",
+          "bytes": 92160
+        },
+        "noise_independent_nearfull.f32le": {
+          "sha256": "cf0e1b523fa310e669b2fccc9040fb5faac0064b4a9e103349c02cba4ed30fc8",
+          "bytes": 884736
+        }
+      },
+      "errors": {
+        "encode_exit": 0,
+        "decode_exit": 0,
+        "encoder_log_bytes": 0,
+        "decoder_log_bytes": 0
+      }
+    },
+    {
+      "name": "tones_minus60db_minus60db",
+      "pattern": "tones_minus60db",
+      "nominal_amplitude": 0.001,
+      "input_frames": 110592,
+      "encoded_frames": 96,
+      "decoded_sample_frames": 110592,
+      "alignment_samples": 1057,
+      "aligned_source_start": 0,
+      "aligned_source_stop": 109535,
+      "steady_source_start": 4608,
+      "steady_source_stop": 104927,
+      "aligned": [
+        {
+          "channel": 0,
+          "frames": 109535,
+          "input_rms": 0.0007077702129262691,
+          "decoded_rms": 0.0007074648554359645,
+          "rms_ratio": 0.9995685640837553,
+          "least_squares_gain": 0.9995639583971329,
+          "error_rms": 2.169694978242319e-06,
+          "relative_error_rms": 0.0030655358739551026,
+          "snr_db": 50.26987194487238,
+          "input_peak": 0.001007080078125,
+          "decoded_peak": 0.0010144001571461558,
+          "decoded_min": -0.0010144001571461558,
+          "decoded_max": 0.0010140588274225593,
+          "outside_unit_interval": 0,
+          "nonfinite": 0
+        },
+        {
+          "channel": 1,
+          "frames": 109535,
+          "input_rms": 0.0007077793127877553,
+          "decoded_rms": 0.0007075929781659267,
+          "rms_ratio": 0.9997367334443632,
+          "least_squares_gain": 0.9997313984353114,
+          "error_rms": 2.319457427653476e-06,
+          "relative_error_rms": 0.0032770912991476786,
+          "snr_db": 49.69022918172872,
+          "input_peak": 0.001007080078125,
+          "decoded_peak": 0.0010188411688432097,
+          "decoded_min": -0.0010161860845983028,
+          "decoded_max": 0.0010188411688432097,
+          "outside_unit_interval": 0,
+          "nonfinite": 0
+        }
+      ],
+      "steady": [
+        {
+          "channel": 0,
+          "frames": 100319,
+          "input_rms": 0.0007078041192796711,
+          "decoded_rms": 0.0007074886189541406,
+          "rms_ratio": 0.999554254747978,
+          "least_squares_gain": 0.9995496954545452,
+          "error_rms": 2.160516358643212e-06,
+          "relative_error_rms": 0.0030524212840721513,
+          "snr_db": 50.30711053674524,
+          "input_peak": 0.001007080078125,
+          "decoded_peak": 0.0010144001571461558,
+          "decoded_min": -0.0010144001571461558,
+          "decoded_max": 0.0010140588274225593,
+          "outside_unit_interval": 0,
+          "nonfinite": 0
+        },
+        {
+          "channel": 1,
+          "frames": 100319,
+          "input_rms": 0.000707775210862788,
+          "decoded_rms": 0.0007075775733702996,
+          "rms_ratio": 0.9997207623416939,
+          "least_squares_gain": 0.9997155148616828,
+          "error_rms": 2.3014052639268135e-06,
+          "relative_error_rms": 0.0032516047872337434,
+          "snr_db": 49.75804491441278,
+          "input_peak": 0.001007080078125,
+          "decoded_peak": 0.0010157345095649362,
+          "decoded_min": -0.0010142537066712976,
+          "decoded_max": 0.0010157345095649362,
+          "outside_unit_interval": 0,
+          "nonfinite": 0
+        }
+      ],
+      "all_decoded": [
+        {
+          "channel": 0,
+          "frames": 110592,
+          "decoded_rms": 0.0007040759123467237,
+          "decoded_peak": 0.0010144001571461558,
+          "decoded_min": -0.0010144001571461558,
+          "decoded_max": 0.0010140588274225593,
+          "outside_unit_interval": 0,
+          "nonfinite": 0
+        },
+        {
+          "channel": 1,
+          "frames": 110592,
+          "decoded_rms": 0.0007042034283840818,
+          "decoded_peak": 0.0010188411688432097,
+          "decoded_min": -0.0010161860845983028,
+          "decoded_max": 0.0010188411688432097,
+          "outside_unit_interval": 0,
+          "nonfinite": 0
+        }
+      ],
+      "artifacts": {
+        "tones_minus60db_minus60db.s16le": {
+          "sha256": "a075234c18567562597b35dbeaf51ae2939be051da103cd0d8b5931575064ddf",
+          "bytes": 442368
+        },
+        "tones_minus60db_minus60db.mp3": {
+          "sha256": "c49faf8cf0476433388717867ef5041c9ce43faa77f59881eceaa35a2df0822e",
+          "bytes": 92160
+        },
+        "tones_minus60db_minus60db.f32le": {
+          "sha256": "661ebf773ef1562d4eef0a248756c3e4f213b7ea9884bd6b16020dc7ec308195",
+          "bytes": 884736
+        }
+      },
+      "errors": {
+        "encode_exit": 0,
+        "decode_exit": 0,
+        "encoder_log_bytes": 0,
+        "decoder_log_bytes": 0
+      }
+    },
+    {
+      "name": "tones_minus90db_minus90db",
+      "pattern": "tones_minus90db",
+      "nominal_amplitude": 3.1622776601683795e-05,
+      "input_frames": 110592,
+      "encoded_frames": 96,
+      "decoded_sample_frames": 110592,
+      "alignment_samples": 1057,
+      "aligned_source_start": 0,
+      "aligned_source_stop": 109535,
+      "steady_source_start": 4608,
+      "steady_source_stop": 104927,
+      "aligned": [
+        {
+          "channel": 0,
+          "frames": 109535,
+          "input_rms": 2.5154997426764744e-05,
+          "decoded_rms": 2.5119204023670782e-05,
+          "rms_ratio": 0.9985770857978352,
+          "least_squares_gain": 0.998176979889991,
+          "error_rms": 7.124846072553377e-07,
+          "relative_error_rms": 0.028323779770983357,
+          "snr_db": 30.95697582180229,
+          "input_peak": 3.0517578125e-05,
+          "decoded_peak": 3.5513021430233493e-05,
+          "decoded_min": -3.5513021430233493e-05,
+          "decoded_max": 3.424124952289276e-05,
+          "outside_unit_interval": 0,
+          "nonfinite": 0
+        },
+        {
+          "channel": 1,
+          "frames": 109535,
+          "input_rms": 2.5155166428625254e-05,
+          "decoded_rms": 2.511079890241611e-05,
+          "rms_ratio": 0.9982362459681977,
+          "least_squares_gain": 0.9977657663462254,
+          "error_rms": 7.729106832190626e-07,
+          "relative_error_rms": 0.030725723298714924,
+          "snr_db": 30.249957696287737,
+          "input_peak": 3.0517578125e-05,
+          "decoded_peak": 3.59434234269429e-05,
+          "decoded_min": -3.59434234269429e-05,
+          "decoded_max": 3.4565488022053614e-05,
+          "outside_unit_interval": 0,
+          "nonfinite": 0
+        }
+      ],
+      "steady": [
+        {
+          "channel": 0,
+          "frames": 100319,
+          "input_rms": 2.5156045580834674e-05,
+          "decoded_rms": 2.5119274299453876e-05,
+          "rms_ratio": 0.9985382725888837,
+          "least_squares_gain": 0.9981387138875603,
+          "error_rms": 7.120778745604462e-07,
+          "relative_error_rms": 0.02830643124223579,
+          "snr_db": 30.962297624709322,
+          "input_peak": 3.0517578125e-05,
+          "decoded_peak": 3.5513021430233493e-05,
+          "decoded_min": -3.5513021430233493e-05,
+          "decoded_max": 3.424124952289276e-05,
+          "outside_unit_interval": 0,
+          "nonfinite": 0
+        },
+        {
+          "channel": 1,
+          "frames": 100319,
+          "input_rms": 2.515586105968159e-05,
+          "decoded_rms": 2.5114795355776215e-05,
+          "rms_ratio": 0.9983675492638495,
+          "least_squares_gain": 0.9978969252705006,
+          "error_rms": 7.728676759844878e-07,
+          "relative_error_rms": 0.030723165235762767,
+          "snr_db": 30.250680868115005,
+          "input_peak": 3.0517578125e-05,
+          "decoded_peak": 3.59434234269429e-05,
+          "decoded_min": -3.59434234269429e-05,
+          "decoded_max": 3.4565488022053614e-05,
+          "outside_unit_interval": 0,
+          "nonfinite": 0
+        }
+      ],
+      "all_decoded": [
+        {
+          "channel": 0,
+          "frames": 110592,
+          "decoded_rms": 2.499889507565698e-05,
+          "decoded_peak": 3.5513021430233493e-05,
+          "decoded_min": -3.5513021430233493e-05,
+          "decoded_max": 3.424124952289276e-05,
+          "outside_unit_interval": 0,
+          "nonfinite": 0
+        },
+        {
+          "channel": 1,
+          "frames": 110592,
+          "decoded_rms": 2.4990536237840017e-05,
+          "decoded_peak": 3.59434234269429e-05,
+          "decoded_min": -3.59434234269429e-05,
+          "decoded_max": 3.4565488022053614e-05,
+          "outside_unit_interval": 0,
+          "nonfinite": 0
+        }
+      ],
+      "artifacts": {
+        "tones_minus90db_minus90db.s16le": {
+          "sha256": "d60a92359fe59196fd895273350fb7bbc71fe751c60a03f49fa5bc58ed165b1a",
+          "bytes": 442368
+        },
+        "tones_minus90db_minus90db.mp3": {
+          "sha256": "08e3055e93a97cffd673c361dd19e8dbacd4c5baa973b9fbf39b7a2ae95816c9",
+          "bytes": 92160
+        },
+        "tones_minus90db_minus90db.f32le": {
+          "sha256": "45ad11bed79933bfd064a4ca0f6c9880b139c7dab88b6b08a3cdf32729d1a48d",
+          "bytes": 884736
+        }
+      },
+      "errors": {
+        "encode_exit": 0,
+        "decode_exit": 0,
+        "encoder_log_bytes": 0,
+        "decoder_log_bytes": 0
+      }
+    }
+  ],
+  "limits": [
+    "Known1057sample lag is fixed from previous nonperiodic proof; no gain compensation applied.",
+    "All decoded float samples are checked before signed16 conversion; outside-unit counts indicate potential downstream clipping, not automatically integer overflow.",
+    "Steady metrics exclude4608source samples at both edges; isolated impulse and gate metrics retain transients.",
+    "This probe does not drain finite-stream tails or verify tail preservation.",
+    "No listening, music transparency, calibrated analog path, firmware timing, transport or endurance claim.",
+    "Finite fixtures cannot establish a worst-case all-input integer bound."
+  ],
+  "commands": [
+    {
+      "argv": [
+        "/usr/bin/ffmpeg",
+        "-version"
+      ],
+      "cwd": "/home/harper/workspace/personal/esp-analog-streamer",
+      "log": "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom-fixed/ffmpeg-version.log",
+      "exit_code": 0,
+      "log_sha256": "a85f002a2266c5bfd7a5d1e5c72d18a0f9e8e60fd941327fa9a093d931687c17",
+      "log_bytes": 1866
+    },
+    {
+      "argv": [
+        "cc",
+        "--version"
+      ],
+      "cwd": "/home/harper/workspace/personal/esp-analog-streamer",
+      "log": "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom-fixed/cc-version.log",
+      "exit_code": 0,
+      "log_sha256": "f6ab9d76ae8dcab3e133254944fbc77f41e0ba766287e289345c1ab77df09c45",
+      "log_bytes": 238
+    },
+    {
+      "argv": [
+        "git",
+        "rev-parse",
+        "HEAD"
+      ],
+      "cwd": "/home/harper/workspace/personal/esp-analog-streamer",
+      "log": "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom-fixed/git-head.log",
+      "exit_code": 0,
+      "log_sha256": "ae929f1fe537a7c9e18ce15599991cd3f4a2357fc2324201851e21a23f40a551",
+      "log_bytes": 41
+    },
+    {
+      "argv": [
+        "cc",
+        "-O3",
+        "-fsigned-char",
+        "-Wall",
+        "-Wextra",
+        "-Werror",
+        "-I/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom-fixed/candidate-source/mp3/vendor/shine",
+        "/home/harper/workspace/personal/esp-analog-streamer/docs/audit-evidence/2026-10-13/mp3-gain-probe/current-bridge.c",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom-fixed/candidate-source/mp3/src/bridge.c",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom-fixed/candidate-source/mp3/vendor/shine/bitstream.c",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom-fixed/candidate-source/mp3/vendor/shine/huffman.c",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom-fixed/candidate-source/mp3/vendor/shine/l3bitstream.c",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom-fixed/candidate-source/mp3/vendor/shine/l3loop.c",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom-fixed/candidate-source/mp3/vendor/shine/l3mdct.c",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom-fixed/candidate-source/mp3/vendor/shine/l3subband.c",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom-fixed/candidate-source/mp3/vendor/shine/layer3.c",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom-fixed/candidate-source/mp3/vendor/shine/reservoir.c",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom-fixed/candidate-source/mp3/vendor/shine/tables.c",
+        "-lm",
+        "-o",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom-fixed/actual-bridge"
+      ],
+      "cwd": "/home/harper/workspace/personal/esp-analog-streamer",
+      "log": "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom-fixed/compile.log",
+      "exit_code": 0,
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "log_bytes": 0
+    },
+    {
+      "argv": [
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom-fixed/actual-bridge",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom-fixed/tones_independent_half.s16le",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom-fixed/tones_independent_half.mp3"
+      ],
+      "cwd": "/home/harper/workspace/personal/esp-analog-streamer",
+      "log": "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom-fixed/tones_independent_half-encode.log",
+      "exit_code": 0,
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "log_bytes": 0
+    },
+    {
+      "argv": [
+        "/usr/bin/ffmpeg",
+        "-nostdin",
+        "-v",
+        "error",
+        "-c:a",
+        "mp3float",
+        "-i",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom-fixed/tones_independent_half.mp3",
+        "-f",
+        "f32le",
+        "-c:a",
+        "pcm_f32le",
+        "-y",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom-fixed/tones_independent_half.f32le"
+      ],
+      "cwd": "/home/harper/workspace/personal/esp-analog-streamer",
+      "log": "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom-fixed/tones_independent_half-decode.log",
+      "exit_code": 0,
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "log_bytes": 0
+    },
+    {
+      "argv": [
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom-fixed/actual-bridge",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom-fixed/tones_independent_nearfull.s16le",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom-fixed/tones_independent_nearfull.mp3"
+      ],
+      "cwd": "/home/harper/workspace/personal/esp-analog-streamer",
+      "log": "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom-fixed/tones_independent_nearfull-encode.log",
+      "exit_code": 0,
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "log_bytes": 0
+    },
+    {
+      "argv": [
+        "/usr/bin/ffmpeg",
+        "-nostdin",
+        "-v",
+        "error",
+        "-c:a",
+        "mp3float",
+        "-i",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom-fixed/tones_independent_nearfull.mp3",
+        "-f",
+        "f32le",
+        "-c:a",
+        "pcm_f32le",
+        "-y",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom-fixed/tones_independent_nearfull.f32le"
+      ],
+      "cwd": "/home/harper/workspace/personal/esp-analog-streamer",
+      "log": "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom-fixed/tones_independent_nearfull-decode.log",
+      "exit_code": 0,
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "log_bytes": 0
+    },
+    {
+      "argv": [
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom-fixed/actual-bridge",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom-fixed/tones_same_half.s16le",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom-fixed/tones_same_half.mp3"
+      ],
+      "cwd": "/home/harper/workspace/personal/esp-analog-streamer",
+      "log": "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom-fixed/tones_same_half-encode.log",
+      "exit_code": 0,
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "log_bytes": 0
+    },
+    {
+      "argv": [
+        "/usr/bin/ffmpeg",
+        "-nostdin",
+        "-v",
+        "error",
+        "-c:a",
+        "mp3float",
+        "-i",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom-fixed/tones_same_half.mp3",
+        "-f",
+        "f32le",
+        "-c:a",
+        "pcm_f32le",
+        "-y",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom-fixed/tones_same_half.f32le"
+      ],
+      "cwd": "/home/harper/workspace/personal/esp-analog-streamer",
+      "log": "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom-fixed/tones_same_half-decode.log",
+      "exit_code": 0,
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "log_bytes": 0
+    },
+    {
+      "argv": [
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom-fixed/actual-bridge",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom-fixed/tones_same_nearfull.s16le",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom-fixed/tones_same_nearfull.mp3"
+      ],
+      "cwd": "/home/harper/workspace/personal/esp-analog-streamer",
+      "log": "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom-fixed/tones_same_nearfull-encode.log",
+      "exit_code": 0,
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "log_bytes": 0
+    },
+    {
+      "argv": [
+        "/usr/bin/ffmpeg",
+        "-nostdin",
+        "-v",
+        "error",
+        "-c:a",
+        "mp3float",
+        "-i",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom-fixed/tones_same_nearfull.mp3",
+        "-f",
+        "f32le",
+        "-c:a",
+        "pcm_f32le",
+        "-y",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom-fixed/tones_same_nearfull.f32le"
+      ],
+      "cwd": "/home/harper/workspace/personal/esp-analog-streamer",
+      "log": "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom-fixed/tones_same_nearfull-decode.log",
+      "exit_code": 0,
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "log_bytes": 0
+    },
+    {
+      "argv": [
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom-fixed/actual-bridge",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom-fixed/tones_opposite_half.s16le",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom-fixed/tones_opposite_half.mp3"
+      ],
+      "cwd": "/home/harper/workspace/personal/esp-analog-streamer",
+      "log": "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom-fixed/tones_opposite_half-encode.log",
+      "exit_code": 0,
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "log_bytes": 0
+    },
+    {
+      "argv": [
+        "/usr/bin/ffmpeg",
+        "-nostdin",
+        "-v",
+        "error",
+        "-c:a",
+        "mp3float",
+        "-i",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom-fixed/tones_opposite_half.mp3",
+        "-f",
+        "f32le",
+        "-c:a",
+        "pcm_f32le",
+        "-y",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom-fixed/tones_opposite_half.f32le"
+      ],
+      "cwd": "/home/harper/workspace/personal/esp-analog-streamer",
+      "log": "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom-fixed/tones_opposite_half-decode.log",
+      "exit_code": 0,
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "log_bytes": 0
+    },
+    {
+      "argv": [
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom-fixed/actual-bridge",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom-fixed/tones_opposite_nearfull.s16le",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom-fixed/tones_opposite_nearfull.mp3"
+      ],
+      "cwd": "/home/harper/workspace/personal/esp-analog-streamer",
+      "log": "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom-fixed/tones_opposite_nearfull-encode.log",
+      "exit_code": 0,
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "log_bytes": 0
+    },
+    {
+      "argv": [
+        "/usr/bin/ffmpeg",
+        "-nostdin",
+        "-v",
+        "error",
+        "-c:a",
+        "mp3float",
+        "-i",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom-fixed/tones_opposite_nearfull.mp3",
+        "-f",
+        "f32le",
+        "-c:a",
+        "pcm_f32le",
+        "-y",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom-fixed/tones_opposite_nearfull.f32le"
+      ],
+      "cwd": "/home/harper/workspace/personal/esp-analog-streamer",
+      "log": "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom-fixed/tones_opposite_nearfull-decode.log",
+      "exit_code": 0,
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "log_bytes": 0
+    },
+    {
+      "argv": [
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom-fixed/actual-bridge",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom-fixed/tone_left_only_half.s16le",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom-fixed/tone_left_only_half.mp3"
+      ],
+      "cwd": "/home/harper/workspace/personal/esp-analog-streamer",
+      "log": "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom-fixed/tone_left_only_half-encode.log",
+      "exit_code": 0,
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "log_bytes": 0
+    },
+    {
+      "argv": [
+        "/usr/bin/ffmpeg",
+        "-nostdin",
+        "-v",
+        "error",
+        "-c:a",
+        "mp3float",
+        "-i",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom-fixed/tone_left_only_half.mp3",
+        "-f",
+        "f32le",
+        "-c:a",
+        "pcm_f32le",
+        "-y",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom-fixed/tone_left_only_half.f32le"
+      ],
+      "cwd": "/home/harper/workspace/personal/esp-analog-streamer",
+      "log": "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom-fixed/tone_left_only_half-decode.log",
+      "exit_code": 0,
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "log_bytes": 0
+    },
+    {
+      "argv": [
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom-fixed/actual-bridge",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom-fixed/tone_left_only_nearfull.s16le",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom-fixed/tone_left_only_nearfull.mp3"
+      ],
+      "cwd": "/home/harper/workspace/personal/esp-analog-streamer",
+      "log": "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom-fixed/tone_left_only_nearfull-encode.log",
+      "exit_code": 0,
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "log_bytes": 0
+    },
+    {
+      "argv": [
+        "/usr/bin/ffmpeg",
+        "-nostdin",
+        "-v",
+        "error",
+        "-c:a",
+        "mp3float",
+        "-i",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom-fixed/tone_left_only_nearfull.mp3",
+        "-f",
+        "f32le",
+        "-c:a",
+        "pcm_f32le",
+        "-y",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom-fixed/tone_left_only_nearfull.f32le"
+      ],
+      "cwd": "/home/harper/workspace/personal/esp-analog-streamer",
+      "log": "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom-fixed/tone_left_only_nearfull-decode.log",
+      "exit_code": 0,
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "log_bytes": 0
+    },
+    {
+      "argv": [
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom-fixed/actual-bridge",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom-fixed/tone_right_only_half.s16le",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom-fixed/tone_right_only_half.mp3"
+      ],
+      "cwd": "/home/harper/workspace/personal/esp-analog-streamer",
+      "log": "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom-fixed/tone_right_only_half-encode.log",
+      "exit_code": 0,
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "log_bytes": 0
+    },
+    {
+      "argv": [
+        "/usr/bin/ffmpeg",
+        "-nostdin",
+        "-v",
+        "error",
+        "-c:a",
+        "mp3float",
+        "-i",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom-fixed/tone_right_only_half.mp3",
+        "-f",
+        "f32le",
+        "-c:a",
+        "pcm_f32le",
+        "-y",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom-fixed/tone_right_only_half.f32le"
+      ],
+      "cwd": "/home/harper/workspace/personal/esp-analog-streamer",
+      "log": "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom-fixed/tone_right_only_half-decode.log",
+      "exit_code": 0,
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "log_bytes": 0
+    },
+    {
+      "argv": [
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom-fixed/actual-bridge",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom-fixed/tone_right_only_nearfull.s16le",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom-fixed/tone_right_only_nearfull.mp3"
+      ],
+      "cwd": "/home/harper/workspace/personal/esp-analog-streamer",
+      "log": "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom-fixed/tone_right_only_nearfull-encode.log",
+      "exit_code": 0,
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "log_bytes": 0
+    },
+    {
+      "argv": [
+        "/usr/bin/ffmpeg",
+        "-nostdin",
+        "-v",
+        "error",
+        "-c:a",
+        "mp3float",
+        "-i",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom-fixed/tone_right_only_nearfull.mp3",
+        "-f",
+        "f32le",
+        "-c:a",
+        "pcm_f32le",
+        "-y",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom-fixed/tone_right_only_nearfull.f32le"
+      ],
+      "cwd": "/home/harper/workspace/personal/esp-analog-streamer",
+      "log": "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom-fixed/tone_right_only_nearfull-decode.log",
+      "exit_code": 0,
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "log_bytes": 0
+    },
+    {
+      "argv": [
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom-fixed/actual-bridge",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom-fixed/impulse_and_gated_tones_half.s16le",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom-fixed/impulse_and_gated_tones_half.mp3"
+      ],
+      "cwd": "/home/harper/workspace/personal/esp-analog-streamer",
+      "log": "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom-fixed/impulse_and_gated_tones_half-encode.log",
+      "exit_code": 0,
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "log_bytes": 0
+    },
+    {
+      "argv": [
+        "/usr/bin/ffmpeg",
+        "-nostdin",
+        "-v",
+        "error",
+        "-c:a",
+        "mp3float",
+        "-i",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom-fixed/impulse_and_gated_tones_half.mp3",
+        "-f",
+        "f32le",
+        "-c:a",
+        "pcm_f32le",
+        "-y",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom-fixed/impulse_and_gated_tones_half.f32le"
+      ],
+      "cwd": "/home/harper/workspace/personal/esp-analog-streamer",
+      "log": "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom-fixed/impulse_and_gated_tones_half-decode.log",
+      "exit_code": 0,
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "log_bytes": 0
+    },
+    {
+      "argv": [
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom-fixed/actual-bridge",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom-fixed/impulse_and_gated_tones_nearfull.s16le",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom-fixed/impulse_and_gated_tones_nearfull.mp3"
+      ],
+      "cwd": "/home/harper/workspace/personal/esp-analog-streamer",
+      "log": "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom-fixed/impulse_and_gated_tones_nearfull-encode.log",
+      "exit_code": 0,
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "log_bytes": 0
+    },
+    {
+      "argv": [
+        "/usr/bin/ffmpeg",
+        "-nostdin",
+        "-v",
+        "error",
+        "-c:a",
+        "mp3float",
+        "-i",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom-fixed/impulse_and_gated_tones_nearfull.mp3",
+        "-f",
+        "f32le",
+        "-c:a",
+        "pcm_f32le",
+        "-y",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom-fixed/impulse_and_gated_tones_nearfull.f32le"
+      ],
+      "cwd": "/home/harper/workspace/personal/esp-analog-streamer",
+      "log": "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom-fixed/impulse_and_gated_tones_nearfull-decode.log",
+      "exit_code": 0,
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "log_bytes": 0
+    },
+    {
+      "argv": [
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom-fixed/actual-bridge",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom-fixed/noise_independent_half.s16le",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom-fixed/noise_independent_half.mp3"
+      ],
+      "cwd": "/home/harper/workspace/personal/esp-analog-streamer",
+      "log": "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom-fixed/noise_independent_half-encode.log",
+      "exit_code": 0,
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "log_bytes": 0
+    },
+    {
+      "argv": [
+        "/usr/bin/ffmpeg",
+        "-nostdin",
+        "-v",
+        "error",
+        "-c:a",
+        "mp3float",
+        "-i",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom-fixed/noise_independent_half.mp3",
+        "-f",
+        "f32le",
+        "-c:a",
+        "pcm_f32le",
+        "-y",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom-fixed/noise_independent_half.f32le"
+      ],
+      "cwd": "/home/harper/workspace/personal/esp-analog-streamer",
+      "log": "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom-fixed/noise_independent_half-decode.log",
+      "exit_code": 0,
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "log_bytes": 0
+    },
+    {
+      "argv": [
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom-fixed/actual-bridge",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom-fixed/noise_independent_nearfull.s16le",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom-fixed/noise_independent_nearfull.mp3"
+      ],
+      "cwd": "/home/harper/workspace/personal/esp-analog-streamer",
+      "log": "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom-fixed/noise_independent_nearfull-encode.log",
+      "exit_code": 0,
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "log_bytes": 0
+    },
+    {
+      "argv": [
+        "/usr/bin/ffmpeg",
+        "-nostdin",
+        "-v",
+        "error",
+        "-c:a",
+        "mp3float",
+        "-i",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom-fixed/noise_independent_nearfull.mp3",
+        "-f",
+        "f32le",
+        "-c:a",
+        "pcm_f32le",
+        "-y",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom-fixed/noise_independent_nearfull.f32le"
+      ],
+      "cwd": "/home/harper/workspace/personal/esp-analog-streamer",
+      "log": "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom-fixed/noise_independent_nearfull-decode.log",
+      "exit_code": 0,
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "log_bytes": 0
+    },
+    {
+      "argv": [
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom-fixed/actual-bridge",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom-fixed/tones_minus60db_minus60db.s16le",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom-fixed/tones_minus60db_minus60db.mp3"
+      ],
+      "cwd": "/home/harper/workspace/personal/esp-analog-streamer",
+      "log": "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom-fixed/tones_minus60db_minus60db-encode.log",
+      "exit_code": 0,
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "log_bytes": 0
+    },
+    {
+      "argv": [
+        "/usr/bin/ffmpeg",
+        "-nostdin",
+        "-v",
+        "error",
+        "-c:a",
+        "mp3float",
+        "-i",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom-fixed/tones_minus60db_minus60db.mp3",
+        "-f",
+        "f32le",
+        "-c:a",
+        "pcm_f32le",
+        "-y",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom-fixed/tones_minus60db_minus60db.f32le"
+      ],
+      "cwd": "/home/harper/workspace/personal/esp-analog-streamer",
+      "log": "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom-fixed/tones_minus60db_minus60db-decode.log",
+      "exit_code": 0,
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "log_bytes": 0
+    },
+    {
+      "argv": [
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom-fixed/actual-bridge",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom-fixed/tones_minus90db_minus90db.s16le",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom-fixed/tones_minus90db_minus90db.mp3"
+      ],
+      "cwd": "/home/harper/workspace/personal/esp-analog-streamer",
+      "log": "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom-fixed/tones_minus90db_minus90db-encode.log",
+      "exit_code": 0,
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "log_bytes": 0
+    },
+    {
+      "argv": [
+        "/usr/bin/ffmpeg",
+        "-nostdin",
+        "-v",
+        "error",
+        "-c:a",
+        "mp3float",
+        "-i",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom-fixed/tones_minus90db_minus90db.mp3",
+        "-f",
+        "f32le",
+        "-c:a",
+        "pcm_f32le",
+        "-y",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom-fixed/tones_minus90db_minus90db.f32le"
+      ],
+      "cwd": "/home/harper/workspace/personal/esp-analog-streamer",
+      "log": "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom-fixed/tones_minus90db_minus90db-decode.log",
+      "exit_code": 0,
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "log_bytes": 0
+    }
+  ],
+  "candidate_checks": {
+    "full_ubsan": [
+      {
+        "fixture": "tones_independent_nearfull",
+        "exit_code": 0,
+        "log_bytes": 0
+      },
+      {
+        "fixture": "noise_independent_nearfull",
+        "exit_code": 0,
+        "log_bytes": 0
+      },
+      {
+        "fixture": "impulse_and_gated_tones_nearfull",
+        "exit_code": 0,
+        "log_bytes": 0
+      },
+      {
+        "fixture": "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/minimal-tones-nearfull-2-blocks.s16le",
+        "exit_code": 0,
+        "log_bytes": 0,
+        "input_sha256": "58271271a412888108f73ca6a02ae094d49503d8979efe9420b9515399cd14e0"
+      }
+    ],
+    "low_level_comparison": [
+      {
+        "fixture": "tones_minus60db_minus60db",
+        "baseline_steady": [
+          {
+            "channel": 0,
+            "frames": 100319,
+            "input_rms": 0.0007078041192796711,
+            "decoded_rms": 0.000707491154158693,
+            "rms_ratio": 0.9995578365363335,
+            "least_squares_gain": 0.9995533475511026,
+            "error_rms": 2.1437795370216687e-06,
+            "relative_error_rms": 0.003028775163393204,
+            "snr_db": 50.37465929347394,
+            "input_peak": 0.001007080078125,
+            "decoded_peak": 0.0010141021339222789,
+            "decoded_min": -0.0010141021339222789,
+            "decoded_max": 0.0010135243646800518,
+            "outside_unit_interval": 0,
+            "nonfinite": 0
+          },
+          {
+            "channel": 1,
+            "frames": 100319,
+            "input_rms": 0.000707775210862788,
+            "decoded_rms": 0.0007075646852442695,
+            "rms_ratio": 0.9997025529924086,
+            "least_squares_gain": 0.9996973546927744,
+            "error_rms": 2.2918231268315247e-06,
+            "relative_error_rms": 0.0032380663968688025,
+            "snr_db": 49.794285004808586,
+            "input_peak": 0.001007080078125,
+            "decoded_peak": 0.0010151091264560819,
+            "decoded_min": -0.0010151091264560819,
+            "decoded_max": 0.0010150684975087643,
+            "outside_unit_interval": 0,
+            "nonfinite": 0
+          }
+        ],
+        "candidate_steady": [
+          {
+            "channel": 0,
+            "frames": 100319,
+            "input_rms": 0.0007078041192796711,
+            "decoded_rms": 0.0007074886189541406,
+            "rms_ratio": 0.999554254747978,
+            "least_squares_gain": 0.9995496954545452,
+            "error_rms": 2.160516358643212e-06,
+            "relative_error_rms": 0.0030524212840721513,
+            "snr_db": 50.30711053674524,
+            "input_peak": 0.001007080078125,
+            "decoded_peak": 0.0010144001571461558,
+            "decoded_min": -0.0010144001571461558,
+            "decoded_max": 0.0010140588274225593,
+            "outside_unit_interval": 0,
+            "nonfinite": 0
+          },
+          {
+            "channel": 1,
+            "frames": 100319,
+            "input_rms": 0.000707775210862788,
+            "decoded_rms": 0.0007075775733702996,
+            "rms_ratio": 0.9997207623416939,
+            "least_squares_gain": 0.9997155148616828,
+            "error_rms": 2.3014052639268135e-06,
+            "relative_error_rms": 0.0032516047872337434,
+            "snr_db": 49.75804491441278,
+            "input_peak": 0.001007080078125,
+            "decoded_peak": 0.0010157345095649362,
+            "decoded_min": -0.0010142537066712976,
+            "decoded_max": 0.0010157345095649362,
+            "outside_unit_interval": 0,
+            "nonfinite": 0
+          }
+        ],
+        "baseline_mp3_sha256": "8c6640eb6dde46b4aba30caccc8776080e9f5cd76bc688cdbad1bf1030743b85",
+        "baseline_float_sha256": "f693cdc88cf970ce6bda82cf8a7d0560b80d7601d2b4a03e1a6b1c20044640a1"
+      },
+      {
+        "fixture": "tones_minus90db_minus90db",
+        "baseline_steady": [
+          {
+            "channel": 0,
+            "frames": 100319,
+            "input_rms": 2.5156045580834674e-05,
+            "decoded_rms": 2.5112628850801533e-05,
+            "rms_ratio": 0.9982741035393012,
+            "least_squares_gain": 0.9979107968195068,
+            "error_rms": 6.794890331716576e-07,
+            "relative_error_rms": 0.02701096366629784,
+            "snr_db": 31.369198425477336,
+            "input_peak": 3.0517578125e-05,
+            "decoded_peak": 3.443786772550084e-05,
+            "decoded_min": -3.443786772550084e-05,
+            "decoded_max": 3.304218625999056e-05,
+            "outside_unit_interval": 0,
+            "nonfinite": 0
+          },
+          {
+            "channel": 1,
+            "frames": 100319,
+            "input_rms": 2.515586105968159e-05,
+            "decoded_rms": 2.5102781542768414e-05,
+            "rms_ratio": 0.9978899741580204,
+            "least_squares_gain": 0.9974686598240878,
+            "error_rms": 7.321526289552315e-07,
+            "relative_error_rms": 0.029104653870452673,
+            "snr_db": 30.720751224641816,
+            "input_peak": 3.0517578125e-05,
+            "decoded_peak": 3.490343442535959e-05,
+            "decoded_min": -3.490343442535959e-05,
+            "decoded_max": 3.33871939801611e-05,
+            "outside_unit_interval": 0,
+            "nonfinite": 0
+          }
+        ],
+        "candidate_steady": [
+          {
+            "channel": 0,
+            "frames": 100319,
+            "input_rms": 2.5156045580834674e-05,
+            "decoded_rms": 2.5119274299453876e-05,
+            "rms_ratio": 0.9985382725888837,
+            "least_squares_gain": 0.9981387138875603,
+            "error_rms": 7.120778745604462e-07,
+            "relative_error_rms": 0.02830643124223579,
+            "snr_db": 30.962297624709322,
+            "input_peak": 3.0517578125e-05,
+            "decoded_peak": 3.5513021430233493e-05,
+            "decoded_min": -3.5513021430233493e-05,
+            "decoded_max": 3.424124952289276e-05,
+            "outside_unit_interval": 0,
+            "nonfinite": 0
+          },
+          {
+            "channel": 1,
+            "frames": 100319,
+            "input_rms": 2.515586105968159e-05,
+            "decoded_rms": 2.5114795355776215e-05,
+            "rms_ratio": 0.9983675492638495,
+            "least_squares_gain": 0.9978969252705006,
+            "error_rms": 7.728676759844878e-07,
+            "relative_error_rms": 0.030723165235762767,
+            "snr_db": 30.250680868115005,
+            "input_peak": 3.0517578125e-05,
+            "decoded_peak": 3.59434234269429e-05,
+            "decoded_min": -3.59434234269429e-05,
+            "decoded_max": 3.4565488022053614e-05,
+            "outside_unit_interval": 0,
+            "nonfinite": 0
+          }
+        ],
+        "baseline_mp3_sha256": "153b67838c933105776f7473f358095168f37800c82c09a2d40b11309919401d",
+        "baseline_float_sha256": "aae4cb95945c0b6d0b10cedaa2691a6e5212d421472e99873ca65da413c1b2a5"
+      }
+    ],
+    "baseline_comparison": [
+      {
+        "fixture": "tones_independent_half",
+        "baseline_steady": [
+          {
+            "channel": 0,
+            "frames": 100319,
+            "input_rms": 0.3535633243941153,
+            "decoded_rms": 0.35351336550952606,
+            "rms_ratio": 0.999858698905847,
+            "least_squares_gain": 0.9998586943735053,
+            "error_rms": 6.024150779865722e-05,
+            "relative_error_rms": 0.00017038392741071273,
+            "snr_db": 75.3714275066511,
+            "input_peak": 0.5,
+            "decoded_peak": 0.5000149011611938,
+            "decoded_min": -0.5000138282775879,
+            "decoded_max": 0.5000149011611938,
+            "outside_unit_interval": 0,
+            "nonfinite": 0
+          },
+          {
+            "channel": 1,
+            "frames": 100319,
+            "input_rms": 0.3535497677452678,
+            "decoded_rms": 0.35349683257373565,
+            "rms_ratio": 0.9998502751907611,
+            "least_squares_gain": 0.9998502699739948,
+            "error_rms": 6.40803961473588e-05,
+            "relative_error_rms": 0.00018124858787498525,
+            "snr_db": 74.83450736746939,
+            "input_peak": 0.5,
+            "decoded_peak": 0.500041663646698,
+            "decoded_min": -0.500041663646698,
+            "decoded_max": 0.5000239610671997,
+            "outside_unit_interval": 0,
+            "nonfinite": 0
+          }
+        ],
+        "candidate_steady": [
+          {
+            "channel": 0,
+            "frames": 100319,
+            "input_rms": 0.3535633243941153,
+            "decoded_rms": 0.35351336517220794,
+            "rms_ratio": 0.999858697951794,
+            "least_squares_gain": 0.9998586934178382,
+            "error_rms": 6.024513727416207e-05,
+            "relative_error_rms": 0.00017039419282925144,
+            "snr_db": 75.37090420842715,
+            "input_peak": 0.5,
+            "decoded_peak": 0.5000138282775879,
+            "decoded_min": -0.5000138282775879,
+            "decoded_max": 0.5000133514404297,
+            "outside_unit_interval": 0,
+            "nonfinite": 0
+          },
+          {
+            "channel": 1,
+            "frames": 100319,
+            "input_rms": 0.3535497677452678,
+            "decoded_rms": 0.35349683246152724,
+            "rms_ratio": 0.9998502748733845,
+            "least_squares_gain": 0.9998502696562864,
+            "error_rms": 6.408113640795471e-05,
+            "relative_error_rms": 0.00018125068166958914,
+            "snr_db": 74.8344070281287,
+            "input_peak": 0.5,
+            "decoded_peak": 0.500041663646698,
+            "decoded_min": -0.500041663646698,
+            "decoded_max": 0.5000239610671997,
+            "outside_unit_interval": 0,
+            "nonfinite": 0
+          }
+        ],
+        "baseline_all_decoded": [
+          {
+            "channel": 0,
+            "frames": 110592,
+            "decoded_rms": 0.3518024508812414,
+            "decoded_peak": 0.5004093050956726,
+            "decoded_min": -0.5004093050956726,
+            "decoded_max": 0.5003117918968201,
+            "outside_unit_interval": 0,
+            "nonfinite": 0
+          },
+          {
+            "channel": 1,
+            "frames": 110592,
+            "decoded_rms": 0.3518037468538213,
+            "decoded_peak": 0.5024027824401855,
+            "decoded_min": -0.5009331107139587,
+            "decoded_max": 0.5024027824401855,
+            "outside_unit_interval": 0,
+            "nonfinite": 0
+          }
+        ],
+        "candidate_all_decoded": [
+          {
+            "channel": 0,
+            "frames": 110592,
+            "decoded_rms": 0.35180245045496544,
+            "decoded_peak": 0.5004093050956726,
+            "decoded_min": -0.5004093050956726,
+            "decoded_max": 0.5003117918968201,
+            "outside_unit_interval": 0,
+            "nonfinite": 0
+          },
+          {
+            "channel": 1,
+            "frames": 110592,
+            "decoded_rms": 0.351803746725118,
+            "decoded_peak": 0.5024027824401855,
+            "decoded_min": -0.5009331107139587,
+            "decoded_max": 0.5024027824401855,
+            "outside_unit_interval": 0,
+            "nonfinite": 0
+          }
+        ]
+      },
+      {
+        "fixture": "tones_independent_nearfull",
+        "baseline_steady": [
+          {
+            "channel": 0,
+            "frames": 100319,
+            "input_rms": 0.692984289867837,
+            "decoded_rms": 0.6839775821641495,
+            "rms_ratio": 0.98700301314853,
+            "least_squares_gain": 0.5925703624565207,
+            "error_rms": 0.6155613017058698,
+            "relative_error_rms": 0.8882759836060166,
+            "snr_db": 1.0290415957895147,
+            "input_peak": 0.980010986328125,
+            "decoded_peak": 1.1433089971542358,
+            "decoded_min": -1.1433089971542358,
+            "decoded_max": 1.1317315101623535,
+            "outside_unit_interval": 1856,
+            "nonfinite": 0
+          },
+          {
+            "channel": 1,
+            "frames": 100319,
+            "input_rms": 0.6929577014062164,
+            "decoded_rms": 0.669169431456245,
+            "rms_ratio": 0.9656713968230701,
+            "least_squares_gain": 0.40342677731515014,
+            "error_rms": 0.735210712795097,
+            "relative_error_rms": 1.060974878124793,
+            "snr_db": -0.5141020150495462,
+            "input_peak": 0.980010986328125,
+            "decoded_peak": 1.2805423736572266,
+            "decoded_min": -1.2805423736572266,
+            "decoded_max": 1.2805423736572266,
+            "outside_unit_interval": 3343,
+            "nonfinite": 0
+          }
+        ],
+        "candidate_steady": [
+          {
+            "channel": 0,
+            "frames": 100319,
+            "input_rms": 0.692984289867837,
+            "decoded_rms": 0.6928776898215789,
+            "rms_ratio": 0.9998461724921953,
+            "least_squares_gain": 0.9998461682211909,
+            "error_rms": 0.00012436106794522917,
+            "relative_error_rms": 0.00017945726874839656,
+            "snr_db": 74.92077892567451,
+            "input_peak": 0.980010986328125,
+            "decoded_peak": 0.980011522769928,
+            "decoded_min": -0.9800070524215698,
+            "decoded_max": 0.980011522769928,
+            "outside_unit_interval": 0,
+            "nonfinite": 0
+          },
+          {
+            "channel": 1,
+            "frames": 100319,
+            "input_rms": 0.6929577014062164,
+            "decoded_rms": 0.6928573482892505,
+            "rms_ratio": 0.9998551814681296,
+            "least_squares_gain": 0.9998551766069069,
+            "error_rms": 0.00012140581934744011,
+            "relative_error_rms": 0.00017519946614500678,
+            "snr_db": 75.12934443032576,
+            "input_peak": 0.980010986328125,
+            "decoded_peak": 0.9800344109535217,
+            "decoded_min": -0.9800131916999817,
+            "decoded_max": 0.9800344109535217,
+            "outside_unit_interval": 0,
+            "nonfinite": 0
+          }
+        ],
+        "baseline_all_decoded": [
+          {
+            "channel": 0,
+            "frames": 110592,
+            "decoded_rms": 0.6814154813392393,
+            "decoded_peak": 1.1433089971542358,
+            "decoded_min": -1.1433089971542358,
+            "decoded_max": 1.1317315101623535,
+            "outside_unit_interval": 1856,
+            "nonfinite": 0
+          },
+          {
+            "channel": 1,
+            "frames": 110592,
+            "decoded_rms": 0.6661209362163307,
+            "decoded_peak": 1.2805423736572266,
+            "decoded_min": -1.2805423736572266,
+            "decoded_max": 1.2805423736572266,
+            "outside_unit_interval": 3614,
+            "nonfinite": 0
+          }
+        ],
+        "candidate_all_decoded": [
+          {
+            "channel": 0,
+            "frames": 110592,
+            "decoded_rms": 0.6895236887793441,
+            "decoded_peak": 0.981529712677002,
+            "decoded_min": -0.981529712677002,
+            "decoded_max": 0.9808107614517212,
+            "outside_unit_interval": 0,
+            "nonfinite": 0
+          },
+          {
+            "channel": 1,
+            "frames": 110592,
+            "decoded_rms": 0.689540091735207,
+            "decoded_peak": 0.9830865859985352,
+            "decoded_min": -0.9824380874633789,
+            "decoded_max": 0.9830865859985352,
+            "outside_unit_interval": 0,
+            "nonfinite": 0
+          }
+        ]
+      },
+      {
+        "fixture": "tones_same_half",
+        "baseline_steady": [
+          {
+            "channel": 0,
+            "frames": 100319,
+            "input_rms": 0.3535633243941153,
+            "decoded_rms": 0.35351336550952606,
+            "rms_ratio": 0.999858698905847,
+            "least_squares_gain": 0.9998586943735053,
+            "error_rms": 6.024150779865722e-05,
+            "relative_error_rms": 0.00017038392741071273,
+            "snr_db": 75.3714275066511,
+            "input_peak": 0.5,
+            "decoded_peak": 0.5000149011611938,
+            "decoded_min": -0.5000138282775879,
+            "decoded_max": 0.5000149011611938,
+            "outside_unit_interval": 0,
+            "nonfinite": 0
+          },
+          {
+            "channel": 1,
+            "frames": 100319,
+            "input_rms": 0.3535633243941153,
+            "decoded_rms": 0.35351336550952606,
+            "rms_ratio": 0.999858698905847,
+            "least_squares_gain": 0.9998586943735053,
+            "error_rms": 6.024150779865722e-05,
+            "relative_error_rms": 0.00017038392741071273,
+            "snr_db": 75.3714275066511,
+            "input_peak": 0.5,
+            "decoded_peak": 0.5000149011611938,
+            "decoded_min": -0.5000138282775879,
+            "decoded_max": 0.5000149011611938,
+            "outside_unit_interval": 0,
+            "nonfinite": 0
+          }
+        ],
+        "candidate_steady": [
+          {
+            "channel": 0,
+            "frames": 100319,
+            "input_rms": 0.3535633243941153,
+            "decoded_rms": 0.35351336517220794,
+            "rms_ratio": 0.999858697951794,
+            "least_squares_gain": 0.9998586934178382,
+            "error_rms": 6.024513727416207e-05,
+            "relative_error_rms": 0.00017039419282925144,
+            "snr_db": 75.37090420842715,
+            "input_peak": 0.5,
+            "decoded_peak": 0.5000138282775879,
+            "decoded_min": -0.5000138282775879,
+            "decoded_max": 0.5000133514404297,
+            "outside_unit_interval": 0,
+            "nonfinite": 0
+          },
+          {
+            "channel": 1,
+            "frames": 100319,
+            "input_rms": 0.3535633243941153,
+            "decoded_rms": 0.35351336517220794,
+            "rms_ratio": 0.999858697951794,
+            "least_squares_gain": 0.9998586934178382,
+            "error_rms": 6.024513727416207e-05,
+            "relative_error_rms": 0.00017039419282925144,
+            "snr_db": 75.37090420842715,
+            "input_peak": 0.5,
+            "decoded_peak": 0.5000138282775879,
+            "decoded_min": -0.5000138282775879,
+            "decoded_max": 0.5000133514404297,
+            "outside_unit_interval": 0,
+            "nonfinite": 0
+          }
+        ],
+        "baseline_all_decoded": [
+          {
+            "channel": 0,
+            "frames": 110592,
+            "decoded_rms": 0.3518024508812414,
+            "decoded_peak": 0.5004093050956726,
+            "decoded_min": -0.5004093050956726,
+            "decoded_max": 0.5003117918968201,
+            "outside_unit_interval": 0,
+            "nonfinite": 0
+          },
+          {
+            "channel": 1,
+            "frames": 110592,
+            "decoded_rms": 0.3518024508812414,
+            "decoded_peak": 0.5004093050956726,
+            "decoded_min": -0.5004093050956726,
+            "decoded_max": 0.5003117918968201,
+            "outside_unit_interval": 0,
+            "nonfinite": 0
+          }
+        ],
+        "candidate_all_decoded": [
+          {
+            "channel": 0,
+            "frames": 110592,
+            "decoded_rms": 0.35180245045496544,
+            "decoded_peak": 0.5004093050956726,
+            "decoded_min": -0.5004093050956726,
+            "decoded_max": 0.5003117918968201,
+            "outside_unit_interval": 0,
+            "nonfinite": 0
+          },
+          {
+            "channel": 1,
+            "frames": 110592,
+            "decoded_rms": 0.35180245045496544,
+            "decoded_peak": 0.5004093050956726,
+            "decoded_min": -0.5004093050956726,
+            "decoded_max": 0.5003117918968201,
+            "outside_unit_interval": 0,
+            "nonfinite": 0
+          }
+        ]
+      },
+      {
+        "fixture": "tones_same_nearfull",
+        "baseline_steady": [
+          {
+            "channel": 0,
+            "frames": 100319,
+            "input_rms": 0.692984289867837,
+            "decoded_rms": 0.6839775821641495,
+            "rms_ratio": 0.98700301314853,
+            "least_squares_gain": 0.5925703624565207,
+            "error_rms": 0.6155613017058698,
+            "relative_error_rms": 0.8882759836060166,
+            "snr_db": 1.0290415957895147,
+            "input_peak": 0.980010986328125,
+            "decoded_peak": 1.1433089971542358,
+            "decoded_min": -1.1433089971542358,
+            "decoded_max": 1.1317315101623535,
+            "outside_unit_interval": 1856,
+            "nonfinite": 0
+          },
+          {
+            "channel": 1,
+            "frames": 100319,
+            "input_rms": 0.692984289867837,
+            "decoded_rms": 0.6839775821641495,
+            "rms_ratio": 0.98700301314853,
+            "least_squares_gain": 0.5925703624565207,
+            "error_rms": 0.6155613017058698,
+            "relative_error_rms": 0.8882759836060166,
+            "snr_db": 1.0290415957895147,
+            "input_peak": 0.980010986328125,
+            "decoded_peak": 1.1433089971542358,
+            "decoded_min": -1.1433089971542358,
+            "decoded_max": 1.1317315101623535,
+            "outside_unit_interval": 1856,
+            "nonfinite": 0
+          }
+        ],
+        "candidate_steady": [
+          {
+            "channel": 0,
+            "frames": 100319,
+            "input_rms": 0.692984289867837,
+            "decoded_rms": 0.6928776898215789,
+            "rms_ratio": 0.9998461724921953,
+            "least_squares_gain": 0.9998461682211909,
+            "error_rms": 0.00012436106794522917,
+            "relative_error_rms": 0.00017945726874839656,
+            "snr_db": 74.92077892567451,
+            "input_peak": 0.980010986328125,
+            "decoded_peak": 0.980011522769928,
+            "decoded_min": -0.9800070524215698,
+            "decoded_max": 0.980011522769928,
+            "outside_unit_interval": 0,
+            "nonfinite": 0
+          },
+          {
+            "channel": 1,
+            "frames": 100319,
+            "input_rms": 0.692984289867837,
+            "decoded_rms": 0.6928776898215789,
+            "rms_ratio": 0.9998461724921953,
+            "least_squares_gain": 0.9998461682211909,
+            "error_rms": 0.00012436106794522917,
+            "relative_error_rms": 0.00017945726874839656,
+            "snr_db": 74.92077892567451,
+            "input_peak": 0.980010986328125,
+            "decoded_peak": 0.980011522769928,
+            "decoded_min": -0.9800070524215698,
+            "decoded_max": 0.980011522769928,
+            "outside_unit_interval": 0,
+            "nonfinite": 0
+          }
+        ],
+        "baseline_all_decoded": [
+          {
+            "channel": 0,
+            "frames": 110592,
+            "decoded_rms": 0.6814154813392393,
+            "decoded_peak": 1.1433089971542358,
+            "decoded_min": -1.1433089971542358,
+            "decoded_max": 1.1317315101623535,
+            "outside_unit_interval": 1856,
+            "nonfinite": 0
+          },
+          {
+            "channel": 1,
+            "frames": 110592,
+            "decoded_rms": 0.6814154813392393,
+            "decoded_peak": 1.1433089971542358,
+            "decoded_min": -1.1433089971542358,
+            "decoded_max": 1.1317315101623535,
+            "outside_unit_interval": 1856,
+            "nonfinite": 0
+          }
+        ],
+        "candidate_all_decoded": [
+          {
+            "channel": 0,
+            "frames": 110592,
+            "decoded_rms": 0.6895236887793441,
+            "decoded_peak": 0.981529712677002,
+            "decoded_min": -0.981529712677002,
+            "decoded_max": 0.9808107614517212,
+            "outside_unit_interval": 0,
+            "nonfinite": 0
+          },
+          {
+            "channel": 1,
+            "frames": 110592,
+            "decoded_rms": 0.6895236887793441,
+            "decoded_peak": 0.981529712677002,
+            "decoded_min": -0.981529712677002,
+            "decoded_max": 0.9808107614517212,
+            "outside_unit_interval": 0,
+            "nonfinite": 0
+          }
+        ]
+      },
+      {
+        "fixture": "tones_opposite_half",
+        "baseline_steady": [
+          {
+            "channel": 0,
+            "frames": 100319,
+            "input_rms": 0.3535633243941153,
+            "decoded_rms": 0.35351336550952606,
+            "rms_ratio": 0.999858698905847,
+            "least_squares_gain": 0.9998586943735053,
+            "error_rms": 6.024150779865722e-05,
+            "relative_error_rms": 0.00017038392741071273,
+            "snr_db": 75.3714275066511,
+            "input_peak": 0.5,
+            "decoded_peak": 0.5000149011611938,
+            "decoded_min": -0.5000138282775879,
+            "decoded_max": 0.5000149011611938,
+            "outside_unit_interval": 0,
+            "nonfinite": 0
+          },
+          {
+            "channel": 1,
+            "frames": 100319,
+            "input_rms": 0.3535633243941153,
+            "decoded_rms": 0.353513365840576,
+            "rms_ratio": 0.9998586998421715,
+            "least_squares_gain": 0.9998586953100892,
+            "error_rms": 6.0240694266913686e-05,
+            "relative_error_rms": 0.00017038162646011235,
+            "snr_db": 75.37154480608322,
+            "input_peak": 0.5,
+            "decoded_peak": 0.5000149011611938,
+            "decoded_min": -0.5000138282775879,
+            "decoded_max": 0.5000149011611938,
+            "outside_unit_interval": 0,
+            "nonfinite": 0
+          }
+        ],
+        "candidate_steady": [
+          {
+            "channel": 0,
+            "frames": 100319,
+            "input_rms": 0.3535633243941153,
+            "decoded_rms": 0.35351336517220794,
+            "rms_ratio": 0.999858697951794,
+            "least_squares_gain": 0.9998586934178382,
+            "error_rms": 6.024513727416207e-05,
+            "relative_error_rms": 0.00017039419282925144,
+            "snr_db": 75.37090420842715,
+            "input_peak": 0.5,
+            "decoded_peak": 0.5000138282775879,
+            "decoded_min": -0.5000138282775879,
+            "decoded_max": 0.5000133514404297,
+            "outside_unit_interval": 0,
+            "nonfinite": 0
+          },
+          {
+            "channel": 1,
+            "frames": 100319,
+            "input_rms": 0.3535633243941153,
+            "decoded_rms": 0.35351336557979146,
+            "rms_ratio": 0.999858699104582,
+            "least_squares_gain": 0.9998586945697688,
+            "error_rms": 6.0246577926439464e-05,
+            "relative_error_rms": 0.00017039826749474417,
+            "snr_db": 75.37069650374524,
+            "input_peak": 0.5,
+            "decoded_peak": 0.5000138282775879,
+            "decoded_min": -0.5000138282775879,
+            "decoded_max": 0.5000133514404297,
+            "outside_unit_interval": 0,
+            "nonfinite": 0
+          }
+        ],
+        "baseline_all_decoded": [
+          {
+            "channel": 0,
+            "frames": 110592,
+            "decoded_rms": 0.3518024508812414,
+            "decoded_peak": 0.5004093050956726,
+            "decoded_min": -0.5004093050956726,
+            "decoded_max": 0.5003117918968201,
+            "outside_unit_interval": 0,
+            "nonfinite": 0
+          },
+          {
+            "channel": 1,
+            "frames": 110592,
+            "decoded_rms": 0.3518024510398741,
+            "decoded_peak": 0.5004093050956726,
+            "decoded_min": -0.5003117322921753,
+            "decoded_max": 0.5004093050956726,
+            "outside_unit_interval": 0,
+            "nonfinite": 0
+          }
+        ],
+        "candidate_all_decoded": [
+          {
+            "channel": 0,
+            "frames": 110592,
+            "decoded_rms": 0.35180245045496544,
+            "decoded_peak": 0.5004093050956726,
+            "decoded_min": -0.5004093050956726,
+            "decoded_max": 0.5003117918968201,
+            "outside_unit_interval": 0,
+            "nonfinite": 0
+          },
+          {
+            "channel": 1,
+            "frames": 110592,
+            "decoded_rms": 0.35180245019292467,
+            "decoded_peak": 0.5004093050956726,
+            "decoded_min": -0.5003117322921753,
+            "decoded_max": 0.5004093050956726,
+            "outside_unit_interval": 0,
+            "nonfinite": 0
+          }
+        ]
+      },
+      {
+        "fixture": "tones_opposite_nearfull",
+        "baseline_steady": [
+          {
+            "channel": 0,
+            "frames": 100319,
+            "input_rms": 0.692984289867837,
+            "decoded_rms": 0.6839775821641495,
+            "rms_ratio": 0.98700301314853,
+            "least_squares_gain": 0.5925703624565207,
+            "error_rms": 0.6155613017058698,
+            "relative_error_rms": 0.8882759836060166,
+            "snr_db": 1.0290415957895147,
+            "input_peak": 0.980010986328125,
+            "decoded_peak": 1.1433089971542358,
+            "decoded_min": -1.1433089971542358,
+            "decoded_max": 1.1317315101623535,
+            "outside_unit_interval": 1856,
+            "nonfinite": 0
+          },
+          {
+            "channel": 1,
+            "frames": 100319,
+            "input_rms": 0.692984289867837,
+            "decoded_rms": 0.6839775823310913,
+            "rms_ratio": 0.9870030133894329,
+            "least_squares_gain": 0.5925703627242606,
+            "error_rms": 0.6155613016824902,
+            "relative_error_rms": 0.888275983572279,
+            "snr_db": 1.0290415961194135,
+            "input_peak": 0.980010986328125,
+            "decoded_peak": 1.1433089971542358,
+            "decoded_min": -1.1317315101623535,
+            "decoded_max": 1.1433089971542358,
+            "outside_unit_interval": 1856,
+            "nonfinite": 0
+          }
+        ],
+        "candidate_steady": [
+          {
+            "channel": 0,
+            "frames": 100319,
+            "input_rms": 0.692984289867837,
+            "decoded_rms": 0.6928776898215789,
+            "rms_ratio": 0.9998461724921953,
+            "least_squares_gain": 0.9998461682211909,
+            "error_rms": 0.00012436106794522917,
+            "relative_error_rms": 0.00017945726874839656,
+            "snr_db": 74.92077892567451,
+            "input_peak": 0.980010986328125,
+            "decoded_peak": 0.980011522769928,
+            "decoded_min": -0.9800070524215698,
+            "decoded_max": 0.980011522769928,
+            "outside_unit_interval": 0,
+            "nonfinite": 0
+          },
+          {
+            "channel": 1,
+            "frames": 100319,
+            "input_rms": 0.692984289867837,
+            "decoded_rms": 0.6928776901172335,
+            "rms_ratio": 0.9998461729188352,
+            "least_squares_gain": 0.9998461686454273,
+            "error_rms": 0.00012437009419243928,
+            "relative_error_rms": 0.0001794702939314232,
+            "snr_db": 74.92014851823804,
+            "input_peak": 0.980010986328125,
+            "decoded_peak": 0.9800122976303101,
+            "decoded_min": -0.980011522769928,
+            "decoded_max": 0.9800122976303101,
+            "outside_unit_interval": 0,
+            "nonfinite": 0
+          }
+        ],
+        "baseline_all_decoded": [
+          {
+            "channel": 0,
+            "frames": 110592,
+            "decoded_rms": 0.6814154813392393,
+            "decoded_peak": 1.1433089971542358,
+            "decoded_min": -1.1433089971542358,
+            "decoded_max": 1.1317315101623535,
+            "outside_unit_interval": 1856,
+            "nonfinite": 0
+          },
+          {
+            "channel": 1,
+            "frames": 110592,
+            "decoded_rms": 0.6814154814461703,
+            "decoded_peak": 1.1433089971542358,
+            "decoded_min": -1.1317315101623535,
+            "decoded_max": 1.1433089971542358,
+            "outside_unit_interval": 1856,
+            "nonfinite": 0
+          }
+        ],
+        "candidate_all_decoded": [
+          {
+            "channel": 0,
+            "frames": 110592,
+            "decoded_rms": 0.6895236887793441,
+            "decoded_peak": 0.981529712677002,
+            "decoded_min": -0.981529712677002,
+            "decoded_max": 0.9808107614517212,
+            "outside_unit_interval": 0,
+            "nonfinite": 0
+          },
+          {
+            "channel": 1,
+            "frames": 110592,
+            "decoded_rms": 0.6895236888446922,
+            "decoded_peak": 0.981529712677002,
+            "decoded_min": -0.9808065891265869,
+            "decoded_max": 0.981529712677002,
+            "outside_unit_interval": 0,
+            "nonfinite": 0
+          }
+        ]
+      },
+      {
+        "fixture": "tone_left_only_half",
+        "baseline_steady": [
+          {
+            "channel": 0,
+            "frames": 100319,
+            "input_rms": 0.3535633243941153,
+            "decoded_rms": 0.35351336550952606,
+            "rms_ratio": 0.999858698905847,
+            "least_squares_gain": 0.9998586943735053,
+            "error_rms": 6.024150779865722e-05,
+            "relative_error_rms": 0.00017038392741071273,
+            "snr_db": 75.3714275066511,
+            "input_peak": 0.5,
+            "decoded_peak": 0.5000149011611938,
+            "decoded_min": -0.5000138282775879,
+            "decoded_max": 0.5000149011611938,
+            "outside_unit_interval": 0,
+            "nonfinite": 0
+          },
+          {
+            "channel": 1,
+            "frames": 100319,
+            "input_rms": 0.0,
+            "decoded_rms": 0.0,
+            "rms_ratio": null,
+            "least_squares_gain": null,
+            "error_rms": 0.0,
+            "relative_error_rms": null,
+            "snr_db": null,
+            "input_peak": 0.0,
+            "decoded_peak": 0.0,
+            "decoded_min": 0.0,
+            "decoded_max": 0.0,
+            "outside_unit_interval": 0,
+            "nonfinite": 0
+          }
+        ],
+        "candidate_steady": [
+          {
+            "channel": 0,
+            "frames": 100319,
+            "input_rms": 0.3535633243941153,
+            "decoded_rms": 0.35351336517220794,
+            "rms_ratio": 0.999858697951794,
+            "least_squares_gain": 0.9998586934178382,
+            "error_rms": 6.024513727416207e-05,
+            "relative_error_rms": 0.00017039419282925144,
+            "snr_db": 75.37090420842715,
+            "input_peak": 0.5,
+            "decoded_peak": 0.5000138282775879,
+            "decoded_min": -0.5000138282775879,
+            "decoded_max": 0.5000133514404297,
+            "outside_unit_interval": 0,
+            "nonfinite": 0
+          },
+          {
+            "channel": 1,
+            "frames": 100319,
+            "input_rms": 0.0,
+            "decoded_rms": 0.0,
+            "rms_ratio": null,
+            "least_squares_gain": null,
+            "error_rms": 0.0,
+            "relative_error_rms": null,
+            "snr_db": null,
+            "input_peak": 0.0,
+            "decoded_peak": 0.0,
+            "decoded_min": 0.0,
+            "decoded_max": 0.0,
+            "outside_unit_interval": 0,
+            "nonfinite": 0
+          }
+        ],
+        "baseline_all_decoded": [
+          {
+            "channel": 0,
+            "frames": 110592,
+            "decoded_rms": 0.3518024508812414,
+            "decoded_peak": 0.5004093050956726,
+            "decoded_min": -0.5004093050956726,
+            "decoded_max": 0.5003117918968201,
+            "outside_unit_interval": 0,
+            "nonfinite": 0
+          },
+          {
+            "channel": 1,
+            "frames": 110592,
+            "decoded_rms": 0.0,
+            "decoded_peak": 0.0,
+            "decoded_min": 0.0,
+            "decoded_max": 0.0,
+            "outside_unit_interval": 0,
+            "nonfinite": 0
+          }
+        ],
+        "candidate_all_decoded": [
+          {
+            "channel": 0,
+            "frames": 110592,
+            "decoded_rms": 0.35180245045496544,
+            "decoded_peak": 0.5004093050956726,
+            "decoded_min": -0.5004093050956726,
+            "decoded_max": 0.5003117918968201,
+            "outside_unit_interval": 0,
+            "nonfinite": 0
+          },
+          {
+            "channel": 1,
+            "frames": 110592,
+            "decoded_rms": 0.0,
+            "decoded_peak": 0.0,
+            "decoded_min": 0.0,
+            "decoded_max": 0.0,
+            "outside_unit_interval": 0,
+            "nonfinite": 0
+          }
+        ]
+      },
+      {
+        "fixture": "tone_left_only_nearfull",
+        "baseline_steady": [
+          {
+            "channel": 0,
+            "frames": 100319,
+            "input_rms": 0.692984289867837,
+            "decoded_rms": 0.6839775821641495,
+            "rms_ratio": 0.98700301314853,
+            "least_squares_gain": 0.5925703624565207,
+            "error_rms": 0.6155613017058698,
+            "relative_error_rms": 0.8882759836060166,
+            "snr_db": 1.0290415957895147,
+            "input_peak": 0.980010986328125,
+            "decoded_peak": 1.1433089971542358,
+            "decoded_min": -1.1433089971542358,
+            "decoded_max": 1.1317315101623535,
+            "outside_unit_interval": 1856,
+            "nonfinite": 0
+          },
+          {
+            "channel": 1,
+            "frames": 100319,
+            "input_rms": 0.0,
+            "decoded_rms": 0.0,
+            "rms_ratio": null,
+            "least_squares_gain": null,
+            "error_rms": 0.0,
+            "relative_error_rms": null,
+            "snr_db": null,
+            "input_peak": 0.0,
+            "decoded_peak": 0.0,
+            "decoded_min": 0.0,
+            "decoded_max": 0.0,
+            "outside_unit_interval": 0,
+            "nonfinite": 0
+          }
+        ],
+        "candidate_steady": [
+          {
+            "channel": 0,
+            "frames": 100319,
+            "input_rms": 0.692984289867837,
+            "decoded_rms": 0.6928776898215789,
+            "rms_ratio": 0.9998461724921953,
+            "least_squares_gain": 0.9998461682211909,
+            "error_rms": 0.00012436106794522917,
+            "relative_error_rms": 0.00017945726874839656,
+            "snr_db": 74.92077892567451,
+            "input_peak": 0.980010986328125,
+            "decoded_peak": 0.980011522769928,
+            "decoded_min": -0.9800070524215698,
+            "decoded_max": 0.980011522769928,
+            "outside_unit_interval": 0,
+            "nonfinite": 0
+          },
+          {
+            "channel": 1,
+            "frames": 100319,
+            "input_rms": 0.0,
+            "decoded_rms": 0.0,
+            "rms_ratio": null,
+            "least_squares_gain": null,
+            "error_rms": 0.0,
+            "relative_error_rms": null,
+            "snr_db": null,
+            "input_peak": 0.0,
+            "decoded_peak": 0.0,
+            "decoded_min": 0.0,
+            "decoded_max": 0.0,
+            "outside_unit_interval": 0,
+            "nonfinite": 0
+          }
+        ],
+        "baseline_all_decoded": [
+          {
+            "channel": 0,
+            "frames": 110592,
+            "decoded_rms": 0.6814154813392393,
+            "decoded_peak": 1.1433089971542358,
+            "decoded_min": -1.1433089971542358,
+            "decoded_max": 1.1317315101623535,
+            "outside_unit_interval": 1856,
+            "nonfinite": 0
+          },
+          {
+            "channel": 1,
+            "frames": 110592,
+            "decoded_rms": 0.0,
+            "decoded_peak": 0.0,
+            "decoded_min": 0.0,
+            "decoded_max": 0.0,
+            "outside_unit_interval": 0,
+            "nonfinite": 0
+          }
+        ],
+        "candidate_all_decoded": [
+          {
+            "channel": 0,
+            "frames": 110592,
+            "decoded_rms": 0.6895236887793441,
+            "decoded_peak": 0.981529712677002,
+            "decoded_min": -0.981529712677002,
+            "decoded_max": 0.9808107614517212,
+            "outside_unit_interval": 0,
+            "nonfinite": 0
+          },
+          {
+            "channel": 1,
+            "frames": 110592,
+            "decoded_rms": 0.0,
+            "decoded_peak": 0.0,
+            "decoded_min": 0.0,
+            "decoded_max": 0.0,
+            "outside_unit_interval": 0,
+            "nonfinite": 0
+          }
+        ]
+      },
+      {
+        "fixture": "tone_right_only_half",
+        "baseline_steady": [
+          {
+            "channel": 0,
+            "frames": 100319,
+            "input_rms": 0.0,
+            "decoded_rms": 0.0,
+            "rms_ratio": null,
+            "least_squares_gain": null,
+            "error_rms": 0.0,
+            "relative_error_rms": null,
+            "snr_db": null,
+            "input_peak": 0.0,
+            "decoded_peak": 0.0,
+            "decoded_min": 0.0,
+            "decoded_max": 0.0,
+            "outside_unit_interval": 0,
+            "nonfinite": 0
+          },
+          {
+            "channel": 1,
+            "frames": 100319,
+            "input_rms": 0.3535497677452678,
+            "decoded_rms": 0.35349683257373565,
+            "rms_ratio": 0.9998502751907611,
+            "least_squares_gain": 0.9998502699739948,
+            "error_rms": 6.40803961473588e-05,
+            "relative_error_rms": 0.00018124858787498525,
+            "snr_db": 74.83450736746939,
+            "input_peak": 0.5,
+            "decoded_peak": 0.500041663646698,
+            "decoded_min": -0.500041663646698,
+            "decoded_max": 0.5000239610671997,
+            "outside_unit_interval": 0,
+            "nonfinite": 0
+          }
+        ],
+        "candidate_steady": [
+          {
+            "channel": 0,
+            "frames": 100319,
+            "input_rms": 0.0,
+            "decoded_rms": 0.0,
+            "rms_ratio": null,
+            "least_squares_gain": null,
+            "error_rms": 0.0,
+            "relative_error_rms": null,
+            "snr_db": null,
+            "input_peak": 0.0,
+            "decoded_peak": 0.0,
+            "decoded_min": 0.0,
+            "decoded_max": 0.0,
+            "outside_unit_interval": 0,
+            "nonfinite": 0
+          },
+          {
+            "channel": 1,
+            "frames": 100319,
+            "input_rms": 0.3535497677452678,
+            "decoded_rms": 0.35349683246152724,
+            "rms_ratio": 0.9998502748733845,
+            "least_squares_gain": 0.9998502696562864,
+            "error_rms": 6.408113640795471e-05,
+            "relative_error_rms": 0.00018125068166958914,
+            "snr_db": 74.8344070281287,
+            "input_peak": 0.5,
+            "decoded_peak": 0.500041663646698,
+            "decoded_min": -0.500041663646698,
+            "decoded_max": 0.5000239610671997,
+            "outside_unit_interval": 0,
+            "nonfinite": 0
+          }
+        ],
+        "baseline_all_decoded": [
+          {
+            "channel": 0,
+            "frames": 110592,
+            "decoded_rms": 0.0,
+            "decoded_peak": 0.0,
+            "decoded_min": 0.0,
+            "decoded_max": 0.0,
+            "outside_unit_interval": 0,
+            "nonfinite": 0
+          },
+          {
+            "channel": 1,
+            "frames": 110592,
+            "decoded_rms": 0.3518037468538213,
+            "decoded_peak": 0.5024027824401855,
+            "decoded_min": -0.5009331107139587,
+            "decoded_max": 0.5024027824401855,
+            "outside_unit_interval": 0,
+            "nonfinite": 0
+          }
+        ],
+        "candidate_all_decoded": [
+          {
+            "channel": 0,
+            "frames": 110592,
+            "decoded_rms": 0.0,
+            "decoded_peak": 0.0,
+            "decoded_min": 0.0,
+            "decoded_max": 0.0,
+            "outside_unit_interval": 0,
+            "nonfinite": 0
+          },
+          {
+            "channel": 1,
+            "frames": 110592,
+            "decoded_rms": 0.351803746725118,
+            "decoded_peak": 0.5024027824401855,
+            "decoded_min": -0.5009331107139587,
+            "decoded_max": 0.5024027824401855,
+            "outside_unit_interval": 0,
+            "nonfinite": 0
+          }
+        ]
+      },
+      {
+        "fixture": "tone_right_only_nearfull",
+        "baseline_steady": [
+          {
+            "channel": 0,
+            "frames": 100319,
+            "input_rms": 0.0,
+            "decoded_rms": 0.0,
+            "rms_ratio": null,
+            "least_squares_gain": null,
+            "error_rms": 0.0,
+            "relative_error_rms": null,
+            "snr_db": null,
+            "input_peak": 0.0,
+            "decoded_peak": 0.0,
+            "decoded_min": 0.0,
+            "decoded_max": 0.0,
+            "outside_unit_interval": 0,
+            "nonfinite": 0
+          },
+          {
+            "channel": 1,
+            "frames": 100319,
+            "input_rms": 0.6929577014062164,
+            "decoded_rms": 0.669169431456245,
+            "rms_ratio": 0.9656713968230701,
+            "least_squares_gain": 0.40342677731515014,
+            "error_rms": 0.735210712795097,
+            "relative_error_rms": 1.060974878124793,
+            "snr_db": -0.5141020150495462,
+            "input_peak": 0.980010986328125,
+            "decoded_peak": 1.2805423736572266,
+            "decoded_min": -1.2805423736572266,
+            "decoded_max": 1.2805423736572266,
+            "outside_unit_interval": 3343,
+            "nonfinite": 0
+          }
+        ],
+        "candidate_steady": [
+          {
+            "channel": 0,
+            "frames": 100319,
+            "input_rms": 0.0,
+            "decoded_rms": 0.0,
+            "rms_ratio": null,
+            "least_squares_gain": null,
+            "error_rms": 0.0,
+            "relative_error_rms": null,
+            "snr_db": null,
+            "input_peak": 0.0,
+            "decoded_peak": 0.0,
+            "decoded_min": 0.0,
+            "decoded_max": 0.0,
+            "outside_unit_interval": 0,
+            "nonfinite": 0
+          },
+          {
+            "channel": 1,
+            "frames": 100319,
+            "input_rms": 0.6929577014062164,
+            "decoded_rms": 0.6928573482892505,
+            "rms_ratio": 0.9998551814681296,
+            "least_squares_gain": 0.9998551766069069,
+            "error_rms": 0.00012140581934744011,
+            "relative_error_rms": 0.00017519946614500678,
+            "snr_db": 75.12934443032576,
+            "input_peak": 0.980010986328125,
+            "decoded_peak": 0.9800344109535217,
+            "decoded_min": -0.9800131916999817,
+            "decoded_max": 0.9800344109535217,
+            "outside_unit_interval": 0,
+            "nonfinite": 0
+          }
+        ],
+        "baseline_all_decoded": [
+          {
+            "channel": 0,
+            "frames": 110592,
+            "decoded_rms": 0.0,
+            "decoded_peak": 0.0,
+            "decoded_min": 0.0,
+            "decoded_max": 0.0,
+            "outside_unit_interval": 0,
+            "nonfinite": 0
+          },
+          {
+            "channel": 1,
+            "frames": 110592,
+            "decoded_rms": 0.6661209362163307,
+            "decoded_peak": 1.2805423736572266,
+            "decoded_min": -1.2805423736572266,
+            "decoded_max": 1.2805423736572266,
+            "outside_unit_interval": 3614,
+            "nonfinite": 0
+          }
+        ],
+        "candidate_all_decoded": [
+          {
+            "channel": 0,
+            "frames": 110592,
+            "decoded_rms": 0.0,
+            "decoded_peak": 0.0,
+            "decoded_min": 0.0,
+            "decoded_max": 0.0,
+            "outside_unit_interval": 0,
+            "nonfinite": 0
+          },
+          {
+            "channel": 1,
+            "frames": 110592,
+            "decoded_rms": 0.689540091735207,
+            "decoded_peak": 0.9830865859985352,
+            "decoded_min": -0.9824380874633789,
+            "decoded_max": 0.9830865859985352,
+            "outside_unit_interval": 0,
+            "nonfinite": 0
+          }
+        ]
+      },
+      {
+        "fixture": "impulse_and_gated_tones_half",
+        "baseline_steady": [
+          {
+            "channel": 0,
+            "frames": 100319,
+            "input_rms": 0.0845201028044258,
+            "decoded_rms": 0.08448832514367705,
+            "rms_ratio": 0.9996240224550805,
+            "least_squares_gain": 0.9995418590975929,
+            "error_rms": 0.0010839289607882522,
+            "relative_error_rms": 0.0128245106764292,
+            "snr_db": 37.83918393107663,
+            "input_peak": 0.5,
+            "decoded_peak": 0.6211308240890503,
+            "decoded_min": -0.5106341242790222,
+            "decoded_max": 0.6211308240890503,
+            "outside_unit_interval": 0,
+            "nonfinite": 0
+          },
+          {
+            "channel": 1,
+            "frames": 100319,
+            "input_rms": 0.08457853120330769,
+            "decoded_rms": 0.08456060365019004,
+            "rms_ratio": 0.9997880365990921,
+            "least_squares_gain": 0.9996865822788245,
+            "error_rms": 0.0012049207553200773,
+            "relative_error_rms": 0.014246177347579136,
+            "snr_db": 36.92603307039534,
+            "input_peak": 0.5,
+            "decoded_peak": 0.6211308240890503,
+            "decoded_min": -0.6211308240890503,
+            "decoded_max": 0.508907675743103,
+            "outside_unit_interval": 0,
+            "nonfinite": 0
+          }
+        ],
+        "candidate_steady": [
+          {
+            "channel": 0,
+            "frames": 100319,
+            "input_rms": 0.0845201028044258,
+            "decoded_rms": 0.08448832513310274,
+            "rms_ratio": 0.9996240223299705,
+            "least_squares_gain": 0.999541858970708,
+            "error_rms": 0.0010839289727934008,
+            "relative_error_rms": 0.012824510818468174,
+            "snr_db": 37.839183834875314,
+            "input_peak": 0.5,
+            "decoded_peak": 0.6211308240890503,
+            "decoded_min": -0.5106341242790222,
+            "decoded_max": 0.6211308240890503,
+            "outside_unit_interval": 0,
+            "nonfinite": 0
+          },
+          {
+            "channel": 1,
+            "frames": 100319,
+            "input_rms": 0.08457853120330769,
+            "decoded_rms": 0.08456060381103676,
+            "rms_ratio": 0.9997880385008362,
+            "least_squares_gain": 0.9996865841782779,
+            "error_rms": 0.001204920766525963,
+            "relative_error_rms": 0.014246177480070038,
+            "snr_db": 36.926032989615685,
+            "input_peak": 0.5,
+            "decoded_peak": 0.6211308240890503,
+            "decoded_min": -0.6211308240890503,
+            "decoded_max": 0.508907675743103,
+            "outside_unit_interval": 0,
+            "nonfinite": 0
+          }
+        ],
+        "baseline_all_decoded": [
+          {
+            "channel": 0,
+            "frames": 110592,
+            "decoded_rms": 0.08046859936545762,
+            "decoded_peak": 0.6211308240890503,
+            "decoded_min": -0.5106341242790222,
+            "decoded_max": 0.6211308240890503,
+            "outside_unit_interval": 0,
+            "nonfinite": 0
+          },
+          {
+            "channel": 1,
+            "frames": 110592,
+            "decoded_rms": 0.08053743905630767,
+            "decoded_peak": 0.6211308240890503,
+            "decoded_min": -0.6211308240890503,
+            "decoded_max": 0.508907675743103,
+            "outside_unit_interval": 0,
+            "nonfinite": 0
+          }
+        ],
+        "candidate_all_decoded": [
+          {
+            "channel": 0,
+            "frames": 110592,
+            "decoded_rms": 0.0804685993553864,
+            "decoded_peak": 0.6211308240890503,
+            "decoded_min": -0.5106341242790222,
+            "decoded_max": 0.6211308240890503,
+            "outside_unit_interval": 0,
+            "nonfinite": 0
+          },
+          {
+            "channel": 1,
+            "frames": 110592,
+            "decoded_rms": 0.08053743920950172,
+            "decoded_peak": 0.6211308240890503,
+            "decoded_min": -0.6211308240890503,
+            "decoded_max": 0.508907675743103,
+            "outside_unit_interval": 0,
+            "nonfinite": 0
+          }
+        ]
+      },
+      {
+        "fixture": "impulse_and_gated_tones_nearfull",
+        "baseline_steady": [
+          {
+            "channel": 0,
+            "frames": 100319,
+            "input_rms": 0.16565943001176459,
+            "decoded_rms": 0.16277232227967667,
+            "rms_ratio": 0.9825720290605678,
+            "least_squares_gain": 0.5642332158558927,
+            "error_rms": 0.15155632157324403,
+            "relative_error_rms": 0.9148668540177942,
+            "snr_db": 0.7728421355656978,
+            "input_peak": 0.980010986328125,
+            "decoded_peak": 1.1662423610687256,
+            "decoded_min": -1.0730122327804565,
+            "decoded_max": 1.1662423610687256,
+            "outside_unit_interval": 89,
+            "nonfinite": 0
+          },
+          {
+            "channel": 1,
+            "frames": 100319,
+            "input_rms": 0.1657739577967571,
+            "decoded_rms": 0.16135015378547887,
+            "rms_ratio": 0.9733142402457331,
+            "least_squares_gain": 0.5557954002737189,
+            "error_rms": 0.15154947960804893,
+            "relative_error_rms": 0.9141935296848753,
+            "snr_db": 0.7792371361492267,
+            "input_peak": 0.980010986328125,
+            "decoded_peak": 1.2136449813842773,
+            "decoded_min": -1.2136449813842773,
+            "decoded_max": 1.202150583267212,
+            "outside_unit_interval": 135,
+            "nonfinite": 0
+          }
+        ],
+        "candidate_steady": [
+          {
+            "channel": 0,
+            "frames": 100319,
+            "input_rms": 0.16565943001176459,
+            "decoded_rms": 0.16556056155403273,
+            "rms_ratio": 0.9994031824344389,
+            "least_squares_gain": 0.9993271148317159,
+            "error_rms": 0.0020456853442279636,
+            "relative_error_rms": 0.012348740690962692,
+            "snr_db": 38.16754657902009,
+            "input_peak": 0.980010986328125,
+            "decoded_peak": 1.1662423610687256,
+            "decoded_min": -0.9979668259620667,
+            "decoded_max": 1.1662423610687256,
+            "outside_unit_interval": 1,
+            "nonfinite": 0
+          },
+          {
+            "channel": 1,
+            "frames": 100319,
+            "input_rms": 0.1657739577967571,
+            "decoded_rms": 0.16570933995221002,
+            "rms_ratio": 0.9996102050924892,
+            "least_squares_gain": 0.9995212595391141,
+            "error_rms": 0.002211967873809722,
+            "relative_error_rms": 0.013343277214396054,
+            "snr_db": 37.494749823187036,
+            "input_peak": 0.980010986328125,
+            "decoded_peak": 1.1662423610687256,
+            "decoded_min": -1.1662423610687256,
+            "decoded_max": 0.9982690811157227,
+            "outside_unit_interval": 1,
+            "nonfinite": 0
+          }
+        ],
+        "baseline_all_decoded": [
+          {
+            "channel": 0,
+            "frames": 110592,
+            "decoded_rms": 0.15502805585309543,
+            "decoded_peak": 1.1662423610687256,
+            "decoded_min": -1.0730122327804565,
+            "decoded_max": 1.1662423610687256,
+            "outside_unit_interval": 89,
+            "nonfinite": 0
+          },
+          {
+            "channel": 1,
+            "frames": 110592,
+            "decoded_rms": 0.15367355028566743,
+            "decoded_peak": 1.2136449813842773,
+            "decoded_min": -1.2136449813842773,
+            "decoded_max": 1.202150583267212,
+            "outside_unit_interval": 135,
+            "nonfinite": 0
+          }
+        ],
+        "candidate_all_decoded": [
+          {
+            "channel": 0,
+            "frames": 110592,
+            "decoded_rms": 0.15768363825127463,
+            "decoded_peak": 1.1662423610687256,
+            "decoded_min": -0.9979668259620667,
+            "decoded_max": 1.1662423610687256,
+            "outside_unit_interval": 1,
+            "nonfinite": 0
+          },
+          {
+            "channel": 1,
+            "frames": 110592,
+            "decoded_rms": 0.15782533817604893,
+            "decoded_peak": 1.1662423610687256,
+            "decoded_min": -1.1662423610687256,
+            "decoded_max": 0.9982690811157227,
+            "outside_unit_interval": 1,
+            "nonfinite": 0
+          }
+        ]
+      },
+      {
+        "fixture": "noise_independent_half",
+        "baseline_steady": [
+          {
+            "channel": 0,
+            "frames": 100319,
+            "input_rms": 0.2882764643376027,
+            "decoded_rms": 0.3032953973294151,
+            "rms_ratio": 1.052099060623359,
+            "least_squares_gain": 1.0257736857198088,
+            "error_rms": 0.06783082228553977,
+            "relative_error_rms": 0.23529781538496528,
+            "snr_db": 12.567642099969504,
+            "input_peak": 0.5,
+            "decoded_peak": 0.7733212113380432,
+            "decoded_min": -0.7460511922836304,
+            "decoded_max": 0.7733212113380432,
+            "outside_unit_interval": 0,
+            "nonfinite": 0
+          },
+          {
+            "channel": 1,
+            "frames": 100319,
+            "input_rms": 0.2880918317971861,
+            "decoded_rms": 0.3029911947459713,
+            "rms_ratio": 1.0517174084938106,
+            "least_squares_gain": 1.0255708782232726,
+            "error_rms": 0.06754371264781422,
+            "relative_error_rms": 0.23445202255982167,
+            "snr_db": 12.59892032715002,
+            "input_peak": 0.5,
+            "decoded_peak": 0.7341922521591187,
+            "decoded_min": -0.7314120531082153,
+            "decoded_max": 0.7341922521591187,
+            "outside_unit_interval": 0,
+            "nonfinite": 0
+          }
+        ],
+        "candidate_steady": [
+          {
+            "channel": 0,
+            "frames": 100319,
+            "input_rms": 0.2882764643376027,
+            "decoded_rms": 0.3037985670670697,
+            "rms_ratio": 1.053844502238965,
+            "least_squares_gain": 1.0275570333717432,
+            "error_rms": 0.0678976254513988,
+            "relative_error_rms": 0.2355295483709117,
+            "snr_db": 12.559092013636786,
+            "input_peak": 0.5,
+            "decoded_peak": 0.7762261033058167,
+            "decoded_min": -0.7423536777496338,
+            "decoded_max": 0.7762261033058167,
+            "outside_unit_interval": 0,
+            "nonfinite": 0
+          },
+          {
+            "channel": 1,
+            "frames": 100319,
+            "input_rms": 0.2880918317971861,
+            "decoded_rms": 0.30350470731327134,
+            "rms_ratio": 1.0534998698850155,
+            "least_squares_gain": 1.027343410934068,
+            "error_rms": 0.06767101989113114,
+            "relative_error_rms": 0.23489392069529721,
+            "snr_db": 12.582564461608516,
+            "input_peak": 0.5,
+            "decoded_peak": 0.739716649055481,
+            "decoded_min": -0.739716649055481,
+            "decoded_max": 0.7326463460922241,
+            "outside_unit_interval": 0,
+            "nonfinite": 0
+          }
+        ],
+        "baseline_all_decoded": [
+          {
+            "channel": 0,
+            "frames": 110592,
+            "decoded_rms": 0.3017187412574605,
+            "decoded_peak": 0.7733212113380432,
+            "decoded_min": -0.7460511922836304,
+            "decoded_max": 0.7733212113380432,
+            "outside_unit_interval": 0,
+            "nonfinite": 0
+          },
+          {
+            "channel": 1,
+            "frames": 110592,
+            "decoded_rms": 0.3016695305570773,
+            "decoded_peak": 0.7341922521591187,
+            "decoded_min": -0.7314120531082153,
+            "decoded_max": 0.7341922521591187,
+            "outside_unit_interval": 0,
+            "nonfinite": 0
+          }
+        ],
+        "candidate_all_decoded": [
+          {
+            "channel": 0,
+            "frames": 110592,
+            "decoded_rms": 0.30220653294186683,
+            "decoded_peak": 0.7762261033058167,
+            "decoded_min": -0.7423536777496338,
+            "decoded_max": 0.7762261033058167,
+            "outside_unit_interval": 0,
+            "nonfinite": 0
+          },
+          {
+            "channel": 1,
+            "frames": 110592,
+            "decoded_rms": 0.3021883725314634,
+            "decoded_peak": 0.739716649055481,
+            "decoded_min": -0.739716649055481,
+            "decoded_max": 0.7326463460922241,
+            "outside_unit_interval": 0,
+            "nonfinite": 0
+          }
+        ]
+      },
+      {
+        "fixture": "noise_independent_nearfull",
+        "baseline_steady": [
+          {
+            "channel": 0,
+            "frames": 100319,
+            "input_rms": 0.5650218171000849,
+            "decoded_rms": 0.5957690908027953,
+            "rms_ratio": 1.0544178521468737,
+            "least_squares_gain": 1.0282945668793555,
+            "error_rms": 0.13275953598762252,
+            "relative_error_rms": 0.23496355710474484,
+            "snr_db": 12.579989833342456,
+            "input_peak": 0.980010986328125,
+            "decoded_peak": 1.5398921966552734,
+            "decoded_min": -1.4577714204788208,
+            "decoded_max": 1.5398921966552734,
+            "outside_unit_interval": 5581,
+            "nonfinite": 0
+          },
+          {
+            "channel": 1,
+            "frames": 100319,
+            "input_rms": 0.5646600869021996,
+            "decoded_rms": 0.5946665972985905,
+            "rms_ratio": 1.0531408383422505,
+            "least_squares_gain": 1.027124460502676,
+            "error_rms": 0.13225190824564662,
+            "relative_error_rms": 0.2342150814505027,
+            "snr_db": 12.607702870170414,
+            "input_peak": 0.97998046875,
+            "decoded_peak": 1.5073351860046387,
+            "decoded_min": -1.5073351860046387,
+            "decoded_max": 1.3901854753494263,
+            "outside_unit_interval": 5466,
+            "nonfinite": 0
+          }
+        ],
+        "candidate_steady": [
+          {
+            "channel": 0,
+            "frames": 100319,
+            "input_rms": 0.5650218171000849,
+            "decoded_rms": 0.5939921872618684,
+            "rms_ratio": 1.0512730115634663,
+            "least_squares_gain": 1.025148077008145,
+            "error_rms": 0.13236326896813513,
+            "relative_error_rms": 0.23426222662954094,
+            "snr_db": 12.605954662449733,
+            "input_peak": 0.980010986328125,
+            "decoded_peak": 1.5406123399734497,
+            "decoded_min": -1.4584472179412842,
+            "decoded_max": 1.5406123399734497,
+            "outside_unit_interval": 5465,
+            "nonfinite": 0
+          },
+          {
+            "channel": 1,
+            "frames": 100319,
+            "input_rms": 0.5646600869021996,
+            "decoded_rms": 0.5931411461140914,
+            "rms_ratio": 1.0504392994520697,
+            "least_squares_gain": 1.0244167421555768,
+            "error_rms": 0.1319291015314441,
+            "relative_error_rms": 0.23364339819948088,
+            "snr_db": 12.62892971680725,
+            "input_peak": 0.97998046875,
+            "decoded_peak": 1.5074435472488403,
+            "decoded_min": -1.5074435472488403,
+            "decoded_max": 1.3870725631713867,
+            "outside_unit_interval": 5305,
+            "nonfinite": 0
+          }
+        ],
+        "baseline_all_decoded": [
+          {
+            "channel": 0,
+            "frames": 110592,
+            "decoded_rms": 0.5925604488302723,
+            "decoded_peak": 1.5398921966552734,
+            "decoded_min": -1.4577714204788208,
+            "decoded_max": 1.5398921966552734,
+            "outside_unit_interval": 6072,
+            "nonfinite": 0
+          },
+          {
+            "channel": 1,
+            "frames": 110592,
+            "decoded_rms": 0.5921450502022844,
+            "decoded_peak": 1.5073351860046387,
+            "decoded_min": -1.5073351860046387,
+            "decoded_max": 1.3901854753494263,
+            "outside_unit_interval": 5990,
+            "nonfinite": 0
+          }
+        ],
+        "candidate_all_decoded": [
+          {
+            "channel": 0,
+            "frames": 110592,
+            "decoded_rms": 0.5908750160864154,
+            "decoded_peak": 1.5406123399734497,
+            "decoded_min": -1.4584472179412842,
+            "decoded_max": 1.5406123399734497,
+            "outside_unit_interval": 5942,
+            "nonfinite": 0
+          },
+          {
+            "channel": 1,
+            "frames": 110592,
+            "decoded_rms": 0.590503989435698,
+            "decoded_peak": 1.5074435472488403,
+            "decoded_min": -1.5074435472488403,
+            "decoded_max": 1.3870725631713867,
+            "outside_unit_interval": 5799,
+            "nonfinite": 0
+          }
+        ]
+      }
+    ],
+    "diagnostic_commands": [
+      {
+        "argv": [
+          "cc",
+          "-O1",
+          "-g",
+          "-fsigned-char",
+          "-Wall",
+          "-Wextra",
+          "-Werror",
+          "-fsanitize=undefined",
+          "-fno-sanitize-recover=undefined",
+          "-I/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom-fixed/candidate-source/mp3/vendor/shine",
+          "/home/harper/workspace/personal/esp-analog-streamer/docs/audit-evidence/2026-10-13/mp3-gain-probe/current-bridge.c",
+          "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom-fixed/candidate-source/mp3/src/bridge.c",
+          "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom-fixed/candidate-source/mp3/vendor/shine/bitstream.c",
+          "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom-fixed/candidate-source/mp3/vendor/shine/huffman.c",
+          "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom-fixed/candidate-source/mp3/vendor/shine/l3bitstream.c",
+          "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom-fixed/candidate-source/mp3/vendor/shine/l3loop.c",
+          "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom-fixed/candidate-source/mp3/vendor/shine/l3mdct.c",
+          "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom-fixed/candidate-source/mp3/vendor/shine/l3subband.c",
+          "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom-fixed/candidate-source/mp3/vendor/shine/layer3.c",
+          "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom-fixed/candidate-source/mp3/vendor/shine/reservoir.c",
+          "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom-fixed/candidate-source/mp3/vendor/shine/tables.c",
+          "-lm",
+          "-o",
+          "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom-fixed/ubsan-bridge"
+        ],
+        "cwd": "/home/harper/workspace/personal/esp-analog-streamer",
+        "log": "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom-fixed/ubsan-compile.log",
+        "exit_code": 0,
+        "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "log_bytes": 0
+      },
+      {
+        "argv": [
+          "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom-fixed/ubsan-bridge",
+          "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom-fixed/tones_independent_nearfull.s16le",
+          "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom-fixed/tones_independent_nearfull-ubsan.mp3"
+        ],
+        "cwd": "/home/harper/workspace/personal/esp-analog-streamer",
+        "log": "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom-fixed/tones_independent_nearfull-ubsan.log",
+        "exit_code": 0,
+        "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "log_bytes": 0
+      },
+      {
+        "argv": [
+          "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom-fixed/ubsan-bridge",
+          "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom-fixed/noise_independent_nearfull.s16le",
+          "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom-fixed/noise_independent_nearfull-ubsan.mp3"
+        ],
+        "cwd": "/home/harper/workspace/personal/esp-analog-streamer",
+        "log": "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom-fixed/noise_independent_nearfull-ubsan.log",
+        "exit_code": 0,
+        "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "log_bytes": 0
+      },
+      {
+        "argv": [
+          "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom-fixed/ubsan-bridge",
+          "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom-fixed/impulse_and_gated_tones_nearfull.s16le",
+          "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom-fixed/impulse_and_gated_tones_nearfull-ubsan.mp3"
+        ],
+        "cwd": "/home/harper/workspace/personal/esp-analog-streamer",
+        "log": "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom-fixed/impulse_and_gated_tones_nearfull-ubsan.log",
+        "exit_code": 0,
+        "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "log_bytes": 0
+      },
+      {
+        "argv": [
+          "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom-fixed/ubsan-bridge",
+          "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/minimal-tones-nearfull-2-blocks.s16le",
+          "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom-fixed/minimal-tones-nearfull-2-blocks-ubsan.mp3"
+        ],
+        "cwd": "/home/harper/workspace/personal/esp-analog-streamer",
+        "log": "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom-fixed/minimal-nearfull-ubsan.log",
+        "exit_code": 0,
+        "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "log_bytes": 0
+      },
+      {
+        "argv": [
+          "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/actual-bridge",
+          "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom-fixed/tones_minus60db_minus60db.s16le",
+          "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom-fixed/tones_minus60db_minus60db-baseline.mp3"
+        ],
+        "cwd": "/home/harper/workspace/personal/esp-analog-streamer",
+        "log": "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom-fixed/tones_minus60db_minus60db-baseline-encode.log",
+        "exit_code": 0,
+        "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "log_bytes": 0
+      },
+      {
+        "argv": [
+          "ffmpeg",
+          "-nostdin",
+          "-v",
+          "error",
+          "-c:a",
+          "mp3float",
+          "-i",
+          "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom-fixed/tones_minus60db_minus60db-baseline.mp3",
+          "-f",
+          "f32le",
+          "-c:a",
+          "pcm_f32le",
+          "-y",
+          "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom-fixed/tones_minus60db_minus60db-baseline.f32le"
+        ],
+        "cwd": "/home/harper/workspace/personal/esp-analog-streamer",
+        "log": "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom-fixed/tones_minus60db_minus60db-baseline-decode.log",
+        "exit_code": 0,
+        "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "log_bytes": 0
+      },
+      {
+        "argv": [
+          "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/actual-bridge",
+          "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom-fixed/tones_minus90db_minus90db.s16le",
+          "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom-fixed/tones_minus90db_minus90db-baseline.mp3"
+        ],
+        "cwd": "/home/harper/workspace/personal/esp-analog-streamer",
+        "log": "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom-fixed/tones_minus90db_minus90db-baseline-encode.log",
+        "exit_code": 0,
+        "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "log_bytes": 0
+      },
+      {
+        "argv": [
+          "ffmpeg",
+          "-nostdin",
+          "-v",
+          "error",
+          "-c:a",
+          "mp3float",
+          "-i",
+          "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom-fixed/tones_minus90db_minus90db-baseline.mp3",
+          "-f",
+          "f32le",
+          "-c:a",
+          "pcm_f32le",
+          "-y",
+          "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom-fixed/tones_minus90db_minus90db-baseline.f32le"
+        ],
+        "cwd": "/home/harper/workspace/personal/esp-analog-streamer",
+        "log": "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom-fixed/tones_minus90db_minus90db-baseline-decode.log",
+        "exit_code": 0,
+        "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "log_bytes": 0
+      }
+    ],
+    "limitations": [
+      "Expected lossy float overshoot is not removed or accepted by this integer representation fix.",
+      "Finite synthetic tests do not prove music transparency, physical calibration, delivery, finite tail or arbitrary input bounds.",
+      "All-input transform bounds are supplied by the separate bound derivation, not inferred from this fixture set."
+    ]
+  }
+}

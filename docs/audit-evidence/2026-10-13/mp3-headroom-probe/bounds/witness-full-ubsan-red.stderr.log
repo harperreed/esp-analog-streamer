@@ -1,0 +1,1 @@
+mp3/vendor/shine/l3subband.c:55:74: runtime error: left shift of negative value -32768

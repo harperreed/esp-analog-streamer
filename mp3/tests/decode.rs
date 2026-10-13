@@ -4,21 +4,26 @@ use esp_shazam_mp3::{Encoder, FRAME_BYTES, PCM_SAMPLES, SAMPLE_FRAMES};
 use std::io::Write;
 use std::process::{Command, Stdio};
 
-fn fixture(block: usize) -> [i16; PCM_SAMPLES] {
+fn fixture(block: usize, amplitudes: [f64; 2]) -> [i16; PCM_SAMPLES] {
     let mut pcm = [0; PCM_SAMPLES];
     for frame in 0..SAMPLE_FRAMES {
         let t = (block * SAMPLE_FRAMES + frame) as f64 / 48_000.0;
-        pcm[frame * 2] = ((t * 997.0 * std::f64::consts::TAU).sin() * 12_000.0) as i16;
-        pcm[frame * 2 + 1] = ((t * 1703.0 * std::f64::consts::TAU).sin() * 9_000.0) as i16;
+        pcm[frame * 2] = ((t * 997.0 * std::f64::consts::TAU).sin() * amplitudes[0]) as i16;
+        pcm[frame * 2 + 1] = ((t * 1703.0 * std::f64::consts::TAU).sin() * amplitudes[1]) as i16;
     }
     pcm
 }
 fn encode(blocks: usize) -> Vec<u8> {
+    encode_with_amplitudes(blocks, [12_000.0, 9_000.0])
+}
+fn encode_with_amplitudes(blocks: usize, amplitudes: [f64; 2]) -> Vec<u8> {
     let mut encoder = Encoder::new().unwrap();
     let mut bytes = Vec::new();
     for block in 0..blocks {
         let mut out = [0; FRAME_BYTES];
-        encoder.encode(&mut fixture(block), &mut out).unwrap();
+        encoder
+            .encode(&mut fixture(block, amplitudes), &mut out)
+            .unwrap();
         bytes.extend_from_slice(&out);
     }
     bytes
@@ -85,36 +90,47 @@ fn real_decoder_preserves_per_channel_tone_gain() {
     const BLOCKS: usize = 96;
     // Raw MP3 has no gapless metadata; the combined encoder/decoder delay is 1057 frames.
     const DELAY: usize = 1057;
-    let decoded = decode(encode(BLOCKS), "f32le", "pcm_f32le");
-    assert_eq!(decoded.len(), BLOCKS * SAMPLE_FRAMES * 2 * 4);
-    let decoded: Vec<f64> = decoded
-        .chunks_exact(4)
-        .map(|bytes| f32::from_le_bytes(bytes.try_into().unwrap()) as f64)
-        .collect();
-    let source: Vec<i16> = (0..BLOCKS).flat_map(fixture).collect();
-    // Exclude filter startup and the undrained encoder tail from the measurement.
-    let window = 4 * SAMPLE_FRAMES..(BLOCKS - 2) * SAMPLE_FRAMES;
-    for channel in 0..2 {
-        let mut input_energy = 0.0;
-        let mut output_energy = 0.0;
-        let mut product = 0.0;
-        for frame in window.clone() {
-            let input = f64::from(source[(frame - DELAY) * 2 + channel]) / 32768.0;
-            let output = decoded[frame * 2 + channel];
-            input_energy += input * input;
-            output_energy += output * output;
-            product += input * output;
+    for (case, amplitudes) in [
+        ("moderate level", [12_000.0, 9_000.0]),
+        ("near full scale", [0.98 * 32768.0; 2]),
+    ] {
+        let decoded = decode(
+            encode_with_amplitudes(BLOCKS, amplitudes),
+            "f32le",
+            "pcm_f32le",
+        );
+        assert_eq!(decoded.len(), BLOCKS * SAMPLE_FRAMES * 2 * 4, "{case}");
+        let decoded: Vec<f64> = decoded
+            .chunks_exact(4)
+            .map(|bytes| f32::from_le_bytes(bytes.try_into().unwrap()) as f64)
+            .collect();
+        let source: Vec<i16> = (0..BLOCKS)
+            .flat_map(|block| fixture(block, amplitudes))
+            .collect();
+        // Exclude filter startup and the undrained encoder tail from the measurement.
+        let window = 4 * SAMPLE_FRAMES..(BLOCKS - 2) * SAMPLE_FRAMES;
+        for channel in 0..2 {
+            let mut input_energy = 0.0;
+            let mut output_energy = 0.0;
+            let mut product = 0.0;
+            for frame in window.clone() {
+                let input = f64::from(source[(frame - DELAY) * 2 + channel]) / 32768.0;
+                let output = decoded[frame * 2 + channel];
+                input_energy += input * input;
+                output_energy += output * output;
+                product += input * output;
+            }
+            let gain = (output_energy / input_energy).sqrt();
+            let correlation = product / (input_energy * output_energy).sqrt();
+            assert!(
+                correlation > 0.999,
+                "{case}, channel {channel}: decoded tone correlation {correlation:.6}"
+            );
+            assert!(
+                (gain - 1.0).abs() <= 0.005,
+                "{case}, channel {channel}: decoded/input RMS gain {gain:.6}, expected 1.0 ± 0.005"
+            );
         }
-        let gain = (output_energy / input_energy).sqrt();
-        let correlation = product / (input_energy * output_energy).sqrt();
-        assert!(
-            correlation > 0.999,
-            "channel {channel}: decoded tone correlation {correlation:.6}"
-        );
-        assert!(
-            (gain - 1.0).abs() <= 0.005,
-            "channel {channel}: decoded/input RMS gain {gain:.6}, expected 1.0 ± 0.005"
-        );
     }
 }
 

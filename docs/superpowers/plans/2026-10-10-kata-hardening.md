@@ -3,7 +3,7 @@
 Doctor Biz's active goal on October 10: finish all Kata work, then assess.
 Base c134069 on wip/kata-capture-protection. Prior phase compactions: 25;
 October 13 setup/reconnect acceptance phase compactions: 1.
-Latest checkpoint: MP3 transform normalization fixed, checked and deployed.
+Latest checkpoint: MP3 transform overflow fixed, checked and deployed; tail measured.
 Original-criteria review closed 93hm; 23 of 38 children remain closed.
 The wbz6 MP3 instruction-placement correction now passes matched hardware and
 all 27 canonical stages; its ordinary ELF equals the tested candidate exactly.
@@ -11,6 +11,37 @@ Prior failed device audio trials remain failed.
 Use GPT-6.1 Sol subagents with clean contexts. Parent owns review, integration,
 canonical checks, commits and every hardware action. Continue through batches;
 a phase checkpoint is not a reason to abandon the active goal.
+
+## October 13 MP3 headroom and tail checkpoint
+
+Near-full-scale PCM exposed MDCT overflow in the normalized encoder and upstream.
+One extra coefficient bit with compensated global_gain fixes it; exact row bounds
+and a constructive witness establish transform safety for signed 16-bit input.
+Negative PCM now uses defined multiplication rather than a signed left shift.
+The real-decoder regression is red/green; all 16 fixture checks and full UBSan
+controls pass. Independent Sol review found no actionable production defect.
+Quantizer termination/indexing and target table equivalence remain outside proof.
+
+All 27 canonical stages pass in run.tqwOpLDl. Ordinary ELF 0ff2a7cc is deployed;
+two 60-second quiet-ADC listeners each decoded 2,880,000 sample frames across nine
+clean-startup/steady capture windows, with no counter increases. Final boot
+42c314bb800c5d1cf6b9d8991cda7539 is stopped MP3/Medium, autoplay/recognition off,
+idle listeners, remote Sonos STOPPED/OK. MQTT connection errors remain recorded.
+
+Tail characterization measures 1,057 samples of combined delay; two zero blocks
+recover the tested terminal fixtures, not a universal drain guarantee. Actual
+epoch reset clears nonzero history and partial PCM; manual Stop leaves the shared
+encoder running. The delay/padding measurement subcriterion is complete.
+See mp3-headroom and mp3-tail evidence, receipts and archived probes.
+
+Near-full-scale noise still has about 12.6 dB SNR and decoded peaks above full
+scale. Resolve codec quality before accepting MP3 for release; do not add an
+unmeasured limiter or change Stop semantics. Recovery/endurance, recipient
+relinking and physical/AP/hosted gates remain. No Kata closes: 23/38 closed,
+15 open. No workstation audio/access/auth changes. A source-acquisition race
+and interrupted comparison are retained; stable snapshots and retry passed.
+This implementation checkpoint has one compaction; commit and continue from
+the recorded remaining criteria, with the goal active.
 
 ## October 13 MP3 normalization checkpoint
 

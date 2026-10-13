@@ -1,0 +1,150 @@
+{
+  "tables_sha256": "0950ca08d6a8b5dab09ed482aad97acb48243b4bb282c6a0757e2dd86d8ab200",
+  "input": "Any PCM sample in [-32768,32767]; zeroed or valid preceding history.",
+  "arithmetic": "Generic Shine mul=floor(a*b/2^32), cmuls=floor((a*b +/- c*d)/2^31).",
+  "proof": "Exact integer fused PCM row L1 norms; absolute PCM bound 32768; each floor adds <1 error.",
+  "table_attenuation": "Each actual MDCT table entry truncates toward zero after division by 2^shift.",
+  "scope": "Every window, analysis, MDCT accumulation prefix; pre/post-alias coefficient; alias int64 numerator.",
+  "not_proven": "Quantizer internals and 8-bit global_gain availability/range are outside this transform proof.",
+  "stage_bounds": {
+    "window_prefix": {
+      "bound": 47456174,
+      "index": 0,
+      "depth": 8
+    },
+    "analysis_prefix": {
+      "bound": 909534933,
+      "band": 0,
+      "depth": 64
+    }
+  },
+  "candidates": [
+    {
+      "additional_table_shift": 0,
+      "global_gain_compensation": 0,
+      "safe_by_bound": false,
+      "mdct_prefix": {
+        "bound": 3501830858,
+        "band": 0,
+        "coefficient": 4,
+        "depth": 35,
+        "rounding_error_bound": 1545
+      },
+      "mdct_final": {
+        "bound": 3498468031,
+        "band": 10,
+        "coefficient": 12,
+        "rounding_error_bound": 1510
+      },
+      "alias_output": {
+        "bound": 3529929835,
+        "band": 13,
+        "index": 3,
+        "output": "imag"
+      },
+      "alias_numerator": {
+        "bound": 7580466596560538365,
+        "band": 13,
+        "index": 3,
+        "output": "imag"
+      },
+      "constructive_witness": {
+        "prefix_sum": 3501775918,
+        "outside_int32": true,
+        "pcm_file": "worst-prefix.s16le",
+        "pcm_index_zero_absolute_sample": -480
+      }
+    },
+    {
+      "additional_table_shift": 1,
+      "global_gain_compensation": 4,
+      "safe_by_bound": true,
+      "mdct_prefix": {
+        "bound": 1750915446,
+        "band": 0,
+        "coefficient": 4,
+        "depth": 35,
+        "rounding_error_bound": 790
+      },
+      "mdct_final": {
+        "bound": 1749234033,
+        "band": 10,
+        "coefficient": 12,
+        "rounding_error_bound": 773
+      },
+      "alias_output": {
+        "bound": 1764964939,
+        "band": 13,
+        "index": 3,
+        "output": "imag"
+      },
+      "alias_numerator": {
+        "bound": 3790233342744681691,
+        "band": 13,
+        "index": 3,
+        "output": "imag"
+      }
+    },
+    {
+      "additional_table_shift": 2,
+      "global_gain_compensation": 8,
+      "safe_by_bound": true,
+      "mdct_prefix": {
+        "bound": 875457740,
+        "band": 0,
+        "coefficient": 4,
+        "depth": 35,
+        "rounding_error_bound": 413
+      },
+      "mdct_final": {
+        "bound": 874617034,
+        "band": 10,
+        "coefficient": 12,
+        "rounding_error_bound": 405
+      },
+      "alias_output": {
+        "bound": 882482491,
+        "band": 13,
+        "index": 3,
+        "output": "imag"
+      },
+      "alias_numerator": {
+        "bound": 1895116715262996378,
+        "band": 13,
+        "index": 3,
+        "output": "imag"
+      }
+    },
+    {
+      "additional_table_shift": 3,
+      "global_gain_compensation": 12,
+      "safe_by_bound": true,
+      "mdct_prefix": {
+        "bound": 437728887,
+        "band": 0,
+        "coefficient": 4,
+        "depth": 35,
+        "rounding_error_bound": 224
+      },
+      "mdct_final": {
+        "bound": 437308535,
+        "band": 10,
+        "coefficient": 12,
+        "rounding_error_bound": 221
+      },
+      "alias_output": {
+        "bound": 441241267,
+        "band": 13,
+        "index": 3,
+        "output": "imag"
+      },
+      "alias_numerator": {
+        "bound": 947558401637834433,
+        "band": 13,
+        "index": 3,
+        "output": "imag"
+      }
+    }
+  ],
+  "smallest_shift_proven_safe": 1
+}

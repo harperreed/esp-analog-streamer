@@ -40,6 +40,40 @@ fn active_encoder_accumulates_chunks_and_reset_discards_partial_pcm() {
 }
 
 #[test]
+fn mp3_reset_discards_nonzero_filter_history_and_partial_pcm() {
+    fn emit(encoder: &mut Encoder, pcm: &[i32]) -> Vec<u8> {
+        encoder.push(pcm);
+        let mut bytes = Vec::new();
+        encoder.encode_block(0, &mut bytes).unwrap();
+        assert_eq!(bytes.len(), MAX_FRAME_BYTES);
+        bytes
+    }
+    fn silence(encoder: &mut Encoder) -> Vec<u8> {
+        (0..4)
+            .flat_map(|_| emit(encoder, &vec![0; BLOCK_FRAMES * 2]))
+            .collect()
+    }
+
+    let mut reset = Encoder::new(OutputFormat::Mp3).unwrap();
+    let mut continuous = Encoder::new(OutputFormat::Mp3).unwrap();
+    let mut fresh = Encoder::new(OutputFormat::Mp3).unwrap();
+    let mut impulse = vec![0; BLOCK_FRAMES * 2];
+    impulse[(BLOCK_FRAMES - 1) * 2] = 16000 << 8;
+    impulse[(BLOCK_FRAMES - 1) * 2 + 1] = -12000 << 8;
+    assert_eq!(emit(&mut reset, &impulse), emit(&mut continuous, &impulse));
+    reset.push(&vec![8_388_352; 137 * 2]);
+    assert_eq!(reset.frames_wanted(), BLOCK_FRAMES - 137);
+    assert!(reset.encode_block(1, &mut Vec::new()).is_err());
+    reset.reset().unwrap();
+    assert_eq!(reset.frames_wanted(), BLOCK_FRAMES);
+    let reset_silence = silence(&mut reset);
+    let fresh_silence = silence(&mut fresh);
+    assert_eq!(reset_silence, fresh_silence);
+    // Keeping the same codec carries the terminal impulse into later silence frames.
+    assert_ne!(silence(&mut continuous), fresh_silence);
+}
+
+#[test]
 fn mp3_adapter_uses_flac_24_to_16_scaling_without_gain_changes() {
     let mut adapter = Encoder::new(OutputFormat::Mp3).unwrap();
     let source: Vec<i32> = [

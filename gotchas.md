@@ -1216,3 +1216,18 @@ October 13 corrects coefficient initialization by 8/9, derived from transform
 and FFmpeg basis checks. Do not add a second PCM gain correction. Tone gain is
 now near unity, but noise distortion, clipping and finite-stream tail remain
 separate codec gates. The normalized golden has independent upstream provenance.
+
+Normalized Shine MDCT still overflowed on near-full-scale PCM. Halve its integer
+table and compensate with global_gain +4; do not attenuate PCM a second time.
+Exact fused-row bounds cover signed 16-bit transform inputs; arbitrary quantizer
+termination and decoded overshoot are separate. Negative PCM to Q31 must use
+multiplication, not signed left shift. See October 13 headroom evidence.
+
+Raw MP3's 1,057-sample delay means equal decoded/source counts do not retain a
+terminal impulse. Two zero blocks recover the tested tails, not every possible
+tail. Manual Stop cancels delivery while the shared encoder continues; do not
+add a drain there. Epoch reset must clear nonzero history and partial PCM.
+
+Never move a shared experiment directory while another worker is using it.
+Freeze each probe's source snapshot and give workers separate output ownership;
+retain raced acquisitions as failed evidence and reacquire from known hashes.
