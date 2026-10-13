@@ -25,6 +25,10 @@ Local patches:
 - `layer3.c`: propagate sticky bitstream failure as null output with negative size.
 - `bitstream.c`, `l3loop.c`: make signedness comparisons explicit and mark unused
   parameters to keep the normal C build warning-free without suppressing warnings.
+- `l3mdct.c`: normalize the long-block transform coefficients by 8/9 during
+  initialization. Analysis and MDCT fixed-point products otherwise contribute
+  1/8, while inverse overlap contributes 9. See the
+  [normalization evidence](../../../docs/audit-evidence/2026-10-13/mp3-normalization.md).
 - Patched files use LF line endings.
 
 The Rust API permits only 48 kHz stereo 320 kbps. Its bridge checks each frame's
@@ -37,12 +41,12 @@ in COPYING; the crate metadata does not replace that component license.
 
 The [integration and license review](../../../docs/audit-evidence/2026-10-13/shine-review.md)
 records the exact pin, dated local modifications and unresolved distribution
-requirements. Local change notices identify the October 9 code changes; they
+requirements. Local change notices identify the October 9 and 13 code changes; they
 do not change Shine's license. No license conversion has been selected.
 
 This integration is a prototype. Distribution/relinking acceptance remains
 unproven. Shine has no psychoacoustic model. Encoder delay,
-finite-stream tail handling and measured gain remain adoption limitations; see
+finite-stream tail handling and noise fidelity remain adoption limitations; see
 `docs/audit-evidence/2026-10-09/mp3-benchmark.md` in the repository.
 
 ## Pinned output comparison
@@ -55,6 +59,13 @@ state's high 16 bits. The input has 36,864 samples and SHA256
 The unmodified pinned sources, compiled with `-O3 -fsigned-char` and the archived
 `docs/audit-evidence/2026-10-09/mp3-probe/host/probe.c`, produced 15,360 bytes:
 SHA256 `ebff59601676c16355dd9d63801e230be90293c767f19816737e1b5101b9cb6b`;
-FNV-1a-64 `ccb10bf832c51705`. The Rust integration test recreates this fixture
-and checks the complete output's FNV hash. This is a representative equivalence
-check; it does not prove identical output for all PCM inputs.
+FNV-1a-64 `ccb10bf832c51705`. This historical unnormalized output is retained
+as provenance, not the current expected output.
+
+The October 13 independent build applies only MDCT coefficient normalization
+to that pinned source. It produces SHA256
+`9e76b1a9ad1d4c703d0512ce815e1eae37f31a73afc5ccf41e1214084b3350ec`;
+FNV-1a-64 `ece25e7178a4d8df`. The Rust integration test recreates the fixture
+and checks that complete output. Production also matches the normalized
+upstream build byte-for-byte on the retained tones and noise fixtures.
+These comparisons do not prove identical output for every PCM input.

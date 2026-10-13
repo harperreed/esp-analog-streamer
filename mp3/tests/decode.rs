@@ -23,7 +23,7 @@ fn encode(blocks: usize) -> Vec<u8> {
     }
     bytes
 }
-fn decode(bytes: Vec<u8>) -> Vec<u8> {
+fn decode(bytes: Vec<u8>, format: &str, codec: &str) -> Vec<u8> {
     let mut child = Command::new("ffmpeg")
         .args([
             "-hide_banner",
@@ -34,9 +34,9 @@ fn decode(bytes: Vec<u8>) -> Vec<u8> {
             "-i",
             "pipe:0",
             "-f",
-            "s16le",
+            format,
             "-acodec",
-            "pcm_s16le",
+            codec,
             "pipe:1",
         ])
         .stdin(Stdio::piped())
@@ -63,10 +63,14 @@ fn decode(bytes: Vec<u8>) -> Vec<u8> {
 #[test]
 fn real_decoder_counts_samples_and_recovers_after_boundary_join() {
     let encoded = encode(48);
-    let full = decode(encoded.clone());
+    let full = decode(encoded.clone(), "s16le", "pcm_s16le");
     assert_eq!(full.len(), 48 * SAMPLE_FRAMES * 4);
     let join_frame = 6;
-    let joined = decode(encoded[join_frame * FRAME_BYTES..].to_vec());
+    let joined = decode(
+        encoded[join_frame * FRAME_BYTES..].to_vec(),
+        "s16le",
+        "pcm_s16le",
+    );
     assert_eq!(joined.len(), (48 - join_frame) * SAMPLE_FRAMES * 4);
     let warmup = 2 * SAMPLE_FRAMES * 4;
     assert_eq!(
@@ -75,6 +79,45 @@ fn real_decoder_counts_samples_and_recovers_after_boundary_join() {
     );
     assert!(full.iter().any(|byte| *byte != 0));
 }
+
+#[test]
+fn real_decoder_preserves_per_channel_tone_gain() {
+    const BLOCKS: usize = 96;
+    // Raw MP3 has no gapless metadata; the combined encoder/decoder delay is 1057 frames.
+    const DELAY: usize = 1057;
+    let decoded = decode(encode(BLOCKS), "f32le", "pcm_f32le");
+    assert_eq!(decoded.len(), BLOCKS * SAMPLE_FRAMES * 2 * 4);
+    let decoded: Vec<f64> = decoded
+        .chunks_exact(4)
+        .map(|bytes| f32::from_le_bytes(bytes.try_into().unwrap()) as f64)
+        .collect();
+    let source: Vec<i16> = (0..BLOCKS).flat_map(fixture).collect();
+    // Exclude filter startup and the undrained encoder tail from the measurement.
+    let window = 4 * SAMPLE_FRAMES..(BLOCKS - 2) * SAMPLE_FRAMES;
+    for channel in 0..2 {
+        let mut input_energy = 0.0;
+        let mut output_energy = 0.0;
+        let mut product = 0.0;
+        for frame in window.clone() {
+            let input = f64::from(source[(frame - DELAY) * 2 + channel]) / 32768.0;
+            let output = decoded[frame * 2 + channel];
+            input_energy += input * input;
+            output_energy += output * output;
+            product += input * output;
+        }
+        let gain = (output_energy / input_energy).sqrt();
+        let correlation = product / (input_energy * output_energy).sqrt();
+        assert!(
+            correlation > 0.999,
+            "channel {channel}: decoded tone correlation {correlation:.6}"
+        );
+        assert!(
+            (gain - 1.0).abs() <= 0.005,
+            "channel {channel}: decoded/input RMS gain {gain:.6}, expected 1.0 ± 0.005"
+        );
+    }
+}
+
 #[test]
 fn recreation_restarts_encoder_epoch() {
     assert_eq!(encode(8), encode(8));

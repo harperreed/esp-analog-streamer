@@ -94,8 +94,9 @@ fn default_allocator_encodes() {
 }
 
 #[test]
-fn independent_noise_matches_pinned_upstream_bytes() {
-    // Golden generated with the unmodified pinned library and archived host probe.
+fn independent_noise_matches_normalized_upstream_bytes() {
+    // Golden uses pinned upstream plus only the derived MDCT normalization.
+    // See the October 13 normalization receipt for the independent build.
     let mut encoder = Encoder::new().unwrap();
     let mut state = 0x12345678_u32;
     let mut hash = 0xcbf29ce484222325_u64;
@@ -113,7 +114,7 @@ fn independent_noise_matches_pinned_upstream_bytes() {
             hash = (hash ^ u64::from(byte)).wrapping_mul(0x100000001b3);
         }
     }
-    assert_eq!(hash, 0xccb10bf832c51705);
+    assert_eq!(hash, 0xece25e7178a4d8df);
 }
 
 #[cfg(feature = "encoder-probe")]

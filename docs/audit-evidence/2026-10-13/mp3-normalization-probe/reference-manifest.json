@@ -1,0 +1,50 @@
+[
+  {
+    "name": "mpegaudiodsp_template.c",
+    "url": "https://raw.githubusercontent.com/FFmpeg/FFmpeg/n8.0/libavcodec/mpegaudiodsp_template.c",
+    "bytes": 11145,
+    "sha256": "f00126a38287a2d95d04294420e20ecf67f2fa3a9bb5b10c4ccefd6159bc0907"
+  },
+  {
+    "name": "mpegaudiodsp_data.c",
+    "url": "https://raw.githubusercontent.com/FFmpeg/FFmpeg/n8.0/libavcodec/mpegaudiodsp_data.c",
+    "bytes": 2714,
+    "sha256": "b4c590d2bc880017cdda8c857f4340274449f4749c992f1d1cef785f9196d7a8"
+  },
+  {
+    "name": "mpegaudiodec_template.c",
+    "url": "https://raw.githubusercontent.com/FFmpeg/FFmpeg/n8.0/libavcodec/mpegaudiodec_template.c",
+    "bytes": 64044,
+    "sha256": "28f16d27ded3558280edf3b4e7e141a004082630b3df97f37222ee0bf8b60293"
+  },
+  {
+    "name": "mpegaudio_tablegen.h",
+    "url": "https://raw.githubusercontent.com/FFmpeg/FFmpeg/n8.0/libavcodec/mpegaudio_tablegen.h",
+    "bytes": 2824,
+    "sha256": "21f3d7f854cd9a0d378a77d7fb8c25ad6499f67490e2af3f0ebcd18be5382aa9"
+  },
+  {
+    "name": "dct32_template.c",
+    "url": "https://raw.githubusercontent.com/FFmpeg/FFmpeg/n8.0/libavcodec/dct32_template.c",
+    "bytes": 7526,
+    "sha256": "84ceb14e823e5838fe2c5059b505cca972c84c97963488899c601ff16e2917be"
+  },
+  {
+    "name": "mpegaudio.h",
+    "url": "https://raw.githubusercontent.com/FFmpeg/FFmpeg/n8.0/libavcodec/mpegaudio.h",
+    "bytes": 2064,
+    "sha256": "4e9c1e024af86d7ef183f20467536b3b57f443b9545faabe0f6b78fbd23f0374"
+  },
+  {
+    "name": "mpegaudiodsp.c",
+    "url": "https://raw.githubusercontent.com/FFmpeg/FFmpeg/n8.0/libavcodec/mpegaudiodsp.c",
+    "bytes": 3503,
+    "sha256": "890b9117ea8f8067395a6828350543d4f45fa2859e0fd59f640d3b2361713aab"
+  },
+  {
+    "name": "mpegaudiodsp.h",
+    "url": "https://raw.githubusercontent.com/FFmpeg/FFmpeg/n8.0/libavcodec/mpegaudiodsp.h",
+    "bytes": 3873,
+    "sha256": "bb5833f6d7bf661c1958d7de880aec4d4221bfa736f5fd372d1fb25f59a865af"
+  }
+]

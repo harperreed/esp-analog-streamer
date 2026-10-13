@@ -3,7 +3,7 @@
 Doctor Biz's active goal on October 10: finish all Kata work, then assess.
 Base c134069 on wip/kata-capture-protection. Prior phase compactions: 25;
 October 13 setup/reconnect acceptance phase compactions: 1.
-Latest checkpoint: MP3 gain localized beyond quantizer hypothesis; exact cause remains.
+Latest checkpoint: MP3 transform normalization fixed, checked and deployed.
 Original-criteria review closed 93hm; 23 of 38 children remain closed.
 The wbz6 MP3 instruction-placement correction now passes matched hardware and
 all 27 canonical stages; its ordinary ELF equals the tested candidate exactly.
@@ -11,6 +11,34 @@ Prior failed device audio trials remain failed.
 Use GPT-6.1 Sol subagents with clean contexts. Parent owns review, integration,
 canonical checks, commits and every hardware action. Continue through batches;
 a phase checkpoint is not a reason to abandon the active goal.
+
+## October 13 MP3 normalization checkpoint
+
+Independent actual-stage replay and original FFmpeg basis transforms establish
+the cause: forward MAx/8 needs MAx/9. Coefficient initialization now includes
+the derived 8/9 factor, without per-frame work. The real-wrapper decoder test
+failed at gain 1.124832 before correction and passes afterward. Retained tone
+gains are 0.999858/0.999851. An independently normalized upstream build matches
+production on all three synthetic fixtures; its golden provenance is recorded.
+
+All 27 canonical stages pass in `run.uO3pGenC`. Ordinary image `bb44c0f` remains
+deployed; two 60-second board listeners each decoded 2,880,000 sample frames,
+with no capture-counter increases across nine clean-startup/steady windows.
+Quiet ADC is not physical calibration, source-continuity proof or 7vhq's gate.
+Final boot `48fe3a2552f07276fb079868c2127575` is stopped MP3/Medium,
+recognition/autoplay off, listeners idle, and remote Sonos STOPPED/OK.
+The first final-state collector failed on empty discovery; the corrected
+read-only collector revalidated the preflight UDN. Keep the failed receipt.
+
+See October 13 mp3-normalization evidence. Noise still has gain about 1.026
+and SNR 12.59 dB; resolve codec fidelity and finite-stream tail requirements
+before calling MP3 production-ready. Do not repeat the normalization diagnosis,
+add a second gain correction, or adopt the rejected direct-quantizer variant.
+Next independent offline work is bounded tail/headroom characterization against
+the existing acceptance criteria. Recovery, long soak and distribution gates
+remain. No Kata closes: 23/38 closed, 15 open. No audio/access/AP/auth changes.
+This phase has one compaction and a completed implementation checkpoint;
+commit and resume from this evidence with the goal active.
 
 ## October 13 MP3 gain checkpoint
 

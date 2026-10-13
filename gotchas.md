@@ -1209,3 +1209,10 @@ Throwaway collectors still need actual serialization checks. Passing a snapshot
 field named monotonic into Trial.event collided with its own monotonic field and
 aborted before the first observation. The actual event-writer regression catches
 this; pure URI/metrics validators and syntax checks alone did not.
+
+Pinned Shine's Q31 analysis/MDCT products shift by 32 three times, giving
+forward scale 1/8; the verified long-block inverse overlap contributes 9.
+October 13 corrects coefficient initialization by 8/9, derived from transform
+and FFmpeg basis checks. Do not add a second PCM gain correction. Tone gain is
+now near unity, but noise distortion, clipping and finite-stream tail remain
+separate codec gates. The normalized golden has independent upstream provenance.
