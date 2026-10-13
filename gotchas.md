@@ -1164,3 +1164,16 @@ boot can restore the protocol before the observer starts and hide the stored
 diagnostic value. October 13 measured b/g across reset, then explicit b/g/n
 restoration before association. Preserve association channel per boot; it changed
 from 11 to 6 in the paired acquisition.
+
+A Sonos URI can repeat across board boots: the in-memory intent and network
+counters restart. The October 13 passive driver therefore rejected a valid
+PLAYING observation as an old URI. Preserve that failed automated gate; future
+harnesses need current-boot ownership evidence, not an assumed changed URL.
+The same trial closed its socket after 584 MP3 frames, then observed no
+replacement admission for 103.5 seconds. Startup retries do not prove established-playback recovery;
+no admitted replacement does not mean no HTTP attempts. See passive-reconnect.
+
+Throwaway collectors still need actual serialization checks. Passing a snapshot
+field named monotonic into Trial.event collided with its own monotonic field and
+aborted before the first observation. The actual event-writer regression catches
+this; pure URI/metrics validators and syntax checks alone did not.

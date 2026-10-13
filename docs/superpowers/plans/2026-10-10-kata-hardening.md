@@ -3,7 +3,7 @@
 Doctor Biz's active goal on October 10: finish all Kata work, then assess.
 Base c134069 on wip/kata-capture-protection. Prior phase compactions: 25;
 October 13 setup/reconnect acceptance phase compactions: 1.
-Latest checkpoint: radio restoration verified; recovery protocol evidence expanded.
+Latest checkpoint: passive media close measured; no admitted Sonos replacement.
 Original-criteria review closed 93hm; 23 of 38 children remain closed.
 The wbz6 MP3 instruction-placement correction now passes matched hardware and
 all 27 canonical stages; its ordinary ELF equals the tested candidate exactly.
@@ -11,6 +11,38 @@ Prior failed device audio trials remain failed.
 Use GPT-6.1 Sol subagents with clean contexts. Parent owns review, integration,
 canonical checks, commits and every hardware action. Continue through batches;
 a phase checkpoint is not a reason to abandon the active goal.
+
+## October 13 passive media close checkpoint
+
+Both aggregate trials failed; no Kata closed (23/38 closed, 15 open). The first
+fixture selected a startup connection that naturally reset before injection;
+a driver timestamp-key collision prevented snapshots. Its actual event-writer
+regression now passes. A separately scoped conditional fixture reached ten
+seconds of complete-frame delivery, then closed its socket after sending
+584 frames / 560640 bytes.
+Sonos continued reporting PLAYING, then STOPPED; no replacement was admitted for
+103.535651 seconds of recorded device activity. One HEAD received 405; this is
+not proof of no requests or a result for AP loss/write timeouts. Pre-injection
+PLAYING/TrackURI and position 0→6 have complete device-time brackets.
+
+The second driver also failed: URI tags repeated across reboot, so its fresh-URI
+assumption prevented ownership confirmation and cleanup. Keep all 40 errors and
+the refused Stop. Separate read-only verification proves stopped/idle state.
+Fix that harness assumption with current-boot ownership evidence before reuse;
+do not waive identity or rerun unchanged. Both diagnostic patches are removed.
+
+First probe passed all 27 canonical stages in run.uD339GKt; the refined probe
+passed all five firmware stages in run.W81DFkwg. Strict capture rows 17/14/3 pass, without a fidelity/continuity claim.
+See October 13 passive-reconnect.md/.json and archived sources. Ordinary rebuilt
+ELF again matches e93f8f72692c1630d082de42b3d1ae8d11d8c106c2ef6e978e96b74a83cb5eea.
+Final boot 4741a15f17af22e1871dfa19523aec1b is stopped MP3/Medium, autoplay/recognition
+off, Sonos STOPPED/OK, idle listeners, unchanged settings; all owned processes ended.
+
+The supported restart/ownership contract remains pqqq's next prerequisite;
+passive reconnect cannot be assumed after this close case. The pending dctv
+live skip-versus-terminate choice is separate. Known-source audio/AP/hosted-auth
+gates remain unchanged. Goal stays active; preserve failed gates and do not
+repeat completed radio/capture tests. This phase has zero compactions.
 
 ## October 13 radio and recovery protocol checkpoint
 
