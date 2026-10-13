@@ -1,5 +1,12 @@
 # Gotchas
 
+Channel diagnostics expose the last completed measurement, not current capture
+validity. Age starts when capture finishes the meter push, keeps its original
+timestamp through store contention, and grows through a reset until a new
+interval replaces it. RMS removes each channel's DC; peak includes DC. Digital
+rail counts cover the rolling window and do not prove analog clipping. Physical
+channel routing and jack-to-PCM gain still require a calibrated source.
+
 Doctor Biz confirmed on October 12 that no AP access is available. Record the
 unavailable AP acquisition explicitly; pd6c allows that investigation outcome.
 It does not establish a transport root cause or complete recovery acceptance.

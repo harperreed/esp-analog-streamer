@@ -3,7 +3,7 @@
 Doctor Biz's active goal on October 10: finish all Kata work, then assess.
 Base c134069 on wip/kata-capture-protection. Prior phase compactions: 25;
 October 13 setup/reconnect acceptance phase compactions: 1.
-Latest checkpoint: passive media close measured; no admitted Sonos replacement.
+Latest checkpoint: channel diagnostics implemented and tested; physical calibration open.
 Original-criteria review closed 93hm; 23 of 38 children remain closed.
 The wbz6 MP3 instruction-placement correction now passes matched hardware and
 all 27 canonical stages; its ordinary ELF equals the tested candidate exactly.
@@ -11,6 +11,35 @@ Prior failed device audio trials remain failed.
 Use GPT-6.1 Sol subagents with clean contexts. Parent owns review, integration,
 canonical checks, commits and every hardware action. Continue through batches;
 a phase checkpoint is not a reason to abandon the active goal.
+
+## October 13 channel diagnostics checkpoint
+
+cn4m now has the requested per-channel meter/API implementation. One stamped
+reading exposes AC RMS, peak, rolling rail counts, DC and age; existing combined
+level and nonblocking publication remain. Fourteen real-component diagnostics
+tests and all 27 canonical stages pass in `run.qBh9KzSn`. Independent review and
+parent fresh-eyes review found no code defects. Growth of measured meter/store/
+pending objects plus one transient reading is bounded at 190 bytes, excluding
+unmeasured full call-stack depth.
+
+Measured capture CPU rose from 9.883722% to 11.067786% of one core, missing the
+design's proposed one-point target. Narrowing the count worsened it to 11.901087%
+and was reverted. Retain both outcomes; this is measured overhead, not a passing
+CPU target. Thirty real API snapshots and a two-listener MP3 canary pass. Each
+decoder produced 2,880,000 frames; capture startup and steady counters pass.
+No known-source fidelity or long-soak claim follows from quiet ADC input.
+
+Final ELF `1d2105b115ca0423097ff742193890d8329c0e366d6f52076d6655f2c25c9eb3`
+is the ordinary rebuilt candidate. Boot `7ad6a71e4450b1307826935ce157ad56` is
+stopped MP3/Medium, recognition/autoplay off, listeners idle and Sonos STOPPED/OK.
+All owned hardware processes ended; no workstation audio/mixer/ACL changes ran.
+See the channel-diagnostics plan and October 13 audit receipt for exact evidence.
+
+No Kata closes: cn4m still requires physical voltage/routing/fidelity calibration,
+which Doctor Biz cannot perform remotely. Count remains 23/38 closed, 15 open.
+Goal remains active. Continue from the original remaining criteria; do not repeat
+these bounded probes or revive workstation-access questions. This phase has one
+compaction and is ready for a fresh-context continuation after its commit.
 
 ## October 13 passive media close checkpoint
 

@@ -5,7 +5,7 @@ use std::collections::VecDeque;
 
 use serde::Serialize;
 
-use crate::audio::SILENCE_DBFS;
+use crate::audio::{ChannelReading, StereoReading, SILENCE_DBFS};
 use crate::policy::State;
 use crate::shazam::Song;
 
@@ -23,10 +23,28 @@ pub struct SongStore {
     history: VecDeque<NowPlaying>,
     history_cap: usize,
     state: State,
-    level_dbfs: f32,
-    level_measured_at: Option<std::time::Instant>,
+    measurement: Option<StampedMeasurement>,
     rate_limited_until: Option<String>,
     shazam_enabled: bool,
+}
+
+#[derive(Debug)]
+struct StampedMeasurement {
+    reading: StereoReading,
+    measured_at: std::time::Instant,
+}
+
+#[derive(Serialize)]
+struct MeasurementView<'a> {
+    age_ms: u128,
+    window_frames: u32,
+    channels: ChannelsView<'a>,
+}
+
+#[derive(Serialize)]
+struct ChannelsView<'a> {
+    left: &'a ChannelReading,
+    right: &'a ChannelReading,
 }
 
 #[derive(Serialize)]
@@ -34,6 +52,7 @@ struct StateView<'a> {
     state: State,
     shazam_enabled: bool,
     level_dbfs: f32,
+    last_measurement: Option<MeasurementView<'a>>,
     rate_limited_until: Option<&'a str>,
     now: Option<&'a NowPlaying>,
     history: &'a VecDeque<NowPlaying>,
@@ -48,8 +67,7 @@ impl SongStore {
             history: VecDeque::new(),
             history_cap,
             state: State::Quiet,
-            level_dbfs: SILENCE_DBFS,
-            level_measured_at: None,
+            measurement: None,
             rate_limited_until: None,
             shazam_enabled,
         }
@@ -86,24 +104,48 @@ impl SongStore {
         self.state = state;
         self.rate_limited_until = rate_limited_until;
     }
-    /// Records the measured loudness, rounded to 0.1 dB. `level_dbfs()` and `state_json` both
-    /// report the rounded value, so there is one number for the policy and the page.
-    pub fn set_level(&mut self, level_dbfs: f32, measured_at: std::time::Instant) {
-        self.level_dbfs = (level_dbfs * 10.0).round() / 10.0;
-        self.level_measured_at = Some(measured_at);
+    /// Records a completed capture measurement, rounding only the combined value to 0.1 dB.
+    /// Policy and page read that same value; retries preserve the original capture time.
+    pub fn set_measurement(&mut self, mut reading: StereoReading, measured_at: std::time::Instant) {
+        reading.level_dbfs = (reading.level_dbfs * 10.0).round() / 10.0;
+        self.measurement = Some(StampedMeasurement {
+            reading,
+            measured_at,
+        });
     }
     pub fn level_dbfs(&self) -> f32 {
-        self.level_dbfs
+        self.measurement
+            .as_ref()
+            .map_or(SILENCE_DBFS, |m| m.reading.level_dbfs)
     }
     /// Includes capture freshness so automatic playback cannot act on a stalled meter.
     pub fn level_sample(&self) -> Option<(f32, std::time::Instant)> {
-        self.level_measured_at.map(|at| (self.level_dbfs, at))
+        self.measurement
+            .as_ref()
+            .map(|m| (m.reading.level_dbfs, m.measured_at))
     }
     pub fn state_json(&self) -> String {
+        self.state_json_at(std::time::Instant::now())
+    }
+
+    fn state_json_at(&self, now: std::time::Instant) -> String {
+        // This is historical capture evidence. Age alone cannot establish capture continuity.
+        let last_measurement = self.measurement.as_ref().and_then(|m| {
+            now.checked_duration_since(m.measured_at)
+                .map(|age| MeasurementView {
+                    age_ms: age.as_millis(),
+                    window_frames: m.reading.window_frames,
+                    channels: ChannelsView {
+                        left: &m.reading.channels[0],
+                        right: &m.reading.channels[1],
+                    },
+                })
+        });
         let view = StateView {
             state: self.state,
             shazam_enabled: self.shazam_enabled,
-            level_dbfs: self.level_dbfs,
+            level_dbfs: self.level_dbfs(),
+            last_measurement,
             rate_limited_until: self.rate_limited_until.as_deref(),
             now: self.now.as_ref(),
             history: &self.history,
@@ -120,6 +162,19 @@ impl SongStore {
 mod tests {
     use super::*;
     use serde_json::{json, Value};
+
+    fn reading(level_dbfs: f32) -> StereoReading {
+        StereoReading {
+            level_dbfs,
+            window_frames: 12_000,
+            channels: [ChannelReading {
+                rms_dbfs: level_dbfs,
+                peak_normalized: 0.1,
+                digital_rail_samples: 0,
+                dc_offset_normalized: 0.0,
+            }; 2],
+        }
+    }
 
     fn song(key: &str, title: &str, artist: &str) -> Song {
         Song {
@@ -141,7 +196,7 @@ mod tests {
         let store = SongStore::new(20, true);
         assert_eq!(
             parse(&store.state_json()),
-            json!({"state": "quiet", "shazam_enabled": true, "level_dbfs": -120.0, "rate_limited_until": null, "now": null, "history": []})
+            json!({"state": "quiet", "shazam_enabled": true, "level_dbfs": -120.0, "last_measurement": null, "rate_limited_until": null, "now": null, "history": []})
         );
         assert_eq!(store.now_json(), "null");
     }
@@ -232,7 +287,7 @@ mod tests {
     #[test]
     fn status_reports_state_rounded_level_and_rate_limit() {
         let mut store = SongStore::new(20, true);
-        store.set_level(-18.437, std::time::Instant::now());
+        store.set_measurement(reading(-18.437), std::time::Instant::now());
         store.set_status(State::RateLimited, Some("2026-10-03T21:27:01Z".into()));
         let state = parse(&store.state_json());
         assert_eq!(state["state"], "rate_limited");
@@ -248,7 +303,7 @@ mod tests {
     #[test]
     fn level_is_stored_rounded_to_a_tenth_and_reported_as_stored() {
         let mut store = SongStore::new(20, true);
-        store.set_level(-18.437, std::time::Instant::now());
+        store.set_measurement(reading(-18.437), std::time::Instant::now());
         assert_eq!(store.level_dbfs(), -18.4);
         assert_eq!(parse(&store.state_json())["level_dbfs"], json!(-18.4));
     }
@@ -258,27 +313,50 @@ mod tests {
         let mut store = SongStore::new(20, false);
         assert_eq!(store.level_sample(), None);
         let before = std::time::Instant::now();
-        store.set_level(-42.04, std::time::Instant::now());
+        store.set_measurement(reading(-42.04), std::time::Instant::now());
         let (level, measured) = store.level_sample().unwrap();
         assert_eq!(level, -42.0);
         assert!(measured >= before && measured <= std::time::Instant::now());
         let before = std::time::Instant::now();
-        store.set_level(-42.04, std::time::Instant::now());
+        store.set_measurement(reading(-42.04), std::time::Instant::now());
         assert!(store.level_sample().unwrap().1 >= before);
     }
 
     #[test]
     fn delayed_level_publication_preserves_measurement_age() {
         let mut store = SongStore::new(20, false);
-        let measured = std::time::Instant::now() - std::time::Duration::from_secs(10);
-        store.set_level(-20.0, measured);
+        let measured = std::time::Instant::now();
+        let serialized_at = measured + std::time::Duration::from_millis(10_250);
+        store.set_measurement(reading(-20.0), measured);
         assert_eq!(store.level_sample(), Some((-20.0, measured)));
+        assert_eq!(
+            parse(&store.state_json_at(serialized_at))["last_measurement"]["age_ms"],
+            10_250
+        );
+        // A publication retry must not reset age even for an identical measurement.
+        store.set_measurement(reading(-20.0), measured);
+        assert_eq!(
+            parse(&store.state_json_at(serialized_at))["last_measurement"]["age_ms"],
+            10_250
+        );
+        let later = measured + std::time::Duration::from_millis(2_000);
+        store.set_measurement(reading(-20.0), later);
+        assert_eq!(
+            parse(&store.state_json_at(serialized_at))["last_measurement"]["age_ms"],
+            8_250
+        );
+        assert_eq!(store.level_sample(), Some((-20.0, later)));
+        // Future capture times provide no historical snapshot.
+        assert_eq!(
+            parse(&store.state_json_at(measured))["last_measurement"],
+            Value::Null
+        );
     }
 
     #[test]
     fn set_status_leaves_the_level_alone() {
         let mut store = SongStore::new(20, true);
-        store.set_level(-30.0, std::time::Instant::now());
+        store.set_measurement(reading(-30.0), std::time::Instant::now());
         store.set_status(State::Searching, None);
         store.set_status(State::RateLimited, Some("2026-10-03T21:27:01Z".into()));
         assert_eq!(store.level_dbfs(), -30.0);
@@ -286,10 +364,10 @@ mod tests {
     }
 
     #[test]
-    fn set_level_leaves_the_status_alone() {
+    fn set_measurement_leaves_the_status_alone() {
         let mut store = SongStore::new(20, true);
         store.set_status(State::RateLimited, Some("2026-10-03T21:27:01Z".into()));
-        store.set_level(-42.0, std::time::Instant::now());
+        store.set_measurement(reading(-42.0), std::time::Instant::now());
         let state = parse(&store.state_json());
         assert_eq!(state["state"], "rate_limited");
         assert_eq!(state["rate_limited_until"], "2026-10-03T21:27:01Z");
@@ -298,12 +376,17 @@ mod tests {
 
     #[test]
     fn a_board_that_only_meters_reports_a_live_level_and_stays_quiet() {
-        // With Shazam off nothing calls set_status; the audio thread's set_level is the only writer.
+        // With Shazam off nothing calls set_status; the audio thread's set_measurement is the only writer.
         let mut store = SongStore::new(20, false);
-        store.set_level(-23.46, std::time::Instant::now());
+        let at = std::time::Instant::now();
+        store.set_measurement(reading(-23.46), at);
         assert_eq!(
-            parse(&store.state_json()),
-            json!({"state": "quiet", "shazam_enabled": false, "level_dbfs": -23.5, "rate_limited_until": null, "now": null, "history": []})
+            parse(&store.state_json_at(at + std::time::Duration::from_millis(2500))),
+            json!({"state": "quiet", "shazam_enabled": false, "level_dbfs": -23.5,
+                "last_measurement": {"age_ms": 2500, "window_frames": 12000,
+                    "channels": {"left": {"rms_dbfs": -23.46, "peak_normalized": 0.1, "digital_rail_samples": 0, "dc_offset_normalized": 0.0},
+                        "right": {"rms_dbfs": -23.46, "peak_normalized": 0.1, "digital_rail_samples": 0, "dc_offset_normalized": 0.0}}},
+                "rate_limited_until": null, "now": null, "history": []})
         );
     }
 }

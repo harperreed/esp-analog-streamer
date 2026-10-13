@@ -4,7 +4,7 @@
 #[path = "../../firmware/src/recognition_admission.rs"]
 mod recognition_admission;
 
-use esp_shazam_core::audio::RecognitionBuffer;
+use esp_shazam_core::audio::{RecognitionBuffer, StereoLevelMeter};
 use esp_shazam_core::fingerprinting::algorithm::SignatureGenerator;
 use esp_shazam_core::policy::{Decision, Outcome, Policy, PolicyConfig};
 use esp_shazam_core::store::SongStore;
@@ -23,7 +23,12 @@ fn snapshot(buffer: &RecognitionBuffer) -> Vec<i16> {
 fn reset_immediately_before_due_ask_defers_until_eight_seconds_of_fresh_audio() {
     let mut buffer = RecognitionBuffer::new(true, 192_000, 16_000, 4_000).unwrap();
     let mut store = SongStore::new(20, true);
-    store.set_level(-20.0, std::time::Instant::now());
+    store.set_measurement(
+        StereoLevelMeter::new(8)
+            .push(&[838_861, 838_861, -838_861, -838_861])
+            .unwrap(),
+        std::time::Instant::now(),
+    );
     let mut policy = Policy::new(PolicyConfig::default());
     assert_eq!(
         policy.tick(0, store.level_dbfs(), true, store.has_now()),
@@ -89,7 +94,12 @@ fn configured_two_second_initial_ask_keeps_its_audio_duration() {
     let mut policy = Policy::new(cfg);
     let mut buffer = RecognitionBuffer::new(true, 192_000, 16_000, 4_000).unwrap();
     let mut store = SongStore::new(20, true);
-    store.set_level(-20.0, std::time::Instant::now());
+    store.set_measurement(
+        StereoLevelMeter::new(8)
+            .push(&[838_861, 838_861, -838_861, -838_861])
+            .unwrap(),
+        std::time::Instant::now(),
+    );
     assert_eq!(
         policy.tick(0, store.level_dbfs(), true, store.has_now()),
         Decision::Idle
@@ -128,7 +138,12 @@ fn long_initial_interval_and_rate_limit_keep_their_deadlines_after_deferral() {
     let mut policy = Policy::new(cfg);
     let mut buffer = RecognitionBuffer::new(true, 192_000, 16_000, 4_000).unwrap();
     let mut store = SongStore::new(20, true);
-    store.set_level(-20.0, std::time::Instant::now());
+    store.set_measurement(
+        StereoLevelMeter::new(8)
+            .push(&[838_861, 838_861, -838_861, -838_861])
+            .unwrap(),
+        std::time::Instant::now(),
+    );
     assert_eq!(
         policy.tick(0, store.level_dbfs(), true, store.has_now()),
         Decision::Idle

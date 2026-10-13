@@ -237,11 +237,85 @@ impl LevelMeter {
     }
 }
 
+/// AC loudness and raw sample diagnostics for one software channel.
+#[derive(Clone, Copy, Debug, PartialEq, serde::Serialize)]
+pub struct ChannelReading {
+    /// DC-removed RMS in dBFS, floored at SILENCE_DBFS.
+    pub rms_dbfs: f32,
+    /// Raw absolute sample peak divided by 8,388,608; negative rail reaches 1.
+    pub peak_normalized: f32,
+    /// Samples equal to either signed 24-bit rail in this completed window.
+    pub digital_rail_samples: u32,
+    /// Signed mean sample divided by 8,388,608, including fractional sample means.
+    pub dc_offset_normalized: f32,
+}
+
+/// A completed stereo window; combined loudness averages energy before conversion to dBFS.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct StereoReading {
+    pub level_dbfs: f32,
+    /// Actual frames per channel, excluding the filling interval and any half frame.
+    pub window_frames: u32,
+    pub channels: [ChannelReading; 2],
+}
+
+// Stereo diagnostics stay separate so mono metering keeps its existing storage size.
+#[derive(Clone, Copy, Debug, Default)]
+struct StereoSums {
+    sums: Sums,
+    peak: u32,
+    digital_rail_samples: u32,
+}
+
+impl StereoSums {
+    fn push(&mut self, sample: i32) {
+        let x = i64::from(sample);
+        self.sums.count += 1;
+        self.sums.sum += x;
+        self.sums.sum_sq += x * x;
+        self.peak = self.peak.max(sample.unsigned_abs());
+        self.digital_rail_samples += u32::from(sample == -8_388_608 || sample == 8_388_607);
+    }
+
+    fn plus(self, other: Self) -> Self {
+        Self {
+            sums: self.sums.plus(other.sums),
+            peak: self.peak.max(other.peak),
+            digital_rail_samples: self.digital_rail_samples + other.digital_rail_samples,
+        }
+    }
+
+    fn variance(self) -> f64 {
+        let n = self.sums.count as f64;
+        let mean = self.sums.sum as f64 / n;
+        (self.sums.sum_sq as f64 / n - mean * mean).max(0.0)
+    }
+
+    fn reading(self, variance: f64) -> ChannelReading {
+        ChannelReading {
+            rms_dbfs: stereo_energy_dbfs(variance),
+            peak_normalized: (self.peak as f64 / 8_388_608.0) as f32,
+            digital_rail_samples: self.digital_rail_samples,
+            dc_offset_normalized: (self.sums.sum as f64 / self.sums.count as f64 / 8_388_608.0)
+                as f32,
+        }
+    }
+}
+
+fn stereo_energy_dbfs(energy: f64) -> f32 {
+    // Preserve the sub-one-sample-unit variance silence rule independently per channel.
+    if energy < 1.0 {
+        SILENCE_DBFS
+    } else {
+        ((10.0 * (energy / (8_388_608.0 * 8_388_608.0)).log10()) as f32).max(SILENCE_DBFS)
+    }
+}
+
 /// One second of stereo energy, read every 250 ms, with DC removed independently per channel.
 /// Four interval buckets keep capture allocation-free; samples never leave the caller's buffer.
 pub struct StereoLevelMeter {
-    intervals: [[Sums; 2]; 4],
-    filling: [Sums; 2],
+    intervals: [[StereoSums; 2]; 4],
+    filling: [StereoSums; 2],
     next: usize,
     channel: usize,
     interval: usize,
@@ -256,8 +330,8 @@ impl StereoLevelMeter {
             "stereo meter rate must be divisible by four and fit 24-bit square sums"
         );
         Self {
-            intervals: [[Sums::default(); 2]; 4],
-            filling: [Sums::default(); 2],
+            intervals: [[StereoSums::default(); 2]; 4],
+            filling: [StereoSums::default(); 2],
             next: 0,
             channel: 0,
             interval: sample_rate / 4,
@@ -266,8 +340,8 @@ impl StereoLevelMeter {
 
     /// Drops the window, partial interval and any half frame after a capture gap.
     pub fn reset(&mut self) {
-        self.intervals.fill([Sums::default(); 2]);
-        self.filling = [Sums::default(); 2];
+        self.intervals.fill([StereoSums::default(); 2]);
+        self.filling = [StereoSums::default(); 2];
         self.next = 0;
         self.channel = 0;
     }
@@ -275,39 +349,29 @@ impl StereoLevelMeter {
     /// Takes sign-extended 24-bit samples in L, R order, retaining half frames across calls.
     /// Returns the last completed interval's reading; startup uses only frames received so far.
     /// Energy is averaged across channels, so a lone active channel reads 3 dB below two alike.
-    pub fn push(&mut self, interleaved: &[i32]) -> Option<f32> {
+    pub fn push(&mut self, interleaved: &[i32]) -> Option<StereoReading> {
         let mut reading = None;
         for &sample in interleaved {
             debug_assert!((-8_388_608..=8_388_607).contains(&sample));
-            let x = i64::from(sample);
-            let sums = &mut self.filling[self.channel];
-            sums.count += 1;
-            sums.sum += x;
-            sums.sum_sq += x * x;
+            self.filling[self.channel].push(sample);
             self.channel ^= 1;
-            if self.channel == 0 && self.filling[1].count as usize == self.interval {
+            if self.channel == 0 && self.filling[1].sums.count as usize == self.interval {
                 self.intervals[self.next] = std::mem::take(&mut self.filling);
                 self.next = (self.next + 1) % self.intervals.len();
-                let mut window = [Sums::default(); 2];
+                let mut window = [StereoSums::default(); 2];
                 for bucket in &self.intervals {
                     for channel in 0..2 {
                         window[channel] = window[channel].plus(bucket[channel]);
                     }
                 }
-                let energy = window
-                    .iter()
-                    .map(|sums| {
-                        let n = sums.count as f64;
-                        let mean = sums.sum as f64 / n;
-                        (sums.sum_sq as f64 / n - mean * mean).max(0.0)
-                    })
-                    .sum::<f64>()
-                    / 2.0;
-                reading = Some(if energy < 1.0 {
-                    SILENCE_DBFS
-                } else {
-                    ((10.0 * (energy / (8_388_608.0 * 8_388_608.0)).log10()) as f32)
-                        .max(SILENCE_DBFS)
+                let variance = window.map(StereoSums::variance);
+                reading = Some(StereoReading {
+                    level_dbfs: stereo_energy_dbfs((variance[0] + variance[1]) / 2.0),
+                    window_frames: window[0].sums.count as u32,
+                    channels: [
+                        window[0].reading(variance[0]),
+                        window[1].reading(variance[1]),
+                    ],
                 });
             }
         }
@@ -551,7 +615,10 @@ mod tests {
                 [x, -x]
             })
             .collect();
-        let level = StereoLevelMeter::new(48_000).push(&samples).unwrap();
+        let level = StereoLevelMeter::new(48_000)
+            .push(&samples)
+            .unwrap()
+            .level_dbfs;
         assert!((level - -6.0206).abs() < 0.001, "got {level}");
     }
 
@@ -572,7 +639,10 @@ mod tests {
             (0, 4_194_304, -9.0309),
         ] {
             let samples = stereo_square(48_000, left, right, [0, 0]);
-            let level = StereoLevelMeter::new(48_000).push(&samples).unwrap();
+            let level = StereoLevelMeter::new(48_000)
+                .push(&samples)
+                .unwrap()
+                .level_dbfs;
             assert!((level - expected).abs() < 0.001, "got {level}");
         }
     }
@@ -580,7 +650,10 @@ mod tests {
     #[test]
     fn stereo_meter_removes_each_channels_dc_without_losing_signal() {
         let samples = stereo_square(48_000, 2_097_152, -2_097_152, [5_000_000, -6_000_000]);
-        let level = StereoLevelMeter::new(48_000).push(&samples).unwrap();
+        let level = StereoLevelMeter::new(48_000)
+            .push(&samples)
+            .unwrap()
+            .level_dbfs;
         assert!((level - -12.0412).abs() < 0.001, "got {level}");
     }
 
@@ -590,7 +663,7 @@ mod tests {
             let mut meter = StereoLevelMeter::new(48_000);
             assert_eq!(meter.push(&[]), None);
             let samples = stereo_square(48_000, 0, 0, dc);
-            assert_eq!(meter.push(&samples), Some(SILENCE_DBFS));
+            assert_eq!(meter.push(&samples).unwrap().level_dbfs, SILENCE_DBFS);
         }
     }
 
@@ -603,7 +676,7 @@ mod tests {
             .collect();
         let mut meter = StereoLevelMeter::new(48_000);
         for _ in 0..3 {
-            let level = meter.push(&samples).unwrap();
+            let level = meter.push(&samples).unwrap().level_dbfs;
             assert!(level.abs() < 0.001, "got {level}");
         }
     }
@@ -614,7 +687,8 @@ mod tests {
         let samples = stereo_square(96_000, 4_194_304, -4_194_304, [0, 0]);
         let mut readings = vec![];
         for (i, chunk) in samples.chunks(480).enumerate() {
-            if let Some(level) = meter.push(chunk) {
+            if let Some(reading) = meter.push(chunk) {
+                let level = reading.level_dbfs;
                 readings.push((i + 1) * 240);
                 assert!((level - -6.0206).abs() < 0.001, "got {level}");
             }
@@ -628,11 +702,14 @@ mod tests {
         let tone = stereo_square(48_000, 4_194_304, -4_194_304, [0, 0]);
         // Partial trailing silence must not change the last completed reading.
         let input = [&tone[..], &[0; 600]].concat();
-        let level = meter.push(&input).unwrap();
+        let level = meter.push(&input).unwrap().level_dbfs;
         assert!((level - -6.0206).abs() < 0.001, "got {level}");
-        let level = meter.push(&vec![0; 24_000 - 600]).unwrap();
+        let level = meter.push(&vec![0; 24_000 - 600]).unwrap().level_dbfs;
         assert!((level - -7.27).abs() < 0.01, "got {level}");
-        assert_eq!(meter.push(&vec![0; 72_000]), Some(SILENCE_DBFS));
+        assert_eq!(
+            meter.push(&vec![0; 72_000]).unwrap().level_dbfs,
+            SILENCE_DBFS
+        );
     }
 
     #[test]
@@ -646,7 +723,8 @@ mod tests {
                 total += chunk.len();
                 let reading = meter.push(chunk);
                 assert_eq!(reading.is_some(), total / 4 > before / 4);
-                if let Some(level) = reading {
+                if let Some(reading) = reading {
+                    let level = reading.level_dbfs;
                     assert!((level - -6.0206).abs() < 0.001, "got {level}");
                 }
                 assert_eq!(meter.push(&[]), None);
@@ -661,10 +739,11 @@ mod tests {
         meter.push(&[8_388_607]);
         meter.reset();
         assert_eq!(meter.push(&[123, -456, 123]), None);
-        assert_eq!(meter.push(&[-456]), Some(SILENCE_DBFS));
+        assert_eq!(meter.push(&[-456]).unwrap().level_dbfs, SILENCE_DBFS);
         let level = meter
             .push(&stereo_square(8, 4_194_304, -4_194_304, [0, 0]))
-            .unwrap();
+            .unwrap()
+            .level_dbfs;
         assert!((level - -6.0206).abs() < 0.001, "got {level}");
     }
 

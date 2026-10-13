@@ -404,7 +404,7 @@ fn capture(
             let started = micros();
             match store.try_lock() {
                 Ok(mut store) => {
-                    store.set_level(level, measured_at);
+                    store.set_measurement(level, measured_at);
                     pending_level = None;
                 }
                 Err(TryLockError::WouldBlock) => {}
