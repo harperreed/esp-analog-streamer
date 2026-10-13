@@ -1231,3 +1231,10 @@ add a drain there. Epoch reset must clear nonzero history and partial PCM.
 Never move a shared experiment directory while another worker is using it.
 Freeze each probe's source snapshot and give workers separate output ownership;
 retain raced acquisitions as failed evidence and reacquire from known hashes.
+
+MP3 quality comparisons need matched constraints. The retained dualmono excerpt
+scores 39.19 dB SNR with corrected Shine, 58.95 with default LAME, but 37.70
+with LAME stereo sharing and reservoir both disabled. This does not isolate
+either setting or prove audibility. Full-band noise SNR also confounds LAME's
+high-frequency removal. Float overshoot alone is not internal integer overflow.
+Silent correlation windows provide no delay evidence; record null, not a lag.

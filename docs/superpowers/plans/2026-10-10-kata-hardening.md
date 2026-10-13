@@ -3,7 +3,7 @@
 Doctor Biz's active goal on October 10: finish all Kata work, then assess.
 Base c134069 on wip/kata-capture-protection. Prior phase compactions: 25;
 October 13 setup/reconnect acceptance phase compactions: 1.
-Latest checkpoint: MP3 transform overflow fixed, checked and deployed; tail measured.
+Latest checkpoint: corrected MP3 objective music/fade/reference comparisons complete.
 Original-criteria review closed 93hm; 23 of 38 children remain closed.
 The wbz6 MP3 instruction-placement correction now passes matched hardware and
 all 27 canonical stages; its ordinary ELF equals the tested candidate exactly.
@@ -11,6 +11,31 @@ Prior failed device audio trials remain failed.
 Use GPT-6.1 Sol subagents with clean contexts. Parent owns review, integration,
 canonical checks, commits and every hardware action. Continue through batches;
 a phase checkpoint is not a reason to abandon the active goal.
+
+## October 13 MP3 fidelity checkpoint
+
+The current encoder's bounded objective comparisons now cover retained music,
+fades, tones, independent noise and transients. Three clean-context Sol 6.1
+workers acquired/reviewed actual decodes; parent verified hashes, counts and
+uncompensated arithmetic. See mp3-fidelity.md and its archived probes/receipts.
+
+Music SNR is Shine 39.19 dB, default LAME 58.95 dB, and independent-stereo,
+no-reservoir LAME 37.70 dB. The modest-level excerpt is exactly dualmono, so
+configuration differences matter. Near-full noise overshoots in both encoders;
+LAME removes most 20–24 kHz energy while improving below-20-kHz error. These
+scores do not establish a new structural defect or justify a codec rewrite.
+Original spans, decoder delays and padding are accounted separately. The
+failed silent-window JSON acquisition remains failed; corrected evidence
+marks that timing window unavailable instead of inventing a lag.
+
+No production, board, audio, access or auth change occurred. e8hd's bounded
+objective comparison subcriterion is complete, not perceptual acceptance.
+Remaining work needs listening/physical source, ownership-safe recovery policy,
+AP/traffic-path and hosted access, endurance prerequisites, or distribution
+acceptance. No whole child closes: 23/38 closed, 15 open. Do not repeat these
+host comparisons or add a limiter merely to obtain a different numerical score.
+This evidence checkpoint has no compactions; commit and continue from remaining
+original criteria. The goal remains active.
 
 ## October 13 MP3 headroom and tail checkpoint
 

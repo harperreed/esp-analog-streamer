@@ -1,0 +1,32 @@
+{
+  "status": "measurement review passes with stated limits; no product acceptance claim",
+  "reviewed_report_hashes": {
+    "oct13-mp3-fidelity-reference/comparison.json": "24444ef5eb4bbbde5865fdd4263f8df5fbaf6b24a8f116105f67c8388a948518",
+    "oct13-mp3-fidelity-reference/publication.json": "7395659ca30c3877c60d4ad2873edf9dd16c5aeac4beaebddfa5b18705dccd2c",
+    "oct13-mp3-fidelity-reference/verification.json": "9eff7a3cdefc35af571f8ecee5f2c950f20a5d19d75add93ec3f129180353860",
+    "oct13-mp3-fidelity-music/run-02/report.json": "15c2344f556957e7f7aa5de82885040493dcbe04a7402dbf6ea399045bdc7e50",
+    "oct13-mp3-fidelity-music/run-02/measurement-notes.json": "6f30cfd1451dc3133691502c8ccd89c388aa999d36c434283c1c1c22cab1400c",
+    "oct13-mp3-fidelity-music/constrained-reference/report.json": "70b610aacef0f44fa0b33173f6f32b7e3bc3bc38d12c844df9b11228df818be0"
+  },
+  "independent_checks": [
+    "93 reference frozen artifact hashes exact; frozen reference C/headers match live source.",
+    "23 music snapshot/live source hashes plus all primary and constrained input/MP3/f32 hashes exact; runner/binary/script hashes exact.",
+    "Retained authorized PCM prefix exactly matches original483840 sourceframes;2304 added zeros excluded from fidelity metrics.",
+    "Direct nearfull noise and music raw SNR/gain agree with saved metrics; FFT Parseval agrees within4.2e-14; band sums match.",
+    "Independent noise correlation reconfirms1057 Shine/1105 LAME; constrained calibration1105 independently checked.",
+    "Actual music MPEG headers confirm default LAME jointstereo/reservoir and constrained LAME stereo/zero main_data_begin.",
+    "All decoded sample counts and original common-region tail omissions independently checked.",
+    "Compact synthetic publication preserves all acquisition fields except declared replacement of verbose help bodies.",
+    "Low-envelope fade interval and zero-envelope error RMS independently recomputed."
+  ],
+  "material_interpretation": [
+    "Default LAME music58.94779381dB vs production39.18617269dB becomes constrained LAME37.69729949dB after jointly disabling stereo sharing and reservoir. These joint changes cannot isolate either mechanism.",
+    "Source is exactly dualmono, peak0.29421997, with33612 leading silentframes; one lowlevel excerpt supports narrow characterization.",
+    "Nearfull noise0\u201316k SNR LAME16.68/16.72dB exceeds Shine12.64/12.67dB, while LAME20\u201324k output/input energy0.064/0.061 shows strong highband attenuation. Fullband noise ranking cannot establish general fidelity.",
+    "Music FFT source_power_fraction is declared one-sided unweighted magnitude-squared bin fraction, not strict physical energy fraction. Reference rectangular FFT uses correct Parseval weights.",
+    "Overshoot counts cover raw float reconstruction and must not be called integer overflow or audible clipping proof.",
+    "No audibility, analog path, ESP throughput/cost, network reliability or general finite-tail acceptance established."
+  ],
+  "remaining_blocking_findings": [],
+  "review_scope": "Read-only independent review; no hardware, playback, external review, product or Git mutations; only this review receipt written."
+}

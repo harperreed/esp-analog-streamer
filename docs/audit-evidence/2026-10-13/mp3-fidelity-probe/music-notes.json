@@ -1,0 +1,884 @@
+{
+  "report_sha256": "15c2344f556957e7f7aa5de82885040493dcbe04a7402dbf6ea399045bdc7e50",
+  "summarizer_sha256": "39001978211784830beb4be0a7765e5a98061e46678e0fd37fb0b86125bc2440",
+  "verified_sources_and_artifact_hashes": true,
+  "verified_all_codec_logs_empty": true,
+  "verified_aligned_metrics_exactly_recomputed": true,
+  "music_scope": {
+    "channel_samples_exactly_identical": true,
+    "nonzero_source_start": 33612,
+    "nonzero_source_stop_exclusive": 483840,
+    "zero_stereo_frames": 34587,
+    "source_peak": 0.294219970703125,
+    "source_frames": 483840
+  },
+  "spectral_convention": "Hann-windowed one-sided rFFT magnitude-squared sums, without doubling interior bins. source_power_fraction denotes that bin-sum fraction, not a strictly weighted physical band-energy fraction. Error/reference SNR uses the same convention; no perceptual weighting.",
+  "fade_by_nominal_envelope": [
+    {
+      "direction": "rising",
+      "envelope_dbfs_range": [
+        -90,
+        -75
+      ],
+      "codec": "production",
+      "source_start": 4608,
+      "source_stop_exclusive": 46996,
+      "metrics": [
+        {
+          "channel": 0,
+          "frames": 42388,
+          "input_rms": 6.703699572611358e-05,
+          "decoded_rms": 6.691814782904366e-05,
+          "error_rms": 1.1202761068442877e-06,
+          "snr_db": 35.539789392118344,
+          "error_dbfs": -119.01349853051124,
+          "gain": 0.9980890672958385
+        },
+        {
+          "channel": 1,
+          "frames": 42388,
+          "input_rms": 6.704682750425604e-05,
+          "decoded_rms": 6.701284771270692e-05,
+          "error_rms": 1.1374061207170668e-06,
+          "snr_db": 35.409253438146195,
+          "error_dbfs": -118.88168878022292,
+          "gain": 0.9993494269206915
+        }
+      ]
+    },
+    {
+      "direction": "rising",
+      "envelope_dbfs_range": [
+        -90,
+        -75
+      ],
+      "codec": "lame",
+      "source_start": 4608,
+      "source_stop_exclusive": 46996,
+      "metrics": [
+        {
+          "channel": 0,
+          "frames": 42388,
+          "input_rms": 6.703699572611358e-05,
+          "decoded_rms": 6.695774601198553e-05,
+          "error_rms": 3.2217689436159784e-06,
+          "snr_db": 26.364403045658765,
+          "error_dbfs": -109.83811218405167,
+          "gain": 0.9976636590301824
+        },
+        {
+          "channel": 1,
+          "frames": 42388,
+          "input_rms": 6.704682750425604e-05,
+          "decoded_rms": 6.698570857530514e-05,
+          "error_rms": 3.314716900255071e-06,
+          "snr_db": 26.11863580646933,
+          "error_dbfs": -109.59107114854605,
+          "gain": 0.9978667306993365
+        }
+      ]
+    },
+    {
+      "direction": "rising",
+      "envelope_dbfs_range": [
+        -75,
+        -60
+      ],
+      "codec": "production",
+      "source_start": 46996,
+      "source_stop_exclusive": 89383,
+      "metrics": [
+        {
+          "channel": 0,
+          "frames": 42387,
+          "input_rms": 0.0003744889168209737,
+          "decoded_rms": 0.0003743265915183856,
+          "error_rms": 1.946017910476366e-06,
+          "snr_db": 45.68584272050445,
+          "error_dbfs": -114.2170633390588,
+          "gain": 0.9995531340988384
+        },
+        {
+          "channel": 1,
+          "frames": 42387,
+          "input_rms": 0.0003745087179875278,
+          "decoded_rms": 0.0003744017488101344,
+          "error_rms": 2.1165251152499854e-06,
+          "snr_db": 44.956770111339274,
+          "error_dbfs": -113.48753147411111,
+          "gain": 0.9996984458960578
+        }
+      ]
+    },
+    {
+      "direction": "rising",
+      "envelope_dbfs_range": [
+        -75,
+        -60
+      ],
+      "codec": "lame",
+      "source_start": 46996,
+      "source_stop_exclusive": 89383,
+      "metrics": [
+        {
+          "channel": 0,
+          "frames": 42387,
+          "input_rms": 0.0003744889168209737,
+          "decoded_rms": 0.0003745047289731019,
+          "error_rms": 3.698580410438397e-06,
+          "snr_db": 40.10807807964311,
+          "error_dbfs": -108.63929869819744,
+          "gain": 0.9999934531158559
+        },
+        {
+          "channel": 1,
+          "frames": 42387,
+          "input_rms": 0.0003745087179875278,
+          "decoded_rms": 0.00037451411523514044,
+          "error_rms": 3.6112531501430166e-06,
+          "snr_db": 40.31607996336547,
+          "error_dbfs": -108.8468413261373,
+          "gain": 0.9999679213809639
+        }
+      ]
+    },
+    {
+      "direction": "rising",
+      "envelope_dbfs_range": [
+        -60,
+        -45
+      ],
+      "codec": "production",
+      "source_start": 89383,
+      "source_stop_exclusive": 131771,
+      "metrics": [
+        {
+          "channel": 0,
+          "frames": 42388,
+          "input_rms": 0.002105620363559749,
+          "decoded_rms": 0.0021045719331827684,
+          "error_rms": 2.9866961227133134e-06,
+          "snr_db": 56.96378067760709,
+          "error_dbfs": -110.49617923685096,
+          "gain": 0.999501198030488
+        },
+        {
+          "channel": 1,
+          "frames": 42388,
+          "input_rms": 0.0021053509710874264,
+          "decoded_rms": 0.0021045688519126843,
+          "error_rms": 3.1771863995778503e-06,
+          "snr_db": 56.42563620302923,
+          "error_dbfs": -109.95914610362462,
+          "gain": 0.9996274391978854
+        }
+      ]
+    },
+    {
+      "direction": "rising",
+      "envelope_dbfs_range": [
+        -60,
+        -45
+      ],
+      "codec": "lame",
+      "source_start": 89383,
+      "source_stop_exclusive": 131771,
+      "metrics": [
+        {
+          "channel": 0,
+          "frames": 42388,
+          "input_rms": 0.002105620363559749,
+          "decoded_rms": 0.0021056974581036493,
+          "error_rms": 3.784408728661581e-06,
+          "snr_db": 54.90764073068419,
+          "error_dbfs": -108.44003928992807,
+          "gain": 1.000034999242064
+        },
+        {
+          "channel": 1,
+          "frames": 42388,
+          "input_rms": 0.0021053509710874264,
+          "decoded_rms": 0.002105391925927128,
+          "error_rms": 3.817470728627144e-06,
+          "snr_db": 54.83097578572318,
+          "error_dbfs": -108.36448568631855,
+          "gain": 1.000017809037905
+        }
+      ]
+    },
+    {
+      "direction": "rising",
+      "envelope_dbfs_range": [
+        -45,
+        -30
+      ],
+      "codec": "production",
+      "source_start": 131771,
+      "source_stop_exclusive": 174158,
+      "metrics": [
+        {
+          "channel": 0,
+          "frames": 42387,
+          "input_rms": 0.011841972247001458,
+          "decoded_rms": 0.011838118720838297,
+          "error_rms": 5.7386125081582525e-06,
+          "snr_db": 66.29234276647884,
+          "error_dbfs": -104.8238619878981,
+          "gain": 0.9996745229971855
+        },
+        {
+          "channel": 1,
+          "frames": 42387,
+          "input_rms": 0.01184068207000835,
+          "decoded_rms": 0.011837172606054134,
+          "error_rms": 5.877384716114838e-06,
+          "snr_db": 66.0838520182787,
+          "error_dbfs": -104.61631761461327,
+          "gain": 0.9997035303766415
+        }
+      ]
+    },
+    {
+      "direction": "rising",
+      "envelope_dbfs_range": [
+        -45,
+        -30
+      ],
+      "codec": "lame",
+      "source_start": 131771,
+      "source_stop_exclusive": 174158,
+      "metrics": [
+        {
+          "channel": 0,
+          "frames": 42387,
+          "input_rms": 0.011841972247001458,
+          "decoded_rms": 0.011841377393030254,
+          "error_rms": 4.091922065191758e-06,
+          "snr_db": 69.22993370778558,
+          "error_dbfs": -107.76145292920482,
+          "gain": 0.9999497088839833
+        },
+        {
+          "channel": 1,
+          "frames": 42387,
+          "input_rms": 0.01184068207000835,
+          "decoded_rms": 0.011840073793882326,
+          "error_rms": 4.116015516710133e-06,
+          "snr_db": 69.17799433740231,
+          "error_dbfs": -107.71045993373687,
+          "gain": 0.9999485691875164
+        }
+      ]
+    },
+    {
+      "direction": "rising",
+      "envelope_dbfs_range": [
+        -30,
+        -15
+      ],
+      "codec": "production",
+      "source_start": 174158,
+      "source_stop_exclusive": 216545,
+      "metrics": [
+        {
+          "channel": 0,
+          "frames": 42387,
+          "input_rms": 0.06658796045747103,
+          "decoded_rms": 0.06657753926492044,
+          "error_rms": 1.3054592365161741e-05,
+          "snr_db": 74.15264795216174,
+          "error_dbfs": -97.68473369294456,
+          "gain": 0.9998434903744536
+        },
+        {
+          "channel": 1,
+          "frames": 42387,
+          "input_rms": 0.06658567654293938,
+          "decoded_rms": 0.06657658724288129,
+          "error_rms": 1.2473796023483905e-05,
+          "snr_db": 74.547643574631,
+          "error_dbfs": -98.08002723968791,
+          "gain": 0.9998634864351106
+        }
+      ]
+    },
+    {
+      "direction": "rising",
+      "envelope_dbfs_range": [
+        -30,
+        -15
+      ],
+      "codec": "lame",
+      "source_start": 174158,
+      "source_stop_exclusive": 216545,
+      "metrics": [
+        {
+          "channel": 0,
+          "frames": 42387,
+          "input_rms": 0.06658796045747103,
+          "decoded_rms": 0.06658448113826934,
+          "error_rms": 8.141888822311091e-06,
+          "snr_db": 78.253410903573,
+          "error_dbfs": -101.78549664435582,
+          "gain": 0.9999477424140443
+        },
+        {
+          "channel": 1,
+          "frames": 42387,
+          "input_rms": 0.06658567654293938,
+          "decoded_rms": 0.0665826061768558,
+          "error_rms": 8.305635776052208e-06,
+          "snr_db": 78.08015869019299,
+          "error_dbfs": -101.61254235524991,
+          "gain": 0.9999538817736846
+        }
+      ]
+    },
+    {
+      "direction": "rising",
+      "envelope_dbfs_range": [
+        -15,
+        -6
+      ],
+      "codec": "production",
+      "source_start": 216545,
+      "source_stop_exclusive": 241920,
+      "metrics": [
+        {
+          "channel": 0,
+          "frames": 25375,
+          "input_rms": 0.22984335238025708,
+          "decoded_rms": 0.22980823892363297,
+          "error_rms": 4.217735996733191e-05,
+          "snr_db": 74.7270511046372,
+          "error_dbfs": -87.49841215599061,
+          "gain": 0.9998472235808813
+        },
+        {
+          "channel": 1,
+          "frames": 25375,
+          "input_rms": 0.22978036224634077,
+          "decoded_rms": 0.22974689593473527,
+          "error_rms": 4.151966802805556e-05,
+          "snr_db": 74.86118074651753,
+          "error_dbfs": -87.63492255124591,
+          "gain": 0.9998543494956011
+        }
+      ]
+    },
+    {
+      "direction": "rising",
+      "envelope_dbfs_range": [
+        -15,
+        -6
+      ],
+      "codec": "lame",
+      "source_start": 216545,
+      "source_stop_exclusive": 241920,
+      "metrics": [
+        {
+          "channel": 0,
+          "frames": 25375,
+          "input_rms": 0.22984335238025708,
+          "decoded_rms": 0.22983305577506766,
+          "error_rms": 3.1154204832016454e-05,
+          "snr_db": 77.35830552931985,
+          "error_dbfs": -90.12966658067326,
+          "gain": 0.9999551934574068
+        },
+        {
+          "channel": 1,
+          "frames": 25375,
+          "input_rms": 0.22978036224634077,
+          "decoded_rms": 0.22976892167480317,
+          "error_rms": 3.3972187207802773e-05,
+          "snr_db": 76.60378802225095,
+          "error_dbfs": -89.37752982697936,
+          "gain": 0.9999502011488303
+        }
+      ]
+    },
+    {
+      "direction": "falling",
+      "envelope_dbfs_range": [
+        -90,
+        -75
+      ],
+      "codec": "production",
+      "source_start": 436844,
+      "source_stop_exclusive": 479232,
+      "metrics": [
+        {
+          "channel": 0,
+          "frames": 42388,
+          "input_rms": 6.706484868734667e-05,
+          "decoded_rms": 6.694890093884379e-05,
+          "error_rms": 1.1216470060654829e-06,
+          "snr_db": 35.532774952287085,
+          "error_dbfs": -119.00287597101688,
+          "gain": 0.9981327448235422
+        },
+        {
+          "channel": 1,
+          "frames": 42388,
+          "input_rms": 6.705174285271571e-05,
+          "decoded_rms": 6.692437208456365e-05,
+          "error_rms": 1.143595970384912e-06,
+          "snr_db": 35.362749088139985,
+          "error_dbfs": -118.83454767213408,
+          "gain": 0.997956771235207
+        }
+      ]
+    },
+    {
+      "direction": "falling",
+      "envelope_dbfs_range": [
+        -90,
+        -75
+      ],
+      "codec": "lame",
+      "source_start": 436844,
+      "source_stop_exclusive": 479232,
+      "metrics": [
+        {
+          "channel": 0,
+          "frames": 42388,
+          "input_rms": 6.706484868734667e-05,
+          "decoded_rms": 6.697860471036615e-05,
+          "error_rms": 3.2324098758831133e-06,
+          "snr_db": 26.33937048162011,
+          "error_dbfs": -109.80947150034991,
+          "gain": 0.9975533112679384
+        },
+        {
+          "channel": 1,
+          "frames": 42388,
+          "input_rms": 6.705174285271571e-05,
+          "decoded_rms": 6.698833726612612e-05,
+          "error_rms": 3.3283231309114924e-06,
+          "snr_db": 26.083691751376186,
+          "error_dbfs": -109.55549033537028,
+          "gain": 0.9978228533709038
+        }
+      ]
+    },
+    {
+      "direction": "falling",
+      "envelope_dbfs_range": [
+        -75,
+        -60
+      ],
+      "codec": "production",
+      "source_start": 394457,
+      "source_stop_exclusive": 436844,
+      "metrics": [
+        {
+          "channel": 0,
+          "frames": 42387,
+          "input_rms": 0.00037457248529660487,
+          "decoded_rms": 0.0003744601293329339,
+          "error_rms": 1.9454956544037784e-06,
+          "snr_db": 45.690112149626934,
+          "error_dbfs": -114.21939469859842,
+          "gain": 0.9996865987716664
+        },
+        {
+          "channel": 1,
+          "frames": 42387,
+          "input_rms": 0.0003744638338402254,
+          "decoded_rms": 0.00037423204679872896,
+          "error_rms": 2.133400187032326e-06,
+          "snr_db": 44.88675101115288,
+          "error_dbfs": -113.4185534234251,
+          "gain": 0.9993649786672658
+        }
+      ]
+    },
+    {
+      "direction": "falling",
+      "envelope_dbfs_range": [
+        -75,
+        -60
+      ],
+      "codec": "lame",
+      "source_start": 394457,
+      "source_stop_exclusive": 436844,
+      "metrics": [
+        {
+          "channel": 0,
+          "frames": 42387,
+          "input_rms": 0.00037457248529660487,
+          "decoded_rms": 0.00037456998809805715,
+          "error_rms": 3.682578473400063e-06,
+          "snr_db": 40.14767724799106,
+          "error_dbfs": -108.67695979696256,
+          "gain": 0.9999450048410127
+        },
+        {
+          "channel": 1,
+          "frames": 42387,
+          "input_rms": 0.0003744638338402254,
+          "decoded_rms": 0.00037443588935570703,
+          "error_rms": 3.642045626642215e-06,
+          "snr_db": 40.24128994320205,
+          "error_dbfs": -108.77309235547426,
+          "gain": 0.9998780796539916
+        }
+      ]
+    },
+    {
+      "direction": "falling",
+      "envelope_dbfs_range": [
+        -60,
+        -45
+      ],
+      "codec": "production",
+      "source_start": 352069,
+      "source_stop_exclusive": 394457,
+      "metrics": [
+        {
+          "channel": 0,
+          "frames": 42388,
+          "input_rms": 0.0021055004349201864,
+          "decoded_rms": 0.0021045780500341124,
+          "error_rms": 2.9358636318211095e-06,
+          "snr_db": 57.112389126690594,
+          "error_dbfs": -110.64528241737429,
+          "gain": 0.9995610403674574
+        },
+        {
+          "channel": 1,
+          "frames": 42388,
+          "input_rms": 0.002105732371136578,
+          "decoded_rms": 0.0021048483740685607,
+          "error_rms": 3.24669830528241e-06,
+          "snr_db": 56.23922478430337,
+          "error_dbfs": -109.77116131364261,
+          "gain": 0.9995790944431239
+        }
+      ]
+    },
+    {
+      "direction": "falling",
+      "envelope_dbfs_range": [
+        -60,
+        -45
+      ],
+      "codec": "lame",
+      "source_start": 352069,
+      "source_stop_exclusive": 394457,
+      "metrics": [
+        {
+          "channel": 0,
+          "frames": 42388,
+          "input_rms": 0.0021055004349201864,
+          "decoded_rms": 0.002105450801685654,
+          "error_rms": 3.766775207488364e-06,
+          "snr_db": 54.94771264377163,
+          "error_dbfs": -108.48060593445533,
+          "gain": 0.9999748268581116
+        },
+        {
+          "channel": 1,
+          "frames": 42388,
+          "input_rms": 0.002105732371136578,
+          "decoded_rms": 0.0021056441314019924,
+          "error_rms": 3.7937023069744867e-06,
+          "snr_db": 54.886798497387126,
+          "error_dbfs": -108.41873502672638,
+          "gain": 0.9999564734495942
+        }
+      ]
+    },
+    {
+      "direction": "falling",
+      "envelope_dbfs_range": [
+        -45,
+        -30
+      ],
+      "codec": "production",
+      "source_start": 309682,
+      "source_stop_exclusive": 352069,
+      "metrics": [
+        {
+          "channel": 0,
+          "frames": 42387,
+          "input_rms": 0.01183836097616829,
+          "decoded_rms": 0.011834817866853368,
+          "error_rms": 5.4861778678236425e-06,
+          "snr_db": 66.68043389165922,
+          "error_dbfs": -105.21460232412272,
+          "gain": 0.999700646877964
+        },
+        {
+          "channel": 1,
+          "frames": 42387,
+          "input_rms": 0.011840262586915246,
+          "decoded_rms": 0.011836161364017543,
+          "error_rms": 6.121280530011897e-06,
+          "snr_db": 65.73038101913285,
+          "error_dbfs": -104.26315433831418,
+          "gain": 0.999653546963666
+        }
+      ]
+    },
+    {
+      "direction": "falling",
+      "envelope_dbfs_range": [
+        -45,
+        -30
+      ],
+      "codec": "lame",
+      "source_start": 309682,
+      "source_stop_exclusive": 352069,
+      "metrics": [
+        {
+          "channel": 0,
+          "frames": 42387,
+          "input_rms": 0.01183836097616829,
+          "decoded_rms": 0.011837577260600305,
+          "error_rms": 4.0625639467496e-06,
+          "snr_db": 69.28982736655769,
+          "error_dbfs": -107.82399579902119,
+          "gain": 0.9999337419511042
+        },
+        {
+          "channel": 1,
+          "frames": 42387,
+          "input_rms": 0.011840262586915246,
+          "decoded_rms": 0.011839703983595762,
+          "error_rms": 4.066261392988719e-06,
+          "snr_db": 69.28332081856696,
+          "error_dbfs": -107.81609413774831,
+          "gain": 0.9999527638538745
+        }
+      ]
+    },
+    {
+      "direction": "falling",
+      "envelope_dbfs_range": [
+        -30,
+        -15
+      ],
+      "codec": "production",
+      "source_start": 267295,
+      "source_stop_exclusive": 309682,
+      "metrics": [
+        {
+          "channel": 0,
+          "frames": 42387,
+          "input_rms": 0.06657297997321172,
+          "decoded_rms": 0.06656239569357257,
+          "error_rms": 1.3010274972915308e-05,
+          "snr_db": 74.18023043994359,
+          "error_dbfs": -97.71427049004757,
+          "gain": 0.9998410059223778
+        },
+        {
+          "channel": 1,
+          "frames": 42387,
+          "input_rms": 0.06657473247414357,
+          "decoded_rms": 0.0665638527710687,
+          "error_rms": 1.386139339256103e-05,
+          "snr_db": 73.63005081524157,
+          "error_dbfs": -97.1638622165854,
+          "gain": 0.999836570772248
+        }
+      ]
+    },
+    {
+      "direction": "falling",
+      "envelope_dbfs_range": [
+        -30,
+        -15
+      ],
+      "codec": "lame",
+      "source_start": 267295,
+      "source_stop_exclusive": 309682,
+      "metrics": [
+        {
+          "channel": 0,
+          "frames": 42387,
+          "input_rms": 0.06657297997321172,
+          "decoded_rms": 0.06657069859249996,
+          "error_rms": 7.894039559056684e-06,
+          "snr_db": 78.51997398137651,
+          "error_dbfs": -102.0540140314805,
+          "gain": 0.9999657246881667
+        },
+        {
+          "channel": 1,
+          "frames": 42387,
+          "input_rms": 0.06657473247414357,
+          "decoded_rms": 0.06657215714310044,
+          "error_rms": 7.827134396873594e-06,
+          "snr_db": 78.59413277873104,
+          "error_dbfs": -102.12794418007485,
+          "gain": 0.9999613105265167
+        }
+      ]
+    },
+    {
+      "direction": "falling",
+      "envelope_dbfs_range": [
+        -15,
+        -6
+      ],
+      "codec": "production",
+      "source_start": 241920,
+      "source_stop_exclusive": 267295,
+      "metrics": [
+        {
+          "channel": 0,
+          "frames": 25375,
+          "input_rms": 0.22976886955510278,
+          "decoded_rms": 0.22973773746459633,
+          "error_rms": 3.8653125392963486e-05,
+          "snr_db": 75.48213143875122,
+          "error_dbfs": -88.2563076876734,
+          "gain": 0.999864501954908
+        },
+        {
+          "channel": 1,
+          "frames": 25375,
+          "input_rms": 0.22983221734688636,
+          "decoded_rms": 0.22980094471778212,
+          "error_rms": 4.0054337520764165e-05,
+          "snr_db": 75.17522707799057,
+          "error_dbfs": -87.94700893774606,
+          "gain": 0.9998639268587368
+        }
+      ]
+    },
+    {
+      "direction": "falling",
+      "envelope_dbfs_range": [
+        -15,
+        -6
+      ],
+      "codec": "lame",
+      "source_start": 241920,
+      "source_stop_exclusive": 267295,
+      "metrics": [
+        {
+          "channel": 0,
+          "frames": 25375,
+          "input_rms": 0.22976886955510278,
+          "decoded_rms": 0.2297580651340787,
+          "error_rms": 2.928733632441277e-05,
+          "snr_db": 77.89222626091717,
+          "error_dbfs": -90.66640250983934,
+          "gain": 0.9999529699843052
+        },
+        {
+          "channel": 1,
+          "frames": 25375,
+          "input_rms": 0.22983221734688636,
+          "decoded_rms": 0.2298183135089631,
+          "error_rms": 3.3405678975345656e-05,
+          "snr_db": 76.75181207466967,
+          "error_dbfs": -89.5235939344252,
+          "gain": 0.9999394956666674
+        }
+      ]
+    }
+  ],
+  "fade_zero_envelope": [
+    {
+      "codec": "production",
+      "source_frames": 9216,
+      "metrics": [
+        {
+          "channel": 0,
+          "frames": 9216,
+          "input_rms": 0.0,
+          "decoded_rms": 1.8487488720771088e-07,
+          "error_rms": 1.8487488720771088e-07,
+          "snr_db": null,
+          "error_dbfs": -134.66244155916633,
+          "gain": null
+        },
+        {
+          "channel": 1,
+          "frames": 9216,
+          "input_rms": 0.0,
+          "decoded_rms": 2.0425683548900846e-07,
+          "error_rms": 2.0425683548900846e-07,
+          "snr_db": null,
+          "error_dbfs": -133.79646801630415,
+          "gain": null
+        }
+      ],
+      "amplitude": [
+        {
+          "channel": 0,
+          "frames": 9216,
+          "peak": 4.999399152438855e-06,
+          "outside_unit_interval": 0,
+          "at_or_outside_unit_interval": 0,
+          "nonfinite": 0
+        },
+        {
+          "channel": 1,
+          "frames": 9216,
+          "peak": 3.4290387702640146e-06,
+          "outside_unit_interval": 0,
+          "at_or_outside_unit_interval": 0,
+          "nonfinite": 0
+        }
+      ]
+    },
+    {
+      "codec": "lame",
+      "source_frames": 9216,
+      "metrics": [
+        {
+          "channel": 0,
+          "frames": 9216,
+          "input_rms": 0.0,
+          "decoded_rms": 7.610897548165237e-08,
+          "error_rms": 7.610897548165237e-08,
+          "snr_db": null,
+          "error_dbfs": -142.3712824829064,
+          "gain": null
+        },
+        {
+          "channel": 1,
+          "frames": 9216,
+          "input_rms": 0.0,
+          "decoded_rms": 8.479857552437491e-08,
+          "error_rms": 8.479857552437491e-08,
+          "snr_db": null,
+          "error_dbfs": -141.43222886220053,
+          "gain": null
+        }
+      ],
+      "amplitude": [
+        {
+          "channel": 0,
+          "frames": 9216,
+          "peak": 2.072099050565157e-06,
+          "outside_unit_interval": 0,
+          "at_or_outside_unit_interval": 0,
+          "nonfinite": 0
+        },
+        {
+          "channel": 1,
+          "frames": 9216,
+          "peak": 1.5140112736844458e-06,
+          "outside_unit_interval": 0,
+          "at_or_outside_unit_interval": 0,
+          "nonfinite": 0
+        }
+      ]
+    }
+  ],
+  "failed_acquisition": "run-01 encoded/decoded but report serialization failed on NaN from a zero-energy music timing window. Retained unchanged; run-02 reports null/unavailable_zero_energy for the same window.",
+  "measurement_controls": [
+    "Identity gives zero error and unity gain.",
+    "Doubled decoded gain gives measured gain2 and rawSNR0dB.",
+    "Independent synthetic137sample delay is recovered.",
+    "Out-of-range floats are counted without integer clipping.",
+    "Silent correlation windows return null; no warnings or false lag claim."
+  ]
+}
