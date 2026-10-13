@@ -3,7 +3,7 @@
 Doctor Biz's active goal on October 10: finish all Kata work, then assess.
 Base c134069 on wip/kata-capture-protection. Prior phase compactions: 25;
 October 13 setup/reconnect acceptance phase compactions: 1.
-Latest checkpoint: recorded control-timeout/cancellation evidence; restart authority unresolved.
+Latest checkpoint: MP3 preset admission offsets verified; recovery/endurance remain.
 Original-criteria review closed 93hm; 23 of 38 children remain closed.
 The wbz6 MP3 instruction-placement correction now passes matched hardware and
 all 27 canonical stages; its ordinary ELF equals the tested candidate exactly.
@@ -11,6 +11,23 @@ Prior failed device audio trials remain failed.
 Use GPT-6.1 Sol subagents with clean contexts. Parent owns review, integration,
 canonical checks, commits and every hardware action. Continue through batches;
 a phase checkpoint is not a reason to abandon the active goal.
+
+## October 13 MP3 preset acceptance checkpoint
+
+The missing e8hd cursor-admission gate passes: Low/Medium/High selected
+42/167/334 frames (1.008/4.008/8.016 seconds), with exact first-delivered
+sequence agreement and 73,728 independently decoded sample frames per prefix.
+Three sequential debug listeners, quiet ADC, no Sonos Play or settings writes.
+Full 150-second UART has no added capture faults or raw encoder overruns.
+This does not prove receiver latency, long-term delivery or analog fidelity.
+
+Temporary probe removed; all 27 diagnostic and five restore canonical stages
+pass, plus 20 host gate tests. Ordinary ELF is byte-identical to 1d2105b; final
+boot e003702e4a4d677ef79228b8353515c9 is stopped MP3/Medium, autoplay/recognition
+off, idle listeners and remote STOPPED/OK. See October 13 mp3-preset evidence.
+No Kata closes; wmsy remains 23/38 closed and 15 open. e8hd's recovery, long
+soak, fidelity/gain/tail and license gates remain. Physical-source/AP/hosted
+access constraints are unchanged. Phase compactions: one; goal stays active.
 
 ## October 13 control-timeout acceptance checkpoint
 

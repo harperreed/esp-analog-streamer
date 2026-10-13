@@ -1,5 +1,11 @@
 # Gotchas
 
+Measure preset history using ring head and selected cursor under the same lock.
+The first delivered receipt is one-based: head minus first sequence plus one
+equals retained frames. Concurrent payload overlap includes admission skew and
+cannot substitute for this receipt. October 13 verified MP3 42/167/334-frame
+selection; this proves source history, not receiver playout protection.
+
 Device metrics network/settings fields are deliberately optional nonblocking
 snapshots. Null is unavailable evidence, not a disconnected or unchanged lease.
 Record gaps and obtain a fresh snapshot within the existing test deadline;
