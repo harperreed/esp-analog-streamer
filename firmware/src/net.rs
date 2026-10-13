@@ -81,10 +81,12 @@ pub fn start_wifi(
     ssid: &str,
     pass: &str,
 ) -> Result<WifiStation> {
-    let mut wifi = BlockingWifi::wrap(
-        EspWifi::new(modem, sysloop.clone(), Some(nvs))?,
-        sysloop.clone(),
-    )?;
+    #[cfg(feature = "startup-capture-trace")]
+    crate::startup_capture_trace::phase(7, 0);
+    let driver = EspWifi::new(modem, sysloop.clone(), Some(nvs));
+    #[cfg(feature = "startup-capture-trace")]
+    crate::startup_capture_trace::phase(8, driver.as_ref().err().map_or(0, |e| e.code()));
+    let mut wifi = BlockingWifi::wrap(driver?, sysloop.clone())?;
     let network = Network::new();
     let observed_network = network.clone();
     let events = sysloop.subscribe::<WifiEvent, _>(move |event| {
@@ -120,7 +122,12 @@ pub fn start_wifi(
         },
         ..Default::default()
     }))?;
-    wifi.start()?;
+    #[cfg(feature = "startup-capture-trace")]
+    crate::startup_capture_trace::phase(9, 0);
+    let started = wifi.start();
+    #[cfg(feature = "startup-capture-trace")]
+    crate::startup_capture_trace::phase(10, started.as_ref().err().map_or(0, |e| e.code()));
+    started?;
     // A prior diagnostic bitmap can survive reflashing. Apply b/g/n after driver startup,
     // before the first association, rather than relying on the stored/default policy.
     // SAFETY: the station driver is initialized and started; the bitmap uses IDF constants.

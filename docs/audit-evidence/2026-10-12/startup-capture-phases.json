@@ -1,0 +1,275 @@
+{
+  "schema_version": 1,
+  "kata": "93hm",
+  "verdict": "phase_overlap_observed_cause_unresolved",
+  "canonical": {
+    "run": "run.TvABvkgv",
+    "stages": 27,
+    "exit_code": 0
+  },
+  "images": {
+    "baseline": "36e14f18791c1011d4215f5e91e2ee5f7d560bd2318d3bbcdb53c6afaf061964",
+    "diagnostic": "23258e86b6a280d6369f1c723e6781c0aceea8c0dfe8fd728b0e53cb66ef48e2",
+    "restored": "94fc9e630a06362586d01ff09e40dd11e6eeeb79289a4ec97f5aecefcf56647f"
+  },
+  "raw_sha256": {
+    "baseline-uart.log": "41eeb318a34ede409460eb2bee91c85e776bfe518373671939608eaf8af95130",
+    "diagnostic-uart.log": "139c2791cb30802005be53ac56ebbb85aa703dcaa47c76f9d5852407cb7d871e",
+    "diagnostic-sdkconfig": "5a0652685fb55be50214dd788b30fc33b3113c15f371c26ffad321a7c003c33b",
+    "feature-cargo.jsonl": "84d6d56efd33e1b75cf2cd3c3009b93cd1c403a6cc8fa106765c673045acf44d",
+    "feature-iram.log": "db5da01eb493c8530c192f8989035770d563f9a81ddd6b2e4d96a3fba89bd9cb"
+  },
+  "faults": [
+    {
+      "event_us": 202460,
+      "previous_overflow": 8,
+      "current_overflow": 9,
+      "callbacks": 28,
+      "settling_before": 23760,
+      "last_read_begin_us": 151627,
+      "last_read_end_us": 202410,
+      "last_read_frames": 240,
+      "last_read_result": 0,
+      "staged_frames": 0,
+      "sample_begin_us": 202447,
+      "sample_end_us": 202472,
+      "phase_kinds": [
+        7,
+        8
+      ],
+      "phase_begin_us": 146677,
+      "phase_end_us": 240403,
+      "restart_begin_us": 202559,
+      "restart_return_us": 202671,
+      "restart_result": 0,
+      "next_accepted_read_begin_us": 202687,
+      "next_accepted_read_marker_us": 207686,
+      "next_accepted_read_frames": 240,
+      "invalidation_discard_frames": 0,
+      "last_read_duration_us": 50783,
+      "read_begin_minus_phase_begin_us": 4950,
+      "detection_within_phase_markers": true
+    },
+    {
+      "event_us": 322364,
+      "previous_overflow": 9,
+      "current_overflow": 14,
+      "callbacks": 51,
+      "settling_before": 21840,
+      "last_read_begin_us": 250922,
+      "last_read_end_us": 322255,
+      "last_read_frames": 240,
+      "last_read_result": 0,
+      "staged_frames": 0,
+      "sample_begin_us": 322348,
+      "sample_end_us": 322384,
+      "phase_kinds": [
+        9,
+        10
+      ],
+      "phase_begin_us": 250983,
+      "phase_end_us": 323315,
+      "restart_begin_us": 322522,
+      "restart_return_us": 322714,
+      "restart_result": 0,
+      "next_accepted_read_begin_us": 322728,
+      "next_accepted_read_marker_us": 328829,
+      "next_accepted_read_frames": 240,
+      "invalidation_discard_frames": 0,
+      "last_read_duration_us": 71333,
+      "read_begin_minus_phase_begin_us": -61,
+      "detection_within_phase_markers": true
+    }
+  ],
+  "trace_ends": [
+    {
+      "main_used": 10,
+      "capture_used": 14,
+      "main_capacity": 16,
+      "capture_capacity": 16,
+      "main_dropped": 0,
+      "capture_dropped": 0,
+      "capture_complete": 1,
+      "record_bytes": 96,
+      "bank_bytes": 1608,
+      "fault_time_is_observation_upper_bound": true,
+      "uart_line": 168
+    },
+    {
+      "main_used": 10,
+      "capture_used": 14,
+      "main_capacity": 16,
+      "capture_capacity": 16,
+      "main_dropped": 0,
+      "capture_dropped": 0,
+      "capture_complete": 1,
+      "record_bytes": 96,
+      "bank_bytes": 1608,
+      "fault_time_is_observation_upper_bound": true,
+      "uart_line": 188
+    },
+    {
+      "main_used": 10,
+      "capture_used": 14,
+      "main_capacity": 16,
+      "capture_capacity": 16,
+      "main_dropped": 0,
+      "capture_dropped": 0,
+      "capture_complete": 1,
+      "record_bytes": 96,
+      "bank_bytes": 1608,
+      "fault_time_is_observation_upper_bound": true,
+      "uart_line": 203
+    }
+  ],
+  "limits": [
+    "One quiet boot per image; observational pair, not repeatable overhead benchmark.",
+    "No exact ISR timestamps or scheduling origin.",
+    "No capture stack watermark exposed.",
+    "Metrics stack samples are later high-water reports; not exact export-time frame usage.",
+    "No record-write cost or IDF/esp_timer mapping."
+  ],
+  "baseline": {
+    "capture": [
+      {
+        "capture_begin_us": 10229272,
+        "capture_end_us": 10229294,
+        "callbacks": 2032,
+        "queue_overflows": 14,
+        "software_dropped_frames": 480,
+        "overflow_restarts": 2,
+        "settling_discarded_frames": 26400,
+        "read_errors": 0,
+        "supervisor_restarts": 0,
+        "discontinuities": 2,
+        "capture_runtime_window_us": 9975453,
+        "capture_task_runtime_us": 916491,
+        "read_service_delay_estimate_max_us": 63831,
+        "internal_free": 48555,
+        "internal_largest": 47104
+      },
+      {
+        "capture_begin_us": 20241062,
+        "capture_end_us": 20241084,
+        "callbacks": 4035,
+        "queue_overflows": 14,
+        "software_dropped_frames": 480,
+        "overflow_restarts": 2,
+        "settling_discarded_frames": 26400,
+        "read_errors": 0,
+        "supervisor_restarts": 0,
+        "discontinuities": 2,
+        "capture_runtime_window_us": 10011793,
+        "capture_task_runtime_us": 981204,
+        "read_service_delay_estimate_max_us": 1634,
+        "internal_free": 48531,
+        "internal_largest": 47104
+      },
+      {
+        "capture_begin_us": 30267938,
+        "capture_end_us": 30267964,
+        "callbacks": 6040,
+        "queue_overflows": 14,
+        "software_dropped_frames": 480,
+        "overflow_restarts": 2,
+        "settling_discarded_frames": 26400,
+        "read_errors": 0,
+        "supervisor_restarts": 0,
+        "discontinuities": 2,
+        "capture_runtime_window_us": 10026895,
+        "capture_task_runtime_us": 981286,
+        "read_service_delay_estimate_max_us": 2336,
+        "internal_free": 48399,
+        "internal_largest": 47104
+      }
+    ],
+    "metrics_stack_free_samples": [
+      1400,
+      1400,
+      1128,
+      1128
+    ]
+  },
+  "diagnostic": {
+    "capture": [
+      {
+        "capture_begin_us": 10152253,
+        "capture_end_us": 10152271,
+        "callbacks": 2016,
+        "queue_overflows": 14,
+        "software_dropped_frames": 480,
+        "overflow_restarts": 2,
+        "settling_discarded_frames": 26400,
+        "read_errors": 0,
+        "supervisor_restarts": 0,
+        "discontinuities": 2,
+        "capture_runtime_window_us": 9898452,
+        "capture_task_runtime_us": 921944,
+        "read_service_delay_estimate_max_us": 66414,
+        "internal_free": 45339,
+        "internal_largest": 43008
+      },
+      {
+        "capture_begin_us": 20214731,
+        "capture_end_us": 20214749,
+        "callbacks": 4029,
+        "queue_overflows": 14,
+        "software_dropped_frames": 480,
+        "overflow_restarts": 2,
+        "settling_discarded_frames": 26400,
+        "read_errors": 0,
+        "supervisor_restarts": 0,
+        "discontinuities": 2,
+        "capture_runtime_window_us": 10062457,
+        "capture_task_runtime_us": 993218,
+        "read_service_delay_estimate_max_us": 1642,
+        "internal_free": 45179,
+        "internal_largest": 43008
+      },
+      {
+        "capture_begin_us": 30312596,
+        "capture_end_us": 30312614,
+        "callbacks": 6048,
+        "queue_overflows": 14,
+        "software_dropped_frames": 480,
+        "overflow_restarts": 2,
+        "settling_discarded_frames": 26400,
+        "read_errors": 0,
+        "supervisor_restarts": 0,
+        "discontinuities": 2,
+        "capture_runtime_window_us": 10097946,
+        "capture_task_runtime_us": 994870,
+        "read_service_delay_estimate_max_us": 1765,
+        "internal_free": 45055,
+        "internal_largest": 43008
+      }
+    ],
+    "metrics_stack_free_samples": [
+      1408,
+      1376,
+      1136,
+      1104
+    ]
+  },
+  "restore": {
+    "image": "94fc9e630a06362586d01ff09e40dd11e6eeeb79289a4ec97f5aecefcf56647f",
+    "boot_token": "b124e0e109fe62c64d2dc0344dcbf5da",
+    "settings": {
+      "active_format": "mp3",
+      "next_play_format": "mp3",
+      "next_play_buffer": "med",
+      "buffer_available": true,
+      "autoplay": false,
+      "recognition_enabled": false,
+      "pga_gain": 0
+    },
+    "board_state": "stopped",
+    "sonos_state": "STOPPED",
+    "sonos_status": "OK",
+    "listener_states": [
+      "idle",
+      "idle"
+    ],
+    "no_play_or_audio_source": true
+  }
+}

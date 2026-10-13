@@ -27,6 +27,8 @@ debug = true
 opt-level = "z"
 
 [features]
+# Bounded startup capture observation; absent from normal firmware.
+startup-capture-trace = []
 # Low-rate permanent admission worker resource diagnostic; absent by default.
 admission-resources = []
 # Bounded ON-only compressed frame-write-state diagnostic.

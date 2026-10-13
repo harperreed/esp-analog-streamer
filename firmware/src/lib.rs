@@ -16,6 +16,8 @@ mod recognizer;
 mod shazam_http;
 mod socket_close;
 mod sonos;
+#[cfg(feature = "startup-capture-trace")]
+mod startup_capture_trace;
 #[cfg(feature = "sonos-fixture")]
 pub use sonos::check_transport;
 mod stream;
@@ -40,6 +42,15 @@ use esp_shazam_core::store::SongStore;
 use config::CONFIG;
 
 pub fn run() -> Result<()> {
+    let result = run_inner();
+    #[cfg(feature = "startup-capture-trace")]
+    if result.is_err() {
+        startup_capture_trace::export(&mut [0; 2]);
+    }
+    result
+}
+
+fn run_inner() -> Result<()> {
     esp_idf_svc::sys::link_patches();
     esp_idf_svc::log::EspLogger::initialize_default();
     let peripherals = Peripherals::take()?;
@@ -47,20 +58,30 @@ pub fn run() -> Result<()> {
     let nvs = EspDefaultNvsPartition::take()?;
 
     // I2S first: the codec locks onto MCLK and LRCK when its state machines restart.
+    #[cfg(feature = "startup-capture-trace")]
+    startup_capture_trace::phase(1, 0);
     let rx = audio_in::start_i2s(
         peripherals.i2s0,
         peripherals.pins.gpio27, // BCLK (v2 boards: gpio5)
         peripherals.pins.gpio35, // DIN
         peripherals.pins.gpio0,  // MCLK
         peripherals.pins.gpio25, // WS
-    )?;
+    );
+    #[cfg(feature = "startup-capture-trace")]
+    startup_capture_trace::phase(2, if rx.is_ok() { 0 } else { -1 });
+    let rx = rx?;
     let mut i2c = I2cDriver::new(
         peripherals.i2c0,
         peripherals.pins.gpio33, // SDA (v2 boards: gpio18)
         peripherals.pins.gpio32, // SCL (v2 boards: gpio23)
         &I2cConfig::new().baudrate(100.kHz().into()),
     )?;
-    codec::setup_line_in(&mut i2c, CONFIG.pga_gain)?;
+    #[cfg(feature = "startup-capture-trace")]
+    startup_capture_trace::phase(3, 0);
+    let setup = codec::setup_line_in(&mut i2c, CONFIG.pga_gain);
+    #[cfg(feature = "startup-capture-trace")]
+    startup_capture_trace::phase(4, if setup.is_ok() { 0 } else { -1 });
+    setup?;
     let store: recognizer::SharedStore =
         Arc::new(Mutex::new(SongStore::new(20, CONFIG.shazam_enabled)));
     // ESP-IDF's first std mutex access allocates. Complete telemetry setup before either
@@ -70,7 +91,12 @@ pub fn run() -> Result<()> {
     device_metrics::CACHE.initialize();
     listener_observation::REGISTRY.initialize();
     // Raw frames feed WAV and one shared encoder; encoded frames hold the longer backlog.
-    let (ring, stream_ring) = audio_in::spawn_capture(rx, store.clone())?;
+    #[cfg(feature = "startup-capture-trace")]
+    startup_capture_trace::phase(5, 0);
+    let spawned = audio_in::spawn_capture(rx, store.clone());
+    #[cfg(feature = "startup-capture-trace")]
+    startup_capture_trace::phase(6, if spawned.is_ok() { 0 } else { -1 });
+    let (ring, stream_ring) = spawned?;
     #[cfg(feature = "capture-fixture")]
     capture_fixture::spawn(stream_ring.clone())?;
 

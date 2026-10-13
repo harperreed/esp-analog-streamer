@@ -64,6 +64,24 @@ The scratch driver now binds both device and source; source IP alone routes over
 Wi-Fi here. Startup capture losses remain visible; they are not cleared by the
 precondition receipts. No new closure: 22 children closed, 16 remain.
 
+Doctor Biz cannot access the workstation to restore audio-device access. Keep
+audio-dependent acquisitions blocked; do not bypass its ACLs. Quiet startup work
+continued under 93hm. The reviewed opt-in startup-capture-trace feature passed
+all 27 canonical stages in run.TvABvkgv, separate feature compilation, exact IRAM
+and internal-storage checks, then one quiet 32-second device run. All 24 records
+arrived; fault observations fall within EspWifi::new and wifi.start. Eight
+overflows precede the actual post-flush baseline, six follow it. This locates
+phases without establishing the scheduling/interrupt cause. See October 12
+startup-capture-phases.md/.json. Source/ELF/runtime reviews are retained in
+target/kata-hardening/oct12-startup/; no production recovery policy changed.
+
+The ordinary unified firmware is again installed, image 94fc9e630a06362586d01ff09e40dd11e6eeeb79289a4ec97f5aecefcf56647f,
+boot b124e0e109fe62c64d2dc0344dcbf5da, verified stopped MP3/Medium with idle
+listeners, autoplay/recognition off and remote Sonos STOPPED/OK. The next bounded
+diagnostic proposed by source review changes only capture affinity for a quiet
+matched comparison; it has not been implemented or run. Keep 93hm and all
+continuity/recovery gates open. No new closure: 22 children closed, 16 remain.
+
 ## October 11 closure and work-selection checkpoint
 
 Doctor Biz subsequently selected HTTP/UPnP Sonos control ("skip tls for now").

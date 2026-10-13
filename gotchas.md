@@ -1128,3 +1128,10 @@ ALSA can say PCH is invalid or report no soundcards while /proc/asound still lis
 the hardware. Check actual device opens and ACLs: the October 12 desktop greeter
 held audio access while harper received EACCES. Restore the desktop session;
 do not bypass output verification or redirect test audio to another sink.
+
+Startup capture already flushes the I2S queue before its overflow baseline.
+The October 12 phase trace measured eight pre-baseline overflows and six later
+overflows in two recoveries, observed during Wi-Fi construction/start. Do not
+erase the latter as expected codec-clock backlog. Driver-read wall time includes
+preemption/waits; phase overlap does not identify a task or ISR cause. An accepted
+post-restart read can still be discarded for settling before raw publication.

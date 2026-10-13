@@ -208,6 +208,16 @@ fn capture(
     mut publisher: CaptureBuffer,
     store: SharedStore,
 ) -> ! {
+    #[cfg(feature = "startup-capture-trace")]
+    let mut trace = {
+        crate::startup_capture_trace::CAPTURE
+            .publish(crate::startup_capture_trace::observation(20, 0));
+        crate::startup_capture_trace::Observer::new()
+    };
+    #[cfg(feature = "startup-capture-trace")]
+    let mut trace_next_read = false;
+    #[cfg(feature = "startup-capture-trace")]
+    let mut trace_first_read = true;
     let mut bytes = vec![0u8; DMA_BYTES];
     let mut interleaved: Vec<i32> = Vec::with_capacity(2 * DMA_FRAMES);
     let mut meter = StereoLevelMeter::new(CAPTURE_RATE_HZ as usize);
@@ -216,11 +226,23 @@ fn capture(
     let mut pending_attempts = 0u32;
     let mut read_timing = ReadServiceTiming::new(CAPTURE_RATE_HZ);
     // Clocks ran during codec setup; flush startup backlog before the overflow baseline.
-    RESTART_FAILURES.observe_restart_result(
-        FailureKind::InitialFlush,
-        rx.restart().map_err(|error| error.code()),
-    );
+    #[cfg(feature = "startup-capture-trace")]
+    crate::startup_capture_trace::CAPTURE.publish(crate::startup_capture_trace::observation(21, 0));
+    let initial = rx.restart().map_err(|error| error.code());
+    RESTART_FAILURES.observe_restart_result(FailureKind::InitialFlush, initial);
     let mut overflow_seen = i2s_capture::counters().queue_overflows;
+    #[cfg(feature = "startup-capture-trace")]
+    crate::startup_capture_trace::CAPTURE.publish(crate::startup_capture_trace::observation(
+        22,
+        initial.err().unwrap_or(0),
+    ));
+    #[cfg(feature = "startup-capture-trace")]
+    {
+        trace.baseline(overflow_seen);
+        let mut r = crate::startup_capture_trace::observation(23, 0);
+        r.words[8] = overflow_seen;
+        crate::startup_capture_trace::CAPTURE.publish(r);
+    }
     let mut pending_level = None;
     // SAFETY: this is the live capture task, whose function never returns.
     CAPTURE_TASK.store(
@@ -232,9 +254,33 @@ fn capture(
         // A snapshot may have held the recognition ring at the gap. Retry clearing it even
         // while I2S fails or the codec settles, rather than retaining a stale full window.
         recognition.retry_reset();
+        #[cfg(feature = "startup-capture-trace")]
+        let trace_sample_begin = if !trace.complete() { micros() } else { 0 };
         let overflow = i2s_capture::counters().queue_overflows;
         let supervisor_restart = RESTART.swap(false, Ordering::AcqRel);
         let overflow_restart = overflow != overflow_seen;
+        #[cfg(feature = "startup-capture-trace")]
+        let trace_fault = if overflow_restart {
+            trace
+                .fault(
+                    overflow,
+                    micros(),
+                    i2s_capture::counters().callbacks,
+                    settle_frames as u32,
+                )
+                .map(|mut r| {
+                    r.words[13] = publisher.staged_frames() as u32;
+                    let sampled_end = micros();
+                    r.words[14] = sampled_end as u32;
+                    r.words[15] = (sampled_end >> 32) as u32;
+                    r.words[16] = trace_sample_begin as u32;
+                    r.words[17] = (trace_sample_begin >> 32) as u32;
+                    crate::startup_capture_trace::CAPTURE.publish(r);
+                })
+                .is_some()
+        } else {
+            false
+        };
         if supervisor_restart || overflow_restart {
             SUPERVISOR_RESTARTS.fetch_add(u32::from(supervisor_restart), Ordering::Relaxed);
             OVERFLOW_RESTARTS.fetch_add(u32::from(overflow_restart), Ordering::Relaxed);
@@ -251,12 +297,50 @@ fn capture(
             pending_level = None;
             settle_frames = CAPTURE_RATE_HZ as usize / 2;
             RESTARTS.fetch_add(1, Ordering::Relaxed);
-            RESTART_FAILURES.observe_restart_result(
-                FailureKind::RecoveryRestart,
-                rx.restart().map_err(|error| error.code()),
-            );
+            #[cfg(feature = "startup-capture-trace")]
+            if trace_fault {
+                let mut r = crate::startup_capture_trace::observation(31, 0);
+                r.words[8] = discarded as u32;
+                r.words[9] = settle_frames as u32;
+                crate::startup_capture_trace::CAPTURE.publish(r);
+            }
+            let restarted = rx.restart().map_err(|error| error.code());
+            #[cfg(feature = "startup-capture-trace")]
+            if trace_fault {
+                crate::startup_capture_trace::CAPTURE.publish(
+                    crate::startup_capture_trace::observation(32, restarted.err().unwrap_or(0)),
+                );
+                trace.restarted();
+                trace_next_read = true;
+            }
+            RESTART_FAILURES.observe_restart_result(FailureKind::RecoveryRestart, restarted);
         }
-        let n = match rx.read(&mut bytes, READ_TIMEOUT_MS) {
+        #[cfg(feature = "startup-capture-trace")]
+        let trace_read_begin = if !trace.complete() || trace_next_read {
+            micros()
+        } else {
+            0
+        };
+        #[cfg(feature = "startup-capture-trace")]
+        if trace_first_read {
+            crate::startup_capture_trace::CAPTURE
+                .publish(crate::startup_capture_trace::observation(24, 0));
+        }
+        let read_result = rx.read(&mut bytes, READ_TIMEOUT_MS);
+        #[cfg(feature = "startup-capture-trace")]
+        if trace_read_begin != 0 {
+            let end = micros();
+            let frames = read_result.as_ref().map_or(0, |n| (n / 8) as u32);
+            let code = read_result.as_ref().err().map_or(0, |e| e.code());
+            trace.read(trace_read_begin, end, frames, code);
+            if trace_first_read {
+                let mut r = crate::startup_capture_trace::observation(25, code);
+                r.words[8] = frames;
+                crate::startup_capture_trace::CAPTURE.publish(r);
+                trace_first_read = false;
+            }
+        }
+        let n = match read_result {
             Ok(n) => n - n % 8, // whole frames only
             Err(_) => {
                 read_timing.reset();
@@ -272,6 +356,18 @@ fn capture(
         if i2s_capture::counters().queue_overflows != overflow_seen {
             DROPPED.fetch_add((n / 8) as u32, Ordering::Relaxed);
             continue;
+        }
+        #[cfg(feature = "startup-capture-trace")]
+        if trace_next_read {
+            let mut r = crate::startup_capture_trace::observation(33, 0);
+            r.words[8] = trace_read_begin as u32;
+            r.words[9] = (trace_read_begin >> 32) as u32;
+            r.words[10] = (n / 8) as u32;
+            crate::startup_capture_trace::CAPTURE.publish(r);
+            trace_next_read = false;
+            if trace.complete() {
+                crate::startup_capture_trace::COMPLETE.store(1, Ordering::Release);
+            }
         }
         samples_from_i2s_slots(&bytes[..n], &mut interleaved);
         if settle_frames > 0 {
@@ -402,6 +498,8 @@ fn metrics(raw: SharedStreamRing) -> ! {
     let mut admission_resource_sequence = 0;
     let mut runtime_sample = None;
     let mut failure_exports = ExportState::new();
+    #[cfg(feature = "startup-capture-trace")]
+    let mut startup_exports = [0; 2];
     let mut diagnostic_exports = Gate::new(launched);
     #[cfg(feature = "metrics-state-crossover")]
     let mut crossover = metrics_state_crossover::Schedule::new();
@@ -450,6 +548,8 @@ fn metrics(raw: SharedStreamRing) -> ! {
             }
             record_metrics_phase(observer_enabled, Phase::RestartExport);
             export_restart_failures(&mut failure_exports);
+            #[cfg(feature = "startup-capture-trace")]
+            crate::startup_capture_trace::export(&mut startup_exports);
             record_metrics_phase(observer_enabled, Phase::Init);
             crate::stream::export_media_progress(&raw);
             next_log = now + 10_000_000;
