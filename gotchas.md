@@ -1,5 +1,17 @@
 # Gotchas
 
+Device metrics network/settings fields are deliberately optional nonblocking
+snapshots. Null is unavailable evidence, not a disconnected or unchanged lease.
+Record gaps and obtain a fresh snapshot within the existing test deadline;
+never substitute cached ownership metadata or retry a known contradiction.
+
+Listener loss receipts follow event batches, not a periodic clock. During
+control-read cancellation, Stop can close and export the stream before the
+stalled read returns. Require a clean export whose valid event range covers
+the matching owner's close; demanding an export after stall-end creates a
+false failure. Drain complete lines through that receipt. Keep original failed
+acquisitions separate from offline evaluation of their complete retained data.
+
 HTTP recovery cannot infer restart authority from matching URI alone. An owner
 can reuse a URI, and a Stop can leave it unchanged; even atomic URI comparison
 would need revocation semantics to cover those cases. These are contract limits,

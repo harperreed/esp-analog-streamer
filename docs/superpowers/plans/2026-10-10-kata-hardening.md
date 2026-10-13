@@ -3,7 +3,7 @@
 Doctor Biz's active goal on October 10: finish all Kata work, then assess.
 Base c134069 on wip/kata-capture-protection. Prior phase compactions: 25;
 October 13 setup/reconnect acceptance phase compactions: 1.
-Latest checkpoint: recovery contract follow-up; automatic restart authority unresolved.
+Latest checkpoint: recorded control-timeout/cancellation evidence; restart authority unresolved.
 Original-criteria review closed 93hm; 23 of 38 children remain closed.
 The wbz6 MP3 instruction-placement correction now passes matched hardware and
 all 27 canonical stages; its ordinary ELF equals the tested candidate exactly.
@@ -11,6 +11,33 @@ Prior failed device audio trials remain failed.
 Use GPT-6.1 Sol subagents with clean contexts. Parent owns review, integration,
 canonical checks, commits and every hardware action. Continue through batches;
 a phase checkpoint is not a reason to abandon the active goal.
+
+## October 13 control-timeout acceptance checkpoint
+
+Real Sonos observations reached a 4.600698-second control-thread stall, natural
+TimedOut/Degraded/Recovering/Playing with the original queue and listener, and
+a separate Stop accepted during a 4.957760-second stall. That read returned
+Interrupted and did not restore playback. Complete retained observations pass
+offline acceptance; all three live acquisition results remain failed for harness
+errors. Null nonblocking metadata, incomplete UART drain and a wrong post-stall
+export condition are corrected with actual-fixture regressions; 27 tests pass.
+Do not repeat these hardware runs merely to replace failed acquisition receipts.
+
+Diagnostic source passed all 27 canonical stages. Temporary source is removed;
+all five firmware restoration stages pass and ordinary rebuilt ELF `1d2105b`
+equals the saved image. Final boot `a217c3442545de892c0ce8d7b061428e` is stopped
+MP3/Medium, autoplay/recognition off, listeners idle and remote STOPPED/OK.
+No workstation audio/ACL/mixer changes or AP access were needed; all owned
+processes ended. Full UART capture counters pass, without sample/fidelity claims.
+See October 13 control-timeout.md/.json and archived diagnostic sources.
+
+No Kata closes: pqqq's ownership-safe automatic restart and original interruption/
+takeover matrix remain unmet. wmsy remains 23/38 closed, 15 open. This phase adds
+device evidence, not a new recovery implementation. Next recovery work needs a
+supported restart/revocation contract; do not re-enable TLS or repeat protocol
+inventory. Physical source, AP and hosted-access limits remain unchanged.
+Goal remains active. This phase has one compaction and is ready for a fresh
+continuation after the local commit.
 
 ## October 13 recovery contract follow-up
 

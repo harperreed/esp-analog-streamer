@@ -51,8 +51,12 @@ of the recovery design using the selected HTTP transport.
 4. Record evidence in the existing pqqq/wmsy tickets. No closure from this slice.
    Real Sonos acceptance remains required. Doctor Biz subsequently authorized
    checked Stop and board playback. Image 87848e3 passed the bounded both-codec
-   playback gate, but coexistence failed. Controlled control-outage recovery
-   remains untested. See the sonos-http plan and sonos-http-board evidence.
+   playback gate, but coexistence failed. October 13 now records a real
+   control-thread deadline stall and Stop during that stall. Complete retained
+   observations pass offline retention/cancellation checks; all three live
+   acquisitions retain harness failures. This does not test an AP outage or
+   automatic playback restart. See October 13 control-timeout evidence, plus
+   the sonos-http plan and sonos-http-board evidence.
 
 Parent owns integration, full checks, hardware and commits. Sol 6.1 workers own
 disjoint implementation files. Existing untracked files are outside this work.
