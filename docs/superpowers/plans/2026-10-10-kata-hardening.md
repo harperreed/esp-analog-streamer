@@ -3,7 +3,7 @@
 Doctor Biz's active goal on October 10: finish all Kata work, then assess.
 Base c134069 on wip/kata-capture-protection. Prior phase compactions: 25;
 October 13 setup/reconnect acceptance phase compactions: 1.
-Latest checkpoint: MP3 preset admission offsets verified; recovery/endurance remain.
+Latest checkpoint: Shine review and missing change notices; distribution gate remains.
 Original-criteria review closed 93hm; 23 of 38 children remain closed.
 The wbz6 MP3 instruction-placement correction now passes matched hardware and
 all 27 canonical stages; its ordinary ELF equals the tested candidate exactly.
@@ -11,6 +11,19 @@ Prior failed device audio trials remain failed.
 Use GPT-6.1 Sol subagents with clean contexts. Parent owns review, integration,
 canonical checks, commits and every hardware action. Continue through batches;
 a phase checkpoint is not a reason to abandon the active goal.
+
+## October 13 Shine review checkpoint
+
+The pinned encoder integration/license review is complete. All 23 upstream
+manifest hashes match the retained exact Git object; only six documented files
+contain local code patches. Those files lacked dated modification notices;
+factual comments now identify the October 9 changes without changing license or
+code. See October 13 shine-review evidence for verification and release limits.
+The existing root GPL metadata does not relicense Shine. A corresponding-source
+and relinking package still needs recipient verification before distribution.
+No hardware, playback, settings or authentication change was needed. No Kata
+closes: 23/38 children closed, 15 open. Physical/AP/hosted and recovery constraints
+remain. This scoped phase has no compactions; keep the goal active.
 
 ## October 13 MP3 preset acceptance checkpoint
 

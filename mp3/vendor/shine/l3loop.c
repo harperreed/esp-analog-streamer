@@ -1,5 +1,10 @@
 /* l3loop.c */
 
+/* Local modifications by the esp-analog-streamer project, 2026-10-09:
+ * Make signedness comparisons and unused parameters explicit.
+ * Notice recorded 2026-10-13; see UPSTREAM.md for provenance.
+ */
+
 #include "l3loop.h"
 #include "bitstream.h"
 #include "huffman.h"

@@ -35,8 +35,13 @@ The Rust wrapper and bridge follow this project's GPL-3.0-or-later license, as
 recorded in Cargo.toml. The vendored Shine component retains its own license
 in COPYING; the crate metadata does not replace that component license.
 
-This integration is a prototype. The retained license is not a distribution or
-relinking compliance review. Shine has no psychoacoustic model. Encoder delay,
+The [integration and license review](../../../docs/audit-evidence/2026-10-13/shine-review.md)
+records the exact pin, dated local modifications and unresolved distribution
+requirements. Local change notices identify the October 9 code changes; they
+do not change Shine's license. No license conversion has been selected.
+
+This integration is a prototype. Distribution/relinking acceptance remains
+unproven. Shine has no psychoacoustic model. Encoder delay,
 finite-stream tail handling and measured gain remain adoption limitations; see
 `docs/audit-evidence/2026-10-09/mp3-benchmark.md` in the repository.
 

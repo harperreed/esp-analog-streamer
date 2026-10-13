@@ -1,5 +1,10 @@
 /* layer3.c */
 
+/* Local modifications by the esp-analog-streamer project, 2026-10-09:
+ * Use checked per-instance allocation callbacks and propagate bitstream failure.
+ * Notice recorded 2026-10-13; see UPSTREAM.md for provenance.
+ */
+
 #include "layer3.h"
 #include "bitstream.h"
 #include "l3bitstream.h"

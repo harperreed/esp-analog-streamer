@@ -7,6 +7,12 @@
  * Removed unused functions. Feb 2001 P.Everett
  */
 
+/* Local modifications by the esp-analog-streamer project, 2026-10-09:
+ * Use caller-owned fixed storage, checked bit writes and sticky bounds failure;
+ * make signedness comparisons explicit.
+ * Notice recorded 2026-10-13; see UPSTREAM.md for provenance.
+ */
+
 #include "bitstream.h"
 #include "types.h"
 

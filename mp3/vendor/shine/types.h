@@ -1,3 +1,8 @@
+/* Local modifications by the esp-analog-streamer project, 2026-10-09:
+ * Store each encoder instance's deallocator and allocation context.
+ * Notice recorded 2026-10-13; see UPSTREAM.md for provenance.
+ */
+
 #ifndef PRIV_TYPES_H
 #define PRIV_TYPES_H
 

@@ -1,3 +1,8 @@
+/* Local modifications by the esp-analog-streamer project, 2026-10-09:
+ * Expose allocation/deallocation callbacks and the local initializer signature.
+ * Notice recorded 2026-10-13; see UPSTREAM.md for provenance.
+ */
+
 #ifndef LAYER3_H
 #define LAYER3_H
 

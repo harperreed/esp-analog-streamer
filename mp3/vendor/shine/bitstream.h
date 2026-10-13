@@ -1,3 +1,8 @@
+/* Local modifications by the esp-analog-streamer project, 2026-10-09:
+ * Expose fixed-storage initialization and sticky bitstream failure state.
+ * Notice recorded 2026-10-13; see UPSTREAM.md for provenance.
+ */
+
 #ifndef BITSTREAM_H
 #define BITSTREAM_H
 
