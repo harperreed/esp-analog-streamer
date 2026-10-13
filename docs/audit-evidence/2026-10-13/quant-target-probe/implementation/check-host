@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+# ABOUTME: Rebuilds and checks the bounded throwaway quantizer probe on the host.
+# ABOUTME: Retains arithmetic, actual-encoder and FFmpeg receipts beside the source.
+set -euo pipefail
+if [[ ${1:-} == --help || ${1:-} == -h ]]; then
+    echo 'Usage: check-host [--help]'
+    echo 'Run kernel tests, generate real FLAC streams, and verify independent arithmetic plus FFmpeg.'
+    exit 0
+fi
+if (( $# != 0 )); then
+    echo 'Unexpected argument; use --help.' >&2
+    exit 2
+fi
+probe_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
+cd "$probe_dir/../../.."
+rustfmt --edition 2021 --check --config skip_children=true "$probe_dir/quant-cost.rs" "$probe_dir/quant-cost/contract.rs" "$probe_dir/host.rs" "$probe_dir/kernel-tests.rs"
+rustc --edition=2021 -D warnings --test "$probe_dir/kernel-tests.rs" -o "$probe_dir/kernel-tests"
+"$probe_dir/kernel-tests" --nocapture > "$probe_dir/kernel-green.log" 2>&1
+rustc --edition=2021 -D warnings -O "$probe_dir/host.rs" -o "$probe_dir/host"
+"$probe_dir/host" "$probe_dir/host-output" > "$probe_dir/host-encode.log" 2>&1
+uv run --locked python "$probe_dir/verify.py" "$probe_dir/host-output" > "$probe_dir/ffmpeg.log" 2>&1
+cat "$probe_dir/kernel-green.log" "$probe_dir/host-encode.log" "$probe_dir/ffmpeg.log"
+echo "Receipts: $probe_dir/host-output/receipts.jsonl"

@@ -1,0 +1,16 @@
+{
+  "temporary_only": true,
+  "production_encoder_sha256": "01f0efabe7b759d4e09ef3ab66c5d5b75a12737713bf1664b29242134d472d46",
+  "files": [
+    {
+      "source": "target/kata-hardening/oct13-quant-target-impl/quant-cost.rs",
+      "target": "firmware/examples/quant-cost.rs",
+      "sha256": "d9e8bc43770a564374276046e9cdfe86427eca86a6dcc1ea239b336041385054"
+    },
+    {
+      "source": "target/kata-hardening/oct13-quant-target-impl/quant-cost/contract.rs",
+      "target": "firmware/examples/quant-cost/contract.rs",
+      "sha256": "0ea464527a384299e5c8185b15fda77fdf4cdec599d00e484e3f29c2d0596e44"
+    }
+  ]
+}

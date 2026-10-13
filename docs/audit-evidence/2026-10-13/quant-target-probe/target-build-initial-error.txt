@@ -1,0 +1,17 @@
+error[E0282]: type annotations needed for `*const _`
+  --> examples/quant-cost.rs:40:9
+   |
+40 |     let output_ptr = output.as_ptr();
+   |         ^^^^^^^^^^
+...
+47 |             sys::esp_ptr_external_ram(output.as_ptr().cast()),
+   |                                                       ---- cannot call a method on a raw pointer with an unknown pointee type
+   |
+help: consider giving `output_ptr` an explicit type, where the placeholder `_` is specified
+   |
+40 |     let output_ptr: *const T = output.as_ptr();
+   |                   ++++++++++
+
+For more information about this error, try `rustc --explain E0282`.
+error: could not compile `esp-shazam-firmware` (example "quant-cost") due to 1 previous error
+{"reason":"build-finished","success":false}

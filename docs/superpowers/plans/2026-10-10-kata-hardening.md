@@ -3,7 +3,7 @@
 Doctor Biz's active goal on October 10: finish all Kata work, then assess.
 Base c134069 on wip/kata-capture-protection. Prior phase compactions: 25;
 October 13 setup/reconnect acceptance phase compactions: 1.
-Latest checkpoint: local public-config source rebuild and modified-Shine relink verified.
+Latest checkpoint: standalone ESP32 quantization cost measured; ordinary firmware restored.
 Original-criteria review closed 93hm; 23 of 38 children remain closed.
 The wbz6 MP3 instruction-placement correction now passes matched hardware and
 all 27 canonical stages; its ordinary ELF equals the tested candidate exactly.
@@ -11,6 +11,31 @@ Prior failed device audio trials remain failed.
 Use GPT-6.1 Sol subagents with clean contexts. Parent owns review, integration,
 canonical checks, commits and every hardware action. Continue through batches;
 a phase checkpoint is not a reason to abandon the active goal.
+
+## October 13 quantization target-cost checkpoint
+
+The throwaway qm2a benchmark completes all 180 target phases and matches 30
+independently decoded host receipts. Rounding adds 0.348–0.394 ms/block of
+preprocessing, discrete TPDF adds 2.462–2.850 ms; compression cost depends on the
+fixture. Heap endpoints stay fixed and minimum free task stack is 1,348 bytes.
+See quant-target.md and its probe archive for the full contract and limits.
+These isolated preprocessing-plus-encoder costs do not establish analog benefit,
+audibility, fused production cost or loaded streaming headroom. Keep truncation.
+
+The first example build failed an inferred buffer type before a pointer cast;
+the explicit u8 type fixes it, with final target build warning-free. Host kernel,
+independent arithmetic, real FFmpeg, parser negative controls and independent
+Sol review pass. Canonical all 27 stages and post-removal firmware 5 stages pass.
+Only the two temporary example files were installed and removed; product source
+is unchanged. The saved ordinary 0ff2a7cc image is restored and rebuilt exactly;
+MP3/Medium settings are preserved, board/Sonos stopped, listeners idle.
+
+No whole child closes: 23/38 closed, 15 open. qm2a still needs analog noise,
+audibility, policy review and loaded compatibility. No workstation audio/auth
+attempt or AP control occurred. Do not repeat this standalone benchmark as a
+substitute for those gates. Current bounded phase compactions: 1. The overall
+goal remains active; checkpoint this work before choosing another original
+criterion that can advance without physical, AP, hosted or policy prerequisites.
 
 ## October 13 MP3 source rebuild checkpoint
 

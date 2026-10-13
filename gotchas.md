@@ -1250,3 +1250,9 @@ The canonical check inventories those inputs, so its first build can link and
 pass every stage while failing final boundary stability. Retain that failure;
 complete dependency setup before the acceptance run. A public-config rebuild
 and modified-library relink do not prove a complete distribution-source bundle.
+
+Discrete byte TPDF with ties-up rounding is not the continuous NumPy candidate:
+ideal zero-input mean is +1/512 output LSB. Keep arithmetic/RNG and decoder
+receipts tied to each candidate. Standalone preprocessing plus the unchanged
+FLAC encoder repeats quantization; its timing does not predict a fused path or
+loaded streaming headroom. See October 13 quant-target evidence.
