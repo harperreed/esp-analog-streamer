@@ -24,3 +24,60 @@ The next primary evidence needed is the actual contract for Queue attachment and
 A separate bounded gate can test passive recovery without new remote command authority: close one sender media connection, retain the original valid intent and network generation, and observe whether Sonos requests the same tagged URI and receives new payload. Require timestamps, checked old-owner release, bounded replacement admission, one/two listener resource accounting, and zero recovery Play/SetURI/Stop. Rejected canceled/stale-generation requests must remain rejected. Passing would establish Sonos-initiated media reconnect for that failure case only. It would not replace the original 0.5/1/2.5/4-second actual-path interruption matrix, takeover tests, or sample-accounted continuity. A failure must remain a failure rather than trigger unguarded Play.
 
 No recovery behavior was implemented or verified by this schema audit. The original automatic recovery and real-device acceptance gates remain unmet.
+
+## Follow-up: ownership and Stop
+
+The passive-close gate proposed above has since run and failed. See
+[the completed acquisition](passive-reconnect.md); it is no longer a proposed
+next test.
+
+The local review at source commit `0b71fd7` also inspected
+`docs-ignore/victrola-hacks.tgz`. Its `sonos-integration.md` identifies the
+playback sequence as a reconstruction, not a complete native-session capture.
+The saved `evidence/sonos-readonly.json` contains getInfo, getVolume and
+getPlaybackStatus exchanges. It supplies no plaintext conditional-restart
+transaction or settings encoding. The reconstructed session path uses WSS;
+Doctor Biz's choice to defer TLS still applies.
+
+A focused primary-source search inspected Noson, SoCo, duncan3dc/sonos,
+node-sonos-ts, go-sonos and OpenPhonos for the extension names and settings
+fields. It found no concrete recovery invocation or settings construction in
+the inspected text. This excludes history, submodules, binaries and possible
+dynamic calls; it is not an exhaustive claim about these projects.
+[OpenPhonos' generated method](https://github.com/amp64/openphonos/blob/cc5ee47d4aa2dba953ab3c964295e3778d33f0a1/src/Sonos/Services/AVTransport1.cs#L911)
+forwards caller-supplied strings. The
+[node-sonos-ts ChangeCoordinator test](https://github.com/svrooij/node-sonos-ts/blob/8548ab5a96126b92dcef45d5bad695abb54b5e30/src/tests/services/av-transport.service.test.ts#L55)
+uses empty settings against a mocked request. Neither establishes a valid
+device encoding or stale-owner rejection; do not copy those empty arguments
+into a hardware test. Exact scan revisions and limits are retained in
+`target/kata-hardening/oct13-recovery/semantics.md`.
+
+Inspected revisions: Noson `31e26bdcffe50a27f00c957c6c96b382558f6f4d`;
+SoCo `9be1d36c295a147f501a7994541f758f2b565653`;
+duncan3dc/sonos `996de7331e10f9fb64b497a32483f642ab86b90c`;
+node-sonos-ts `8548ab5a96126b92dcef45d5bad695abb54b5e30`;
+go-sonos `faa122ce8c5d738fa0c194b81804f5eacf90a1a6`;
+OpenPhonos `cc5ee47d4aa2dba953ab3c964295e3778d33f0a1`.
+The archive scan skipped files larger than 1.5 MB (2 MB for OpenPhonos).
+
+URI equality alone cannot express every required ownership condition. Even if
+an extension atomically compares the URI, that comparison cannot distinguish
+an intervening owner that reuses the URI, or a manual Stop that leaves it
+unchanged. This is a logical limit, not a newly observed device result. A safe
+restart contract must also establish that the original authority remains valid
+and that Stop revoked it. A separate unguarded Play after an ownership check
+would reopen the race. Preserve the current terminal STOPPED/PAUSED handling.
+
+The existing production controller already retains delivery through bounded
+read-only recovery. Each HTTP request opens a fresh socket; creating another
+Client would not add playback authority. Its missing independent gate is the
+real-device control-read timeout and cancellation acceptance documented in
+[the control-recovery plan](../../superpowers/plans/2026-10-11-sonos-control-recovery.md).
+That gate could test retained delivery without automatic media writes, but
+would not prove playback restart, AP-loss recovery or sample continuity.
+
+Keep pqqq open. Do not repeat the completed passive-close experiment or schema
+inventory as evidence of progress. Further extension work needs a documented
+contract or legitimate-controller request/reply evidence, including stale
+owner and Stop rejection. No firmware, device, workstation audio, mixer or
+access-control changes ran during this follow-up; no new test pass is claimed.

@@ -1,5 +1,12 @@
 # Gotchas
 
+HTTP recovery cannot infer restart authority from matching URI alone. An owner
+can reuse a URI, and a Stop can leave it unchanged; even atomic URI comparison
+would need revocation semantics to cover those cases. These are contract limits,
+not new observed Sonos behavior. The Victrola archive contains reconstructed WSS
+playback and read-only receipts, not a plaintext conditional-restart transaction.
+See October 13 recovery-protocol evidence before reopening that investigation.
+
 Channel diagnostics expose the last completed measurement, not current capture
 validity. Age starts when capture finishes the meter push, keeps its original
 timestamp through store contention, and grows through a reset until a new

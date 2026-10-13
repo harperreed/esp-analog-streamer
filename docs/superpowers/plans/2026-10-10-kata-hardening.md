@@ -3,7 +3,7 @@
 Doctor Biz's active goal on October 10: finish all Kata work, then assess.
 Base c134069 on wip/kata-capture-protection. Prior phase compactions: 25;
 October 13 setup/reconnect acceptance phase compactions: 1.
-Latest checkpoint: channel diagnostics implemented and tested; physical calibration open.
+Latest checkpoint: recovery contract follow-up; automatic restart authority unresolved.
 Original-criteria review closed 93hm; 23 of 38 children remain closed.
 The wbz6 MP3 instruction-placement correction now passes matched hardware and
 all 27 canonical stages; its ordinary ELF equals the tested candidate exactly.
@@ -11,6 +11,30 @@ Prior failed device audio trials remain failed.
 Use GPT-6.1 Sol subagents with clean contexts. Parent owns review, integration,
 canonical checks, commits and every hardware action. Continue through batches;
 a phase checkpoint is not a reason to abandon the active goal.
+
+## October 13 recovery contract follow-up
+
+Two clean Sol 6.1 reviews checked local Victrola evidence and primary controller
+implementations. No inspected evidence establishes a plaintext restart operation
+that rejects stale ownership. The Victrola archive supplies reconstructed WSS
+playback and three read-only command exchanges, not the required transaction.
+Even proven URI comparison would need Stop/owner revocation semantics to cover
+manual Stop or ownership reuse of the same URI. These are protocol requirements,
+not newly observed device behavior or proof that every HTTP extension fails.
+
+The existing read-only controller recovery already ships. Its real-device
+control-read timeout/cancellation gate remains an independent next test; no
+new recovery implementation is justified by these reads. Do not rerun schema
+inventory or the failed passive-close experiment. Extension work requires a
+documented contract or legitimate-controller transaction with rejection evidence.
+See the follow-up in October 13 recovery-protocol.md.
+
+Doctor Biz cannot access the workstation. Do not ask again or change audio ACLs,
+mixer controls or sinks. Physical calibration/settling, AP-path injection and
+hosted access gates remain as recorded. This follow-up changed documentation
+only; no hardware, source audio, firmware, build or test run occurred. pqqq and
+wmsy remain open, with 23/38 children closed and 15 open. Goal remains active;
+this is the first no-implementation-progress turn after channel diagnostics.
 
 ## October 13 channel diagnostics checkpoint
 
