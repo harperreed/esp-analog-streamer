@@ -1238,3 +1238,15 @@ with LAME stereo sharing and reservoir both disabled. This does not isolate
 either setting or prove audibility. Full-band noise SNR also confounds LAME's
 high-frequency removal. Float overshoot alone is not internal integer overflow.
 Silent correlation windows provide no delay evidence; record null, not a lag.
+
+toml-cfg 0.2.0 finds cfg.toml through rustc's nearest output ancestor named
+target, not CARGO_MANIFEST_DIR. Recipient rebuilds need their own firmware/target
+and public cfg before compilation. Reusing the production target path can
+import private settings. Copy native SDK/tools independently; venv paths do not
+relocate reliably. See October 13 mp3-relink evidence.
+
+A fresh SDK Python install adds cryptography Cargo manifests under .embuild.
+The canonical check inventories those inputs, so its first build can link and
+pass every stage while failing final boundary stability. Retain that failure;
+complete dependency setup before the acceptance run. A public-config rebuild
+and modified-library relink do not prove a complete distribution-source bundle.

@@ -1,0 +1,9 @@
+{
+  "status": "pass",
+  "source_hashes_match_recipient_archive": true,
+  "encoded_frames": 96,
+  "changed_byte_offsets": "2 + 960*n, n=0..95",
+  "decoded_sample_frames": 110592,
+  "pcm_sha256": "2f7e977fc1490e8f2b72bbdba75edce5b67757512dea18bc8ccf2d0c9f5f33cc",
+  "fresh_parent_ffmpeg_decodes": 2
+}

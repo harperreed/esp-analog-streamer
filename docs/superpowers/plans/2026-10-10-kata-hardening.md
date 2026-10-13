@@ -3,7 +3,7 @@
 Doctor Biz's active goal on October 10: finish all Kata work, then assess.
 Base c134069 on wip/kata-capture-protection. Prior phase compactions: 25;
 October 13 setup/reconnect acceptance phase compactions: 1.
-Latest checkpoint: corrected MP3 objective music/fade/reference comparisons complete.
+Latest checkpoint: local public-config source rebuild and modified-Shine relink verified.
 Original-criteria review closed 93hm; 23 of 38 children remain closed.
 The wbz6 MP3 instruction-placement correction now passes matched hardware and
 all 27 canonical stages; its ordinary ELF equals the tested candidate exactly.
@@ -11,6 +11,27 @@ Prior failed device audio trials remain failed.
 Use GPT-6.1 Sol subagents with clean contexts. Parent owns review, integration,
 canonical checks, commits and every hardware action. Continue through batches;
 a phase checkpoint is not a reason to abandon the active goal.
+
+## October 13 MP3 source rebuild checkpoint
+
+At source bfea1d4, a positive-allowlist archive rebuilds the complete ordinary
+firmware with public configuration. A private-header-bit change reaches the
+final target initializer; 96 actual host MP3 frames change only that bit and
+decode to identical 110,592-frame PCM. Parent and independent Sol review verified
+source/artifact hashes and final ELF instructions. See mp3-relink.md and probes.
+
+The first fresh-target build linked and passed five stages but failed canonical
+boundary validation because SDK bootstrap added Python dependency manifests.
+The unchanged-source post-bootstrap run and modified run both pass all five
+firmware stages plus boundary checks. This failure remains retained. No check,
+host golden, production source, deployed image or audio setting was changed.
+
+Local modification/full-relink engineering evidence is complete. External
+recipient verification, full distribution-source/dependency requirements and
+license compatibility remain open alongside e8hd's recovery/listening/endurance
+gates. No whole child closes: 23/38 closed, 15 open. No hardware/audio/auth action.
+This bounded phase has one compaction; commit and continue from remaining
+original criteria, without repeating this build proof. Goal remains active.
 
 ## October 13 MP3 fidelity checkpoint
 
