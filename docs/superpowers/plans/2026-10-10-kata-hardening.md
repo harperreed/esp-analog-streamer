@@ -49,6 +49,21 @@ now uses Wi-Fi. Its 1 Hz latest-sample export cannot prove exact listener wake
 timing. Preserve those limits and prior failed coexistence/recovery verdicts.
 This phase is saved; resume from these exact gates without repeating its checks.
 
+The subsequent wired diagnostic acquisition stopped at prerequisites twice.
+Trial 01 lost Ethernet-bound board TCP reachability after UART reset; it later
+recovered. Trial 02 reached fresh Sonos STOPPED, then ALSA denied access: PCH exists
+but its device ACL grants the greeter, not harper. Local desktop sign-in was asked.
+No Play/debug/audio source ran, and neither trial measures coexistence. Do not
+repeat until audio access is restored. See October 12 wired-contention-preconditions.
+
+Current unified ordinary firmware is restored and verified stopped MP3/Medium,
+autoplay/recognition off, Sonos STOPPED, idle listeners. Image
+`36e14f18791c1011d4215f5e91e2ee5f7d560bd2318d3bbcdb53c6afaf061964`, boot
+`20630fb862ad5b966e3ec15a77010ca6`. No source/flash/UART test process remains.
+The scratch driver now binds both device and source; source IP alone routes over
+Wi-Fi here. Startup capture losses remain visible; they are not cleared by the
+precondition receipts. No new closure: 22 children closed, 16 remain.
+
 ## October 11 closure and work-selection checkpoint
 
 Doctor Biz subsequently selected HTTP/UPnP Sonos control ("skip tls for now").

@@ -1118,3 +1118,13 @@ owner-lifetime write/poll maxima do not describe the terminal frame. WAV uses an
 Instant origin, so do not fabricate its boot-clock deadline or move its origin
 while adding diagnostics. Reject malformed timeout receipts instead of skipping
 them and accepting another valid record as sufficient evidence.
+
+With Ethernet and Wi-Fi on the same subnet, binding Ethernet's source IP does not
+necessarily select Ethernet. Check the actual route and bind the socket device
+as well for a wired experiment. On this host SO_BINDTODEVICE works without sudo;
+raw packet capture still requires privileges. Keep endpoint/device receipts.
+
+ALSA can say PCH is invalid or report no soundcards while /proc/asound still lists
+the hardware. Check actual device opens and ACLs: the October 12 desktop greeter
+held audio access while harper received EACCES. Restore the desktop session;
+do not bypass output verification or redirect test audio to another sink.
