@@ -102,7 +102,9 @@ pub(crate) enum Payload {
     },
     Timeout {
         elapsed_ms: u64,
-        limit_ms: u64,
+        nominal_limit_ms: u64,
+        remaining_budget_us: u64,
+        deadline_us: Option<u64>,
         bytes: usize,
     },
     Refusal {
@@ -121,12 +123,37 @@ pub(crate) struct ErrorCode {
     pub kind: std::io::ErrorKind,
     pub raw_os_error: Option<i32>,
 }
+/// Captures the budget at its timing origin and a boot deadline when known.
+#[derive(Clone, Copy)]
+pub(crate) struct WriteTiming {
+    pub nominal_limit_ms: u64,
+    pub remaining_budget_us: u64,
+    pub deadline_us: Option<u64>,
+}
+impl WriteTiming {
+    pub(crate) fn new(started_us: u64, deadline_us: u64, nominal_limit_ms: u64) -> Self {
+        Self {
+            nominal_limit_ms,
+            remaining_budget_us: deadline_us.saturating_sub(started_us),
+            deadline_us: Some(deadline_us),
+        }
+    }
+    /// The Instant write starts with this full budget; its boot-clock deadline is unknown.
+    pub(crate) fn for_instant_limit(limit: Duration) -> Self {
+        Self {
+            nominal_limit_ms: limit.as_millis() as u64,
+            remaining_budget_us: limit.as_micros() as u64,
+            deadline_us: None,
+        }
+    }
+}
+
 pub(crate) fn report_timeout(
     queue: &Queue,
     peer: Option<SocketAddr>,
     result: &std::io::Result<()>,
     elapsed_ms: u64,
-    limit_ms: u64,
+    timing: WriteTiming,
     bytes: usize,
     now: impl FnOnce() -> u64,
 ) {
@@ -137,7 +164,9 @@ pub(crate) fn report_timeout(
             peer,
             payload: Payload::Timeout {
                 elapsed_ms,
-                limit_ms,
+                nominal_limit_ms: timing.nominal_limit_ms,
+                remaining_budget_us: timing.remaining_budget_us,
+                deadline_us: timing.deadline_us,
                 bytes,
             },
         });

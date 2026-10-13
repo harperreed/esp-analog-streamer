@@ -169,20 +169,73 @@ fn admitted_refusal_sends_original_response_and_records_numeric_write_failure() 
 }
 
 #[test]
+fn instant_write_budget_starts_at_original_origin_without_claiming_boot_deadline() {
+    let timing = listener_telemetry::WriteTiming::for_instant_limit(Duration::from_secs(2));
+    assert_eq!(timing.nominal_limit_ms, 2000);
+    assert_eq!(timing.remaining_budget_us, 2_000_000);
+    assert_eq!(timing.deadline_us, None);
+}
+
+#[test]
+fn timeout_receipt_keeps_clipped_budget_separate_from_nominal_limit() {
+    let q = Queue::new();
+    let started_us = 28_843_291;
+    let deadline_us = esp_shazam_core::media_age::MediaAge::for_stream(None, OutputFormat::Flac)
+        .deadline(started_us, 25_625_291, started_us + 8_021_000)
+        .unwrap();
+    let timing = listener_telemetry::WriteTiming::new(started_us, deadline_us, 8021);
+    let result = Err(std::io::Error::from(std::io::ErrorKind::TimedOut));
+    listener_telemetry::report_timeout(&q, record(1).peer, &result, 782, timing, 9073, || {
+        29_625_291
+    });
+    assert!(matches!(
+        q.take().unwrap().payload,
+        Payload::Timeout {
+            elapsed_ms: 782,
+            nominal_limit_ms: 8021,
+            remaining_budget_us: 782_000,
+            deadline_us: Some(29_625_291),
+            bytes: 9073,
+        }
+    ));
+    let expired = listener_telemetry::WriteTiming::new(100, 99, 8021);
+    assert_eq!(expired.remaining_budget_us, 0);
+    assert_eq!(expired.deadline_us, Some(99));
+}
+
+#[test]
 fn timeout_result_is_reported_without_consuming_or_changing_terminal_error() {
     let q = Queue::new();
     let result = Err(std::io::Error::from(std::io::ErrorKind::TimedOut));
-    listener_telemetry::report_timeout(&q, record(1).peer, &result, 2500, 2400, 99, || 45);
+    listener_telemetry::report_timeout(
+        &q,
+        record(1).peer,
+        &result,
+        2500,
+        listener_telemetry::WriteTiming::new(0, 2_400_000, 2400),
+        99,
+        || 45,
+    );
     assert!(matches!(
         q.take().unwrap().payload,
         Payload::Timeout {
             elapsed_ms: 2500,
-            limit_ms: 2400,
+            nominal_limit_ms: 2400,
+            remaining_budget_us: 2_400_000,
+            deadline_us: Some(2_400_000),
             bytes: 99
         }
     ));
     assert!(matches!(&result, Err(error) if error.kind() == std::io::ErrorKind::TimedOut));
-    listener_telemetry::report_timeout(&q, record(1).peer, &Ok(()), 1, 2400, 2, || 46);
+    listener_telemetry::report_timeout(
+        &q,
+        record(1).peer,
+        &Ok(()),
+        1,
+        listener_telemetry::WriteTiming::new(0, 2_400_000, 2400),
+        2,
+        || 46,
+    );
     assert!(q.take().is_none());
 }
 
@@ -328,7 +381,7 @@ fn real_socket_timeout_and_refusal_reach_close_with_full_queue_and_blocked_expor
                 Some(address),
                 &result,
                 30,
-                30,
+                listener_telemetry::WriteTiming::new(0, 30_000, 30),
                 actor.write_bytes(&[]).len(),
                 || 30,
             );

@@ -802,13 +802,14 @@ fn write_frame(
     peer: Option<SocketAddr>,
 ) -> io::Result<()> {
     let started = Instant::now();
+    let timing = listener_telemetry::WriteTiming::for_instant_limit(limit);
     let result = writer.write_all_before(bytes, started + limit);
     listener_telemetry::report_timeout(
         &EVENTS,
         peer,
         &result,
         started.elapsed().as_millis() as u64,
-        limit.as_millis() as u64,
+        timing,
         bytes.len(),
         event_us,
     );
@@ -1128,6 +1129,11 @@ fn stream_compressed(
                     }
                 }
                 let write_started_us = event_us();
+                let timing = listener_telemetry::WriteTiming::new(
+                    write_started_us,
+                    deadline.as_micros() as u64,
+                    epoch.format.write_limit_ms(CONFIG.shazam_enabled),
+                );
                 let oldest_us = listener.pending_oldest_accepted_us();
                 if let (Some(owner), Some(oldest)) = (&observation, oldest_us) {
                     owner.begin(write_started_us, oldest);
@@ -1148,7 +1154,7 @@ fn stream_compressed(
                     peer,
                     &result,
                     started.elapsed().as_millis() as u64,
-                    epoch.format.write_limit_ms(CONFIG.shazam_enabled),
+                    timing,
                     listener.write_bytes(bytes).len(),
                     event_us,
                 );
@@ -1395,7 +1401,7 @@ pub(crate) fn export_listener_events() {
         match record.payload {
             Payload::Joined { format, held, owner_id, sonos_intent } => log::info!("stream: {peer} joined {} ({held} of {MAX_LISTENERS}) event_us={event_us} owner_id={owner_id} sonos_intent={sonos_intent} role={}", format.path(), if sonos_intent == 0 { "diagnostic" } else { "sonos" }),
             Payload::Closed { elapsed_ms, held, owner_id, sonos_intent } => log::info!("stream: {peer} socket closed in {elapsed_ms} ms; releasing slot ({held} held) event_us={event_us} owner_id={owner_id} sonos_intent={sonos_intent}"),
-            Payload::Timeout { elapsed_ms, limit_ms, bytes } => log::info!("stream: frame write timed out elapsed_ms={elapsed_ms} limit_ms={limit_ms} bytes={bytes} peer={peer} event_us={event_us}"),
+            Payload::Timeout { elapsed_ms, nominal_limit_ms, remaining_budget_us, deadline_us, bytes } => log::info!("stream: frame write timed out elapsed_ms={elapsed_ms} nominal_limit_ms={nominal_limit_ms} remaining_budget_us={remaining_budget_us} deadline_us={deadline_us:?} bytes={bytes} peer={peer} event_us={event_us}"),
             Payload::Refusal { reason, status, response_error } => {
                 let (reason, allocation_error) = match reason {
                     RefusalReason::BufferedStartup => ("BufferedStartup", None),

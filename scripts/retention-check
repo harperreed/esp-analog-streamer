@@ -22,6 +22,27 @@ class Failure(Exception):
     pass
 
 
+def parse_frame_timeout(line):
+    match = re.search(r'frame write timed out elapsed_ms=(\d+) nominal_limit_ms=(\d+) '
+                      r'remaining_budget_us=(\d+) deadline_us=(Some\(\d+\)|None) bytes=(\d+)(?=\s|$)', line)
+    if not match:
+        if 'frame write timed out' in line:
+            raise Failure(f'malformed frame timeout receipt: {line}')
+        return None
+    elapsed, nominal, budget = map(int, match.groups()[:3])
+    deadline_text, size = match.groups()[3:]
+    deadline = None if deadline_text == 'None' else int(deadline_text[5:-1])
+    size = int(size)
+    if (nominal not in (2000, 8021) or budget > nominal * 1000
+            or (deadline is None and (nominal != 2000 or budget != nominal * 1000))
+            or (deadline is not None and budget > deadline)
+            or not budget - 1000 <= elapsed * 1000 <= budget + 500_000):
+        raise Failure(f'frame deadline outside expected budget/slack: elapsed_ms={elapsed} '
+                      f'nominal_limit_ms={nominal} remaining_budget_us={budget} deadline_us={deadline}')
+    return dict(elapsed_ms=elapsed, nominal_limit_ms=nominal,
+                remaining_budget_us=budget, deadline_us=deadline, bytes=size)
+
+
 def main():
     parser = argparse.ArgumentParser(
         prog='scripts/retention-check',
@@ -147,14 +168,12 @@ def main():
                 for key in heap_keys:
                     heap_lows[key] = min(heap_lows.get(key, sample[key]), sample[key])
                 record('capture_heap', counters=sample)
-            match = re.search(r'frame write timed out elapsed_ms=(\d+) limit_ms=(\d+) bytes=(\d+)', line)
-            if match:
-                elapsed, limit, size = map(int, match.groups())
-                if limit not in timeouts or not limit - 1 <= elapsed <= limit + 500:
-                    raise Failure(f'frame deadline outside expected limit/slack: elapsed={elapsed} limit={limit}')
-                timeouts[limit]['count'] += 1
-                timeouts[limit]['max_ms'] = max(timeouts[limit]['max_ms'], elapsed)
-                record('frame_timeout', elapsed_ms=elapsed, limit_ms=limit, bytes=size)
+            timeout = parse_frame_timeout(line)
+            if timeout:
+                nominal = timeout['nominal_limit_ms']
+                timeouts[nominal]['count'] += 1
+                timeouts[nominal]['max_ms'] = max(timeouts[nominal]['max_ms'], timeout['elapsed_ms'])
+                record('frame_timeout', **timeout)
             match = re.search(r'socket closed in (\d+) ms; releasing slot \((\d+) held\)', line)
             if match:
                 elapsed, held = map(int, match.groups())

@@ -18,6 +18,47 @@ LISTENER_RECEIPT = ('listener-telemetry: dropped=0 loss_occurred=false observed_
 
 
 class ModuleTests(unittest.TestCase):
+    def test_retention_timeout_uses_clipped_budget_and_rejects_early_return(self):
+        source = (Path(__file__).parent / 'retention-check').read_text().split("<<'PY'\n", 1)[1].rsplit('\nPY', 1)[0]
+        namespace = {'__name__': 'retention_test'}
+        exec(compile(source, 'retention-check', 'exec'), namespace)
+        parse = namespace['parse_frame_timeout']
+        line = ('frame write timed out elapsed_ms=782 nominal_limit_ms=8021 '
+                'remaining_budget_us=782000 deadline_us=Some(29625291) bytes=9073')
+        self.assertEqual(parse(line), dict(elapsed_ms=782, nominal_limit_ms=8021,
+            remaining_budget_us=782000, deadline_us=29625291, bytes=9073))
+        with self.assertRaises(namespace['Failure']):
+            parse(line.replace('elapsed_ms=782', 'elapsed_ms=780'))
+        with self.assertRaises(namespace['Failure']):
+            parse(line.replace('remaining_budget_us=782000', 'remaining_budget_us=8022000'))
+        self.assertEqual(parse(line.replace('elapsed_ms=782', 'elapsed_ms=1282'))['elapsed_ms'], 1282)
+        self.assertIsNone(parse('unrelated UART line'))
+        wav = ('frame write timed out elapsed_ms=2000 nominal_limit_ms=2000 '
+               'remaining_budget_us=2000000 deadline_us=None bytes=6000')
+        self.assertIsNone(parse(wav)['deadline_us'])
+        with self.assertRaises(namespace['Failure']):
+            parse(wav.replace('elapsed_ms=2000', 'elapsed_ms=0').replace(
+                'remaining_budget_us=2000000', 'remaining_budget_us=0'))
+        with self.assertRaises(namespace['Failure']):
+            parse(line.replace('deadline_us=Some(29625291)', 'deadline_us=None'))
+
+
+    def test_retention_timeout_rejects_malformed_records_after_a_valid_record(self):
+        source = (Path(__file__).parent / 'retention-check').read_text().split("<<'PY'\n", 1)[1].rsplit('\nPY', 1)[0]
+        namespace = {'__name__': 'retention_test'}
+        exec(compile(source, 'retention-check', 'exec'), namespace)
+        parse = namespace['parse_frame_timeout']
+        line = ('frame write timed out elapsed_ms=782 nominal_limit_ms=8021 '
+                'remaining_budget_us=782000 deadline_us=Some(29625291) bytes=9073')
+        self.assertIsNotNone(parse(line))
+        for malformed in ('frame write timed out',
+                          line.replace('bytes=9073', 'bytes=9073broken'),
+                          line.replace('remaining_budget_us=782000 ', ''),
+                          line.replace('deadline_us=Some(29625291)', 'deadline_us=unknown')):
+            with self.subTest(line=malformed), self.assertRaises(namespace['Failure']):
+                parse(malformed)
+
+
     def test_retention_reason_classification_uses_emitted_departure_text(self):
         from encoder_fault_check import listener_end_category
         for reason, category in (
