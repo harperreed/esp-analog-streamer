@@ -3,13 +3,54 @@
 Doctor Biz's active goal on October 10: finish all Kata work, then assess.
 Base c134069 on wip/kata-capture-protection. Prior phase compactions: 25;
 October 13 setup/reconnect acceptance phase compactions: 1.
-Latest checkpoint: original-criteria review closed 93hm; 23 of 38 children closed.
+Latest checkpoint: radio restoration verified; recovery protocol evidence expanded.
+Original-criteria review closed 93hm; 23 of 38 children remain closed.
 The wbz6 MP3 instruction-placement correction now passes matched hardware and
 all 27 canonical stages; its ordinary ELF equals the tested candidate exactly.
 Prior failed device audio trials remain failed.
 Use GPT-6.1 Sol subagents with clean contexts. Parent owns review, integration,
 canonical checks, commits and every hardware action. Continue through batches;
 a phase checkpoint is not a reason to abandon the active goal.
+
+## October 13 radio and recovery protocol checkpoint
+
+The missing hv4x diagnostic-to-production transition is now measured: seed
+bitmap 3 survives a real reset; the observation image reads 3 after initialization
+and immediately before the existing setter, then reports 7/PS0 and associates.
+Its channel was 11; the restored ordinary boot associates on channel 6. Preserve
+both observations. No reconnect rerun or buffer change was needed. hv4x remains
+open because its original correlated sender/AP criterion is still unavailable.
+
+Both throwaway images compiled without warnings; the observation image passed
+the linked I2S IRAM check. Review caught NVS automatic-erase behavior before any
+probe ran; diagnostic initialization now fails without erasing on NVS errors.
+Both temporary production edits and the example were removed. The rebuilt
+ordinary ELF exactly matches the prior verified e93f8f72692c1630d082de42b3d1ae8d11d8c106c2ef6e978e96b74a83cb5eea.
+No retained firmware or harness behavior changed; canonical run.YkqTJGio remains
+the check receipt for that source, not a newly run suite. See October 13
+radio-baseline.md/.json and archived diagnostic sources for the actual gates.
+
+Fresh final boot 74e77947d416e3544fe599b07175b5a7 is stopped MP3/Medium, with
+autoplay/recognition off, idle listeners and remote Sonos STOPPED/OK. Saved Sonos
+settings and the private compiled configuration file are unchanged. No source
+audio, media command, volume write or mixer change ran in this phase.
+
+Read-only acquisition of the current Sonos description and five service schemas
+adds exact protocol evidence for pqqq. Queue AttachQueue has owner-labelled
+arguments; AVTransport ChangeTransportSettings accepts a current URI. Neither
+schema proves conditional ownership or safe automatic restart. Standard Play
+has no expected-source input; VirtualLineIn does not add one. See October 13
+recovery-protocol.md/.json. Investigate those exact semantics before any write;
+do not declare all plaintext recovery impossible or call an extension by guess.
+Passive same-intent media GET replacement remains a separate testable case.
+
+dctv needs the explicit live-continuity policy. Doctor Biz was asked whether live
+Sonos should skip forward after backlog or terminate; the answer is pending.
+Debug/archive semantics, partial-frame termination and capture-generation safety
+must remain explicit. No skip implementation was started. Existing failed 7vhq
+contention evidence remains failed; audio access is still required by that gate.
+No additional Kata closed: 23 children closed, 15 remain. This phase has zero
+compactions; continue from these receipts without repeating the radio experiment.
 
 ## October 13 capture acceptance checkpoint
 

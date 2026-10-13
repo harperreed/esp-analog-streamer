@@ -1153,3 +1153,14 @@ NVS stress under active MP3 can outlast the older FLAC timing. Require both
 listeners to span every write/readback, cleanup and cooldown marker; a passing
 short decoder run alone does not pass the setup gate. The October 13 90-second
 run missed cleanup, while the 180-second repeat covered the whole sequence.
+
+The pinned NVS partition take() permits automatic erase after NO_FREE_PAGES or
+NEW_VERSION_FOUND. A diagnostic that promises to preserve storage must use
+take_with(false) and stop on error. The ordinary production policy is unchanged.
+
+For radio-persistence evidence, flash with espflash --after no-reset, then let
+the recorded serial acquisition own the first reset. An unrecorded production
+boot can restore the protocol before the observer starts and hide the stored
+diagnostic value. October 13 measured b/g across reset, then explicit b/g/n
+restoration before association. Preserve association channel per boot; it changed
+from 11 to 6 in the paired acquisition.
