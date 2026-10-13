@@ -311,6 +311,61 @@ class ModuleTests(unittest.TestCase):
                 encoder.completed_listener_closes([left,close,receipt])
         self.assertEqual(len(encoder.completed_listener_closes([left,close,LISTENER_RECEIPT])),1)
 
+    def test_network_mp3_path_selects_real_decoder_input_and_preserves_mode_constraints(self):
+        import contextlib
+        import io
+        import fault_check as fault
+        for path, demuxer in [('/stream.flac', 'flac'), ('/stream.mp3', 'mp3')]:
+            args = fault.parse_args(['--mode', 'network', '--path', path])
+            command = fault.decoder_command(args, '192.0.2.1', Path('progress'), Path('hashes'), 10)
+            input_index = command.index('-i')
+            self.assertEqual(command[input_index-2:input_index], ['-f', demuxer])
+            self.assertEqual(command[input_index+1], 'http://192.0.2.1:8000'+path)
+            self.assertIn('-xerror', command)
+            self.assertEqual(command[command.index('-err_detect')+1], 'crccheck')
+            self.assertEqual(command[-5:], ['-f', 'framehash', '-flush_packets', '1', 'hashes'])
+        for mode, path in [('capture', '/stream.flac'), ('capture', '/stream.wav')]:
+            self.assertEqual(fault.parse_args(['--mode', mode, '--path', path]).path, path)
+        invalid = [['--mode', mode, '--path', '/stream.mp3']
+                   for mode in ('capture', 'pressure', 'internal-pressure', 'wav-local', 'health')]
+        invalid += [['--mode', 'network', '--path', '/stream.wav'],
+                    ['--mode', 'network', '--path', '/stream.mp3', '--listeners', '1']]
+        for argv in invalid:
+            with self.subTest(argv=argv), contextlib.redirect_stderr(io.StringIO()), self.assertRaises(SystemExit) as error:
+                fault.parse_args(argv)
+            self.assertEqual(error.exception.code, 2)
+
+    def test_network_injection_budget_tracks_first_reset_not_baseline_completion(self):
+        import fault_check as fault
+        # The fixture injects at 60 s; observation/startup slack ends at 70 s.
+        for now, expected in [(105, 65), (159, 11), (170, 0), (180, 0)]:
+            with self.subTest(now=now):
+                self.assertEqual(fault.network_injection_remaining(100, now), expected)
+
+    def test_network_disconnect_wait_uses_remaining_budget_and_real_uart_validation(self):
+        import fault_check as fault
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory)/'uart.log'
+            path.write_text('network-faults: marker=DISCONNECT_REQUEST ms=60000\n')
+            read = lambda: fault.read_uart_lines(path)
+            def check():
+                return next((index for index, row in enumerate(read())
+                             if 'marker=DISCONNECT_REQUEST' in row), None)
+            for now, expected in [(105, 65), (159, 11)]:
+                budgets = []
+                def wait(check, seconds, reason):
+                    budgets.append(seconds)
+                    return fault.wait_for(check, seconds, reason, read)
+                self.assertEqual(fault.wait_for_network_disconnect(check, wait, 100, now), 0)
+                self.assertEqual(budgets, [expected])
+            path.write_text('')
+            wait = lambda check, seconds, reason: fault.wait_for(check, seconds, reason, read)
+            with self.assertRaisesRegex(fault.Failure, 'network disconnect request missing'):
+                fault.wait_for_network_disconnect(check, wait, 100, 180)
+            path.write_text('marker=FAIL_NETWORK\nnetwork-faults: marker=DISCONNECT_REQUEST ms=60000\n')
+            with self.assertRaisesRegex(fault.Failure, 'fixture reported failure'):
+                fault.wait_for_network_disconnect(check, wait, 100, 159)
+
     def test_fault_production_close_waits_require_batch_and_correct_departure(self):
         import fault_check as fault
         close='stream: p socket closed in 2 ms; releasing slot (1 held) event_us=2000'
@@ -469,6 +524,23 @@ assert not list(Path.cwd().iterdir())
                         os.killpg(process.pid, signal.SIGKILL)
                         process.wait(timeout=3)
                     process.stdout.close()
+
+    def test_fault_wrapper_documents_mp3_and_validates_network_pairing_before_runtime(self):
+        script = Path(__file__).resolve().with_name('fault-check')
+        help_result = subprocess.run([str(script), '--help'], capture_output=True, text=True, timeout=10)
+        self.assertEqual(help_result.returncode, 0)
+        self.assertIn('/stream.mp3', help_result.stdout)
+        cases = [(['--mode', 'network', '--path', '/stream.mp3', '--listeners', '1'], 'require --listeners 2'),
+                 (['--mode', 'network', '--path', '/stream.wav'], 'network requires --path'),
+                 (['--mode', 'capture', '--path', '/stream.mp3'], 'capture requires --path'),
+                 (['--mode', 'pressure', '--path', '/stream.mp3'], 'require --path /stream.flac')]
+        with tempfile.TemporaryDirectory() as directory:
+            for argv, reason in cases:
+                result = subprocess.run([str(script), *argv], cwd=directory,
+                                        capture_output=True, text=True, timeout=10)
+                self.assertEqual(result.returncode, 2, result.stderr)
+                self.assertIn(reason, result.stderr)
+                self.assertEqual(list(Path(directory).iterdir()), [])
 
     def test_fault_wrapper_retains_shell_option_guards(self):
         script = Path(__file__).resolve().with_name('fault-check')

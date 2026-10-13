@@ -1,14 +1,48 @@
 # Finish the Kata hardening backlog
 
 Doctor Biz's active goal on October 10: finish all Kata work, then assess.
-Base c134069 on wip/kata-capture-protection. Compactions in this phase: 25.
-Latest checkpoint: original-criteria review closed 8s9m, 21tp and 89g8.
+Base c134069 on wip/kata-capture-protection. Prior phase compactions: 25;
+October 13 setup/reconnect acceptance phase compactions: 1.
+Latest checkpoint: original-criteria review closed 93hm; 23 of 38 children closed.
 The wbz6 MP3 instruction-placement correction now passes matched hardware and
 all 27 canonical stages; its ordinary ELF equals the tested candidate exactly.
 Prior failed device audio trials remain failed.
 Use GPT-6.1 Sol subagents with clean contexts. Parent owns review, integration,
 canonical checks, commits and every hardware action. Continue through batches;
 a phase checkpoint is not a reason to abandon the active goal.
+
+## October 13 capture acceptance checkpoint
+
+93hm is closed after independent review against its original criteria and Doctor
+Biz's explicit HTTP choice. The demonstrated capture fix remains `2c9fec6`.
+Three HTTP client lifetimes pass during dual 120-second MP3 decoding; 120 real
+NVS write/readback operations, cleanup and cooldown pass during dual 180-second
+decoding. The earlier 90-second NVS run still fails full-operation coverage.
+The public network fixture disconnects Wi-Fi, production reconnects, and both
+fresh listeners decode exactly 480000 frames. All retained capture rows pass
+the strict startup parser; optional raw snapshots remain explicit gaps.
+
+The network harness now waits against a reset-relative injection deadline and
+accepts MP3 for network tests. All 31 focused harness tests and all 27 canonical
+stages pass in `run.YkqTJGio`. Diagnostic linked IRAM checks pass. See
+`docs/audit-evidence/2026-10-13/capture-setup-recovery.md` and its JSON receipt for
+image identities, exact counts, failed trials and limits. The reviewed throwaway
+HTTP source is archived there and removed from the firmware examples directory.
+
+Ordinary unified image
+`e93f8f72692c1630d082de42b3d1ae8d11d8c106c2ef6e978e96b74a83cb5eea`
+is restored, boot `275e2c9f3a025a614d0653f2e16269c0`. Fresh read-only checks confirm
+stopped MP3/Medium, autoplay/recognition off, idle listeners and Sonos STOPPED/OK.
+No source audio or Play ran. Owned acquisition/decoder/flash processes are reaped.
+
+wmsy now has 23 closed children and 15 remaining; the parent remains open. Next
+priorities are pqqq ownership-safe playback recovery and 7vhq listener priority,
+using their original acceptance criteria and preserving earlier failed trials.
+Capture acceptance does not close either. Known-signal fidelity/settling still
+requires local audio access; do not bypass the desktop ACL. AP access remains
+unavailable and hosted authentication remains unresolved; no push is authorized.
+This phase is saved. Resume from this checkpoint with fresh Sol 6.1 workers,
+without repeating passed capture gates or treating the full goal as complete.
 
 ## October 12 continuation checkpoint
 

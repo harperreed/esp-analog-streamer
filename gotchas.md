@@ -1143,3 +1143,13 @@ firmware. Keep startup and loaded acceptance together; a quiet boot alone is
 insufficient. Use stream-soak --require-clean-startup for setup checks so stable
 post-loss counters cannot silently become a passing baseline. This does not
 prove recovery under all workloads or identify every preempting task.
+
+Raw progress is an optional atomic snapshot. When raw_valid=false, numeric zero
+fields are placeholders; retain the observation gap and compare generations
+only where their validity flag is true. A failed snapshot does not establish a
+capture reset or prove uninterrupted publication through that interval.
+
+NVS stress under active MP3 can outlast the older FLAC timing. Require both
+listeners to span every write/readback, cleanup and cooldown marker; a passing
+short decoder run alone does not pass the setup gate. The October 13 90-second
+run missed cleanup, while the 180-second repeat covered the whole sequence.

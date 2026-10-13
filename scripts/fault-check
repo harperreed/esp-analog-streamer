@@ -4,7 +4,7 @@
 set -euo pipefail
 usage() {
     cat <<'HELP'
-Usage: scripts/fault-check --mode capture|pressure|internal-pressure|network|wav-local|health [HOST] [--path /stream.flac|/stream.wav] [--listeners 1|2] [--stream-port PORT] [--state-port PORT] [--out DIR]
+Usage: scripts/fault-check --mode capture|pressure|internal-pressure|network|wav-local|health [HOST] [--path /stream.flac|/stream.wav|/stream.mp3] [--listeners 1|2] [--stream-port PORT] [--state-port PORT] [--out DIR]
 Flash capture-faults, listener-pressure, internal-pressure, network-faults, or wav-freshness first, with Shazam disabled. This check resets
 the board through scripts/serial-log and records private UART logs. Health uses capture-faults
 without stream clients: it proves capture restart/reset policy, not freshness or decoded playback.
@@ -13,7 +13,8 @@ Stream/state ports default to 8000/80; each must be 1..65535.
 HOST defaults to esp-shazam.local; output defaults to target/fault-check/<dated run>.
 Capture defaults to /stream.flac; /stream.wav checks WAV freshness.
 Listeners default to 2; capture supports 1 to isolate WAV freshness without two-stream load.
-Only 2-listener runs check the admission cap. Pressure, internal-pressure, network, and wav-local require FLAC and 2 host listeners.
+Only 2-listener runs check the admission cap. Pressure, internal-pressure, and wav-local require FLAC and 2 host listeners.
+Network supports FLAC or MP3 and requires 2 host listeners.
 Internal-pressure requires EOF refusal, stack ENOMEM/checked close, then decoded recovery; its floor is experimental.
 wav-local checks two board loopback WAV peers first; byte progress is not waveform decoding. Start with no existing clients.
 Capture allows 4.5 s for EOF after suspension:
@@ -34,7 +35,7 @@ while [ "$#" -gt 0 ]; do
             [ "$#" -ge 2 ] && [ -z "$mode" ] && [[ "$2" = capture || "$2" = pressure || "$2" = internal-pressure || "$2" = network || "$2" = wav-local || "$2" = health ]] || { echo 'FAIL --mode requires capture, pressure, internal-pressure, network, wav-local, or health' >&2; exit 2; }
             mode="$2"; shift 2 ;;
         --path)
-            [ "$#" -ge 2 ] && [ -z "$path_seen" ] && [[ "$2" = /stream.flac || "$2" = /stream.wav ]] || { echo 'FAIL --path requires /stream.flac or /stream.wav once' >&2; exit 2; }
+            [ "$#" -ge 2 ] && [ -z "$path_seen" ] && [[ "$2" = /stream.flac || "$2" = /stream.wav || "$2" = /stream.mp3 ]] || { echo 'FAIL --path requires /stream.flac, /stream.wav, or /stream.mp3 once' >&2; exit 2; }
             stream_path="$2"; path_seen=yes; shift 2 ;;
         --listeners)
             [ "$#" -ge 2 ] && [ -z "$listeners_seen" ] && [[ "$2" = 1 || "$2" = 2 ]] || { echo 'FAIL --listeners requires 1 or 2 once' >&2; exit 2; }
@@ -51,7 +52,11 @@ while [ "$#" -gt 0 ]; do
 done
 [ -n "$mode" ] || { echo 'FAIL --mode is required (see --help)' >&2; exit 2; }
 [[ "$mode" != health || ( -z "$path_seen" && -z "$listeners_seen" ) ]] || { echo 'FAIL health does not accept stream path/listener options' >&2; exit 2; }
-[[ "$mode" = capture || "$stream_path" = /stream.flac ]] || { echo 'FAIL pressure/internal-pressure/network/wav-local require --path /stream.flac' >&2; exit 2; }
+case "$mode" in
+    network) [[ "$stream_path" = /stream.flac || "$stream_path" = /stream.mp3 ]] || { echo 'FAIL network requires --path /stream.flac or /stream.mp3' >&2; exit 2; } ;;
+    capture) [[ "$stream_path" = /stream.flac || "$stream_path" = /stream.wav ]] || { echo 'FAIL capture requires --path /stream.flac or /stream.wav' >&2; exit 2; } ;;
+    *) [[ "$stream_path" = /stream.flac ]] || { echo 'FAIL pressure/internal-pressure/wav-local require --path /stream.flac' >&2; exit 2; } ;;
+esac
 [[ "$mode" = capture || "$listeners" = 2 ]] || { echo 'FAIL pressure/internal-pressure/network/wav-local require --listeners 2' >&2; exit 2; }
 repo="$(cd "$(dirname "$0")/.." && pwd)"
 exec uv run --quiet --project "$repo" --locked python3 "$repo/scripts/fault_check.py" "${original[@]}"

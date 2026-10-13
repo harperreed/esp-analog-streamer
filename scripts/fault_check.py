@@ -79,6 +79,18 @@ def wait_for(check, seconds, reason, read_lines):
         time.sleep(0.05)
 
 
+def network_injection_remaining(reset_observed, now):
+    # The fixture injects once at 60 s; allow 10 s for startup/observation.
+    return max(0, 70 - (now - reset_observed))
+
+
+def wait_for_network_disconnect(check, wait, reset_observed, now=None):
+    if now is None:
+        now = time.monotonic()
+    return wait(check, network_injection_remaining(reset_observed, now),
+                'network disconnect request missing')
+
+
 def wait_for_listener_close(read_lines, wait, after=0, seconds=4, require_departure=True,
                             departure_pattern=None, held=None):
     def find():
@@ -189,13 +201,19 @@ def parse_args(argv=None):
     parser.add_argument('--stream-port', type=port, default=8000, help='stream TCP port (default: 8000)')
     parser.add_argument('--state-port', type=port, default=80, help='state HTTP port (default: 80)')
     parser.add_argument('--out')
-    parser.add_argument('--path', default='/stream.flac', choices=['/stream.flac', '/stream.wav'])
+    parser.add_argument('--path', default='/stream.flac', choices=['/stream.flac', '/stream.wav', '/stream.mp3'])
     parser.add_argument('--listeners', type=int, default=2, choices=[1, 2])
     args = parser.parse_args(argv)
     if args.mode == 'health' and any(option in (sys.argv[1:] if argv is None else argv) for option in ['--path', '--listeners']):
         parser.error('health does not accept stream path/listener options')
-    if args.mode != 'capture' and args.path != '/stream.flac':
-        parser.error('pressure/internal-pressure/network/wav-local require --path /stream.flac')
+    if args.mode == 'network':
+        if args.path not in ('/stream.flac', '/stream.mp3'):
+            parser.error('network requires --path /stream.flac or /stream.mp3')
+    elif args.mode == 'capture':
+        if args.path not in ('/stream.flac', '/stream.wav'):
+            parser.error('capture requires --path /stream.flac or /stream.wav')
+    elif args.path != '/stream.flac':
+        parser.error('pressure/internal-pressure/wav-local require --path /stream.flac')
     if args.mode != 'capture' and args.listeners != 2:
         parser.error('pressure/internal-pressure/network/wav-local require --listeners 2')
 
@@ -413,10 +431,11 @@ def main(argv=None):
         raw = uart.open('wb')
         serial_errors = (out / 'serial.log').open('wb')
         handles += [raw, serial_errors]
-        serial = subprocess.Popen([str(repo / 'scripts/serial-log'), '100'], stdout=raw, stderr=serial_errors,
+        serial = subprocess.Popen([str(repo / 'scripts/serial-log'), '200' if args.mode == 'network' else '100'], stdout=raw, stderr=serial_errors,
                                   start_new_session=True)
         processes.append(serial)
         uart_match(r'rst:0x', seconds=20)
+        reset_observed = time.monotonic()
         record('reset_seen', mode=args.mode, host=args.host, stream_port=args.stream_port, state_port=args.state_port, ip=ip)
         state_ready()
         if args.mode == 'health':
@@ -539,7 +558,7 @@ def main(argv=None):
                     if job['process'].poll() is not None or job['errors'].stat().st_size:
                         raise Failure('network baseline decoder failed before disconnect injection')
                 return None
-            request = wait(disconnect_request, 30, 'network disconnect request missing')
+            request = wait_for_network_disconnect(disconnect_request, wait, reset_observed)
             baseline = telemetry(before=request)
             if not baseline:
                 raise Failure('missing capture baseline before network disconnect')
