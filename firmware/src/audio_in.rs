@@ -152,10 +152,11 @@ pub fn spawn_capture(
         stack_bytes: 4 * 1024,
     }
     .spawn(move || metrics(metrics_raw))?;
+    // Keep the DMA consumer above Wi-Fi setup work; it blocks while awaiting input.
     ThreadSpec {
         name: c"audio",
         core: Core::Core0,
-        priority: 10,
+        priority: 24,
         stack_bytes: 8 * 1024,
     }
     .spawn(move || capture(rx, recognition, publisher, store))?;
@@ -210,8 +211,15 @@ fn capture(
 ) -> ! {
     #[cfg(feature = "startup-capture-trace")]
     let mut trace = {
-        crate::startup_capture_trace::CAPTURE
-            .publish(crate::startup_capture_trace::observation(20, 0));
+        let mut r = crate::startup_capture_trace::observation(20, 0);
+        r.words[8] = esp_idf_svc::hal::cpu::core() as u32;
+        // SAFETY: The current task handle remains valid during these read-only queries.
+        unsafe {
+            let task = esp_idf_svc::sys::xTaskGetCurrentTaskHandle();
+            r.words[9] = esp_idf_svc::sys::xTaskGetCoreID(task) as u32;
+            r.words[10] = esp_idf_svc::sys::uxTaskPriorityGet(task) as u32;
+        }
+        crate::startup_capture_trace::CAPTURE.publish(r);
         crate::startup_capture_trace::Observer::new()
     };
     #[cfg(feature = "startup-capture-trace")]

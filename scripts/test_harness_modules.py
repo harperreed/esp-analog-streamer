@@ -18,6 +18,44 @@ LISTENER_RECEIPT = ('listener-telemetry: dropped=0 loss_occurred=false observed_
 
 
 class ModuleTests(unittest.TestCase):
+    # Sanitized first capture rows from oct12-affinity/a2-uart.log and c-uart.log.
+    startup_a = ('audio: frames=476640 queue_overflows=16 software_dropped_frames=480 '
+                 'read_errors=0 restarts=2 supervisor_restarts=0 overflow_restarts=2 '
+                 'settling_discarded_frames=26400 discontinuities=2 health_restart_requests=0 '
+                 'internal_min_sum=43967 psram_min_sum=322588')
+    startup_c = ('audio: frames=481920 queue_overflows=8 software_dropped_frames=0 '
+                 'read_errors=0 restarts=0 supervisor_restarts=0 overflow_restarts=0 '
+                 'settling_discarded_frames=24000 discontinuities=0 health_restart_requests=0 '
+                 'internal_min_sum=44667 psram_min_sum=322504')
+
+    def test_soak_clean_startup_rejects_retained_a_and_accepts_c(self):
+        import stream_soak as soak
+        with self.assertRaises(soak.Failure):
+            soak.parse_capture_sample(self.startup_a, require_clean_startup=True)
+        sample = soak.parse_capture_sample(self.startup_c, require_clean_startup=True)
+        self.assertEqual(sample['frames'], 481920)
+        self.assertEqual(sample['queue_overflows'], 8)
+        self.assertEqual(sample['settling_discarded_frames'], 24000)
+        self.assertEqual(soak.parse_capture_sample(self.startup_a)['restarts'], 2)
+
+    def test_soak_clean_startup_requires_each_zero_counter(self):
+        import stream_soak as soak
+        for key in ('software_dropped_frames', 'read_errors', 'restarts',
+                    'supervisor_restarts', 'overflow_restarts', 'discontinuities',
+                    'health_restart_requests'):
+            for replacement in ('', f'{key}=1', f'{key}=-1', f'{key}=0broken',
+                                f'{key}=0.5', f'{key}=unknown', f'{key}=0 {key}=0'):
+                with self.subTest(key=key, replacement=replacement), self.assertRaises(soak.Failure):
+                    line = ' '.join(replacement if token == f'{key}=0' else token
+                                    for token in self.startup_c.split())
+                    soak.parse_capture_sample(line,
+                                              require_clean_startup=True)
+
+    def test_soak_clean_startup_flag_is_opt_in(self):
+        import stream_soak as soak
+        self.assertFalse(soak.parse_args([]).require_clean_startup)
+        self.assertTrue(soak.parse_args(['--require-clean-startup']).require_clean_startup)
+
     def test_retention_timeout_uses_clipped_budget_and_rejects_early_return(self):
         source = (Path(__file__).parent / 'retention-check').read_text().split("<<'PY'\n", 1)[1].rsplit('\nPY', 1)[0]
         namespace = {'__name__': 'retention_test'}

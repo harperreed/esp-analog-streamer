@@ -82,6 +82,34 @@ diagnostic proposed by source review changes only capture affinity for a quiet
 matched comparison; it has not been implemented or run. Keep 93hm and all
 continuity/recovery gates open. No new closure: 22 children closed, 16 remain.
 
+### Capture priority correction and strict startup gate
+
+The matched A1/B/A2/B2 quiet comparison is complete. Core 0/priority 10 controls
+reproduce two startup recoveries; core 1/priority 10 clears startup but fails the
+two-listener MP3 load. Keep core 0 and raise capture priority to 24: diagnostic C
+and the ordinary feature-off image both pass 120 seconds with two listeners,
+5760000 decoded sample frames each and no observed startup/steady loss. Eight
+initial queue overflows and 24000 intentional settling frames remain accounted.
+The new opt-in --require-clean-startup gate rejects the actual A rows before
+baseline acceptance and passes the actual C rows; ordinary hardware passes it.
+
+All 27 canonical stages pass in run.4Ey5mnzb; independent source/linked/harness
+reviews and final fresh-eyes review have no blockers. See October 12
+capture-priority.md/.json for failed alternatives, precise receipt ages,
+runtime/heap limits and the scoped scheduling cause. Ordinary image
+e93f8f72692c1630d082de42b3d1ae8d11d8c106c2ef6e978e96b74a83cb5eea is installed,
+boot 6da14d38badb3e5d09f3745cbb76b5f2, stopped MP3/Medium, recognition/autoplay
+off, idle listeners, remote Sonos STOPPED/OK. No source audio or Play ran; owned
+hardware/decoder processes are reaped. The desktop ACL remains untouched.
+
+Keep 93hm open: repeat exact-sample active HTTP setup/reconnect/configuration
+acceptance with capture counters spanning setup. Sonos TLS work stays superseded
+by Doctor Biz's HTTP choice. Known-signal/analog checks still need workstation
+audio access; AP controls and hosted authentication remain separate constraints.
+No closure is claimed: 22 children closed, 16 remain. This landed phase needs a
+fresh root session; session replacement is unavailable here, so this explicit
+checkpoint and clean-context Sol 6.1 workers preserve the next step.
+
 ## October 11 closure and work-selection checkpoint
 
 Doctor Biz subsequently selected HTTP/UPnP Sonos control ("skip tls for now").

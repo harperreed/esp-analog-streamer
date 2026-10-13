@@ -1135,3 +1135,11 @@ overflows in two recoveries, observed during Wi-Fi construction/start. Do not
 erase the latter as expected codec-clock backlog. Driver-read wall time includes
 preemption/waits; phase overlap does not identify a task or ISR cause. An accepted
 post-restart read can still be discarded for settling before raw publication.
+
+Capture core0/priority10 reproduces startup DMA loss during Wi-Fi setup. Moving
+capture to core1 clears startup but failed the matched two-listener MP3 load.
+Core0/priority24 clears both bounded gates, including ordinary feature-off
+firmware. Keep startup and loaded acceptance together; a quiet boot alone is
+insufficient. Use stream-soak --require-clean-startup for setup checks so stable
+post-loss counters cannot silently become a passing baseline. This does not
+prove recovery under all workloads or identify every preempting task.

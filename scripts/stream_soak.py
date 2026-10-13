@@ -26,6 +26,26 @@ class Failure(Exception):
 
 
 OUTPUT_BUDGET_BYTES = 128 * 1024 * 1024
+LOSS_KEYS = ['queue_overflows', 'software_dropped_frames', 'read_errors', 'restarts', 'discontinuities']
+CLEAN_STARTUP_KEYS = ['software_dropped_frames', 'read_errors', 'restarts',
+                      'supervisor_restarts', 'overflow_restarts', 'discontinuities',
+                      'health_restart_requests']
+
+
+def parse_capture_sample(line, require_clean_startup=False):
+    """Validate the UART sample before it can establish a soak baseline."""
+    if require_clean_startup:
+        for key in CLEAN_STARTUP_KEYS:
+            values = re.findall(r'\b' + key + r'=(\S+)', line)
+            if len(values) != 1 or re.fullmatch(r'[0-9]+', values[0]) is None:
+                raise Failure(f'clean startup requires one valid capture counter: {key}')
+            if int(values[0]) != 0:
+                raise Failure(f'clean startup capture counter is nonzero: {key}={values[0]}')
+    sample = {key: int(value) for key, value in re.findall(r'\b([a-z_]+)=(-?\d+)', line)}
+    required = ['frames', *LOSS_KEYS, 'internal_min_sum', 'psram_min_sum']
+    if any(key not in sample for key in required):
+        raise Failure('capture telemetry lacks required counters/window minima')
+    return sample
 
 
 def seconds(value):
@@ -181,6 +201,8 @@ def argument_parser():
     parser.add_argument('--stream-port', type=port, default=8000, help='stream TCP port (default: 8000)')
     parser.add_argument('--state-port', type=port, default=80, help='state HTTP port (default: 80)')
     parser.add_argument('--out', help='parent output directory (default: target/stream-soak)')
+    parser.add_argument('--require-clean-startup', action='store_true',
+                        help='require every capture sample, including before baseline/decoder startup, to have zero loss/recovery counters; expected queue_overflows and settling discards are allowed before baseline (default: steady-state gate only)')
     parser.add_argument('--failure-observe-seconds', type=observation_seconds, default=0.0,
                         help='retain existing raw UART and decoders after failure for 0..120 seconds (default: 0); counters remain pre-failure snapshots')
     return parser
@@ -220,7 +242,8 @@ def main(argv=None):
     minimums = {}
     state_polls = 0
     ip = None
-    loss_keys = ['queue_overflows', 'software_dropped_frames', 'read_errors', 'restarts', 'discontinuities']
+    loss_keys = LOSS_KEYS
+    capture_gate = 'clean_startup_and_steady_state' if args.require_clean_startup else 'steady_state_only'
 
     def check_output_budget():
         return check_budget(out)
@@ -259,10 +282,7 @@ def main(argv=None):
                 runtime_invalid_windows += 1
             if 'audio: frames=' not in line:
                 continue
-            sample = {key: int(value) for key, value in re.findall(r'\b([a-z_]+)=(-?\d+)', line)}
-            required = ['frames', *loss_keys, 'internal_min_sum', 'psram_min_sum']
-            if any(key not in sample for key in required):
-                raise Failure('capture telemetry lacks required counters/window minima')
+            sample = parse_capture_sample(line, require_clean_startup=args.require_clean_startup)
             if baseline is not None:
                 for key in loss_keys:
                     if sample[key] != baseline[key]:
@@ -293,7 +313,7 @@ def main(argv=None):
         processes.append(serial)
         uart_tail = Tail(out / 'uart.log')
         tails.append(uart_tail)
-        record('start', host=args.host, path=args.path, stream_port=args.stream_port, state_port=args.state_port, ip=ip, requested_seconds=args.seconds, listeners=args.listeners)
+        record('start', host=args.host, path=args.path, stream_port=args.stream_port, state_port=args.state_port, ip=ip, requested_seconds=args.seconds, listeners=args.listeners, capture_gate=capture_gate)
         startup_deadline = time.monotonic() + 60
         state_seen = False
         next_state = 0
@@ -413,6 +433,7 @@ def main(argv=None):
                        requested_seconds=args.seconds, listeners=args.listeners, elapsed_seconds=round(time.monotonic() - started, 3),
                        decoded_seconds=[job['decoded_seconds'] for job in jobs], state_polls=state_polls,
                        decoder_accounting=[dict(timeline_seconds=job['timeline_seconds'], **job['accounting'].summary()) for job in jobs],
+                       capture_gate=capture_gate, require_clean_startup=args.require_clean_startup,
                        baseline=baseline, last_capture=latest, captured_frames_observed=captured,
                        last_capture_phase='pre_failure' if failure_at is not None else 'completion',
                        last_capture_age_seconds_at_failure=max(0, failure_at - latest_at) if failure_at is not None and latest is not None else None,

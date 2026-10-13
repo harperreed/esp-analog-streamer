@@ -3,6 +3,7 @@
 use std::sync::atomic::{AtomicU32, Ordering};
 // Word layout: kind, time lo/hi; ordinary observations carry callbacks, overflows,
 // result code, sample end lo/hi. Kind 23 word 8 is the actual production baseline.
+// Kind 20 words 8/9/10 carry executing core, pinned affinity and current priority.
 // Fault 30: previous/current overflow, callbacks, settling, last read begin lo/hi,
 // end lo/hi, frames, result, staged frames, sample end lo/hi, sample begin lo/hi.
 // The last read interval is historical; the bracket covers current fault samples.
