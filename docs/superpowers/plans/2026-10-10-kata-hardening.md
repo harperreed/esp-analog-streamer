@@ -1,7 +1,7 @@
 # Finish the Kata hardening backlog
 
 Doctor Biz's active goal on October 10: finish all Kata work, then assess.
-Base c134069 on wip/kata-capture-protection. Compactions in this phase: 24.
+Base c134069 on wip/kata-capture-protection. Compactions in this phase: 25.
 Latest checkpoint: original-criteria review closed 8s9m, 21tp and 89g8.
 The wbz6 MP3 instruction-placement correction now passes matched hardware and
 all 27 canonical stages; its ordinary ELF equals the tested candidate exactly.
@@ -23,10 +23,31 @@ Its acceptance receipt is updated; closing this investigation does not close
 coexistence, recovery or release gates. Current routing also changed to workstation
 Wi-Fi; future receiver comparisons must explicitly use the recorded interface.
 
-Continue the bounded timeout-receipt correction: the terminal write used an
-age-clipped deadline, but its log printed the nominal socket limit. Do not alter
-the enforced deadline or buffering policy. Separate host quantization measurements
-and refreshed CI-publication preparation remain partial work with explicit gates.
+pd6c is closed with reviewed receipt commit `9578eec`: wmsy has 22 closed children
+and 16 remaining. The parent plus remaining children total 17 issues.
+
+Timeout-receipt correction is committed as `261fd12`. The terminal write used an
+age-clipped deadline, but its log printed the nominal socket limit. Enforced
+deadlines and buffering policy are unchanged. Independent review and all 27
+canonical stages pass in run.83iaZywQ. See the October 12 timeout-budget receipt.
+No new hardware verdict or further closure follows from this diagnostic fix.
+
+The qm2a synthetic quantization pilot and independent exact repeat are retained
+in the October 12 quantization-host evidence. Keep its analog, audibility,
+target-cost and policy-review criteria open; production conversion is unchanged.
+
+GitHub access still fails after Doctor Biz's retry: gh auth status times out;
+the desktop GCR SSH agent lists keys but refuses signing. Local unlock is pending.
+No authentication settings changed or publication occurred. The frozen proposal
+at 7a0d320 excludes later commits and still needs remote privacy/ref verification
+and explicit publication approval under the existing no-push constraint.
+
+Next transport acquisition should reuse tcp-retention's existing bounded PCB
+observations, not invent new native hooks. The current contention driver needs
+explicit wired source binding before a comparable run: the workstation default
+now uses Wi-Fi. Its 1 Hz latest-sample export cannot prove exact listener wake
+timing. Preserve those limits and prior failed coexistence/recovery verdicts.
+This phase is saved; resume from these exact gates without repeating its checks.
 
 ## October 11 closure and work-selection checkpoint
 

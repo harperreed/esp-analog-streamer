@@ -1,0 +1,29 @@
+{
+  "cases": 18,
+  "stable_results_equal": true,
+  "flac_bytes_identical": true,
+  "excluded_fields": [
+    "quantization_python_host_ns",
+    "production_encode_host_ns"
+  ],
+  "flac_sha256": {
+    "noise_minus100_dbfs_rms.truncation.flac": "6720713e40ceb9bf816cda32485e45cee3d46f81451af129efc28e9d479029b0",
+    "silence.truncation.flac": "c02a7d8f20bed095a0938599f2e26da2a03a07790bae8a1873c3b00a0340e959",
+    "silence.tpdf_rounded_saturated.flac": "704abb64414585c27c3bb585f2d078a9722c6a71285792519902e05dd77ffe34",
+    "tone_minus90_dbfs.truncation.flac": "c158d2c0722e5f45f098f86a2b42f3e5b47a32b7dba12ce4c81ef5051834830d",
+    "silence.rounded_saturated.flac": "c02a7d8f20bed095a0938599f2e26da2a03a07790bae8a1873c3b00a0340e959",
+    "fullscale_extremes.truncation.flac": "34641a4647c8fec32bdd98d59277f95ec9eeb63fff18a2e203419d569f452559",
+    "tone_minus90_dbfs.tpdf_rounded_saturated.flac": "8f58749a8ae4951bc561499cd4da0e8ad46e55d92460a120a8cb42763fc623d3",
+    "fullscale_extremes.tpdf_rounded_saturated.flac": "c48132767e41f559a954ff793c62abaa76bfd5b110d5d8497fa2673731cb3378",
+    "tone_minus90_dbfs.rounded_saturated.flac": "d7cefb9ccea90d86f8914cafd087045f8554278ec7fad7b49984b75493f9700d",
+    "fade_minus60_to_minus120_dbfs.rounded_saturated.flac": "9e0d484a9060d8cc87838fc0a265d27b4a3fba8587cda610104aab1a3a579cf1",
+    "dc_quarter_lsb.tpdf_rounded_saturated.flac": "8d10fb349403fd02c1649c007472846426e0f0ae36d07b0cb691172759ff02ec",
+    "fullscale_extremes.rounded_saturated.flac": "f70f25738cd9b5e858b529d1507381933354af956760058537b0e7c55f3d3783",
+    "noise_minus100_dbfs_rms.tpdf_rounded_saturated.flac": "5b51c92566658437fabf15baeea65982f2868364f6f213a73cc47d5ad74b10ad",
+    "noise_minus100_dbfs_rms.rounded_saturated.flac": "e4778249b2ba3f3de3fd5b467888a0c371a36cf41223312ee72922481ee97091",
+    "dc_quarter_lsb.truncation.flac": "34860be6c1930d0b381592bfe14698b9ac7e1cd37253343ec2d92156737a9bca",
+    "fade_minus60_to_minus120_dbfs.tpdf_rounded_saturated.flac": "7ff1e0640de0dab8c0b8ab2690ecfc544f47c481e974bc9bc6275d3680ae2cd9",
+    "dc_quarter_lsb.rounded_saturated.flac": "c02a7d8f20bed095a0938599f2e26da2a03a07790bae8a1873c3b00a0340e959",
+    "fade_minus60_to_minus120_dbfs.truncation.flac": "78a9e518509cec1c64c6d06fbeb7f62255a8d70e65b6ab8a6e888e6ad2dbd297"
+  }
+}

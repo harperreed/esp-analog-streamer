@@ -1111,3 +1111,10 @@ is superseded; do not keep asking for it or resume the failed TLS experiments.
 Preserve standalone board controls, format/buffer settings and intent admission.
 SOAP URI checks are not atomic ownership; Stop policy was asked separately and
 automatic recovery must not reclaim a changed source. See the sonos-http plan.
+
+A compressed frame's actual write budget can be shorter than its nominal socket
+allowance because media age clips the deadline. Record both, with their units;
+owner-lifetime write/poll maxima do not describe the terminal frame. WAV uses an
+Instant origin, so do not fabricate its boot-clock deadline or move its origin
+while adding diagnostics. Reject malformed timeout receipts instead of skipping
+them and accepting another valid record as sufficient evidence.
