@@ -1283,3 +1283,9 @@ start and end. Writing any repo file while it runs, even an untracked
 evidence document, fails that comparison and marks the run incomplete even
 when every stage passed (run.kwlkyMc3, October 14). Freeze the tree until
 the run finishes; scratchpad writes outside the repo are fine.
+
+The Altec is a shared household speaker. On October 14 the resume probe
+found it PLAYING a foreign source with status OK before any board Play and
+refused to start; Doctor Biz chose to wait rather than interrupt. Every
+Sonos test must precondition on remote STOPPED and an ungrouped coordinator,
+and a refusal is evidence, not a harness failure. Never override it.
