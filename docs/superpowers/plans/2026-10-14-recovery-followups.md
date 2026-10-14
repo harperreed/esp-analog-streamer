@@ -9,9 +9,18 @@
   S1–S7; fixes plus `--rejudge` and a heap/listeners verdict split are
   with the implementer. `--pcap` launcher change for ek5b with a second
   agent. Evidence `.md` drafted.
-- Next: rejudge the run, finish the JSON, frozen-tree host check, commit,
-  close gcq8; then 7fe1 and ek5b in Doctor Biz's tty (sudo), one board
-  user at a time
+- Step: gcq8 closing. Harness and `--pcap` launcher committed as
+  `cef749c` after `scripts/check --host` run.8w5SmF89 (22 stages);
+  `oct14-churn-1` re-judged under it: heap_passed true, listeners_clean
+  false (3 observations), all discontinuities 0. Evidence pair
+  `docs/audit-evidence/2026-10-14/listener-churn.{md,json}`.
+- Next: 7fe1 then ek5b in Doctor Biz's tty (`scripts/network-fault-batch
+  -- --trials null-1,null-2,stall-4-2`, then five of
+  `scripts/network-fault-batch --pcap -- --trials null-1,null-2`), one
+  board user at a time; the agent evaluates each result.json.
+- Follow-up noted, not ticketed: start/poll-decoder helpers exist three
+  times (stream_soak inline, network_fault.Driver, listener_churn); lift
+  into stream_soak when one of them next changes.
 - Open: none
 - Approved: "let's add katas and then start nuking em" (2026-10-14)
 - Compactions: 0
