@@ -1,13 +1,15 @@
 # Receiver-side interruption and overload recovery (cv5a, 2026-10-14)
 
-Two full batches of thirteen trials ran on the real board with Linux `tc`
+Three full batches of thirteen trials ran on the real board with Linux `tc`
 netem/tbf on the workstation's wired receiver interface, filtered to the
 board's address. Under the corrected verdict code, attempt 4 passes all
-thirteen trials and attempt 3 passes eleven. Every stall of 0.5, 1, 2.5 and
-4 s with one and two MP3 listeners was survived in attempt 4 with exact
-decoded frames and no discontinuity; in attempt 3 the 2.5 s stalls ended
-both listeners on media age about 3.5 s after the path was restored, with
-checked closes and fresh admissions. This does not establish anything about
+thirteen trials and attempt 3 passes eleven; attempt 5 is a failed control
+whose null trials ended on a board-side delivery stall with nothing
+injected. Every stall of 0.5, 1, 2.5 and 4 s with one and two MP3 listeners
+was survived in attempt 4 with exact decoded frames and no discontinuity;
+in attempts 3 and 5, stalls of 2.5 s and longer ended listeners on media
+age 1–3.5 s after the path was restored, with checked closes and fresh
+admissions where a slot was free. This does not establish anything about
 the Sonos path (the speaker fetches directly from the board and workstation
 shaping cannot reach it), ownership-safe resume (pqqq), RF or AP behavior,
 FLAC, or long-term delivery. Hashes, identities, per-trial numbers and the
@@ -38,6 +40,8 @@ Four attempts, all retained under `target/kata-hardening/oct14-interruption*`:
    in the same shell.
 3. 15:09 UTC, 674.5 s, boot `10b4dd7f…`, 76 raw artifacts.
 4. 15:20 UTC, 680.5 s, boot `1e858ec1…`, 65 raw artifacts.
+5. Later on 2026-10-14 under harness `fc9f2d5`, 582.0 s, boot
+   `586c4386…`: a failed control, described in its own section below.
 
 The original verdict code in attempts 3 and 4 failed trials the product
 passed: it judged the stall survival on the post-trial idle metrics sample,
@@ -103,6 +107,35 @@ ended `stopped reading` 3.05 s after admission (its own write limit fires
 before the 4 s age bound), checked close 2.0 s later; the MP3 listener was
 exact at 1,920,000 frames with capture counters flat. Both attempts agree.
 
+## Attempt 5: failed control
+
+Run to exercise the close-line replacement trigger. Both null trials failed
+on the product side: listeners ended `media age exceeded` at 28.7, 20.9 and
+21.0 s with the qdisc tree installed at 0% loss and nothing injected. The
+board's own sender receipt for the first listener recorded a 3,979,091 us
+socket poll wait and 40 sends over 10 ms; attempt 4's equivalent listener
+had no poll waits at all. No Wi-Fi disconnect, network generation 2
+throughout, capture counters flat, metrics polls timed out 5–8 times per
+null trial. This is the intermittent delivery-stall class already recorded
+under pd6c and wbz6, not a recovery result. With no null baseline every
+later stall and deficit verdict failed closed ("run null-* first"), as
+designed, and the batch is retained as a failed control. The plan's rule
+holds: no further blind run until that stall is diagnosed, which is not
+this ticket.
+
+What attempt 5 still showed: stalls of 2.5 and 4 s now ended both listeners
+on media age 1–3 s after restoration (attempt 4 survived all of them), so
+recovery from stalls of 2.5 s and longer is variable across attempts and
+is reported as such. Where a slot was free, the close-line trigger worked:
+`stall-2.5-2` and `deficit-0.5-1` replacements joined 0.5–0.8 s after the
+close, none refused. Two harness defects surfaced and are fixed in the
+commit named in the JSON: the trial loop exited when both decoders died
+before their close lines arrived, so `stall-4-2` never started its
+replacements; and the WAV reader's `connect()` timed out after 10 s with no
+join on UART, reported as "found 0 departures" rather than "never
+connected". The internal largest free block ended the batch at 47,104 B,
+unchanged from its start.
+
 ## Restoration
 
 Every attempt deleted its qdiscs and `ifb0` in a `finally` and verified the
@@ -119,5 +152,8 @@ receiver-visible loss and rate limits, not RF, AP queueing or the board's
 own Wi-Fi hop. MP3 as deployed; FLAC would need a saved-setting change. No
 Sonos playback, no ownership evidence, cv5a's fourth scenario unmet. The
 attempt-4 pass is an offline re-judgment of complete retained data; the
-original failing verdicts are kept beside it. The corrected replacement
-trigger is untested on hardware. Two attempts disagree on 2.5 s stalls.
+original failing verdicts are kept beside it. The close-line replacement
+trigger is shown only with a free slot; the survivor-holds-a-slot case
+remains untested because of the loop-exit defect. Three attempts disagree
+on 2.5 s and 4 s stalls. Attempt 5's null controls failed on a board-side
+delivery stall with nothing injected.

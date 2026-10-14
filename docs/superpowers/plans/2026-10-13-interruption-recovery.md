@@ -7,14 +7,19 @@
   on a harness TypeError in `Driver.apply`; qdisc restore verified, ifb0
   removed, no board or settings change. Fixed with a real Driver test;
   `prio bands 4` and mq-root restore are now confirmed with root.
-- Step: Task 5. Verdict fixes committed as `fc9f2d5` after
-  `scripts/check --host` run.wBkpTHsN (22 stages; run.kwlkyMc3 before it
-  failed boundary validation because the agent edited files during the
-  run, retained). Both attempts re-judged with the committed harness
-  (dirty false): attempt 4 13/13, attempt 3 11/13. Evidence pair written
-  to `docs/audit-evidence/2026-10-14/interruption-recovery.{md,json}`
-- Next: commit the evidence, comment cv5a, then ask Doctor Biz whether a
-  fifth run under the final harness (close-line trigger) is wanted
+- Step: Tasks 5–6 landed. Attempt 5 ("Run attempt 5 (Recommended)",
+  2026-10-14) was a failed control (board-side delivery stall, nothing
+  injected); its two harness defects are fixed in `84a0abc` after
+  `scripts/check --host` run.D2sqSCiu (22 stages). All three retained
+  batches re-judged under `84a0abc`: attempt 4 13/13, attempt 3 11/13,
+  attempt 5 0/13 (fails closed). Evidence pair updated and committed.
+- Next: nothing in this plan. cv5a stays open on its fourth scenario
+  (Sonos ownership-safe resume; pqqq, no injection point). Candidate
+  follow-ups, not this ticket: the board-side delivery stall seen in
+  attempt 5's null controls (pd6c class) and the 2–4 KiB internal
+  largest-free drop after listener churn. A sixth run is only worth it
+  after that stall is diagnosed; the harness's survivor-holds-a-slot
+  replacement path is still unexercised on hardware.
 - Open: Doctor Biz runs the Task 4 batch from their own tty ("You run it in
   your tty", 2026-10-14) because `sudo -n` cannot see a per-tty timestamp
   from the agent's shell; the agent evaluates `result.json` afterwards
@@ -203,6 +208,22 @@ qdisc tree restored and verified. Image `0ff2a7cc…` throughout.
   at 45,056 B. A 2–4 KiB drop after listener churn, not shown to recover
   within a run and not shown to grow further. Recorded FAIL; not toleranced
   away; candidate follow-up, not this ticket.
+- Attempt 5 (`oct14-interruption-5`, harness `fc9f2d5`, 582 s, boot
+  `586c4386…`): both null controls FAILED on the product side. Listeners
+  ended `media age exceeded` at 28.7, 20.9 and 21.0 s with the tree at 0%
+  loss; the board's sender recorded a 3,979,091 us socket poll wait and 40
+  sends over 10 ms; no Wi-Fi disconnect, network generation unchanged;
+  metrics polls timed out 5–8 times. Attempt 4's null-1 had zero poll
+  waits. This is the known intermittent delivery stall class (pd6c, wbz6),
+  not injected, so every later verdict failed closed ("run null-* first")
+  and the batch is a failed control, retained. Do not rerun blindly.
+  Two harness defects surfaced: the trial loop exits when both decoders
+  die before their close lines arrive, so `stall-4-2` never started its
+  replacements; and the WAV reader's `connect()` timed out after 10 s with
+  no join, reported as "found 0 departures". The close-line trigger did
+  work where a slot was free: `stall-2.5-2` and `deficit-0.5-1` fresh
+  joins landed 0.5–0.8 s after the close, none refused. Internal largest
+  free block ended the batch at 47,104 B, unchanged.
 
 ## Tasks
 

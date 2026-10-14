@@ -2,9 +2,9 @@
  "schema": 1,
  "kata": "cv5a",
  "plan": "docs/superpowers/plans/2026-10-13-interruption-recovery.md",
- "harness_commit": "fc9f2d5c85dd1e37abc31b949bde58db93e2984c",
+ "harness_commit": "84a0abc2a035ec58c4374e2a9da9c0d6319f9c01",
  "harness_sha256": {
-  "scripts/network_fault.py": "b513085fe1ffbcfc7b58e524b4c64f4f5bad78c6219531f13d09eb6680d966fe",
+  "scripts/network_fault.py": "6afaaf9f3ad5829885e8698a92a27a6d0f2c40fbba436c8acdac046748c44bfd",
   "scripts/encoder_fault_check.py": "410e4c95f3880f208d52d9909cce3580c040654ddc5dc3717ca432b12bd8b961",
   "scripts/network-fault-batch": "3c5ea613afeee59418c19b3df382e2c44f053796db2e323a42e01c5dadb623c5"
  },
@@ -496,7 +496,7 @@
      "bytes": 70829
     },
     "reverdict.json": {
-     "sha256": "6cd3eda38619f71a5ed26e69098c7d94846dc3742ddd27cfb81a8cd8ec5c0399",
+     "sha256": "dd4b50b95b0306450bbb862fed6c532bc64569ee1c42b411acc1c19af0db9478",
      "bytes": 6201
     },
     "serial.log": {
@@ -697,10 +697,10 @@
     }
    },
    "reverdict": {
-    "harness_commit": "fc9f2d5c85dd1e37abc31b949bde58db93e2984c",
+    "harness_commit": "84a0abc2a035ec58c4374e2a9da9c0d6319f9c01",
     "harness_dirty": false,
     "harness_sha256": {
-     "network_fault.py": "b513085fe1ffbcfc7b58e524b4c64f4f5bad78c6219531f13d09eb6680d966fe",
+     "network_fault.py": "6afaaf9f3ad5829885e8698a92a27a6d0f2c40fbba436c8acdac046748c44bfd",
      "encoder_fault_check.py": "410e4c95f3880f208d52d9909cce3580c040654ddc5dc3717ca432b12bd8b961"
     },
     "source_result_sha256": "ca5bd8c5533c0d52e7069f651c23c1b87306a4aad787ae8ed19dbeef0ae5fee6",
@@ -1130,7 +1130,7 @@
      "bytes": 69865
     },
     "reverdict.json": {
-     "sha256": "a0d2e88ec6e83cfaa6f39c48315bf0315c8280f66cbda2bd6fcf964297f980ff",
+     "sha256": "f1dd9e1d63684dbba9a0fbf0963de61811e9f07b47bf1c15ce59a51a299df56f",
      "bytes": 6134
     },
     "serial.log": {
@@ -1287,10 +1287,10 @@
     }
    },
    "reverdict": {
-    "harness_commit": "fc9f2d5c85dd1e37abc31b949bde58db93e2984c",
+    "harness_commit": "84a0abc2a035ec58c4374e2a9da9c0d6319f9c01",
     "harness_dirty": false,
     "harness_sha256": {
-     "network_fault.py": "b513085fe1ffbcfc7b58e524b4c64f4f5bad78c6219531f13d09eb6680d966fe",
+     "network_fault.py": "6afaaf9f3ad5829885e8698a92a27a6d0f2c40fbba436c8acdac046748c44bfd",
      "encoder_fault_check.py": "410e4c95f3880f208d52d9909cce3580c040654ddc5dc3717ca432b12bd8b961"
     },
     "source_result_sha256": "f1b03fe3b03a62bec5a0236a82f3359744fe864985ffb19d10ed333719f732f0",
@@ -1406,6 +1406,622 @@
      }
     }
    }
+  },
+  "oct14-interruption-5": {
+   "directory": "target/kata-hardening/oct14-interruption-5",
+   "started_utc": "2026-10-14T16:09:27.097645+00:00",
+   "elapsed_seconds": 581.96,
+   "original_passed": false,
+   "original_error": null,
+   "boot_token": "586c4386dd0ebfb732bcc31f59dbcf1f",
+   "build_elf_sha256": "0ff2a7ccb677fb8045f6faa1d040b930f8adaaf38913946c1847e1f3eb14faf2",
+   "restore_verified": true,
+   "cleanup_errors": [],
+   "tolerances": null,
+   "environment": {
+    "route": "192.168.23.217 dev enp5s0 src 192.168.23.153 uid 1000 \n    cache \n",
+    "route_interface": "enp5s0",
+    "tc_version": "tc utility, iproute2-6.19.0, libbpf 1.6.3",
+    "kernel": "7.0.0-38-generic",
+    "qdisc_before": "qdisc mq 0: root \nqdisc fq_codel 0: parent :4 limit 10240p flows 1024 quantum 1514 target 5ms interval 100ms memory_limit 32Mb ecn drop_batch 64 \nqdisc fq_codel 0: parent :3 limit 10240p flows 1024 quantum 1514 target 5ms interval 100ms memory_limit 32Mb ecn drop_batch 64 \nqdisc fq_codel 0: parent :2 limit 10240p flows 1024 quantum 1514 target 5ms interval 100ms memory_limit 32Mb ecn drop_batch 64 \nqdisc fq_codel 0: parent :1 limit 10240p flows 1024 quantum 1514 target 5ms interval 100ms memory_limit 32Mb ecn drop_batch 64 \n"
+   },
+   "qdisc_installed": "qdisc prio 1: root refcnt 9 bands 4 priomap 1 2 2 2 1 2 0 0 1 1 1 1 1 1 1 1\nqdisc netem 10: parent 1:4 limit 1000 seed 13878134350059371771\nqdisc ingress ffff: parent ffff:fff1 ---------------- \n",
+   "original_trials": {
+    "null-1": {
+     "passed": false,
+     "reason": "decoder not continuous",
+     "harness_closes": 0,
+     "metrics_unavailable": 5,
+     "decoded_frames": [
+      1190016
+     ],
+     "expected_frames": 2880000,
+     "discontinuities": 0,
+     "product_departures": [
+      "media age exceeded"
+     ]
+    },
+    "null-2": {
+     "passed": false,
+     "reason": "decoder not continuous",
+     "harness_closes": 0,
+     "metrics_unavailable": 8,
+     "decoded_frames": [
+      817920,
+      812160
+     ],
+     "expected_frames": 2880000,
+     "discontinuities": 0,
+     "product_departures": [
+      "media age exceeded",
+      "media age exceeded"
+     ]
+    },
+    "stall-0.5-1": {
+     "passed": false,
+     "reason": "no media age bound; run null-* first",
+     "stall_actual_s": 0.589,
+     "harness_closes": 1,
+     "metrics_unavailable": 10,
+     "decoded_frames": [
+      1944000
+     ],
+     "expected_frames": 1944000,
+     "discontinuities": 0,
+     "product_departures": []
+    },
+    "stall-0.5-2": {
+     "passed": false,
+     "reason": "no media age bound; run null-* first",
+     "stall_actual_s": 0.57,
+     "harness_closes": 2,
+     "metrics_unavailable": 12,
+     "decoded_frames": [
+      983808,
+      998784
+     ],
+     "expected_frames": 1944000,
+     "discontinuities": 0,
+     "product_departures": [
+      "media age exceeded",
+      "media age exceeded"
+     ]
+    },
+    "stall-1-1": {
+     "passed": false,
+     "reason": "no media age bound; run null-* first",
+     "stall_actual_s": 1.052,
+     "harness_closes": 1,
+     "metrics_unavailable": 10,
+     "decoded_frames": [
+      1968000
+     ],
+     "expected_frames": 1968000,
+     "discontinuities": 0,
+     "product_departures": []
+    },
+    "stall-1-2": {
+     "passed": false,
+     "reason": "no media age bound; run null-* first",
+     "stall_actual_s": 1.068,
+     "harness_closes": 2,
+     "metrics_unavailable": 15,
+     "decoded_frames": [
+      681984,
+      1968000
+     ],
+     "expected_frames": 1968000,
+     "discontinuities": 0,
+     "product_departures": [
+      "media age exceeded"
+     ]
+    },
+    "stall-2.5-1": {
+     "passed": false,
+     "reason": "no media age bound; run null-* first",
+     "stall_actual_s": 2.592,
+     "harness_closes": 1,
+     "metrics_unavailable": 5,
+     "decoded_frames": [
+      2040000
+     ],
+     "expected_frames": 2040000,
+     "discontinuities": 0,
+     "product_departures": []
+    },
+    "stall-2.5-2": {
+     "passed": false,
+     "reason": "no media age bound; run null-* first",
+     "stall_actual_s": 2.551,
+     "harness_closes": 2,
+     "metrics_unavailable": 20,
+     "decoded_frames": [
+      980352,
+      972288
+     ],
+     "expected_frames": 2040000,
+     "discontinuities": 0,
+     "product_departures": [
+      "media age exceeded",
+      "media age exceeded"
+     ]
+    },
+    "stall-4-1": {
+     "passed": false,
+     "reason": "no media age bound; run null-* first",
+     "stall_actual_s": 4.117,
+     "harness_closes": 0,
+     "metrics_unavailable": 7,
+     "decoded_frames": [
+      877824
+     ],
+     "expected_frames": 2112000,
+     "discontinuities": 0,
+     "product_departures": [
+      "media age exceeded"
+     ]
+    },
+    "stall-4-2": {
+     "passed": false,
+     "reason": "no media age bound; run null-* first",
+     "stall_actual_s": 4.05,
+     "harness_closes": 0,
+     "metrics_unavailable": 9,
+     "decoded_frames": [
+      941184,
+      940032
+     ],
+     "expected_frames": 2112000,
+     "discontinuities": 0,
+     "product_departures": [
+      "media age exceeded",
+      "media age exceeded"
+     ]
+    },
+    "deficit-0.8-1": {
+     "passed": false,
+     "reason": "no largest-free tolerance; run null-* first",
+     "predicted_end_s": 20.000000000000004,
+     "harness_closes": 1,
+     "metrics_unavailable": 20,
+     "decoded_frames": [
+      1412352
+     ],
+     "expected_frames": 2880000,
+     "discontinuities": 0,
+     "product_departures": [
+      "media age exceeded"
+     ]
+    },
+    "deficit-0.5-1": {
+     "passed": false,
+     "reason": "no largest-free tolerance; run null-* first",
+     "predicted_end_s": 8.0,
+     "harness_closes": 1,
+     "metrics_unavailable": 18,
+     "decoded_frames": [
+      1075968
+     ],
+     "expected_frames": 2880000,
+     "discontinuities": 0,
+     "product_departures": [
+      "media age exceeded"
+     ]
+    },
+    "delayed-reader-1": {
+     "passed": false,
+     "reason": "expected one WAV reader departure, found 0",
+     "harness_closes": 1,
+     "metrics_unavailable": 4,
+     "decoded_frames": [
+      1920000
+     ],
+     "expected_frames": 1920000,
+     "discontinuities": 0,
+     "product_departures": []
+    }
+   },
+   "raw_artifacts": {
+    "deficit-0.5-1-fresh-1.ffmpeg.log": {
+     "sha256": "defaeb58881b4aa021bb3392a8e689dff454c2b4edc7f79737de1ed790bfdaf3",
+     "bytes": 2890
+    },
+    "deficit-0.5-1-fresh-1.framehash": {
+     "sha256": "ef6acf1a41376bae24f2884bd33ca0e97e46412fa99d596b1d8252340b69aa76",
+     "bytes": 46943
+    },
+    "deficit-0.5-1-fresh-1.progress": {
+     "sha256": "83fab03318409f5c672a80cee6f05c22e351e354d1589ef1f76cde173860360d",
+     "bytes": 1445
+    },
+    "deficit-0.5-1-listener-1.ffmpeg.log": {
+     "sha256": "b037b80019c6dd09a0b1766cb377b3e274631f528db5c3980d3c0c14cfe15340",
+     "bytes": 3343
+    },
+    "deficit-0.5-1-listener-1.framehash": {
+     "sha256": "120d614e7269e33fb6bb0313b5fdc6ff2f55fbb77d45433dc59a9e7f9fd34f73",
+     "bytes": 104847
+    },
+    "deficit-0.5-1-listener-1.progress": {
+     "sha256": "112c977b439af118a77311655f037c1c3a9edc276e5e55f99acbe2ca6ec20a3c",
+     "bytes": 4391
+    },
+    "deficit-0.8-1-fresh-1.ffmpeg.log": {
+     "sha256": "064205ac3eb96c8c6423cdf6957b4afccb7cfee501fd74d3c12839538dfd2786",
+     "bytes": 2890
+    },
+    "deficit-0.8-1-fresh-1.framehash": {
+     "sha256": "4534939410b822e1f8ab2e79374142ac3a18c90421f179f5cd17810aa1ef1333",
+     "bytes": 46943
+    },
+    "deficit-0.8-1-fresh-1.progress": {
+     "sha256": "beab7bf8fbeaa0cca5116c4d480da1acbc7ee0718fdde1128af99c0594e3d24e",
+     "bytes": 1447
+    },
+    "deficit-0.8-1-listener-1.ffmpeg.log": {
+     "sha256": "37a0d950cd9c8678fa6a0f0d9ba4bcbc52b04082618c5bbf249bc3b71e76bfc6",
+     "bytes": 3285
+    },
+    "deficit-0.8-1-listener-1.framehash": {
+     "sha256": "8e8acb0704722204d392b4cfc518b379e47846fa1b43c1d10aff9719a179c7c1",
+     "bytes": 137551
+    },
+    "deficit-0.8-1-listener-1.progress": {
+     "sha256": "6029bdf890efd13ff51407e96c92f427064560479fed05bdb10d1e7725fe2307",
+     "bytes": 5382
+    },
+    "delayed-reader-1-listener-1.ffmpeg.log": {
+     "sha256": "dcc6cc894a428d414b8063fa108878a953cc88dfa70624703569ec75f843d66d",
+     "bytes": 2897
+    },
+    "delayed-reader-1-listener-1.framehash": {
+     "sha256": "5812dfa5636bc6f5133a12375e79eeb5f71118707714d84c73c9df0851f593a7",
+     "bytes": 186943
+    },
+    "delayed-reader-1-listener-1.progress": {
+     "sha256": "c49d01da51c9ff0c36da2cdd275427b61816aaf9dab5ffa988e99a79ec4748e5",
+     "bytes": 6356
+    },
+    "events.jsonl": {
+     "sha256": "dd15157dd7f4103a16cd003ed79fd1d3a00824b129acad7429f750fee337bcc0",
+     "bytes": 151063
+    },
+    "null-1-listener-1.ffmpeg.log": {
+     "sha256": "603b5c62299f2240b64f17fdcd120994cb7a1177db5fedc639ace220371bc229",
+     "bytes": 3276
+    },
+    "null-1-listener-1.framehash": {
+     "sha256": "cb1cf95391127873b45ea8f669fea1f959d484c92724ad832d14861e59498b3d",
+     "bytes": 115935
+    },
+    "null-1-listener-1.progress": {
+     "sha256": "abe21ce5a2adb2428fdd44f8f4a006058404bd20d4998fcc5c4ac202236af3e2",
+     "bytes": 4725
+    },
+    "null-2-listener-1.ffmpeg.log": {
+     "sha256": "a6f4f0a8f6a2b7efeb531194328af7150f698aa8f151d6b9b9a631a9c94a9b04",
+     "bytes": 3336
+    },
+    "null-2-listener-1.framehash": {
+     "sha256": "5cc47aa1974a5ab2d15911fc1893ebd3e84e0115b49d8d03616d6802a9e971db",
+     "bytes": 79759
+    },
+    "null-2-listener-1.progress": {
+     "sha256": "1dd6a8132680cb103673c2b1652b680800613a61bfaf0ee5a17648a35b58e4ea",
+     "bytes": 3244
+    },
+    "null-2-listener-2.ffmpeg.log": {
+     "sha256": "743712a74d6135961aaeb5f6739a2400a01404d03e3e674e1a4e3922861e3a9f",
+     "bytes": 3276
+    },
+    "null-2-listener-2.framehash": {
+     "sha256": "91da973a3fddc3857cb6fc0b4b21782ed5881a3f1d5cb4ba0d3512811325bb28",
+     "bytes": 79199
+    },
+    "null-2-listener-2.progress": {
+     "sha256": "de2c09b19e8287bb7d131b34deaedad4657acbb003abeb7b57f8a95fbbeb7f7b",
+     "bytes": 3245
+    },
+    "result.json": {
+     "sha256": "2eac861fa622d8d726423f3fe313bf91b5552f19be2b912b684f55eb524b7064",
+     "bytes": 66373
+    },
+    "reverdict.json": {
+     "sha256": "1a4791a25aabe5bc9293152557fd5adff97003d82e046b8a17f52b0a56229add",
+     "bytes": 6392
+    },
+    "serial.log": {
+     "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+     "bytes": 0
+    },
+    "stall-0.5-1-listener-1.ffmpeg.log": {
+     "sha256": "092e469e1168e751cdfce1750491f469ded72a9fe13c10313c16806cb663328e",
+     "bytes": 2892
+    },
+    "stall-0.5-1-listener-1.framehash": {
+     "sha256": "1b9032788953e2459ae454e0526e76d54c8863c57b593506645b4e69ee4c9513",
+     "bytes": 189295
+    },
+    "stall-0.5-1-listener-1.progress": {
+     "sha256": "28efc2884d123797cbd36fcb7cda53492466312626b2aeb4caacd74bf07e8e06",
+     "bytes": 6521
+    },
+    "stall-0.5-2-fresh-1.ffmpeg.log": {
+     "sha256": "9b0b78b11969d6665e3f3040cc6727f09d98fe1889aa0f01dc438f99c03bb580",
+     "bytes": 2888
+    },
+    "stall-0.5-2-fresh-1.framehash": {
+     "sha256": "48e0e4d6d6ea24b40dd5a8986f8b3259f0997fc0dda181ccec4f474daa55d9e6",
+     "bytes": 46943
+    },
+    "stall-0.5-2-fresh-1.progress": {
+     "sha256": "61dd64adab458b8a2b06adbb42d008bf296a88a37a78550edeb3ba279520c458",
+     "bytes": 1445
+    },
+    "stall-0.5-2-fresh-2.ffmpeg.log": {
+     "sha256": "832d0245bae35f8524e56ea0d4252088877a50459180ed650c3e11c1a1a60526",
+     "bytes": 2888
+    },
+    "stall-0.5-2-fresh-2.framehash": {
+     "sha256": "b561d358321f95d10858aa1c49177a72040d8fcb9640403b3467032292f9e859",
+     "bytes": 46943
+    },
+    "stall-0.5-2-fresh-2.progress": {
+     "sha256": "ad273307e370d32b844256c754127d540a5c0c94af67ae8eb5b7121b75dd4daa",
+     "bytes": 1607
+    },
+    "stall-0.5-2-listener-1.ffmpeg.log": {
+     "sha256": "5d400d58d8bb8a240efb019fae0d3597b83f9c1b6166d98af080fc827edcee08",
+     "bytes": 3341
+    },
+    "stall-0.5-2-listener-1.framehash": {
+     "sha256": "ac16c477017b6be84c42bfb0f19ec265cf015787c58c02373a1868e1e59b0555",
+     "bytes": 95887
+    },
+    "stall-0.5-2-listener-1.progress": {
+     "sha256": "125229ac74bc6051ee7b2d28f23e1c6313f978738a5902500dd5dd4123c335d8",
+     "bytes": 4061
+    },
+    "stall-0.5-2-listener-2.ffmpeg.log": {
+     "sha256": "c524249d1108decee53bd7e2338895e7bf6fc6c7e787108d633411c580fb9d67",
+     "bytes": 3205
+    },
+    "stall-0.5-2-listener-2.framehash": {
+     "sha256": "e9bcc2c05a31918e788675826339040bda6a2d967d8a6919a2f647e926a0c0fb",
+     "bytes": 97343
+    },
+    "stall-0.5-2-listener-2.progress": {
+     "sha256": "3bd3596626274545f54042b19bfb7315a3ecc390fe18b34761f8468ce0a0c829",
+     "bytes": 4389
+    },
+    "stall-1-1-listener-1.ffmpeg.log": {
+     "sha256": "cd0cb5d9a6b5aac4d6f0c426ba51acec2f5adf5a796ca24d076b4d5aa725fd48",
+     "bytes": 2890
+    },
+    "stall-1-1-listener-1.framehash": {
+     "sha256": "550e8ab1b2e7dd520b89f7437fb68de6b100b9820bfe9ec18c5f9eeb2cfb9dfe",
+     "bytes": 191647
+    },
+    "stall-1-1-listener-1.progress": {
+     "sha256": "fe14618423f5d4a0bb0ef9d5f7bdf5b5af4d3ebefaef6f423576c9cbe321c81d",
+     "bytes": 6521
+    },
+    "stall-1-2-fresh-1.ffmpeg.log": {
+     "sha256": "6a4d3b55053ff482cdaed297953e18da3dcb1b0b4f9e094f3b84a5e88268cdcf",
+     "bytes": 2886
+    },
+    "stall-1-2-fresh-1.framehash": {
+     "sha256": "e694b50937e69dc4b979cf01704ec23dc167877a0488ead1ebf5db314fcd539c",
+     "bytes": 46943
+    },
+    "stall-1-2-fresh-1.progress": {
+     "sha256": "a64c7c7eb62e547cf553854d184504638d4a63facf3c699993a04b000e6898f8",
+     "bytes": 1607
+    },
+    "stall-1-2-listener-1.ffmpeg.log": {
+     "sha256": "10009a3e1401d01329041f1b7a9f90a0993bdb41b5a2dd22e9a6d2292da8cdc2",
+     "bytes": 3263
+    },
+    "stall-1-2-listener-1.framehash": {
+     "sha256": "1a9b38377063fa25ae4ac15ceec30414d26381e745c40eb1da56031cbd823a0b",
+     "bytes": 66543
+    },
+    "stall-1-2-listener-1.progress": {
+     "sha256": "74666f41b06369ef7f9edae4a01cff0f4bcdfca5c5feb4b1d5b53bce89f792aa",
+     "bytes": 3573
+    },
+    "stall-1-2-listener-2.ffmpeg.log": {
+     "sha256": "a80ff4dea06748188de3cd63c5dd006e8b5c66ab95ae705b1faf54b1228cefbe",
+     "bytes": 2890
+    },
+    "stall-1-2-listener-2.framehash": {
+     "sha256": "194d06227c456ca240cc06807ad22d64aa1bba26d535b7a4561054bda6f2942b",
+     "bytes": 191647
+    },
+    "stall-1-2-listener-2.progress": {
+     "sha256": "7d44bbed8eb12f0628f709af7f93eeb0f3856060dc3d019340f97bae8bf00c00",
+     "bytes": 6522
+    },
+    "stall-2.5-1-listener-1.ffmpeg.log": {
+     "sha256": "1e936a120d1c979f037b4a117acaea0e5c45f610831b0443630c1aa59c0ed859",
+     "bytes": 2892
+    },
+    "stall-2.5-1-listener-1.framehash": {
+     "sha256": "dd92f70629f7657f745f25e500465f1bb9fe514343a6504ea13f4100ae6cac56",
+     "bytes": 198591
+    },
+    "stall-2.5-1-listener-1.progress": {
+     "sha256": "0cdb28b2da5fd9cc02a21bd5fd2a38ab093e4dd96b5e9c60bf9c1fe0a26ccf8d",
+     "bytes": 6846
+    },
+    "stall-2.5-2-fresh-1.ffmpeg.log": {
+     "sha256": "bae31f5fa1f73780f73225c4e35409767e85224d896825cdf0f2f8e52d0390e8",
+     "bytes": 2889
+    },
+    "stall-2.5-2-fresh-1.framehash": {
+     "sha256": "3b32ac7594bc75a933c34466999545c5cb52e64c0ec784018783888ccd9feebd",
+     "bytes": 46943
+    },
+    "stall-2.5-2-fresh-1.progress": {
+     "sha256": "86e2b4d37bdfc3dfb9e5ccfce79cf705ecffd9648153d0a0ea7a59cccea1c6cb",
+     "bytes": 1937
+    },
+    "stall-2.5-2-fresh-2.ffmpeg.log": {
+     "sha256": "e4cbde4600dcedcbbaedb8bf49e99996884693ab920566ba924cb30a9ec869bb",
+     "bytes": 2888
+    },
+    "stall-2.5-2-fresh-2.framehash": {
+     "sha256": "8056c4a18e9e721bf484fd97beba796fd8bfee30fed4d0a739adc67fa505811b",
+     "bytes": 46943
+    },
+    "stall-2.5-2-fresh-2.progress": {
+     "sha256": "03c9026f22a12f6f974bcd2d0172022f196cfd618098bbcfd4cf5ef3c62c8ec4",
+     "bytes": 1609
+    },
+    "stall-2.5-2-listener-1.ffmpeg.log": {
+     "sha256": "2c7b5622afafe8a77f969086d70c7581941a18c0487bb7084a8f703c2d42b06d",
+     "bytes": 3205
+    },
+    "stall-2.5-2-listener-1.framehash": {
+     "sha256": "1978bf3872d45b9edc11ce8a0ff25b125dda74b3934764d866df5d2c6d2727c2",
+     "bytes": 95551
+    },
+    "stall-2.5-2-listener-1.progress": {
+     "sha256": "d4d7e5554f4eb81a4b8952755abcddddffbed792dd455af7bde7340df36ec0ef",
+     "bytes": 4387
+    },
+    "stall-2.5-2-listener-2.ffmpeg.log": {
+     "sha256": "bf6cd011b1302e3a4e84d5118787d19711e0dea1391d36a9dd020505b1547687",
+     "bytes": 3265
+    },
+    "stall-2.5-2-listener-2.framehash": {
+     "sha256": "01b957bd1b5f3afa7adb414480b2fd224b8bea77c56ad94696b02ab5e8cf17e6",
+     "bytes": 94767
+    },
+    "stall-2.5-2-listener-2.progress": {
+     "sha256": "2fdf19118160cd00b6bae52f3f6374f382f53c405e3e202345e86c5687d86180",
+     "bytes": 4387
+    },
+    "stall-4-1-listener-1.ffmpeg.log": {
+     "sha256": "530edac2b77a85f40acd65fc2598adda5e1aac92dcb54eb76b4e19c1015739bc",
+     "bytes": 3263
+    },
+    "stall-4-1-listener-1.framehash": {
+     "sha256": "71cb2943dd116b377d3ebaa5246a68bf4081464601bd477b8df1cddb01827374",
+     "bytes": 85583
+    },
+    "stall-4-1-listener-1.progress": {
+     "sha256": "20ed5b812e20d272dbdc2d0c22a2494f3b256a8ef1418f93f0cb049d78aa20d3",
+     "bytes": 4061
+    },
+    "stall-4-2-listener-1.ffmpeg.log": {
+     "sha256": "32ebf8cfd51bddb02e6adcc256af594cd0e96157d633eb1b3fb34f125dca073f",
+     "bytes": 3263
+    },
+    "stall-4-2-listener-1.framehash": {
+     "sha256": "e1c066250a6a2ecbfeb123cedfb144b04cd786d455682155b6d43ca95803eb33",
+     "bytes": 91743
+    },
+    "stall-4-2-listener-1.progress": {
+     "sha256": "c0e5cb7b1eac1610b8355fb5d3f0dd67f28cdc16b68905b0aba2e0725d5f0fe1",
+     "bytes": 4223
+    },
+    "stall-4-2-listener-2.ffmpeg.log": {
+     "sha256": "bad34cb750d8000ec6d5ac5a0eb78d81c75609d57794914b056d2d32c7a9abb4",
+     "bytes": 3203
+    },
+    "stall-4-2-listener-2.framehash": {
+     "sha256": "26e4c22bcf09996067a13093659442cb502a1272ef1b5dcef1f0dd9ef76174f4",
+     "bytes": 91631
+    },
+    "stall-4-2-listener-2.progress": {
+     "sha256": "9f3ba9b907253102ccf2361d74aa04bcbd963d322239fdec91fb9a140fd83269",
+     "bytes": 4223
+    },
+    "uart.log": {
+     "sha256": "4454a7fdfb02776bc8e34f0063907d8c214f22efb022367c93e6bf8cbfbb0062",
+     "bytes": 326098
+    }
+   },
+   "reverdict": {
+    "harness_commit": "84a0abc2a035ec58c4374e2a9da9c0d6319f9c01",
+    "harness_dirty": false,
+    "harness_sha256": {
+     "network_fault.py": "6afaaf9f3ad5829885e8698a92a27a6d0f2c40fbba436c8acdac046748c44bfd",
+     "encoder_fault_check.py": "410e4c95f3880f208d52d9909cce3580c040654ddc5dc3717ca432b12bd8b961"
+    },
+    "source_result_sha256": "2eac861fa622d8d726423f3fe313bf91b5552f19be2b912b684f55eb524b7064",
+    "tolerances": null,
+    "trials": {
+     "null-1": {
+      "passed": false,
+      "reason": "decoder not continuous",
+      "harness_closes": 0
+     },
+     "null-2": {
+      "passed": false,
+      "reason": "decoder not continuous",
+      "harness_closes": 0
+     },
+     "stall-0.5-1": {
+      "passed": false,
+      "reason": "no media age bound; run null-* first",
+      "harness_closes": 1
+     },
+     "stall-0.5-2": {
+      "passed": false,
+      "reason": "no media age bound; run null-* first",
+      "harness_closes": 2
+     },
+     "stall-1-1": {
+      "passed": false,
+      "reason": "no media age bound; run null-* first",
+      "harness_closes": 1
+     },
+     "stall-1-2": {
+      "passed": false,
+      "reason": "no media age bound; run null-* first",
+      "harness_closes": 2
+     },
+     "stall-2.5-1": {
+      "passed": false,
+      "reason": "no media age bound; run null-* first",
+      "harness_closes": 1
+     },
+     "stall-2.5-2": {
+      "passed": false,
+      "reason": "no media age bound; run null-* first",
+      "harness_closes": 2
+     },
+     "stall-4-1": {
+      "passed": false,
+      "reason": "no media age bound; run null-* first",
+      "harness_closes": 0
+     },
+     "stall-4-2": {
+      "passed": false,
+      "reason": "no media age bound; run null-* first",
+      "harness_closes": 0
+     },
+     "deficit-0.8-1": {
+      "passed": false,
+      "reason": "no largest-free tolerance; run null-* first",
+      "predicted_end_s": 20.000000000000004,
+      "harness_closes": 1
+     },
+     "deficit-0.5-1": {
+      "passed": false,
+      "reason": "no largest-free tolerance; run null-* first",
+      "predicted_end_s": 8.0,
+      "harness_closes": 1
+     },
+     "delayed-reader-1": {
+      "passed": false,
+      "reason": "WAV reader never connected (phase None): TimeoutError('timed out')",
+      "harness_closes": 1
+     }
+    }
+   }
   }
  },
  "limits": [
@@ -1416,6 +2032,7 @@
   "The close-line replacement trigger and the 3 s close_timeout fallback have not run on the board.",
   "Attempts 3 and 4 disagree on 2.5 s stalls (MediaAge vs survival); the lwIP retransmit-backoff explanation is a hypothesis.",
   "Internal largest free block dropped 2-4 KiB across each batch; not shown to recover within a run, not shown to grow.",
+  "Attempt 5's null controls failed on a board-side delivery stall (3.98 s sender poll wait, no injection, no Wi-Fi disconnect); its later verdicts fail closed and it is a retained failed control, not a recovery result.",
   "Quiet LINE IN; MP3 bitrate is constant so content does not affect the trials, but no driven-signal variant ran."
  ]
 }
