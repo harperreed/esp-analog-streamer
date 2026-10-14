@@ -418,7 +418,7 @@ def audit(event, args):
     if event.startswith('socket.') or event.startswith('subprocess.') or event in ('os.mkdir', 'os.system'):
         raise RuntimeError('import side effect: ' + event)
 sys.addaudithook(audit)
-import fault_check, encoder_fault_check, stream_soak, stream_check, network_fault
+import fault_check, encoder_fault_check, stream_soak, stream_check, network_fault, listener_churn
 assert before == {number: signal.getsignal(number) for number in before}
 assert not list(Path.cwd().iterdir())
 """
@@ -431,7 +431,7 @@ assert not list(Path.cwd().iterdir())
     def test_wrapper_help_and_errors_are_inert(self):
         scripts = Path(__file__).resolve().parent
         with tempfile.TemporaryDirectory() as directory:
-            for name in ('fault-check', 'encoder-fault-check', 'stream-soak', 'stream-check', 'network-fault', 'network-fault-batch'):
+            for name in ('fault-check', 'encoder-fault-check', 'stream-soak', 'stream-check', 'network-fault', 'network-fault-batch', 'listener-churn'):
                 for args, expected in [(['--help'], 0), (['--unrecognized-option'], 2)]:
                     result = subprocess.run([str(scripts/name), *args], cwd=directory,
                                             capture_output=True, text=True, timeout=10)

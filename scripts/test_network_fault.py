@@ -470,7 +470,7 @@ class DriverHelperTests(unittest.TestCase):
     def test_settings_gate_requires_autoplay_off_and_mp3(self):
         settings = self.snapshot()['settings']
         self.assertIsNone(nf.settings_problem(settings))
-        self.assertIn('autoplay', nf.settings_problem(dict(settings, autoplay=True)))
+        self.assertEqual(nf.settings_problem(dict(settings, autoplay=True)), 'autoplay is enabled; the harness needs it off')
         self.assertIn('flac', nf.settings_problem(dict(settings, active_format='flac')))
         self.assertIn('unavailable', nf.settings_problem(None))
 

@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 # ABOUTME: Launches one network-fault batch from an operator's tty: caches sudo, pins the route interface, allocates the next output directory.
-# ABOUTME: Usage: scripts/network-fault-batch [--host IP] [--serial DEV] [--dry-run] [-- HARNESS_ARGS...]; run as your normal user, not root.
+# ABOUTME: Usage: scripts/network-fault-batch [--host IP] [--serial DEV] [--pcap] [--dry-run] [-- HARNESS_ARGS...]; run as your normal user, not root.
 set -euo pipefail
 repo="$(cd "$(dirname "$0")/.." && pwd)"
 
 usage() {
   cat <<'EOF'
-Usage: scripts/network-fault-batch [--host IP] [--serial DEV] [--dry-run] [-- HARNESS_ARGS...]
+Usage: scripts/network-fault-batch [--host IP] [--serial DEV] [--pcap] [--dry-run] [-- HARNESS_ARGS...]
 
 Runs scripts/network-fault once with the receiver interface taken from the
 live route to the board and a fresh target/kata-hardening/<monDD>-interruption-N
@@ -15,7 +15,10 @@ sudo -n and a timestamp cached elsewhere never reaches it.
 
   --host IP      board address (default 192.168.23.217)
   --serial DEV   UART device for scripts/serial-log (default /dev/ttyUSB0)
-  --dry-run      print the harness's planned commands; no sudo, no files
+  --pcap         run scripts/capture-stream-packets on the same interface for
+                 the whole batch; its directory is written to <out>/pcap.txt
+  --dry-run      print the capture preview and the harness's planned commands;
+                 no sudo, no files
   --             remaining arguments go to scripts/network-fault (e.g. --trials)
 EOF
 }
@@ -25,11 +28,14 @@ fail() { echo "network-fault-batch: $*" >&2; exit 2; }
 host=192.168.23.217
 serial=/dev/ttyUSB0
 dry_run=false
+pcap=false
+pcap_seconds=3600  # capture-stream-packets's maximum; the launcher stops the capture itself
 extra=()
 while (( $# )); do
   case "$1" in
     --host) [[ $# -ge 2 ]] || fail '--host needs a value'; host="$2"; shift 2 ;;
     --serial) [[ $# -ge 2 ]] || fail '--serial needs a value'; serial="$2"; shift 2 ;;
+    --pcap) pcap=true; shift ;;
     --dry-run) dry_run=true; shift ;;
     --help|-h) usage; exit 0 ;;
     --) shift; extra=("$@"); break ;;
@@ -38,7 +44,11 @@ while (( $# )); do
 done
 
 (( EUID != 0 )) || fail 'run as your normal user; this command invokes sudo itself'
-for tool in ip sudo; do
+tools=(ip sudo)
+if "$pcap"; then
+  tools+=(pgrep ps)  # stop_capture walks the capture's process tree
+fi
+for tool in "${tools[@]}"; do
   command -v "$tool" >/dev/null || fail "$tool is required"
 done
 
@@ -57,8 +67,101 @@ out="$prefix-$n"
 args=("$host" --interface "$interface" --serial "$serial" --out "$out")
 if "$dry_run"; then
   args+=(--dry-run)
+  if "$pcap"; then
+    "$repo/scripts/capture-stream-packets" --dry-run "$host" "$interface" "$pcap_seconds"
+  fi
 else
   sudo -v || fail 'sudo authentication failed'
 fi
 printf 'network-fault-batch: interface %s, output %s\n' "$interface" "$out" >&2
-exec "$repo/scripts/network-fault" "${args[@]}" "${extra[@]}"
+if ! "$pcap" || "$dry_run"; then
+  exec "$repo/scripts/network-fault" "${args[@]}" "${extra[@]}"
+fi
+
+# The capture must start with SIGINT at its default: a plain & job ignores it, as does a launcher
+# started under nohup or in the background, that reaches tcpdump through sudo and timeout, and
+# tcpdump leaves an ignored SIGINT alone and never flushes. env resets the dispositions; job control
+# gives the capture its own process group, so a tty Ctrl-C reaches it only through on_signal below.
+# The session is unchanged, so the sudo -v ticket above covers the capture's own sudo -v.
+capture_log="$(mktemp)"
+set -m
+env --default-signal=INT,QUIT "$repo/scripts/capture-stream-packets" "$host" "$interface" "$pcap_seconds" \
+  >"$capture_log" 2>&1 &
+capture_pid=$!
+set +m
+capture_dir=''
+
+# tcpdump is the one process in the capture chain this user may signal: sudo and timeout run as
+# root, and timeout moves itself into its own process group, so neither the capture script's pid
+# nor its process group would deliver SIGINT. tcpdump (-Z, back to this uid) flushes on SIGINT and
+# exits 0; timeout, sudo and the capture script then unwind on their own.
+capture_tcpdump() {
+  local pid
+  for pid in $(pgrep -P "$1"); do
+    if [[ "$(ps -o comm= -p "$pid")" == tcpdump ]]; then echo "$pid"; else capture_tcpdump "$pid"; fi
+  done
+}
+
+stop_capture() {
+  local tcpdump_pid
+  tcpdump_pid="$(capture_tcpdump "$capture_pid")"
+  if [[ -n "$tcpdump_pid" ]]; then
+    kill -INT "$tcpdump_pid" 2>/dev/null || true
+  else
+    # Nothing to flush yet (or already gone): end the capture script itself.
+    kill "$capture_pid" 2>/dev/null || true
+  fi
+  for _ in $(seq 100); do
+    kill -0 "$capture_pid" 2>/dev/null || break
+    sleep 0.2
+  done
+  if kill -0 "$capture_pid" 2>/dev/null; then
+    echo "network-fault-batch: capture still running after 20 s; its log stays at $capture_log" >&2
+    cat "$capture_log" >&2
+    return 0
+  fi
+  wait "$capture_pid" || echo "network-fault-batch: capture-stream-packets exited $?" >&2
+  cat "$capture_log" >&2
+  rm -f "$capture_log"
+}
+
+record_capture() {
+  [[ -n "$capture_dir" ]] || return 0
+  if [[ -d "$out" ]]; then
+    printf '%s\n' "$capture_dir" >"$out/pcap.txt"
+  else
+    echo "network-fault-batch: harness left no output directory; capture is at $capture_dir" >&2
+  fi
+}
+
+# A Ctrl-C in the operator's tty reaches this launcher and the harness, not the capture's process
+# group: bash runs this once the harness has exited; stop the capture, then exit as the signal
+# would (130/143). Re-raising instead leaves bash's own SIGINT handler to exit with the last status.
+on_signal() {
+  trap - INT TERM
+  stop_capture
+  record_capture
+  exit $((128 + $1))
+}
+trap 'on_signal 2' INT
+trap 'on_signal 15' TERM
+
+for _ in $(seq 50); do
+  capture_dir="$(sed -n 's|^Trace: \(.*\)/stream\.pcap$|\1|p' "$capture_log")"
+  [[ -n "$capture_dir" ]] && break
+  kill -0 "$capture_pid" 2>/dev/null || break
+  sleep 0.2
+done
+if [[ -z "$capture_dir" ]]; then
+  stop_capture
+  fail 'capture-stream-packets did not report a Trace: line within 10 s'
+fi
+capture_dir="$repo/$capture_dir"
+printf 'network-fault-batch: capturing to %s\n' "$capture_dir" >&2
+
+status=0
+"$repo/scripts/network-fault" "${args[@]}" "${extra[@]}" || status=$?
+trap - INT TERM
+stop_capture
+record_capture
+exit "$status"

@@ -335,7 +335,7 @@ def settings_problem(settings):
     if settings is None:
         return 'settings snapshot unavailable'
     if settings['autoplay'] is not False:
-        return 'autoplay is enabled; refusing to inject faults'
+        return 'autoplay is enabled; the harness needs it off'
     if settings['active_format'] != 'mp3':
         return f"active format is {settings['active_format']}, not mp3"
     return None
