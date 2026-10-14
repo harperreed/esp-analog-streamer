@@ -431,7 +431,7 @@ assert not list(Path.cwd().iterdir())
     def test_wrapper_help_and_errors_are_inert(self):
         scripts = Path(__file__).resolve().parent
         with tempfile.TemporaryDirectory() as directory:
-            for name in ('fault-check', 'encoder-fault-check', 'stream-soak', 'stream-check', 'network-fault'):
+            for name in ('fault-check', 'encoder-fault-check', 'stream-soak', 'stream-check', 'network-fault', 'network-fault-batch'):
                 for args, expected in [(['--help'], 0), (['--unrecognized-option'], 2)]:
                     result = subprocess.run([str(scripts/name), *args], cwd=directory,
                                             capture_output=True, text=True, timeout=10)

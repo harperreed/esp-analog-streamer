@@ -1,0 +1,64 @@
+#!/usr/bin/env bash
+# ABOUTME: Launches one network-fault batch from an operator's tty: caches sudo, pins the route interface, allocates the next output directory.
+# ABOUTME: Usage: scripts/network-fault-batch [--host IP] [--serial DEV] [--dry-run] [-- HARNESS_ARGS...]; run as your normal user, not root.
+set -euo pipefail
+repo="$(cd "$(dirname "$0")/.." && pwd)"
+
+usage() {
+  cat <<'EOF'
+Usage: scripts/network-fault-batch [--host IP] [--serial DEV] [--dry-run] [-- HARNESS_ARGS...]
+
+Runs scripts/network-fault once with the receiver interface taken from the
+live route to the board and a fresh target/kata-hardening/<monDD>-interruption-N
+output directory. sudo -v runs in this shell first, because the harness uses
+sudo -n and a timestamp cached elsewhere never reaches it.
+
+  --host IP      board address (default 192.168.23.217)
+  --serial DEV   UART device for scripts/serial-log (default /dev/ttyUSB0)
+  --dry-run      print the harness's planned commands; no sudo, no files
+  --             remaining arguments go to scripts/network-fault (e.g. --trials)
+EOF
+}
+
+fail() { echo "network-fault-batch: $*" >&2; exit 2; }
+
+host=192.168.23.217
+serial=/dev/ttyUSB0
+dry_run=false
+extra=()
+while (( $# )); do
+  case "$1" in
+    --host) [[ $# -ge 2 ]] || fail '--host needs a value'; host="$2"; shift 2 ;;
+    --serial) [[ $# -ge 2 ]] || fail '--serial needs a value'; serial="$2"; shift 2 ;;
+    --dry-run) dry_run=true; shift ;;
+    --help|-h) usage; exit 0 ;;
+    --) shift; extra=("$@"); break ;;
+    *) fail "unknown argument: $1 (see --help)" ;;
+  esac
+done
+
+(( EUID != 0 )) || fail 'run as your normal user; this command invokes sudo itself'
+for tool in ip sudo; do
+  command -v "$tool" >/dev/null || fail "$tool is required"
+done
+
+# The harness refuses to run unless --interface equals the route's device; read it from the same source.
+route="$(ip -o route get "$host")" || fail "no route to $host"
+interface="$(sed -n 's/.* dev \([^ ]*\) .*/\1/p' <<<"$route")"
+[[ -n "$interface" ]] || fail "cannot read the interface from: $route"
+
+# The bare prefix is attempt 1 (the first device run used it); numbered directories follow.
+prefix="$repo/target/kata-hardening/$(date -u +%b%d | tr '[:upper:]' '[:lower:]')-interruption"
+n=1
+[[ -e "$prefix" ]] && n=2
+while [[ -e "$prefix-$n" ]]; do n=$((n + 1)); done
+out="$prefix-$n"
+
+args=("$host" --interface "$interface" --serial "$serial" --out "$out")
+if "$dry_run"; then
+  args+=(--dry-run)
+else
+  sudo -v || fail 'sudo authentication failed'
+fi
+printf 'network-fault-batch: interface %s, output %s\n' "$interface" "$out" >&2
+exec "$repo/scripts/network-fault" "${args[@]}" "${extra[@]}"
