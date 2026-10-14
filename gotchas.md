@@ -1277,3 +1277,9 @@ the starved WAV reader with `stopped reading` at 3.05 s. Both bounds are
 live and the tighter one wins: the WAV write limit (ring capacity / 48 kHz)
 fires before the 4 s age bound. Grep docs/audit-evidence for the real line,
 and treat a verdict expectation derived from source alone as unverified.
+
+scripts/check compares Git status, HEAD, diff and config snapshots from its
+start and end. Writing any repo file while it runs, even an untracked
+evidence document, fails that comparison and marks the run incomplete even
+when every stage passed (run.kwlkyMc3, October 14). Freeze the tree until
+the run finishes; scratchpad writes outside the repo are fine.

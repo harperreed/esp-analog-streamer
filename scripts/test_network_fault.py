@@ -636,6 +636,26 @@ RUN3_STALL_4_2_EVENTS = [
     (513.651, 52283), (515.088, 146064), (515.595, 737389), (516.654, 1759588), (517.389, 2743485), (518.805, 2169322),
     (519.551, 55388), (520.575, 48416), (521.501, 51700), (522.929, 47205), (524.106, 47600), (525.003, 48999),
     (525.471, 48053), (526.334, 51300), (527.543, 48854), (528.424, 47551), (529.71, None), (530.781, None)]]
+# Attempt 5 (target/kata-hardening/oct14-interruption-5): the WAV reader's connect() timed out; wav_reader record
+# merged into the wav event as the driver now records it (phase/connected_s/error/error_s).
+RUN5_WAV_RECORD = dict(label='delayed-reader-1-wav', error="TimeoutError('timed out')", error_s=545.1624819659919)
+RUN5_DELAYED_READER_EVENTS = [
+    dict(kind='decoder', label='delayed-reader-1-listener-1', frames=1920000, expected_frames=1920000, discontinuities=0, exit_code=0, ended='completed', ended_s=575.7049240759807),
+    dict(kind='wav', closed_s=None, connected_s=None, phase='connect', error="TimeoutError('timed out')", error_s=545.1624819659919),
+    dict(kind='admission', peer='192.168.23.153:48022', device_us=533982213, at_s=535.6526196140039),
+    dict(kind='departure', peer='192.168.23.153:48022', end='socket error kind=ConnectionReset raw_os_error=Some(104)', device_us=574402319, at_s=576.7066269039933),
+    dict(kind='close', peer='192.168.23.153:48022', device_us=574402984, at_s=576.7066337589931),
+    sample(535.336, None), sample(581.861, None),
+]
+# Attempt 5 stall-4-2: both decoders died on MediaAge at T; the close lines came 0.2 s and 0.4 s later.
+RUN5_STALL_4_2_T = 431.33311865499127
+RUN5_STALL_4_2_LINES = [
+    'I (429831) esp_shazam_firmware::stream: stream: 192.168.23.153:45016 left after 25.0 s: media age exceeded listener_stack_free_bytes=1652 event_us=427420327',
+    'I (429831) esp_shazam_firmware::stream: stream: 192.168.23.153:45014 left after 25.0 s: media age exceeded listener_stack_free_bytes=1652 event_us=427421438',
+    'I (431533) esp_shazam_firmware::stream: stream: 192.168.23.153:45014 socket closed in 2401 ms; releasing slot (1 held) event_us=429823193 owner_id=0 sonos_intent=0',
+    'I (431733) esp_shazam_firmware::stream: stream: 192.168.23.153:45016 socket closed in 2402 ms; releasing slot (0 held) event_us=429823492 owner_id=0 sonos_intent=0',
+]
+RUN5_STALL_4_2_CLOSE_AT = {2: 431.53370176799945, 3: 431.7339414629969}
 
 
 def installed_of(events):
@@ -743,6 +763,65 @@ class RetainedRunTests(unittest.TestCase):
         self.assertFalse(nf.trial_verdict(trial, too_early + RUN4_STALL_4_1_SAMPLES)['passed'])
 
 
+    def test_run5_delayed_reader_fails_on_never_connected_not_missing_departure(self):
+        trial = nf.trial_setup(nf.trial_spec('delayed-reader-1'), RUN4_BEFORE, None, None)
+        verdict = nf.trial_verdict(trial, RUN5_DELAYED_READER_EVENTS)
+        self.assertFalse(verdict['passed'])
+        self.assertTrue(verdict['reason'].startswith('WAV reader never connected'), verdict['reason'])
+        self.assertIn("TimeoutError('timed out')", verdict['reason'])
+        self.assertIn('connect', verdict['reason'])
+        self.assertNotIn('departure', verdict['reason'])
+        # Attempt 4's record, with and without the richer wav fields, still passes.
+        trial4 = nf.trial_setup(nf.trial_spec('delayed-reader-1'), RUN4_BEFORE, RUN4_TOLERANCES, None)
+        self.assertTrue(nf.trial_verdict(trial4, RUN4_DELAYED_READER_EVENTS)['passed'])
+        rich = [dict(event, connected_s=635.4, phase='reading', error=None, error_s=None) if event['kind'] == 'wav' else event
+                for event in RUN4_DELAYED_READER_EVENTS]
+        self.assertTrue(nf.trial_verdict(trial4, rich)['passed'])
+
+    def test_null_failure_detail_lists_departures_and_decoder_end_text(self):
+        trial = nf.trial_setup(nf.trial_spec('null-1'), RUN4_BEFORE, None, None)
+        events = [metrics(0), decoder('listener-1', 1_000_000, 2_880_000, exit_code=251, ended='ffmpeg integrity failure: Stream ends prematurely', ended_s=30),
+                  departure('p1', 'media age exceeded', 50_000_000, 29.5), close('p1', 50_010_000, 31.5), metrics(60)]
+        verdict = nf.trial_verdict(trial, events)
+        self.assertFalse(verdict['passed'])
+        self.assertEqual(verdict['decoders'][0]['ended'], 'ffmpeg integrity failure: Stream ends prematurely')
+        self.assertEqual([item['end'] for item in verdict['departures']], ['media age exceeded'])
+
+
+class LoopExitTests(unittest.TestCase):
+    def test_run5_stall_4_2_loop_waits_for_the_close_lines_then_the_fresh_listeners(self):
+        T = RUN5_STALL_4_2_T
+        departed = [dict(peer='192.168.23.153:45016', index=0, at_s=429.83144429599633, replaced=False),
+                    dict(peer='192.168.23.153:45014', index=1, at_s=429.8314734089945, replaced=False)]
+        lines = RUN5_STALL_4_2_LINES[:2]
+        fresh_ends = []
+        for now_s in (T + 0.07, T + 0.57, T + 1.07):
+            lines = [line for index, line in enumerate(RUN5_STALL_4_2_LINES) if index < 2 or RUN5_STALL_4_2_CLOSE_AT[index] <= now_s]
+            for pending, trigger, _ in nf.replacement_decisions(departed, lines, now_s, len(fresh_ends), 2):
+                pending['replaced'] = True
+                fresh_ends.append(None)
+            self.assertFalse(nf.may_exit(['cut', 'cut'], fresh_ends, departed, lines, now_s, injection_done=True), now_s)
+        self.assertEqual(len(fresh_ends), 2)
+        self.assertTrue(nf.may_exit(['cut', 'cut'], ['completed', 'completed'], departed, lines, T + 12, injection_done=True))
+        # Without close lines the timeout releases the loop; a running decoder or pending injection never does.
+        waiting = [dict(item, replaced=False) for item in departed]
+        self.assertFalse(nf.may_exit(['cut', 'cut'], [], waiting, RUN5_STALL_4_2_LINES[:2], 429.8314734089945 + nf.CLOSE_TIMEOUT_S - 0.01, injection_done=True))
+        self.assertTrue(nf.may_exit(['cut', 'cut'], [], waiting, RUN5_STALL_4_2_LINES[:2], 429.8314734089945 + nf.CLOSE_TIMEOUT_S, injection_done=True))
+        self.assertFalse(nf.may_exit(['cut', None], [], [], [], T + 99, injection_done=True))
+        self.assertFalse(nf.may_exit(['completed'], [], [], [], T + 99, injection_done=False))
+        self.assertTrue(nf.may_exit(['completed'], [], [], [], T, injection_done=True))
+
+    def test_driver_exits_through_may_exit_and_records_wav_phases(self):
+        source = inspect.getsource(nf.Driver.run_trial)
+        self.assertIn('may_exit(', source)
+        self.assertNotIn("if all(job['ended'] is not None for job in jobs + fresh)", source)
+        self.assertIn("connected_s=wav.get('connected_s')", source)
+        reader = inspect.getsource(nf.Driver.trickle_reader)
+        for phase in ('connect', 'request', 'reading'):
+            self.assertIn(f"report['phase'] = '{phase}'", reader)
+        self.assertLess(reader.index("report['phase'] = 'connect'"), reader.index('sock.connect('))
+
+
 class ReplacementTriggerTests(unittest.TestCase):
     PEER = '192.168.23.153:33738'
     OTHER = '192.168.23.153:33740'
@@ -825,13 +904,18 @@ class ReverdictTests(unittest.TestCase):
         trials = {'null-1': dict(name='null-1', started_s=24.0, ended_s=90.0, passed=True, reason='original', before=before, events=null_events),
                   'stall-4-1': dict(name='stall-4-1', started_s=436.0, ended_s=486.0, passed=False,
                                     reason='media age did not return under the null bound', before=before, events=RUN4_STALL_4_1_EVENTS),
-                  'stall-1-1': dict(name='stall-1-1', started_s=500.0, ended_s=500.5, passed=False, reason='settings snapshot unavailable', before=before)}
-        result = dict(passed=False, trial_order=['null-1', 'stall-4-1', 'stall-1-1'], trials=trials, tolerances=None)
+                  'stall-1-1': dict(name='stall-1-1', started_s=500.0, ended_s=500.5, passed=False, reason='settings snapshot unavailable', before=before),
+                  'delayed-reader-1': dict(name='delayed-reader-1', started_s=534.8233159739757, ended_s=582.0, passed=False,
+                                           reason='expected one WAV reader departure, found 0', before=before, wav_reader=dict(RUN5_WAV_RECORD),
+                                           events=[event for event in RUN5_DELAYED_READER_EVENTS if event['kind'] != 'metrics' and event['kind'] != 'wav']
+                                           + [dict(kind='wav', closed_s=None)])}
+        result = dict(passed=False, trial_order=['null-1', 'stall-4-1', 'stall-1-1', 'delayed-reader-1'], trials=trials, tolerances=None)
         (directory / 'result.json').write_text(json.dumps(result, indent=2) + '\n')
         lines = [dict(kind='ready', elapsed_seconds=20.0)]
         lines += [dict(sample(at_s, 100_000), elapsed_seconds=at_s) for at_s in range(25, 90)]
         lines += [dict(item, elapsed_seconds=item['at_s']) for item in RUN4_STALL_4_1_SAMPLES]
         lines.append(dict(kind='metrics_unavailable', elapsed_seconds=457.0, error='TimeoutError'))
+        lines += [dict(sample(at_s, None), elapsed_seconds=at_s) for at_s in (535.336, 581.861)]
         (directory / 'events.jsonl').write_text(''.join(json.dumps(line) + '\n' for line in lines))
 
     @staticmethod
@@ -856,7 +940,9 @@ class ReverdictTests(unittest.TestCase):
             self.assertTrue(written['harness_commit'] is None or re.fullmatch('[0-9a-f]{40}', written['harness_commit']))
             self.assertEqual(written['harness_sha256'], {name: self.digest(SCRIPTS / name) for name in ('network_fault.py', 'encoder_fault_check.py')})
             self.assertIn(written['harness_dirty'], (True, False, None))
-            self.assertEqual(written['original'], {'null-1': True, 'stall-4-1': False, 'stall-1-1': False})
+            self.assertEqual(written['original'], {'null-1': True, 'stall-4-1': False, 'stall-1-1': False, 'delayed-reader-1': False})
+            # The retained wav event lacks the connect record; reverdict merges it from the trial's wav_reader.
+            self.assertTrue(written['trials']['delayed-reader-1']['reason'].startswith('WAV reader never connected'))
             self.assertTrue(written['trials']['null-1']['passed'], written['trials']['null-1'])
             self.assertEqual(written['tolerances'], dict(age_bound_us=100_000, largest_tolerance_bytes=dict(internal_largest=0, psram_largest=0), source=['null-1']))
             self.assertTrue(written['trials']['stall-4-1']['passed'], written['trials']['stall-4-1'])
@@ -901,6 +987,7 @@ class ReverdictTests(unittest.TestCase):
             self.assertIn('null-*', written['trials']['stall-4-1']['reason'])
             self.assertEqual(written['trials']['deficit-0.5-1'], dict(passed=False, reason='trial not recorded'))
             self.assertIsNone(written['original']['deficit-0.5-1'])
+            self.assertFalse(written['trials']['delayed-reader-1']['passed'])
 
 
 class CommandLineTests(unittest.TestCase):

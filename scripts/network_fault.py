@@ -286,6 +286,16 @@ def replacement_decisions(departed, uart_lines, now_s, fresh_count, limit):
     return decisions
 
 
+def may_exit(job_ends, fresh_ends, departed, uart_lines, now_s, injection_done):
+    """Whether the trial loop may stop: every listener ended, the injection removed, and no departed
+    peer still waiting for its close line (or the close timeout), so replacements are never skipped."""
+    if not injection_done or any(end is None for end in job_ends + fresh_ends):
+        return False
+    return not any(not pending['replaced']
+                   and replacement_trigger(pending['peer'], uart_lines[pending['index'] + 1:], now_s - pending['at_s']) is None
+                   for pending in departed)
+
+
 def refused_status(log_text):
     """HTTP status ffmpeg logged for a refused join, or 'unknown' when the log names none."""
     found = re.search(r'HTTP error (\d{3})', log_text)
@@ -418,7 +428,7 @@ def trial_verdict(trial, events):
         kind = trial['kind']
         if kind == 'null':
             if cut:
-                return fail('decoder not continuous', decoders=cut)
+                return fail('decoder not continuous', decoders=cut, departures=departures)
             if departures:
                 return fail('unexpected departure', departures=departures)
             if not counters_flat():
@@ -487,6 +497,9 @@ def trial_verdict(trial, events):
         wav_end = listener_end_category(departures[0]['end']) if len(departures) == 1 else None
         if cut:
             return fail('MP3 decoder not continuous', decoders=cut, wav_end_category=wav_end)
+        reader = next(iter(by_kind.get('wav', [])), None)
+        if reader is not None and reader.get('connected_s') is None and (reader.get('error') is not None or reader.get('phase') is not None):
+            return fail(f"WAV reader never connected (phase {reader.get('phase')}): {reader.get('error')}", wav_reader=reader, wav_end_category=wav_end)
         if len(departures) != 1:
             return fail(f'expected one WAV reader departure, found {len(departures)}', departures=departures, wav_end_category=wav_end)
         problem = checked_departure(departures[0], 'frame_timeout', 'media_age')
@@ -721,9 +734,12 @@ class Driver:
             bind_to_device(sock, self.args.interface)
             sock.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 4096)
             sock.settimeout(10)
+            report['phase'] = 'connect'
             sock.connect((self.args.host, STREAM_PORT))
+            report['phase'] = 'request'
             sock.sendall(f'GET /stream.wav HTTP/1.1\r\nHost: {self.args.host}\r\n\r\n'.encode('ascii'))
             report.update(connected_s=self.elapsed(), local_address=sock.getsockname(), bytes_read=0)
+            report['phase'] = 'reading'
             sock.settimeout(0.5)
             while not stopping.wait(0.5):
                 try:
@@ -811,7 +827,10 @@ class Driver:
                         job['trigger'], job['close_device_us'] = trigger, close_device_us
                         self.record('fresh_listener', label=job['label'], trigger=trigger, close_device_us=close_device_us, replaces=pending['peer'])
                         fresh.append(job)
-                if all(job['ended'] is not None for job in jobs + fresh) and (not install or removed is not None):
+                # Pending departures hold the loop until their close lines (or the timeout) so a replacement can start.
+                replacing = departed if spec['kind'] in ('stall', 'deficit') else []
+                if may_exit([job['ended'] for job in jobs], [job['ended'] for job in fresh], replacing, self.uart_lines, self.elapsed(),
+                            injection_done=not install or removed is not None):
                     break
                 # Hold a stall for its requested seconds, not the poll interval rounded up.
                 sleep_for = 0.5
@@ -838,7 +857,8 @@ class Driver:
         window = self.uart_lines[uart_start:]
         events = [self.decoder_event(job) for job in jobs] + [self.fresh_event(job) for job in fresh] + injections + samples
         if wav_thread is not None:
-            events.append(dict(kind='wav', closed_s=wav.get('closed_s')))
+            events.append(dict(kind='wav', closed_s=wav.get('closed_s'), connected_s=wav.get('connected_s'), phase=wav.get('phase'),
+                               error=wav.get('error'), error_s=wav.get('error_s')))
         uart = uart_events(window, self.uart_at[uart_start:])
         # A fresh listener with no join line after its start was refused or never connected; say which.
         for job, event in zip(fresh, (event for event in events if event['kind'] == 'fresh')):
@@ -979,6 +999,11 @@ def reverdict(directory, repo):
             continue
         spec = trial_spec(name)
         events = trial['events']
+        if trial.get('wav_reader') is not None:
+            # Older records kept the connect outcome only on wav_reader; the verdict reads it from the wav event.
+            record = trial['wav_reader']
+            events = [dict(event, **{key: record.get(key) for key in ('connected_s', 'phase', 'error', 'error_s')}) if event['kind'] == 'wav' else event
+                      for event in events]
         installed = next((event for event in events if event['kind'] == 'injection' and event['phase'] == 'installed'), None)
         window = [item for item in samples if trial['started_s'] <= item['at_s'] <= trial['ended_s']]
         setup = trial_setup(spec, trial['before'], tolerances, installed)
