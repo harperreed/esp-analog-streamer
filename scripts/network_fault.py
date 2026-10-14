@@ -670,9 +670,9 @@ class Driver:
         started = self.elapsed()
         for argv in commands:
             self.sh(argv)
-        event = dict(kind='injection', phase=phase, at_s=started, apply_seconds=round(self.elapsed() - started, 3))
-        self.record('injection', **event)
-        return event
+        fields = dict(phase=phase, at_s=started, apply_seconds=round(self.elapsed() - started, 3))
+        self.record('injection', **fields)
+        return dict(kind='injection', **fields)
 
     def run_trial(self, name):
         spec = trial_spec(name)

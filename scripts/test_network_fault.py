@@ -1,8 +1,10 @@
 # ABOUTME: Checks the network-fault harness's qdisc planning, qdisc-show parsing and trial verdicts on the host.
 # ABOUTME: Runs tc unprivileged for real usage and show output; never installs a qdisc or contacts a board.
+import argparse
 import contextlib
 import inspect
 import io
+import json
 import re
 import shutil
 import socket
@@ -481,6 +483,19 @@ class DriverHelperTests(unittest.TestCase):
         single = nf.budget_seconds(['null-1'])
         self.assertGreater(single, 60)
         self.assertGreater(nf.budget_seconds(['null-1', 'stall-4-1']), single + 44)
+
+    def test_apply_records_the_injection_event_it_returns(self):
+        # The first device run died here: the event dict already names its kind (oct14-interruption result.json).
+        with tempfile.TemporaryDirectory() as out:
+            args = argparse.Namespace(host='192.0.2.1', interface='lo', ifb='ifb0', trials=['null-1'], out=Path(out))
+            driver = nf.Driver(args, Path(out))
+            with (Path(out) / 'events.jsonl').open('w') as driver.events, contextlib.redirect_stdout(io.StringIO()):
+                event = driver.apply('installed', [])
+            recorded = [json.loads(line) for line in (Path(out) / 'events.jsonl').read_text().splitlines()]
+        self.assertEqual(event['kind'], 'injection')
+        self.assertEqual(event['phase'], 'installed')
+        self.assertEqual(len(recorded), 1)
+        self.assertEqual({key: recorded[0][key] for key in ('kind', 'phase', 'at_s', 'apply_seconds')}, event)
 
     def test_bind_to_device_pins_a_fresh_socket(self):
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
