@@ -1,6 +1,7 @@
 # ABOUTME: Injects receiver-side packet loss and rate limits with tc netem while real decoders listen to the board.
 # ABOUTME: qdisc planning, qdisc-show parsing and trial verdicts are pure; the device driver runs only from main.
 import argparse
+import hashlib
 import ipaddress
 import json
 import math
@@ -172,7 +173,12 @@ def deficit_profile(fraction, bitrate_bit_per_s=MP3_BITRATE_BIT_PER_S):
 
 
 def predicted_media_age_end_s(preset_seconds, fraction):
-    """Age grows at (1 - fraction) s/s until the bound; at or above full rate it never ends."""
+    """Upper bound on the time to a MediaAge end: age grows at (1 - fraction) s/s until the bound.
+
+    A TCP flow through netem `rate` gets at most the nominal rate (ACK clocking, retransmits
+    and burst compression only lose throughput), so the real deficit is at least the nominal one
+    and the end comes no later than this. At or above full rate it never ends.
+    """
     if fraction >= 1:
         return None
     return (MEDIA_AGE_BASE_S + preset_seconds) / (1 - fraction)
@@ -246,6 +252,44 @@ def trial_setup(spec, before, tolerances, installed):
 
 JOINED = re.compile(r'stream: (unknown peer|\S+) joined \S+ \(\d+ of \d+\) event_us=(\d+)')
 LEFT = re.compile(r'stream: (unknown peer|\S+) left after [0-9.]+ s: (.*?) listener_stack_free_bytes=\d+ event_us=(\d+)')
+# Same production close line encoder_fault_check pairs with departures; the receipt that certifies it comes later.
+CLOSED = re.compile(r'stream: (\S+) socket closed in \d+ ms; releasing slot \(\d+ held\)')
+# SO_LINGER 2 s + the lwIP 500 ms poll + margin: a close line later than this is not coming.
+CLOSE_TIMEOUT_S = 3.0
+
+
+def replacement_trigger(departed_peer, uart_lines_since, waited_s):
+    """When to start a replacement for a departed peer: its close line, else a timeout fallback.
+
+    Decoder EOF is the board shutting the socket; the slot frees only at the close line about
+    0.5 s later, and with a survivor holding the other slot an earlier join is refused (503).
+    Returns None, ('uart_close', close_device_us) or ('close_timeout', None).
+    """
+    for line in uart_lines_since:
+        closed = CLOSED.search(line)
+        if closed and closed.group(1) == departed_peer:
+            return 'uart_close', listener_event_us(line)
+    if waited_s >= CLOSE_TIMEOUT_S:
+        return 'close_timeout', None
+    return None
+
+
+def replacement_decisions(departed, uart_lines, now_s, fresh_count, limit):
+    """Replacements to start this poll: (pending, trigger, close_device_us), never beyond `limit` fresh listeners."""
+    decisions = []
+    for pending in departed:
+        if pending['replaced'] or fresh_count + len(decisions) >= limit:
+            continue
+        trigger = replacement_trigger(pending['peer'], uart_lines[pending['index'] + 1:], now_s - pending['at_s'])
+        if trigger is not None:
+            decisions.append((pending, *trigger))
+    return decisions
+
+
+def refused_status(log_text):
+    """HTTP status ffmpeg logged for a refused join, or 'unknown' when the log names none."""
+    found = re.search(r'HTTP error (\d{3})', log_text)
+    return int(found.group(1)) if found else 'unknown'
 
 
 def uart_events(lines, at_s):
@@ -324,8 +368,9 @@ def trial_verdict(trial, events):
     harness_ends += [event['closed_s'] for event in by_kind.get('wav', []) if event['closed_s'] is not None]
 
     def harness_owned(departure):
+        # UART is read before decoders are polled, so the board's line can precede ended_s by up to one poll.
         return (listener_end_category(departure['end']) == 'socket_error'
-                and any(0 <= departure['at_s'] - at <= HARNESS_CLOSE_WINDOW_S for at in harness_ends))
+                and any(-POLL_INTERVAL_S <= departure['at_s'] - at <= HARNESS_CLOSE_WINDOW_S for at in harness_ends))
 
     departures = [event for event in by_kind.get('departure', []) if not harness_owned(event)]
     harness_closes = len(by_kind.get('departure', [])) - len(departures)
@@ -339,17 +384,29 @@ def trial_verdict(trial, events):
     def close_of(departure):
         return next((close for close in closes if close['peer'] == departure['peer'] and close['device_us'] >= departure['device_us']), None)
 
-    def admitted_within(close):
-        # Measured on device time: close receipt to join line, not harness reaction.
-        return any(close['device_us'] < item['device_us'] <= close['device_us'] + ADMISSION_WINDOW_S * 1e6 for item in admissions)
+    unclaimed = sorted(admissions, key=lambda item: item['device_us'])
+
+    def admitted_within(departure):
+        # Device time from the departure: with a free second slot the fresh join lands before the old
+        # close completes, and the checked close is required separately. Each join answers one departure.
+        for item in unclaimed:
+            if departure['device_us'] < item['device_us'] <= departure['device_us'] + ADMISSION_WINDOW_S * 1e6:
+                unclaimed.remove(item)
+                return True
+        return False
+
+    def missing_join(departure):
+        refusals = [str(event['refused_status']) for event in by_kind.get('fresh', []) if event.get('refused_status') is not None]
+        return (f"no fresh join line within {ADMISSION_WINDOW_S:g} s of {departure['peer']} departure (device_us {departure['device_us']})"
+                + (f"; fresh listener refused: {', '.join(refusals)}" if refusals else ''))
 
     def counters_flat():
         counted = [sample['capture'] for sample in samples if sample['capture'] is not None]
         return len(counted) >= 2 and counted[0] == counted[-1]
 
-    def checked_departure(departure, category):
-        if listener_end_category(departure['end']) != category:
-            return f"departure {departure['peer']} ended {departure['end']!r}, not {category}"
+    def checked_departure(departure, *categories):
+        if listener_end_category(departure['end']) not in categories:
+            return f"departure {departure['peer']} ended {departure['end']!r}, not {'/'.join(categories)}"
         if close_of(departure) is None:
             return f"departure {departure['peer']} has no checked close"
         return None
@@ -372,18 +429,27 @@ def trial_verdict(trial, events):
                 return fail('no media age bound; run null-* first')
             if len(cut) != len(departures):
                 return fail(f'{len(cut)} listeners stopped decoding but {len(departures)} departed', departures=departures)
+            ages = dict(age_peak_after_removal_us=None, age_last_active_us=None)
             if len(cut) < len(decoders):
-                last = samples[-1] if samples else None
-                if last is None or last['media_age_us'] is None or last['media_age_us'] > trial['age_bound_us']:
-                    return fail('media age did not return under the null bound', last_sample=last)
-            for departure in departures:
+                # Judge survival on ages sampled after removal while an original decoder still ran;
+                # the post-trial sample is idle and carries no age.
+                if 'removed' not in injections:
+                    return fail('injection install/removal not recorded', **ages)
+                active_until = max((decoder['ended_s'] for decoder in decoders if decoder['ended_s'] is not None), default=None)
+                active = [sample['media_age_us'] for sample in samples if sample['media_age_us'] is not None
+                          and injections['removed']['at_s'] <= sample['at_s'] <= (active_until if active_until is not None else float('inf'))]
+                if active:
+                    ages = dict(age_peak_after_removal_us=max(active), age_last_active_us=active[-1])
+                if not active or active[-1] > trial['age_bound_us']:
+                    return fail('media age did not return under the null bound', **ages)
+            for departure in sorted(departures, key=lambda item: item['device_us']):
                 problem = checked_departure(departure, 'media_age')
                 if problem:
-                    return fail(problem)
-                if not admitted_within(close_of(departure)):
-                    return fail(f"no fresh admission within {ADMISSION_WINDOW_S:g} s of {departure['peer']} close")
+                    return fail(problem, **ages)
+                if not admitted_within(departure):
+                    return fail(missing_join(departure), **ages)
             return dict(passed=True, reason='continuous' if not cut else f'{len(cut)} MediaAge departure(s) with checked close and fresh admission',
-                        departed=len(cut))
+                        departed=len(cut), **ages)
         if kind == 'deficit':
             if trial['largest_tolerance_bytes'] is None or trial['age_bound_us'] is None:
                 return fail('no largest-free tolerance; run null-* first')
@@ -398,30 +464,37 @@ def trial_verdict(trial, events):
             if 'installed' not in injections or 'removed' not in injections:
                 return fail('injection install/removal not recorded')
             observed = departure['at_s'] - injections['installed']['at_s']
-            if abs(observed - trial['predicted_end_s']) > trial['end_tolerance_s']:
-                return fail(f"departure after {observed:.2f} s, predicted {trial['predicted_end_s']:.2f} s ± {trial['end_tolerance_s']:.2f}",
-                            observed_end_s=observed)
-            if not admitted_within(close_of(departure)):
-                return fail(f'no fresh admission within {ADMISSION_WINDOW_S:g} s of the close', observed_end_s=observed)
+            # Age grows at most 1 s/s from at most the null bound, so no end can precede this floor.
+            earliest = injections['installed']['apply_seconds'] + MEDIA_AGE_BASE_S - trial['age_bound_us'] / 1e6
+            if observed < earliest:
+                return fail(f"departure after {observed:.2f} s, earlier than the age floor {earliest:.2f} s",
+                            observed_end_s=observed, earliest_end_s=earliest)
+            if observed > trial['predicted_end_s'] + trial['end_tolerance_s']:
+                return fail(f"departure after {observed:.2f} s, later than the predicted bound {trial['predicted_end_s']:.2f} s + {trial['end_tolerance_s']:.2f}",
+                            observed_end_s=observed, earliest_end_s=earliest)
+            if not admitted_within(departure):
+                return fail(missing_join(departure), observed_end_s=observed, earliest_end_s=earliest)
             last = next((sample for sample in reversed(samples) if sample['internal_largest'] is not None), None)
             if last is None:
                 return fail('no post-trial largest-free sample', observed_end_s=observed)
             for key, tolerance in trial['largest_tolerance_bytes'].items():
                 if abs(last[key] - trial['largest_before'][key]) > tolerance:
                     return fail(f"{key} {last[key]} is outside {trial['largest_before'][key]} ± {tolerance}", observed_end_s=observed)
-            return dict(passed=True, reason='MediaAge departure near prediction, fresh admission, largest-free returned', observed_end_s=observed)
-        # delayed-reader: the starved WAV reader ends on media age (stream.rs:729 checks age before mapping the write error).
+            return dict(passed=True, reason='MediaAge departure near prediction, fresh admission, largest-free returned',
+                        observed_end_s=observed, earliest_end_s=earliest)
+        # delayed-reader: the starved WAV reader ends on its own frame write limit (ring capacity / 48 kHz, 'stopped
+        # reading') or, when that is later than the 4 s age bound, on media age (stream.rs:729). Either is its deadline.
         wav_end = listener_end_category(departures[0]['end']) if len(departures) == 1 else None
         if cut:
             return fail('MP3 decoder not continuous', decoders=cut, wav_end_category=wav_end)
         if len(departures) != 1:
             return fail(f'expected one WAV reader departure, found {len(departures)}', departures=departures, wav_end_category=wav_end)
-        problem = checked_departure(departures[0], 'media_age')
+        problem = checked_departure(departures[0], 'frame_timeout', 'media_age')
         if problem:
             return fail(problem, wav_end_category=wav_end)
         if not counters_flat():
             return fail('capture loss counters changed or missing', wav_end_category=wav_end)
-        return dict(passed=True, reason='MP3 continuous; WAV reader ended on media age with checked close', wav_end_category=wav_end)
+        return dict(passed=True, reason=f'MP3 continuous; WAV reader ended on its deadline ({wav_end}) with checked close', wav_end_category=wav_end)
 
     return dict(judge(), harness_closes=harness_closes)
 
@@ -629,7 +702,8 @@ class Driver:
                     exit_code=job['process'].poll(), ended=job['ended'], ended_s=job.get('ended_s'))
 
     def fresh_event(self, job):
-        return dict(kind='fresh', label=job['label'], ended=job['ended'], ended_s=job.get('ended_s'), trigger=job['trigger'])
+        return dict(kind='fresh', label=job['label'], ended=job['ended'], ended_s=job.get('ended_s'), trigger=job['trigger'],
+                    close_device_us=job['close_device_us'], refused_status=job.get('refused_status'))
 
     def stop_job(self, job):
         if job['ended'] is None:
@@ -699,7 +773,7 @@ class Driver:
         injections = []
         installed = removed = None
         unavailable_before = self.poller.unavailable
-        product_departures = []
+        departed = []  # product departures awaiting a replacement: dict(peer, index, at_s, replaced)
         scanned = uart_start
         try:
             while True:
@@ -707,11 +781,10 @@ class Driver:
                 self.read_uart()
                 if self.serial.poll() is not None:
                     raise Failure('UART collector exited; see serial.log')
-                # Product departures on UART are one replacement trigger; decoder EOF is the other.
-                for line in self.uart_lines[scanned:]:
+                for index, line in enumerate(self.uart_lines[scanned:], scanned):
                     left = LEFT.search(line)
                     if left and listener_end_category(left.group(2)) != 'socket_error':
-                        product_departures.append(left.group(1))
+                        departed.append(dict(peer=left.group(1), index=index, at_s=self.uart_at[index], replaced=False))
                 scanned = len(self.uart_lines)
                 for job in jobs + fresh:
                     self.poll_decoder(job)
@@ -723,19 +796,20 @@ class Driver:
                 if installed is not None and removed is None:
                     held = self.elapsed() - installed['at_s'] - installed['apply_seconds']
                     stall_over = spec['kind'] == 'stall' and held >= spec['profile']['seconds']
-                    deficit_over = spec['kind'] == 'deficit' and (product_departures or cut or held >= DEFICIT_SECONDS)
+                    deficit_over = spec['kind'] == 'deficit' and (departed or cut or held >= DEFICIT_SECONDS)
                     if stall_over or deficit_over:
                         removed = self.apply('removed', remove)
                         injections.append(removed)
                         if spec['kind'] == 'stall':
                             trial['stall_actual_s'] = round(removed['at_s'] + removed['apply_seconds'] - installed['at_s'], 3)
-                # A departed listener is replaced once the path is clean, so admission is fresh.
+                # A departed listener is replaced once the path is clean and its slot is freed (its close
+                # line, or the timeout that says the line never came), so the admission is fresh, not refused.
                 if spec['kind'] in ('stall', 'deficit') and removed is not None:
-                    while len(fresh) < max(len(product_departures), len(cut)):
-                        trigger = 'uart_departure' if len(product_departures) > len(fresh) else 'decoder_eof'
+                    for pending, trigger, close_device_us in replacement_decisions(departed, self.uart_lines, self.elapsed(), len(fresh), len(jobs)):
+                        pending['replaced'] = True
                         job = self.start_decoder(f'{name}-fresh-{len(fresh) + 1}', FRESH_LISTENER_SECONDS)
-                        job['trigger'] = trigger
-                        self.record('fresh_listener', label=job['label'], trigger=trigger)
+                        job['trigger'], job['close_device_us'] = trigger, close_device_us
+                        self.record('fresh_listener', label=job['label'], trigger=trigger, close_device_us=close_device_us, replaces=pending['peer'])
                         fresh.append(job)
                 if all(job['ended'] is not None for job in jobs + fresh) and (not install or removed is not None):
                     break
@@ -765,7 +839,12 @@ class Driver:
         events = [self.decoder_event(job) for job in jobs] + [self.fresh_event(job) for job in fresh] + injections + samples
         if wav_thread is not None:
             events.append(dict(kind='wav', closed_s=wav.get('closed_s')))
-        events += uart_events(window, self.uart_at[uart_start:])
+        uart = uart_events(window, self.uart_at[uart_start:])
+        # A fresh listener with no join line after its start was refused or never connected; say which.
+        for job, event in zip(fresh, (event for event in events if event['kind'] == 'fresh')):
+            if not any(item['kind'] == 'admission' and item['at_s'] >= job['started_s'] for item in uart):
+                job['refused_status'] = event['refused_status'] = refused_status(job['errors'].read_text(errors='replace')[-16384:])
+        events += uart
         trial.update(trial_verdict(trial, events), wav_reader=wav if wav_thread is not None else None,
                      metrics_unavailable=self.poller.unavailable - unavailable_before,
                      events=[event for event in events if event['kind'] != 'metrics'], samples=len(samples), ended_s=self.elapsed())
@@ -868,6 +947,57 @@ class Driver:
         return 0 if self.result['passed'] else 1
 
 
+def reverdict(directory, repo):
+    """Recompute every trial verdict of a retained run from its result.json and events.jsonl; writes reverdict.json only."""
+    directory = Path(directory)
+    source = (directory / 'result.json').read_bytes()
+    result = json.loads(source)
+    with (directory / 'events.jsonl').open() as handle:
+        samples = [item for item in (json.loads(line) for line in handle) if item['kind'] == 'metrics']
+
+    def git(*argv):
+        try:
+            return subprocess.run(['git', *argv], cwd=repo, capture_output=True, text=True, timeout=10, check=True).stdout
+        except (OSError, subprocess.SubprocessError):
+            return None
+    commit = git('rev-parse', 'HEAD')
+    status = git('status', '--porcelain', '--', 'scripts/')
+    # HEAD alone is ambiguous while the tree is dirty; the file hashes say which harness judged.
+    hashes = {name: hashlib.sha256((Path(repo) / 'scripts' / name).read_bytes()).hexdigest() for name in ('network_fault.py', 'encoder_fault_check.py')}
+    tolerances, sources = None, []
+    written = dict(source_result_sha256=hashlib.sha256(source).hexdigest(), harness_commit=commit.strip() if commit else None,
+                   harness_sha256=hashes, harness_dirty=bool(status.strip()) if status is not None else None,
+                   tolerances=None, trials={}, original={})
+    for name in result['trial_order']:
+        trial = result['trials'].get(name)
+        written['original'][name] = trial['passed'] if trial else None
+        if trial is None:
+            written['trials'][name] = dict(passed=False, reason='trial not recorded')
+            continue
+        if 'events' not in trial:
+            written['trials'][name] = dict(passed=False, reason=trial['reason'])
+            continue
+        spec = trial_spec(name)
+        events = trial['events']
+        installed = next((event for event in events if event['kind'] == 'injection' and event['phase'] == 'installed'), None)
+        window = [item for item in samples if trial['started_s'] <= item['at_s'] <= trial['ended_s']]
+        setup = trial_setup(spec, trial['before'], tolerances, installed)
+        verdict = trial_verdict(setup, events + window)
+        written['trials'][name] = dict(verdict, age_bound_us=setup['age_bound_us'], largest_tolerance_bytes=setup['largest_tolerance_bytes'],
+                                       predicted_end_s=setup['predicted_end_s'], end_tolerance_s=setup['end_tolerance_s'])
+        if spec['kind'] == 'null' and verdict['passed']:
+            measured = null_tolerances(window, trial['started_s'] + STEADY_SECONDS)
+            if measured is not None:
+                tolerances = merge_tolerances(tolerances, measured)
+                sources.append(name)
+                written['tolerances'] = dict(tolerances, source=list(sources))
+    (directory / 'reverdict.json').write_text(json.dumps(written, indent=2) + '\n')
+    lines = [f"{name:18} {'PASS' if verdict['passed'] else 'FAIL'} (originally {'PASS' if written['original'][name] else 'FAIL'}): {verdict['reason']}"
+             for name, verdict in written['trials'].items()]
+    lines.append(f"wrote {directory / 'reverdict.json'}")
+    return written, lines
+
+
 def argument_parser():
     parser = argparse.ArgumentParser(
         prog='scripts/network-fault',
@@ -875,12 +1005,15 @@ def argument_parser():
                     'against the board with real MP3 decoders while polling /api/metrics every second. Never runs as root: '
                     'cache credentials with `sudo -v` first; every tc/ip call uses `sudo -n`. The serial open resets the board once. '
                     'UART logs are private. The qdisc tree is torn down in a finally block and verified against the pre-run listing.')
-    parser.add_argument('host', type=board_address, help='board IPv4 address')
-    parser.add_argument('--interface', required=True, type=interface_name, help='receiver interface that carries board traffic')
+    parser.add_argument('host', nargs='?', type=board_address, help='board IPv4 address (live run)')
+    parser.add_argument('--reverdict', type=Path, metavar='DIR',
+                        help='recompute verdicts of a retained run from DIR/result.json and DIR/events.jsonl into DIR/reverdict.json; '
+                             'no board, root or serial; exits 0 once written even when verdicts fail; takes no other options')
+    parser.add_argument('--interface', type=interface_name, help='receiver interface that carries board traffic (live run)')
     parser.add_argument('--ifb', default='ifb0', type=interface_name, help='ifb device for ingress shaping (default: ifb0)')
-    parser.add_argument('--trials', type=trial_names, default=list(TRIALS), help='comma-separated trial names (default: all)')
-    parser.add_argument('--serial', required=True, help='UART device for scripts/serial-log')
-    parser.add_argument('--out', required=True, type=Path, help='new output directory; must not exist')
+    parser.add_argument('--trials', type=trial_names, help='comma-separated trial names (default: all)')
+    parser.add_argument('--serial', help='UART device for scripts/serial-log (live run)')
+    parser.add_argument('--out', type=Path, help='new output directory; must not exist (live run)')
     parser.add_argument('--dry-run', action='store_true', help='print every privileged argv and create nothing')
     return parser
 
@@ -888,6 +1021,22 @@ def argument_parser():
 def main(argv=None):
     parser = argument_parser()
     args = parser.parse_args(argv)
+    repo = Path(__file__).resolve().parent.parent
+    if args.reverdict is not None:
+        if any(value not in (None, False) for value in (args.host, args.interface, args.serial, args.out, args.trials, args.dry_run)):
+            parser.error('--reverdict takes no other options')
+        for name in ('result.json', 'events.jsonl'):
+            if not (args.reverdict / name).is_file():
+                parser.error(f'{args.reverdict / name} is missing')
+        # Analysis succeeded once the file is written; the verdicts themselves are in it.
+        for line in reverdict(args.reverdict, repo)[1]:
+            print(line)
+        return 0
+    if args.trials is None:
+        args.trials = list(TRIALS)
+    missing = [flag for flag, value in (('host', args.host), ('--interface', args.interface), ('--serial', args.serial), ('--out', args.out)) if value is None]
+    if missing:
+        parser.error('a live run needs ' + ', '.join(missing))
     if args.out.exists():
         parser.error(f'{args.out} exists; choose a new output directory')
     require_unprivileged(os.geteuid())
@@ -899,7 +1048,7 @@ def main(argv=None):
     def interrupted(_number, _frame):
         raise KeyboardInterrupt
     signal.signal(signal.SIGTERM, interrupted)
-    return Driver(args, Path(__file__).resolve().parent.parent).run()
+    return Driver(args, repo).run()
 
 
 if __name__ == '__main__':

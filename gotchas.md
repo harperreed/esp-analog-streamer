@@ -1271,5 +1271,9 @@ lines, not from a plan's description of them. The first network-fault review
 found three blockers the green suite hid: hand-written fixtures omitted the
 `socket error kind=ConnectionReset` departures every harness-closed listener
 logs, assumed the buffered preset on the plain `/stream.mp3` path (it has a
-flat 4 s media-age bound), and expected a WAV frame timeout the firmware
-replaced with MediaAge on October 11. Grep docs/audit-evidence for the line.
+flat 4 s media-age bound), and expected a WAV frame timeout. A later review
+"corrected" that to MediaAge from reading stream.rs; the board then ended
+the starved WAV reader with `stopped reading` at 3.05 s. Both bounds are
+live and the tighter one wins: the WAV write limit (ring capacity / 48 kHz)
+fires before the 4 s age bound. Grep docs/audit-evidence for the real line,
+and treat a verdict expectation derived from source alone as unverified.

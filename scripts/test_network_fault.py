@@ -2,6 +2,7 @@
 # ABOUTME: Runs tc unprivileged for real usage and show output; never installs a qdisc or contacts a board.
 import argparse
 import contextlib
+import hashlib
 import inspect
 import io
 import json
@@ -66,8 +67,8 @@ def decoder(label, frames, expected, discontinuities=0, exit_code=0, ended=None,
                 discontinuities=discontinuities, exit_code=exit_code, ended=ended, ended_s=ended_s)
 
 
-def fresh(label, ended_s, ended='completed'):
-    return dict(kind='fresh', label=label, ended=ended, ended_s=ended_s)
+def fresh(label, ended_s, ended='completed', trigger='uart_close', close_device_us=None):
+    return dict(kind='fresh', label=label, ended=ended, ended_s=ended_s, trigger=trigger, close_device_us=close_device_us)
 
 
 def wav(closed_s):
@@ -88,8 +89,8 @@ def metrics(at_s, age=200_000, internal=100_000, psram=2_000_000, overflows=0):
                              restarts=0, discontinuities=0))
 
 
-def injection(phase, at_s):
-    return dict(kind='injection', phase=phase, at_s=at_s)
+def injection(phase, at_s, apply_seconds=0.0):
+    return dict(kind='injection', phase=phase, at_s=at_s, apply_seconds=apply_seconds)
 
 
 class QdiscPlanTests(unittest.TestCase):
@@ -325,13 +326,19 @@ class VerdictTests(unittest.TestCase):
     def test_stall_passes_on_continuous_decode_with_recovered_age(self):
         trial = self.stall_trial(1)
         expected = trial['expected_frames']
-        events = [metrics(0), injection('installed', 20), injection('removed', 21.1), metrics(21, age=1_200_000),
+        events = [metrics(0), injection('installed', 20), injection('removed', 21.1), metrics(21.5, age=1_200_000),
                   metrics(40, age=300_000), decoder('listener-1', expected, expected, ended_s=41.2), reset_after('p1', 41.2)]
-        self.assertTrue(nf.trial_verdict(trial, events)['passed'])
+        verdict = nf.trial_verdict(trial, events)
+        self.assertTrue(verdict['passed'], verdict)
+        self.assertEqual((verdict['age_peak_after_removal_us'], verdict['age_last_active_us']), (1_200_000, 300_000))
         stuck = events[:-3] + [metrics(40, age=1_200_000), decoder('listener-1', expected, expected, ended_s=41.2), reset_after('p1', 41.2)]
         verdict = nf.trial_verdict(trial, stuck)
         self.assertFalse(verdict['passed'])
         self.assertIn('age', verdict['reason'])
+        self.assertEqual(verdict['age_last_active_us'], 1_200_000)
+        # The post-trial idle sample has no age and must not be the one judged.
+        idle_tail = events + [metrics(45, age=None)]
+        self.assertTrue(nf.trial_verdict(trial, idle_tail)['passed'])
         self.assertFalse(nf.trial_verdict(trial, events + [departure('p', 'media age exceeded', 5, 25)])['passed'])
         self.assertFalse(nf.trial_verdict(dict(trial, age_bound_us=None), events)['passed'])
 
@@ -345,8 +352,11 @@ class VerdictTests(unittest.TestCase):
         verdict = nf.trial_verdict(trial, events)
         self.assertTrue(verdict['passed'], verdict)
         self.assertEqual(verdict['harness_closes'], 1)
-        late = [event for event in events if event['kind'] != 'admission'] + [admission('p2', 60_010_001, 34)]
+        late = [event for event in events if event['kind'] != 'admission'] + [admission('p2', 60_000_001, 34)]
         self.assertFalse(nf.trial_verdict(trial, late)['passed'])
+        # With a free second slot the fresh join can land before the old close completes.
+        before_close = [event for event in events if event['kind'] != 'admission'] + [admission('p2', 50_005_000, 24.0)]
+        self.assertTrue(nf.trial_verdict(trial, before_close)['passed'])
         self.assertFalse(nf.trial_verdict(trial, [event for event in events if event['kind'] != 'admission'])['passed'])
         self.assertFalse(nf.trial_verdict(trial, [event for event in events if event['kind'] != 'close'])['passed'])
         wrong_end = [dict(event, end='stopped reading') if event['kind'] == 'departure' else event for event in events]
@@ -360,7 +370,7 @@ class VerdictTests(unittest.TestCase):
         events = [metrics(0), injection('installed', 20), injection('removed', 22.6),
                   departure('p1', 'media age exceeded', 50_000_000, 22.5), close('p1', 50_010_000, 22.6),
                   admission('p3', 55_000_000, 28), decoder('listener-1', expected // 2, expected, ended_s=23),
-                  decoder('listener-2', expected, expected, ended_s=43.1), reset_after('p2', 43.1), metrics(50, age=400_000)]
+                  decoder('listener-2', expected, expected, ended_s=43.1), reset_after('p2', 43.1), metrics(40, age=400_000), metrics(50, age=None)]
         self.assertTrue(nf.trial_verdict(trial, events)['passed'])
         both_cut = [dict(event, frames=expected // 2) if event.get('label') == 'listener-2' else event for event in events]
         self.assertFalse(nf.trial_verdict(trial, both_cut)['passed'])
@@ -375,9 +385,13 @@ class VerdictTests(unittest.TestCase):
         verdict = nf.trial_verdict(trial, events)
         self.assertTrue(verdict['passed'], verdict)
         self.assertAlmostEqual(verdict['observed_end_s'], 16.5)
+        # The prediction is an upper bound (TCP through netem rate gets at most the nominal rate): early is fine, late fails.
         early = [dict(event, at_s=30) if event['kind'] == 'departure' and event['end'] != RESET else event for event in events]
-        self.assertFalse(nf.trial_verdict(trial, early)['passed'])
-        late_join = [dict(event, device_us=70_020_001) if event['kind'] == 'admission' else event for event in events]
+        self.assertTrue(nf.trial_verdict(trial, early)['passed'])
+        self.assertAlmostEqual(nf.trial_verdict(trial, early)['observed_end_s'], 10.0)
+        late = [dict(event, at_s=38.1) if event['kind'] == 'departure' and event['end'] != RESET else event for event in events]
+        self.assertFalse(nf.trial_verdict(trial, late)['passed'])
+        late_join = [dict(event, device_us=70_000_001) if event['kind'] == 'admission' else event for event in events]
         self.assertFalse(nf.trial_verdict(trial, late_join)['passed'])
         self.assertFalse(nf.trial_verdict(dict(trial, end_tolerance_s=None), events)['passed'])
         heap = events[:-1] + [metrics(50, internal=90_000, psram=1_990_000)]
@@ -397,10 +411,15 @@ class VerdictTests(unittest.TestCase):
         self.assertEqual(verdict['wav_end_category'], 'media_age')
         self.assertFalse(nf.trial_verdict(trial, [event for event in events if event['kind'] != 'close'])['passed'])
         self.assertFalse(nf.trial_verdict(trial, [event for event in events if event['kind'] != 'departure'])['passed'])
+        # The reader's own frame write limit (ring capacity / 48 kHz) can fire before the 4 s age bound.
         timeout = [dict(event, end='stopped reading') if event.get('end') == 'media age exceeded' else event for event in events]
         verdict = nf.trial_verdict(trial, timeout)
-        self.assertFalse(verdict['passed'])
+        self.assertTrue(verdict['passed'], verdict)
         self.assertEqual(verdict['wav_end_category'], 'frame_timeout')
+        broken = [dict(event, end=RESET) if event.get('end') == 'media age exceeded' else event for event in events]
+        verdict = nf.trial_verdict(trial, broken)
+        self.assertFalse(verdict['passed'])
+        self.assertEqual(verdict['wav_end_category'], 'socket_error')
         cut = [dict(event, frames=expected // 2, ended='cut') if event['kind'] == 'decoder' else event for event in events]
         self.assertFalse(nf.trial_verdict(trial, cut)['passed'])
         # A WAV reader the harness had to close itself is a reset after wav closed_s, not a product departure.
@@ -505,6 +524,385 @@ class DriverHelperTests(unittest.TestCase):
                 nf.bind_to_device(sock, 'no-such-interface-0')
 
 
+
+# Records lifted from target/kata-hardening/oct14-interruption-4 and -3 (result.json trials[*].events, events.jsonl
+# metrics lines). Device microseconds are exact; metrics at_s is rounded to the millisecond; the absolute path in the
+# dead fresh listener's `ended` text was stripped. Everything else is the retained value.
+RUN4_BEFORE = dict(internal_largest=47104, psram_largest=2359296)
+RUN4_TOLERANCES = dict(age_bound_us=142463, largest_tolerance_bytes=dict(internal_largest=6144, psram_largest=0))
+RUN3_TOLERANCES = dict(age_bound_us=2126239, largest_tolerance_bytes=dict(internal_largest=0, psram_largest=0))
+CAPTURE_FLAT = dict(queue_overflows=8, software_dropped_frames=0, read_errors=0, restarts=0, discontinuities=0)
+
+
+def sample(at_s, age, internal=47104, psram=2359296):
+    return dict(kind='metrics', at_s=at_s, media_age_us=age, internal_largest=internal, psram_largest=psram, capture=dict(CAPTURE_FLAT))
+
+
+RUN4_STALL_4_1_EVENTS = [
+    dict(kind='decoder', label='stall-4-1-listener-1', frames=2112000, expected_frames=2112000, discontinuities=0, exit_code=0, ended='completed', ended_s=480.91661526600365),
+    dict(kind='injection', phase='installed', at_s=456.3355433960096, apply_seconds=0.024),
+    dict(kind='injection', phase='removed', at_s=460.35991857398767, apply_seconds=0.025),
+    dict(kind='admission', peer='192.168.23.153:57306', device_us=434991720, at_s=436.81212376098847),
+    dict(kind='departure', peer='192.168.23.153:57306', end='socket error kind=ConnectionReset raw_os_error=Some(104)', device_us=479201063, at_s=481.11707020099857),
+    dict(kind='close', peer='192.168.23.153:57306', device_us=479201621, at_s=481.11707428700174),
+]
+RUN4_STALL_4_1_SAMPLES = [sample(at_s, age) for at_s, age in [
+    (461.311, 1550664), (462.334, 48341), (463.298, 46325), (464.325, 52468), (465.313, 52272), (466.309, 51374),
+    (467.298, 52416), (468.322, 53058), (469.382, 51726), (470.326, 65673), (471.313, 49074), (472.307, 50727),
+    (473.365, 49803), (474.318, 49377), (475.312, 45170), (476.303, 44693), (477.493, 46683), (478.318, 51691),
+    (479.300, 52266), (480.304, 56819), (481.318, None), (482.342, None), (483.322, None), (484.315, None), (485.311, None)]]
+RUN4_DEFICIT_0_5_1_EVENTS = [
+    dict(kind='decoder', label='deficit-0.5-1-listener-1', frames=1172736, expected_frames=2880000, discontinuities=0, exit_code=251,
+         ended='ffmpeg integrity failure: [http @ 0x5ee337ec4940] [error] Stream ends prematurely at 976800, should be 18446744073709551615', ended_s=620.1674808120006),
+    dict(kind='fresh', label='deficit-0.5-1-fresh-1', ended='completed', ended_s=629.6810319210053, trigger='uart_departure'),
+    dict(kind='injection', phase='installed', at_s=610.1240752309968, apply_seconds=0.015),
+    dict(kind='injection', phase='removed', at_s=619.1498638300109, apply_seconds=0.015),
+    dict(kind='admission', peer='192.168.23.153:51312', device_us=588857019, at_s=590.599611475016),
+    dict(kind='departure', peer='192.168.23.153:51312', end='media age exceeded', device_us=617292409, at_s=619.1495294139895),
+    dict(kind='admission', peer='192.168.23.153:46918', device_us=617845229, at_s=619.6657872840005),
+    dict(kind='departure', peer='192.168.23.153:46918', end='socket error kind=ConnectionReset raw_os_error=Some(104)', device_us=628044204, at_s=629.8814693519962),
+    dict(kind='close', peer='192.168.23.153:51312', device_us=618594011, at_s=620.6680814299907),
+    dict(kind='close', peer='192.168.23.153:46918', device_us=628045092, at_s=630.0818047430075),
+    sample(590.383, 48272), sample(634.368, None),
+]
+RUN3_STALL_2_5_1_EVENTS = [
+    dict(kind='decoder', label='stall-2.5-1-listener-1', frames=1001088, expected_frames=2040000, discontinuities=0, exit_code=251,
+         ended='ffmpeg integrity failure: [http @ 0x5a4b73912940] [error] Stream ends prematurely at 834240, should be 18446744073709551615', ended_s=374.2971532989759),
+    dict(kind='fresh', label='stall-2.5-1-fresh-1', ended='completed', ended_s=384.3069482279825, trigger='uart_departure'),
+    dict(kind='injection', phase='installed', at_s=367.7444286760001, apply_seconds=0.025),
+    dict(kind='injection', phase='removed', at_s=370.26967800798593, apply_seconds=0.023),
+    dict(kind='admission', peer='192.168.23.153:32884', device_us=346593932, at_s=348.71613394198357),
+    dict(kind='departure', peer='192.168.23.153:32884', end='media age exceeded', device_us=371457022, at_s=373.79498827198404),
+    dict(kind='admission', peer='192.168.23.153:46934', device_us=372701309, at_s=374.2962549259828),
+    dict(kind='departure', peer='192.168.23.153:46934', end='socket error kind=ConnectionReset raw_os_error=Some(104)', device_us=382858298, at_s=384.70786008698633),
+    dict(kind='close', peer='192.168.23.153:32884', device_us=372771338, at_s=374.7978945199866),
+    dict(kind='close', peer='192.168.23.153:46934', device_us=382859103, at_s=384.70786355499877),
+    sample(348.283, 52369),
+]
+RUN4_DELAYED_READER_EVENTS = [
+    dict(kind='decoder', label='delayed-reader-1-listener-1', frames=1920000, expected_frames=1920000, discontinuities=0, exit_code=0, ended='completed', ended_s=675.3190738809935),
+    dict(kind='wav', closed_s=680.3251240790123),
+    dict(kind='admission', peer='192.168.23.153:58452', device_us=633444784, at_s=635.2762716129946),
+    dict(kind='admission', peer='192.168.23.153:58458', device_us=633450656, at_s=635.7771773610148),
+    dict(kind='departure', peer='192.168.23.153:58452', end='stopped reading', device_us=635842309, at_s=637.7789524270047),
+    dict(kind='departure', peer='192.168.23.153:58458', end='socket error kind=ConnectionReset raw_os_error=Some(104)', device_us=673621474, at_s=675.7195508790028),
+    dict(kind='close', peer='192.168.23.153:58452', device_us=638053895, at_s=639.7809107690118),
+    dict(kind='close', peer='192.168.23.153:58458', device_us=673622028, at_s=675.7195528470038),
+    sample(635.362, 285922), sample(680.366, None, internal=45056),
+]
+RUN4_DEFICIT_0_8_1_EVENTS = [
+    dict(kind='decoder', label='deficit-0.8-1-listener-1', frames=1616256, expected_frames=2880000, discontinuities=0, exit_code=251,
+         ended='ffmpeg integrity failure: [http @ 0x628bad6c3940] [error] Stream ends prematurely at 1346400, should be 18446744073709551615', ended_s=574.8788830449921),
+    dict(kind='fresh', label='deficit-0.8-1-fresh-1', ended='completed', ended_s=584.8932915370096, trigger='uart_departure'),
+    dict(kind='injection', phase='installed', at_s=555.8197047589929, apply_seconds=0.017),
+    dict(kind='injection', phase='removed', at_s=574.3626188370108, apply_seconds=0.015),
+    dict(kind='admission', peer='192.168.23.153:58624', device_us=534448276, at_s=536.2947610559931),
+    dict(kind='departure', peer='192.168.23.153:58624', end='media age exceeded', device_us=572099472, at_s=574.3622049530095),
+    dict(kind='admission', peer='192.168.23.153:38330', device_us=573085267, at_s=574.8787465060013),
+    dict(kind='departure', peer='192.168.23.153:38330', end='socket error kind=ConnectionReset raw_os_error=Some(104)', device_us=583259321, at_s=585.0938199550146),
+    dict(kind='close', peer='192.168.23.153:58624', device_us=573080131, at_s=574.8787456529972),
+    dict(kind='close', peer='192.168.23.153:38330', device_us=583259872, at_s=585.0938234429923),
+    sample(536.313, 45654), sample(589.372, None),
+]
+RUN3_DEFICIT_0_8_1_EVENTS = [
+    dict(kind='decoder', label='deficit-0.8-1-listener-1', frames=1203840, expected_frames=2880000, discontinuities=0, exit_code=251,
+         ended='ffmpeg integrity failure: [http @ 0x59b175925940] [error] Stream ends prematurely at 1002720, should be 18446744073709551615', ended_s=564.4247309589991),
+    dict(kind='fresh', label='deficit-0.8-1-fresh-1', ended='completed', ended_s=574.9404425660032, trigger='uart_departure'),
+    dict(kind='injection', phase='installed', at_s=553.884791421995, apply_seconds=0.012),
+    dict(kind='injection', phase='removed', at_s=563.9086437939841, apply_seconds=0.015),
+    dict(kind='admission', peer='192.168.23.153:44732', device_us=532669472, at_s=534.8600374959933),
+    dict(kind='departure', peer='192.168.23.153:44732', end='media age exceeded', device_us=561705572, at_s=563.908253962989),
+    dict(kind='admission', peer='192.168.23.153:48244', device_us=563193117, at_s=564.925657298998),
+    dict(kind='departure', peer='192.168.23.153:48244', end='socket error kind=ConnectionReset raw_os_error=Some(104)', device_us=573748660, at_s=575.7419536459784),
+    dict(kind='close', peer='192.168.23.153:44732', device_us=563041352, at_s=564.9256376799894),
+    dict(kind='close', peer='192.168.23.153:48244', device_us=573749201, at_s=575.7419576669927),
+    sample(534.506, 52185), sample(579.722, None),
+]
+RUN3_STALL_4_2_EVENTS = [
+    dict(kind='decoder', label='stall-4-2-listener-1', frames=881280, expected_frames=2112000, discontinuities=0, exit_code=152,
+         ended='ffmpeg integrity failure: [in#0/mp3 @ 0x5919e4438240] [error] Error during demuxing: Connection reset by peer', ended_s=509.93477874898235),
+    dict(kind='decoder', label='stall-4-2-listener-2', frames=2112000, expected_frames=2112000, discontinuities=0, exit_code=0, ended='completed', ended_s=528.4625634789991),
+    dict(kind='fresh', label='stall-4-2-fresh-1', ended='no decoded framehash output: stall-4-2-fresh-1.framehash', ended_s=509.43404839298455, trigger='uart_departure'),
+    dict(kind='injection', phase='installed', at_s=502.8136451919854, apply_seconds=0.045),
+    dict(kind='injection', phase='removed', at_s=506.8591269379831, apply_seconds=0.066),
+    dict(kind='admission', peer='192.168.23.153:33740', device_us=482651424, at_s=484.28546230398933),
+    dict(kind='admission', peer='192.168.23.153:33738', device_us=482656883, at_s=484.2854656589916),
+    dict(kind='departure', peer='192.168.23.153:33738', end='media age exceeded', device_us=506161813, at_s=508.92976776100113),
+    dict(kind='departure', peer='192.168.23.153:33740', end='socket error kind=ConnectionReset raw_os_error=Some(104)', device_us=527501585, at_s=529.4641988629883),
+    dict(kind='close', peer='192.168.23.153:33738', device_us=508205727, at_s=510.4357955659798),
+    dict(kind='close', peer='192.168.23.153:33740', device_us=527502147, at_s=529.4642027959926),
+] + [sample(at_s, age) for at_s, age in [
+    (507.427, 3724336), (508.408, 1898782), (509.412, 343188), (510.875, 50957), (511.551, 46279), (512.592, 52231),
+    (513.651, 52283), (515.088, 146064), (515.595, 737389), (516.654, 1759588), (517.389, 2743485), (518.805, 2169322),
+    (519.551, 55388), (520.575, 48416), (521.501, 51700), (522.929, 47205), (524.106, 47600), (525.003, 48999),
+    (525.471, 48053), (526.334, 51300), (527.543, 48854), (528.424, 47551), (529.71, None), (530.781, None)]]
+
+
+def installed_of(events):
+    return next(event for event in events if event['kind'] == 'injection' and event['phase'] == 'installed')
+
+
+class RetainedRunTests(unittest.TestCase):
+    def test_run4_stall_4_1_survives_judged_on_last_active_age(self):
+        trial = nf.trial_setup(nf.trial_spec('stall-4-1'), RUN4_BEFORE, RUN4_TOLERANCES, installed_of(RUN4_STALL_4_1_EVENTS))
+        verdict = nf.trial_verdict(trial, RUN4_STALL_4_1_EVENTS + RUN4_STALL_4_1_SAMPLES)
+        self.assertTrue(verdict['passed'], verdict)
+        self.assertEqual(verdict['reason'], 'continuous')
+        self.assertEqual((verdict['age_peak_after_removal_us'], verdict['age_last_active_us']), (1550664, 56819))
+        stuck = [dict(item, media_age_us=1550664) if item['media_age_us'] is not None else item for item in RUN4_STALL_4_1_SAMPLES]
+        verdict = nf.trial_verdict(trial, RUN4_STALL_4_1_EVENTS + stuck)
+        self.assertFalse(verdict['passed'])
+        self.assertEqual(verdict['age_last_active_us'], 1550664)
+
+    def test_fresh_join_before_the_old_close_counts_from_the_departure(self):
+        trial = nf.trial_setup(nf.trial_spec('deficit-0.5-1'), RUN4_BEFORE, RUN4_TOLERANCES, installed_of(RUN4_DEFICIT_0_5_1_EVENTS))
+        verdict = nf.trial_verdict(trial, RUN4_DEFICIT_0_5_1_EVENTS)
+        self.assertTrue(verdict['passed'], verdict)
+        self.assertAlmostEqual(verdict['observed_end_s'], 9.025, places=3)
+        trial = nf.trial_setup(nf.trial_spec('stall-2.5-1'), RUN4_BEFORE, RUN3_TOLERANCES, installed_of(RUN3_STALL_2_5_1_EVENTS))
+        verdict = nf.trial_verdict(trial, RUN3_STALL_2_5_1_EVENTS)
+        self.assertTrue(verdict['passed'], verdict)
+        self.assertEqual(verdict['departed'], 1)
+        # The checked close is still required.
+        self.assertFalse(nf.trial_verdict(trial, [event for event in RUN3_STALL_2_5_1_EVENTS if event['kind'] != 'close'])['passed'])
+
+    def test_run4_delayed_reader_wav_ended_on_its_frame_write_limit(self):
+        trial = nf.trial_setup(nf.trial_spec('delayed-reader-1'), RUN4_BEFORE, RUN4_TOLERANCES, None)
+        verdict = nf.trial_verdict(trial, RUN4_DELAYED_READER_EVENTS)
+        self.assertTrue(verdict['passed'], verdict)
+        self.assertEqual(verdict['wav_end_category'], 'frame_timeout')
+        self.assertEqual(verdict['harness_closes'], 1)
+        broken = [dict(event, end=RESET) if event.get('end') == 'stopped reading' else event for event in RUN4_DELAYED_READER_EVENTS]
+        self.assertFalse(nf.trial_verdict(trial, broken)['passed'])
+
+    def test_deficit_prediction_is_an_upper_bound(self):
+        trial = nf.trial_setup(nf.trial_spec('deficit-0.8-1'), RUN4_BEFORE, RUN4_TOLERANCES, installed_of(RUN4_DEFICIT_0_8_1_EVENTS))
+        self.assertAlmostEqual(trial['predicted_end_s'], 20.0)
+        self.assertAlmostEqual(trial['end_tolerance_s'], 1.729315)
+        verdict = nf.trial_verdict(trial, RUN4_DEFICIT_0_8_1_EVENTS)
+        self.assertTrue(verdict['passed'], verdict)
+        self.assertAlmostEqual(verdict['observed_end_s'], 18.5425, places=3)
+        trial3 = nf.trial_setup(nf.trial_spec('deficit-0.8-1'), RUN4_BEFORE, RUN3_TOLERANCES, installed_of(RUN3_DEFICIT_0_8_1_EVENTS))
+        verdict = nf.trial_verdict(trial3, RUN3_DEFICIT_0_8_1_EVENTS)
+        self.assertTrue(verdict['passed'], verdict)
+        self.assertAlmostEqual(verdict['observed_end_s'], 10.0235, places=3)
+        late = [dict(event, at_s=555.8197047589929 + 25) if event.get('end') == 'media age exceeded' else event for event in RUN4_DEFICIT_0_8_1_EVENTS]
+        verdict = nf.trial_verdict(trial, late)
+        self.assertFalse(verdict['passed'])
+        self.assertAlmostEqual(verdict['observed_end_s'], 25.0)
+
+
+    def test_run3_stall_4_2_fails_on_the_missing_join_not_timing(self):
+        # The fresh ffmpeg was started on the departure line while the survivor held the other slot and the
+        # departed slot's close was 2.04 s away; no join line exists, so the records cannot pass.
+        trial = nf.trial_setup(nf.trial_spec('stall-4-2'), RUN4_BEFORE, RUN3_TOLERANCES, installed_of(RUN3_STALL_4_2_EVENTS))
+        verdict = nf.trial_verdict(trial, RUN3_STALL_4_2_EVENTS)
+        self.assertFalse(verdict['passed'])
+        self.assertIn('no fresh join', verdict['reason'])
+        self.assertIn('192.168.23.153:33738', verdict['reason'])
+        self.assertNotIn('timing', verdict['reason'])
+        self.assertEqual(verdict['age_last_active_us'], 47551)
+        joined = RUN3_STALL_4_2_EVENTS + [dict(kind='admission', peer='192.168.23.153:40000', device_us=508_900_000, at_s=511.2)]
+        self.assertTrue(nf.trial_verdict(trial, joined)['passed'])
+
+
+    def test_two_departures_consume_two_distinct_joins(self):
+        trial = nf.trial_setup(nf.trial_spec('stall-2.5-2'), RUN4_BEFORE, RUN3_TOLERANCES, dict(kind='injection', phase='installed', at_s=20, apply_seconds=0.02))
+        expected = trial['expected_frames']
+        events = [metrics(0), injection('installed', 20), injection('removed', 22.6),
+                  departure('p1', 'media age exceeded', 50_000_000, 22.5), close('p1', 52_000_000, 24.6),
+                  departure('p2', 'media age exceeded', 50_100_000, 22.5), close('p2', 52_100_000, 24.6),
+                  admission('p3', 53_000_000, 25.5), admission('p4', 53_200_000, 25.7),
+                  decoder('listener-1', expected // 2, expected, ended_s=23), decoder('listener-2', expected // 2, expected, ended_s=23),
+                  fresh('f1', 36, close_device_us=52_000_000), fresh('f2', 36.2, close_device_us=52_100_000),
+                  reset_after('p3', 36), reset_after('p4', 36.2)]
+        self.assertTrue(nf.trial_verdict(trial, events)['passed'], nf.trial_verdict(trial, events))
+        one_join = [event for event in events if event.get('peer') != 'p4']
+        verdict = nf.trial_verdict(trial, one_join)
+        self.assertFalse(verdict['passed'])
+        self.assertIn('p2', verdict['reason'])
+
+    def test_deficit_end_cannot_precede_the_age_floor(self):
+        trial = nf.trial_setup(nf.trial_spec('deficit-0.8-1'), RUN4_BEFORE, RUN4_TOLERANCES, installed_of(RUN4_DEFICIT_0_8_1_EVENTS))
+        installed_at = installed_of(RUN4_DEFICIT_0_8_1_EVENTS)['at_s']
+        early = [dict(event, at_s=installed_at + 0.3) if event.get('end') == 'media age exceeded' else event for event in RUN4_DEFICIT_0_8_1_EVENTS]
+        verdict = nf.trial_verdict(trial, early)
+        self.assertFalse(verdict['passed'])
+        self.assertIn('earlier', verdict['reason'])
+        self.assertAlmostEqual(verdict['earliest_end_s'], 0.017 + 4.0 - 0.142463)
+        self.assertTrue(nf.trial_verdict(trial, RUN4_DEFICIT_0_8_1_EVENTS)['passed'])
+
+    def test_harness_close_logged_just_before_the_decoder_end_is_still_harness_owned(self):
+        trial = nf.trial_setup(nf.trial_spec('stall-4-1'), RUN4_BEFORE, RUN4_TOLERANCES, installed_of(RUN4_STALL_4_1_EVENTS))
+        ended_s = 480.91661526600365
+        shifted = [dict(event, at_s=ended_s - 0.005) if event.get('end') == RESET else event for event in RUN4_STALL_4_1_EVENTS]
+        verdict = nf.trial_verdict(trial, shifted + RUN4_STALL_4_1_SAMPLES)
+        self.assertTrue(verdict['passed'], verdict)
+        self.assertEqual(verdict['harness_closes'], 1)
+        too_early = [dict(event, at_s=ended_s - nf.POLL_INTERVAL_S - 0.5) if event.get('end') == RESET else event for event in RUN4_STALL_4_1_EVENTS]
+        self.assertFalse(nf.trial_verdict(trial, too_early + RUN4_STALL_4_1_SAMPLES)['passed'])
+
+
+class ReplacementTriggerTests(unittest.TestCase):
+    PEER = '192.168.23.153:33738'
+    OTHER = '192.168.23.153:33740'
+    LEFT = f'I (508900) esp_shazam_firmware::stream: stream: {PEER} left after 23.5 s: media age exceeded listener_stack_free_bytes=1652 event_us=506161813'
+    CLOSE = f'I (510400) esp_shazam_firmware::stream: stream: {PEER} socket closed in 2043 ms; releasing slot (1 held) event_us=508205727 owner_id=0 sonos_intent=0'
+    OTHER_CLOSE = f'I (529400) esp_shazam_firmware::stream: stream: {OTHER} socket closed in 1 ms; releasing slot (0 held) event_us=527502147 owner_id=0 sonos_intent=0'
+
+    def test_waits_for_the_departed_peers_close_line_only(self):
+        self.assertIsNone(nf.replacement_trigger(self.PEER, [self.LEFT], waited_s=0.5))
+        self.assertIsNone(nf.replacement_trigger(self.PEER, [self.LEFT, self.OTHER_CLOSE], waited_s=1.0))
+        self.assertEqual(nf.replacement_trigger(self.PEER, [self.LEFT, self.CLOSE], waited_s=1.5), ('uart_close', 508205727))
+        # Decoder EOF is the board shutting the socket; the slot frees at the close line, so EOF never triggers.
+        self.assertIsNone(nf.replacement_trigger(self.PEER, [self.LEFT], waited_s=2.9))
+        self.assertEqual(nf.replacement_trigger(self.PEER, [self.LEFT], waited_s=nf.CLOSE_TIMEOUT_S), ('close_timeout', None))
+        self.assertEqual(nf.replacement_trigger(self.PEER, [self.LEFT, self.CLOSE], waited_s=5.0), ('uart_close', 508205727))
+        self.assertEqual(nf.CLOSE_TIMEOUT_S, 3.0)
+        self.assertIsNone(nf.replacement_trigger('unknown peer', [self.CLOSE], waited_s=1.0))
+
+    def test_run3_stall_4_2_timeline_starts_nothing_before_the_close_line(self):
+        # Retained host times: departure line 508.930, cut decoder EOF 509.935, close line 510.436.
+        departed = [dict(peer=self.PEER, index=0, at_s=508.930, replaced=False)]
+        lines = [self.LEFT]
+        starts = []
+        for now_s in (508.95, 509.45, 509.95, 510.45, 510.95):
+            if now_s >= 510.436 and self.CLOSE not in lines:
+                lines.append(self.CLOSE)
+            for pending, trigger, close_device_us in nf.replacement_decisions(departed, lines, now_s, fresh_count=len(starts), limit=2):
+                pending['replaced'] = True
+                starts.append((now_s, trigger, close_device_us))
+        self.assertEqual(starts, [(510.45, 'uart_close', 508205727)])
+        self.assertTrue(departed[0]['replaced'])
+        # Without a close line the fallback fires at the timeout and says so.
+        departed = [dict(peer=self.PEER, index=0, at_s=508.930, replaced=False)]
+        self.assertEqual(nf.replacement_decisions(departed, [self.LEFT], 511.9, fresh_count=0, limit=2), [])
+        decisions = nf.replacement_decisions(departed, [self.LEFT], 511.95, fresh_count=0, limit=2)
+        self.assertEqual([(d[1], d[2]) for d in decisions], [('close_timeout', None)])
+        # A fresh listener's own departure cannot spawn replacements beyond the original listener count.
+        departed = [dict(peer=self.PEER, index=0, at_s=500.0, replaced=False), dict(peer=self.OTHER, index=1, at_s=500.0, replaced=False)]
+        self.assertEqual(nf.replacement_decisions(departed, [self.LEFT, self.OTHER_CLOSE, self.CLOSE], 505.0, fresh_count=1, limit=1), [])
+        self.assertEqual(len(nf.replacement_decisions(departed, [self.LEFT, self.OTHER_CLOSE, self.CLOSE], 505.0, fresh_count=0, limit=1)), 1)
+
+    def test_driver_uses_the_trigger_function_and_never_the_departure_line(self):
+        source = inspect.getsource(nf.Driver.run_trial)
+        self.assertIn('replacement_decisions(', source)
+        self.assertNotIn("'uart_departure'", source)
+        self.assertNotIn("'decoder_eof'", source)
+
+
+class RefusedStatusTests(unittest.TestCase):
+    # Tail of target/kata-hardening/oct14-interruption-3/stall-4-2-fresh-1.ffmpeg.log.
+    LOG = ('[info] ffmpeg stats and -progress period set to 1.\n'
+           '[http @ 0x5b53af5b0940] [warning] HTTP error 503 Service Unavailable\n'
+           '[in#0 @ 0x5b53af5b0240] [error] Error opening input: Server returned 5XX Server Error reply\n'
+           '[error] Error opening input file http://192.168.23.217:8000/stream.mp3.\n'
+           '[fatal] Error opening input files: Server returned 5XX Server Error reply\n')
+
+    def test_refused_status_reads_the_http_code_or_says_unknown(self):
+        self.assertEqual(nf.refused_status(self.LOG), 503)
+        self.assertEqual(nf.refused_status(self.LOG.replace('HTTP error 503 Service Unavailable', 'HTTP error 404 Not Found')), 404)
+        self.assertEqual(nf.refused_status('[fatal] Error opening input files: Server returned 5XX Server Error reply\n'), 'unknown')
+        self.assertEqual(nf.refused_status(''), 'unknown')
+
+    def test_missing_join_reason_names_the_refusal(self):
+        trial = nf.trial_setup(nf.trial_spec('stall-4-2'), RUN4_BEFORE, RUN3_TOLERANCES, installed_of(RUN3_STALL_4_2_EVENTS))
+        refused = [dict(event, refused_status=503) if event['kind'] == 'fresh' else event for event in RUN3_STALL_4_2_EVENTS]
+        verdict = nf.trial_verdict(trial, refused)
+        self.assertFalse(verdict['passed'])
+        self.assertIn('refused', verdict['reason'])
+        self.assertIn('503', verdict['reason'])
+        self.assertTrue(inspect.getsource(nf.Driver.run_trial).count('refused_status('))
+
+
+class ReverdictTests(unittest.TestCase):
+    def synthetic_run(self, directory):
+        null_events = [dict(kind='decoder', label='null-1-listener-1', frames=2880000, expected_frames=2880000, discontinuities=0,
+                            exit_code=0, ended='completed', ended_s=85.0),
+                       dict(kind='admission', peer='p0', device_us=1_000_000, at_s=25.0),
+                       departure('p0', RESET, 61_000_000, 85.3), close('p0', 61_000_500, 85.3)]
+        before = dict(RUN4_BEFORE, kind='metrics', settings=dict(active_format='mp3', autoplay=False))
+        trials = {'null-1': dict(name='null-1', started_s=24.0, ended_s=90.0, passed=True, reason='original', before=before, events=null_events),
+                  'stall-4-1': dict(name='stall-4-1', started_s=436.0, ended_s=486.0, passed=False,
+                                    reason='media age did not return under the null bound', before=before, events=RUN4_STALL_4_1_EVENTS),
+                  'stall-1-1': dict(name='stall-1-1', started_s=500.0, ended_s=500.5, passed=False, reason='settings snapshot unavailable', before=before)}
+        result = dict(passed=False, trial_order=['null-1', 'stall-4-1', 'stall-1-1'], trials=trials, tolerances=None)
+        (directory / 'result.json').write_text(json.dumps(result, indent=2) + '\n')
+        lines = [dict(kind='ready', elapsed_seconds=20.0)]
+        lines += [dict(sample(at_s, 100_000), elapsed_seconds=at_s) for at_s in range(25, 90)]
+        lines += [dict(item, elapsed_seconds=item['at_s']) for item in RUN4_STALL_4_1_SAMPLES]
+        lines.append(dict(kind='metrics_unavailable', elapsed_seconds=457.0, error='TimeoutError'))
+        (directory / 'events.jsonl').write_text(''.join(json.dumps(line) + '\n' for line in lines))
+
+    @staticmethod
+    def digest(path):
+        return hashlib.sha256(path.read_bytes()).hexdigest()
+
+    def test_reverdict_recomputes_from_retained_records_without_touching_them(self):
+        with tempfile.TemporaryDirectory() as directory:
+            run = Path(directory) / 'run'
+            run.mkdir()
+            self.synthetic_run(run)
+            before = {name: self.digest(run / name) for name in ('result.json', 'events.jsonl')}
+            cwd = Path(directory) / 'cwd'
+            cwd.mkdir()
+            completed = subprocess.run([str(SCRIPTS / 'network-fault'), '--reverdict', str(run)], cwd=cwd, capture_output=True, text=True, timeout=60)
+            self.assertEqual(completed.returncode, 0, completed.stderr)
+            self.assertEqual(list(cwd.iterdir()), [])
+            self.assertEqual(sorted(path.name for path in run.iterdir()), ['events.jsonl', 'result.json', 'reverdict.json'])
+            self.assertEqual({name: self.digest(run / name) for name in before}, before)
+            written = json.loads((run / 'reverdict.json').read_text())
+            self.assertEqual(written['source_result_sha256'], before['result.json'])
+            self.assertTrue(written['harness_commit'] is None or re.fullmatch('[0-9a-f]{40}', written['harness_commit']))
+            self.assertEqual(written['harness_sha256'], {name: self.digest(SCRIPTS / name) for name in ('network_fault.py', 'encoder_fault_check.py')})
+            self.assertIn(written['harness_dirty'], (True, False, None))
+            self.assertEqual(written['original'], {'null-1': True, 'stall-4-1': False, 'stall-1-1': False})
+            self.assertTrue(written['trials']['null-1']['passed'], written['trials']['null-1'])
+            self.assertEqual(written['tolerances'], dict(age_bound_us=100_000, largest_tolerance_bytes=dict(internal_largest=0, psram_largest=0), source=['null-1']))
+            self.assertTrue(written['trials']['stall-4-1']['passed'], written['trials']['stall-4-1'])
+            self.assertEqual(written['trials']['stall-4-1']['age_last_active_us'], 56819)
+            self.assertFalse(written['trials']['stall-1-1']['passed'])
+            self.assertEqual(written['trials']['stall-1-1']['reason'], 'settings snapshot unavailable')
+            for name in ('null-1', 'stall-4-1', 'stall-1-1'):
+                self.assertIn(name, completed.stdout)
+
+    def test_reverdict_of_a_copy_of_the_retained_device_run(self):
+        retained = SCRIPTS.parent / 'target/kata-hardening/oct14-interruption-4'
+        if not (retained / 'result.json').exists() or not (retained / 'events.jsonl').exists():
+            self.skipTest('retained run oct14-interruption-4 not present')
+        with tempfile.TemporaryDirectory() as directory:
+            run = Path(directory) / 'copy'
+            run.mkdir()
+            for name in ('result.json', 'events.jsonl'):
+                shutil.copyfile(retained / name, run / name)
+            written, lines = nf.reverdict(run, SCRIPTS.parent)
+            self.assertEqual(json.loads((run / 'reverdict.json').read_text()), written)
+            self.assertEqual(written['source_result_sha256'], self.digest(retained / 'result.json'))
+            self.assertEqual(set(written['trials']), set(nf.TRIALS))
+            self.assertEqual(set(written['original']), set(nf.TRIALS))
+            self.assertEqual(written['tolerances'], json.loads((retained / 'result.json').read_text())['tolerances'])
+            self.assertEqual(len(lines), len(nf.TRIALS) + 1)
+        self.assertFalse((retained / 'reverdict.json').exists() and False)
+
+    def test_reverdict_fails_closed_without_null_tolerances_and_names_unrecorded_trials(self):
+        with tempfile.TemporaryDirectory() as directory:
+            run = Path(directory) / 'run'
+            run.mkdir()
+            self.synthetic_run(run)
+            result = json.loads((run / 'result.json').read_text())
+            # The null decoder loses a frame: no tolerances, so the stall trial cannot be judged.
+            result['trials']['null-1']['events'][0]['frames'] -= 1
+            result['trial_order'].append('deficit-0.5-1')
+            (run / 'result.json').write_text(json.dumps(result))
+            written, _ = nf.reverdict(run, SCRIPTS.parent)
+            self.assertFalse(written['trials']['null-1']['passed'])
+            self.assertIsNone(written['tolerances'])
+            self.assertFalse(written['trials']['stall-4-1']['passed'])
+            self.assertIn('null-*', written['trials']['stall-4-1']['reason'])
+            self.assertEqual(written['trials']['deficit-0.5-1'], dict(passed=False, reason='trial not recorded'))
+            self.assertIsNone(written['original']['deficit-0.5-1'])
+
+
 class CommandLineTests(unittest.TestCase):
     def test_root_refusal(self):
         stderr = io.StringIO()
@@ -549,7 +947,13 @@ class CommandLineTests(unittest.TestCase):
                      (['esp-shazam.local', '--interface', 'lo', '--serial', '/dev/null', '--out', 'x'], 2),
                      ([BOARD, '--interface', 'lo', '--serial', '/dev/null', '--out', 'x', '--trials', 'nope'], 2),
                      ([BOARD, '--interface', 'lo', '--serial', '/dev/null', '--out', str(existing), '--dry-run'], 2),
-                     ([BOARD, '--interface', 'lo', '--serial', '/dev/null'], 2)]
+                     ([BOARD, '--interface', 'lo', '--serial', '/dev/null'], 2),
+                     ([], 2),
+                     (['--reverdict', str(Path(directory) / 'missing-run')], 2),
+                     (['--reverdict', str(existing), BOARD], 2),
+                     (['--reverdict', str(existing), '--dry-run'], 2),
+                     (['--reverdict', str(existing), '--trials', 'null-1'], 2),
+                     (['--reverdict', str(existing), '--out', 'x'], 2)]
             for args, expected in cases:
                 result = subprocess.run([str(wrapper), *args], cwd=directory, capture_output=True, text=True, timeout=30)
                 self.assertEqual(result.returncode, expected, (args, result.stdout, result.stderr))

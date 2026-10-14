@@ -1,14 +1,25 @@
 # Validate receiver-side interruption and overload recovery (cv5a)
 
 ## Now
-- Step: Tasks 1–3 complete (2026-10-14): review fixes B1–B3, S1–S8 applied,
-  36 harness tests, `scripts/check --host` run.ABE6Lao4 passed 22 stages;
-  harness committed, no device action yet
-- Next: Task 4 device run, in order null-*, stall-*, deficit-*, delayed-reader
-- Open: sudo must be cached by Doctor Biz (`! sudo -v`) before Task 4
+- Step: Task 4 attempt 1 (2026-10-14 14:27 UTC, `target/kata-hardening/
+  oct14-interruption`, retained): null-1 and null-2 PASSED (exact frames,
+  counters flat, tolerances age 122,471 us / largest 0 B); stall-0.5-1 died
+  on a harness TypeError in `Driver.apply`; qdisc restore verified, ifb0
+  removed, no board or settings change. Fixed with a real Driver test;
+  `prio bands 4` and mq-root restore are now confirmed with root.
+- Step: verdict fixes, close-line replacement trigger and `--reverdict`
+  implemented and independently reviewed twice (53 tests); attempt 4
+  re-judges 13/13, attempt 3 11/13; `scripts/check --host` running
+- Next: commit, re-run `--reverdict` on attempts 3 and 4 so the recorded
+  harness hashes are the committed code, write the evidence pair (Task 5),
+  then ask Doctor Biz whether a fifth run under the final harness is wanted
+- Open: Doctor Biz runs the Task 4 batch from their own tty ("You run it in
+  your tty", 2026-10-14) because `sudo -n` cannot see a per-tty timestamp
+  from the agent's shell; the agent evaluates `result.json` afterwards
 - Approved: "effectively wmsy" (2026-10-13, choosing the epic); "cv5a via
   receiver-side netem (Recommended)" (2026-10-13, target question);
-  "Yes, go (Recommended)" to "Start Tasks 1–3 now" (2026-10-13)
+  "Yes, go (Recommended)" to "Start Tasks 1–3 now" (2026-10-13);
+  "Yes, sudo is cached" to "Run Task 4 (the device batch) now?" (2026-10-14)
 - Compactions: 0
 
 ## Scope
@@ -39,11 +50,12 @@ sleep (control-timeout) and application-level trickle reads (stream-churn).
   The preset's seconds are added only on the Sonos-tagged buffered route;
   a plain `/stream.mp3` request is `Route::Stream` with `preset = None`
   (`core/src/stream_http.rs:637`, `firmware/src/stream.rs:427`), so every
-  listener in this plan has a flat 4 s bound. The WAV debug path uses the
-  same 4 s bound and checks it before mapping a write timeout
-  (`stream.rs:729,757`), so a starved WAV reader ends `MediaAge`, not
-  `StoppedReading` as the October 4 trickle evidence recorded. It fires
-  before the socket deadline and before ring overwrite (~12 s).
+  listener in this plan has a flat 4 s bound. The WAV debug path has the
+  same 4 s age bound plus its own per-frame write limit of ring capacity /
+  48 kHz (`stream.rs:636-643`); the tighter one wins, and on the board the
+  write limit fired first: a starved WAV reader ended `stopped reading` at
+  3.05 s (attempt 4), as the October 4 trickle evidence recorded. For MP3
+  the age bound fires before the 8 s socket deadline and ring overwrite.
 - A listener the harness closes itself logs as a departure too:
   `left after X s: socket error kind=ConnectionReset`. Verdicts must separate
   those from product departures by timing against the decoder's own end.
@@ -119,11 +131,15 @@ Capture baselines are taken before any injection so setup loss cannot hide.
    60 s. Expect exact decoded frames, no departures, counters flat.
 2. `stall-{0.5,1,2.5,4}-{1,2}`: one or two MP3 listeners, 20 s steady, the
    stall, then 20 s. Verdict per listener: continuous decode with age
-   recovery, or a `MediaAge` departure with checked close, slot freed and a
-   fresh admission within 10 s of the close. Anything else fails.
+   recovery, or a `MediaAge` departure with checked close and a fresh
+   admission, one per departure, within 10 s of the departure (the
+   replacement starts on the close line, since the slot is held until
+   then). Anything else fails.
 3. `deficit-{0.8,0.5}-1`: rate at 80% and 50% of 320 kbit/s on ingress for
-   up to 60 s or until departure. Expect a `MediaAge` end near the predicted
-   time, bounded heap, then rate removed and a fresh admission within 10 s.
+   up to 60 s or until departure. Expect a `MediaAge` end no later than the
+   predicted time plus tolerance and no earlier than the physical floor
+   (age grows at most 1 s/s), bounded heap, then rate removed and a fresh
+   admission within 10 s of the departure.
    Internal and PSRAM largest-free must return to within a tolerance of the
    pre-trial value; the tolerance is set from `null-*`, not invented.
 4. `delayed-reader-1`: one MP3 decoder plus one WAV reader trickling 1 byte
@@ -137,6 +153,54 @@ scan rejects frame-number and CRC faults. Departures are paired with their
 closes by `encoder_fault_check.checked_listener_closes` against the UART
 listener export. Failed trials stay in the result with `passed:false`; no
 unchanged reruns.
+
+## Task 4 findings (2026-10-14, attempts 3 and 4, both retained)
+
+Attempt 2 (`-2`) stopped in 9 ms on the sudo probe; attempt 1 died on the
+`Driver.apply` TypeError after two passing null trials. Attempts 3 and 4
+(`oct14-interruption-3`, `-4`) each ran all 13 trials in ~675 s with the
+qdisc tree restored and verified. Image `0ff2a7cc…` throughout.
+
+- `prio bands 4` is accepted without a priomap; `del root` on the `mq`
+  device restores the default tree byte-for-byte. Both root-only unknowns
+  are now settled.
+- Null trials: exact frames, no departures, counters flat, both attempts.
+  Attempt 4 measured the age bound at 142,463 us; attempt 3 at 2,126,239 us
+  (one steady-state transient), which made its deficit tolerance 10.6 s.
+- Stalls, attempt 4: all eight survived with exact frames and zero
+  discontinuities; `stall_actual_s` 0.549/1.068/2.549/4.049 (one listener),
+  0.548/1.048/2.552/4.050 (two). Age after removal peaked 0.43–3.17 s and
+  was 45–77 ms by the last active sample. The verdict read the post-trial
+  idle sample (`null`) and failed every one: verdict bug.
+- Stalls, attempt 3: 2.5 s stalls ended `MediaAge` on both listeners about
+  3.5 s after removal, with checked closes and fresh admissions; 4 s stalls
+  survived. Hypothesis to record, not a finding: lwIP RTO backoff lands a
+  retransmit just past the 4 s media-age deadline for a 2.5 s blackout.
+- Fresh admission: the fresh listener joins before the departed listener's
+  checked close (second slot free; close lingers ~1.5 s). `deficit-0.8-1`
+  passed by 5 ms of ordering. Measure from the departure: verdict bug.
+- Deficit: `MediaAge` at 18.5 s (attempt 4) and 10.0 s (attempt 3) against a
+  20 s prediction at 0.8×; 9.0 s both attempts against 8.0 s at 0.5×. A TCP
+  flow through a rate shaper gets at most the nominal rate, so the formula
+  is an upper bound on time-to-departure. Contract loosened to "no later
+  than predicted + tolerance"; stated here and in the evidence.
+- Delayed reader: WAV ended `stopped reading` at 3.05 s (its own write
+  limit fires before the 4 s age bound), checked close 2 s later, MP3
+  listener exact at 1,920,000 frames. Review finding S2 was wrong; either
+  bounded end is a clean outcome. Verdict accepts both and records which.
+- Metrics polls timed out 1–4 times per stall and 9–17 times per deficit:
+  the control path was hit too. Expected; recorded, not a failure.
+- Re-verdict with the corrected code (harness 331ea17 + fixes): attempt 4
+  13/13 PASS; attempt 3 11/13. Attempt 3 `stall-4-2`: one `MediaAge`
+  departure, the survivor held the other slot, and the replacement started
+  on the departure line 2.04 s before the checked close, so the board
+  refused it. Correct two-slot behavior; the trigger is changed to the
+  close line or decoder EOF (reversing review item S8). Attempt 3
+  `deficit-0.5-1`: internal largest free block 47,104 → 43,008 B after the
+  trial against a measured null tolerance of 0 B; attempt 4 ended its batch
+  at 45,056 B. A 2–4 KiB drop after listener churn, not shown to recover
+  within a run and not shown to grow further. Recorded FAIL; not toleranced
+  away; candidate follow-up, not this ticket.
 
 ## Tasks
 
