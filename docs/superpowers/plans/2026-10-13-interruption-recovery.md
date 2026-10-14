@@ -7,12 +7,14 @@
   on a harness TypeError in `Driver.apply`; qdisc restore verified, ifb0
   removed, no board or settings change. Fixed with a real Driver test;
   `prio bands 4` and mq-root restore are now confirmed with root.
-- Step: verdict fixes, close-line replacement trigger and `--reverdict`
-  implemented and independently reviewed twice (53 tests); attempt 4
-  re-judges 13/13, attempt 3 11/13; `scripts/check --host` running
-- Next: commit, re-run `--reverdict` on attempts 3 and 4 so the recorded
-  harness hashes are the committed code, write the evidence pair (Task 5),
-  then ask Doctor Biz whether a fifth run under the final harness is wanted
+- Step: Task 5. Verdict fixes committed as `fc9f2d5` after
+  `scripts/check --host` run.wBkpTHsN (22 stages; run.kwlkyMc3 before it
+  failed boundary validation because the agent edited files during the
+  run, retained). Both attempts re-judged with the committed harness
+  (dirty false): attempt 4 13/13, attempt 3 11/13. Evidence pair written
+  to `docs/audit-evidence/2026-10-14/interruption-recovery.{md,json}`
+- Next: commit the evidence, comment cv5a, then ask Doctor Biz whether a
+  fifth run under the final harness (close-line trigger) is wanted
 - Open: Doctor Biz runs the Task 4 batch from their own tty ("You run it in
   your tty", 2026-10-14) because `sudo -n` cannot see a per-tty timestamp
   from the agent's shell; the agent evaluates `result.json` afterwards
