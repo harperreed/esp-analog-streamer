@@ -14,6 +14,7 @@ def listener_end_category(reason):
         ('format epoch retired', 'format_retired'),
         ('stopped reading', 'frame_timeout'),
         ('no fresh audio', 'capture_freshness'),
+        ('media age exceeded', 'media_age'),
     ):
         if text in reason:
             return category

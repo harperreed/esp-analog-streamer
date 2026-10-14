@@ -35,8 +35,9 @@ channel routing and jack-to-PCM gain still require a calibrated source.
 Doctor Biz confirmed on October 12 that no AP access is available. Record the
 unavailable AP acquisition explicitly; pd6c allows that investigation outcome.
 It does not establish a transport root cause or complete recovery acceptance.
-The workstation now defaults to Wi-Fi for the board despite Ethernet remaining
-up. Pin and record the receiver interface for comparisons; do not reinterpret
+The workstation's default route to the board flips with interface metrics:
+Wi-Fi on October 12, wired enp5s0 (src .153) again on October 13 with Wi-Fi
+still up. Pin and record the receiver interface for comparisons; do not reinterpret
 the earlier wired traces as wireless.
 
 Doctor Biz approved checked Stop and hardware playback testing on October 11:
@@ -1256,3 +1257,19 @@ ideal zero-input mean is +1/512 output LSB. Keep arithmetic/RNG and decoder
 receipts tied to each candidate. Standalone preprocessing plus the unchanged
 FLAC encoder repeats quantization; its timing does not predict a fused path or
 loaded streaming headroom. See October 13 quant-target evidence.
+
+Workstation tc/netem cannot reach the Sonos stream: the speaker (.205) fetches
+straight from the board (.217:8000), and no AP access exists. Receiver-side
+shaping proves recovery for workstation listeners only. cv5a's "Sonos resumes
+only when still owned" scenario stays an explicit unmet gate, also pending
+pqqq's automatic resume; never report a netem trial as Sonos-path evidence.
+Listener end reasons appear only on UART (`stream: ... left after ...`), never
+in /api/metrics; every recovery trial needs the serial log open.
+
+Harness verdict fixtures for a device seam must come from real captured UART
+lines, not from a plan's description of them. The first network-fault review
+found three blockers the green suite hid: hand-written fixtures omitted the
+`socket error kind=ConnectionReset` departures every harness-closed listener
+logs, assumed the buffered preset on the plain `/stream.mp3` path (it has a
+flat 4 s media-age bound), and expected a WAV frame timeout the firmware
+replaced with MediaAge on October 11. Grep docs/audit-evidence for the line.
