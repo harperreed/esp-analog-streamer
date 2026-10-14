@@ -28,6 +28,13 @@ pub enum TransportState {
     Stopped,
     Paused,
 }
+/// `GetTransportInfo` state plus the raw `CurrentTransportStatus` text. UPnP permits
+/// vendor status values (Sonos emits `ERROR_CANT_REACH_SERVER`), so it is never enumerated.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TransportInfo {
+    pub state: TransportState,
+    pub status: String,
+}
 pub struct Client {
     group: DiscoveryGroup,
     peer: SocketAddr,
@@ -524,25 +531,26 @@ impl Client {
         )
     }
     pub fn transport_state(&self, deadline: Instant) -> io::Result<TransportState> {
-        match value(
-            &self.soap(
-                AV,
-                &self.av,
-                "GetTransportInfo",
-                "<InstanceID>0</InstanceID>",
-                deadline,
-            )?,
-            0,
-            "CurrentTransportState",
-        )?
-        .as_str()
-        {
-            "PLAYING" => Ok(TransportState::Playing),
-            "TRANSITIONING" => Ok(TransportState::Transitioning),
-            "STOPPED" => Ok(TransportState::Stopped),
-            "PAUSED_PLAYBACK" => Ok(TransportState::Paused),
-            _ => Err(invalid()),
-        }
+        self.transport_info(deadline).map(|info| info.state)
+    }
+    pub fn transport_info(&self, deadline: Instant) -> io::Result<TransportInfo> {
+        let reply = self.soap(
+            AV,
+            &self.av,
+            "GetTransportInfo",
+            "<InstanceID>0</InstanceID>",
+            deadline,
+        )?;
+        let state = match value(&reply, 0, "CurrentTransportState")?.as_str() {
+            "PLAYING" => TransportState::Playing,
+            "TRANSITIONING" => TransportState::Transitioning,
+            "STOPPED" => TransportState::Stopped,
+            "PAUSED_PLAYBACK" => TransportState::Paused,
+            _ => return Err(invalid()),
+        };
+        // A missing status element is a malformed reply, not an empty status.
+        let status = value(&reply, 0, "CurrentTransportStatus")?;
+        Ok(TransportInfo { state, status })
     }
     pub fn set_uri(&self, uri: &str, deadline: Instant) -> io::Result<()> {
         if uri.len() > 4096 || uri.chars().any(char::is_control) {
@@ -890,6 +898,56 @@ mod tests {
         let requests = h.join().unwrap();
         assert!(requests[1].contains("<InstanceID>0</InstanceID><Speed>1</Speed>"));
         assert!(requests[2].contains("#Stop\""));
+    }
+    #[test]
+    fn transport_info_carries_status_text() {
+        let (peer, h) = serve(vec![
+            include_str!("../tests/fixtures/sonos/transport.xml").into(),
+            include_str!("../tests/fixtures/sonos/transport.xml")
+                .replace("TRANSITIONING", "STOPPED")
+                .replace(">OK<", ">ERROR_CANT_REACH_SERVER<"),
+        ]);
+        let c = client(peer);
+        let d = Instant::now() + Duration::from_secs(2);
+        assert_eq!(
+            c.transport_info(d).unwrap(),
+            TransportInfo {
+                state: TransportState::Transitioning,
+                status: "OK".into()
+            }
+        );
+        // UPnP allows vendor status values; the text is retained, never enumerated.
+        assert_eq!(
+            c.transport_info(d).unwrap(),
+            TransportInfo {
+                state: TransportState::Stopped,
+                status: "ERROR_CANT_REACH_SERVER".into()
+            }
+        );
+        let requests = h.join().unwrap();
+        assert_eq!(requests.len(), 2);
+        assert!(requests.iter().all(|r| r.contains("#GetTransportInfo\"")));
+    }
+    #[test]
+    fn transport_info_rejects_missing_status() {
+        let (peer, h) = serve(vec![include_str!("../tests/fixtures/sonos/transport.xml")
+            .replace("<CurrentTransportStatus>OK</CurrentTransportStatus>", "")]);
+        let c = client(peer);
+        let d = Instant::now() + Duration::from_secs(2);
+        assert_eq!(
+            c.transport_info(d).unwrap_err().kind(),
+            io::ErrorKind::InvalidData
+        );
+        h.join().unwrap();
+    }
+    #[test]
+    fn transport_state_ignores_vendor_status() {
+        let (peer, h) = serve(vec![include_str!("../tests/fixtures/sonos/transport.xml")
+            .replace(">OK<", ">ERROR_OCCURRED<")]);
+        let c = client(peer);
+        let d = Instant::now() + Duration::from_secs(2);
+        assert_eq!(c.transport_state(d).unwrap(), TransportState::Transitioning);
+        h.join().unwrap();
     }
     #[test]
     fn changed_identity_rejects() {

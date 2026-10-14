@@ -23,4 +23,5 @@ uv run --quiet --project "$repo" --locked python3 -m unittest discover -s script
 uv run --quiet --project "$repo" --locked python3 -m unittest discover -s scripts -p test_network_fault.py
 uv run --quiet --project "$repo" --locked python3 -m unittest discover -s scripts -p test_listener_churn.py
 uv run --quiet --project "$repo" --locked python3 -m unittest discover -s scripts -p test_network_fault_batch.py
+uv run --quiet --project "$repo" --locked python3 -m unittest discover -s scripts -p test_sonos_resume_probe.py
 exec uv run --quiet --project "$repo" --locked python3 -m unittest discover -s scripts -p test_harness_modules.py
