@@ -26,6 +26,9 @@ class Failure(Exception):
 
 
 OUTPUT_BUDGET_BYTES = 128 * 1024 * 1024
+# ffmpeg's socket read timeout and the no-progress watchdog; a harness may stretch both on its decoder args.
+DECODER_RW_TIMEOUT_S = 10
+DECODER_PROGRESS_TIMEOUT_S = 20
 LOSS_KEYS = ['queue_overflows', 'software_dropped_frames', 'read_errors', 'restarts', 'discontinuities']
 CLEAN_STARTUP_KEYS = ['software_dropped_frames', 'read_errors', 'restarts',
                       'supervisor_restarts', 'overflow_restarts', 'discontinuities',
@@ -119,8 +122,8 @@ def update_decoder(job, args):
         if code != 0 or job['decoded_audio_frames'] != round(args.seconds * 48000):
             raise Failure(f"{job['label']}: exit={code}, decoded={job['decoded_audio_frames']} actual frames, "
                           f"timeline={job['timeline_seconds']:.3f}s, requested={args.seconds:g}s; see {job['errors']}")
-    elif time.monotonic() - job['advanced_at'] > 20:
-        raise Failure(f"{job['label']}: no decoder progress for 20 seconds")
+    elif time.monotonic() - job['advanced_at'] > getattr(args, 'progress_timeout_s', DECODER_PROGRESS_TIMEOUT_S):
+        raise Failure(f"{job['label']}: no decoder progress for {getattr(args, 'progress_timeout_s', DECODER_PROGRESS_TIMEOUT_S):g} seconds")
 
 
 def stop(process):
@@ -141,7 +144,8 @@ def stop(process):
 
 def decoder_command(args, ip, progress, hashes):
     return ['ffmpeg', '-nostdin', '-nostats', '-v', 'level+info', '-xerror', '-stats_period', '1',
-                 '-progress', str(progress), '-rw_timeout', '10000000', '-err_detect', 'crccheck',
+                 '-progress', str(progress), '-rw_timeout', str(round(getattr(args, 'rw_timeout_s', DECODER_RW_TIMEOUT_S) * 1_000_000)),
+                 '-err_detect', 'crccheck',
                  *input_format_args(args.path), '-i',
                  f'http://{ip}:{args.stream_port}{args.path}', '-t', str(round(args.seconds * 48000) / 48000),
                  '-c:a', 'pcm_s32le', '-f', 'framehash', '-flush_packets', '1', str(hashes)]

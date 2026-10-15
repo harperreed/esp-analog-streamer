@@ -20,7 +20,8 @@
       "at": 20000,
       "id": 1,
       "op": "admit",
-      "actor": 0
+      "actor": 0,
+      "exact": true
     },
     {
       "at": 40000,

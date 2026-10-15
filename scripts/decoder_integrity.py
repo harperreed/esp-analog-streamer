@@ -20,9 +20,14 @@ def validate_decoder_log(path):
 
 
 class FrameHash:
-    """Read committed records incrementally; s32 stereo has eight bytes per audio frame."""
-    def __init__(self, path):
+    """Read committed records incrementally; s32 stereo has eight bytes per audio frame.
+
+    A timestamp gap ends the read unless `tolerate_discontinuities`, when it is counted and the read continues
+    (a live listener that skipped forward is judged against the board's own skip count).
+    """
+    def __init__(self, path, tolerate_discontinuities=False):
         self.path = Path(path)
+        self.tolerate_discontinuities = tolerate_discontinuities
         self.handle = None
         self.pending = b''
         self.frames = 0
@@ -83,6 +88,9 @@ class FrameHash:
             self.skipped_source_frames += max(0, gap)
             self.duplicate_frames += max(0, -gap)
             self.discontinuities += 1
+            self.next_pts = pts + duration
+            if self.tolerate_discontinuities:
+                return
             raise ValueError(f'decoded sample discontinuity: expected {self.next_pts}, got {pts}; '
                              f'skipped={self.skipped_source_frames}, duplicate={self.duplicate_frames}')
         self.next_pts = pts + duration

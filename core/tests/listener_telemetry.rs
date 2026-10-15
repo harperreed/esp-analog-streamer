@@ -14,7 +14,9 @@ mod stream_pipeline;
 #[path = "../../firmware/src/stream_runtime.rs"]
 mod stream_runtime;
 
-use esp_shazam_core::{stream_buffer::OutputFormat, stream_wait::Slot};
+use esp_shazam_core::{
+    stream_buffer::OutputFormat, stream_http::ListenerPolicy, stream_wait::Slot,
+};
 use listener_telemetry::{Payload, Queue, Record};
 use std::{
     io::Read,
@@ -325,6 +327,7 @@ fn real_socket_timeout_and_refusal_reach_close_with_full_queue_and_blocked_expor
                 epoch,
                 Some(esp_shazam_core::stream_buffer::BufferPreset::Medium),
                 false,
+                ListenerPolicy::Live,
                 &mut || Duration::ZERO,
             );
             assert!(matches!(
@@ -357,10 +360,13 @@ fn real_socket_timeout_and_refusal_reach_close_with_full_queue_and_blocked_expor
                 matches!(&result,Err(error) if matches!(error.kind(),std::io::ErrorKind::TimedOut | std::io::ErrorKind::WouldBlock))
             );
             let epoch = &resources.lease.as_ref().unwrap().epoch;
-            let mut actor =
-                stream_pipeline::CompressedListener::new(epoch, None, false, &mut || {
-                    Duration::ZERO
-                });
+            let mut actor = stream_pipeline::CompressedListener::new(
+                epoch,
+                None,
+                false,
+                ListenerPolicy::Live,
+                &mut || Duration::ZERO,
+            );
             assert!(matches!(
                 actor.step(epoch, &mut [], &mut || Duration::ZERO, &mut || true),
                 stream_pipeline::ListenerStep::Progress

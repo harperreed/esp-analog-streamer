@@ -4,8 +4,9 @@ use crate::stream_codec as codec;
 use crate::stream_runtime::{Epoch, Runtime, Worker};
 use esp_shazam_core::{
     flac_ring::{self, SourceMetadata},
-    media_age::MediaAge,
+    media_age::{AgeError, MediaAge},
     stream_buffer::BufferPreset,
+    stream_http::ListenerPolicy,
     stream_ring::{Cursor, RawRead, ReadError, StreamRing},
     stream_wait::{BufferedWait, FreshWait, RawWait, SnapshotWait, WaitStep},
 };
@@ -415,10 +416,20 @@ enum Phase {
     },
     End,
 }
+/// Why a live listener owes a cursor move before its next read.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum OwedSkip {
+    /// A stale frame was dropped unwritten; that drop is already on the counters.
+    Dropped,
+    /// A frame went out complete but late; nothing is counted until the move passes frames.
+    Late,
+}
 pub(crate) struct CompressedListener {
     phase: Phase,
     cursor: Option<flac_ring::Cursor>,
     header: Vec<u8>,
+    /// The header write's budget, fixed; a frame write's budget depends on the policy.
+    header_limit: Duration,
     write_limit: Duration,
     block_number: u32,
     pub(crate) refuse_buffered: bool,
@@ -426,6 +437,9 @@ pub(crate) struct CompressedListener {
     pub(crate) frames_sent: u64,
     pub(crate) bytes_sent: u64,
     age: MediaAge,
+    policy: ListenerPolicy,
+    /// A live listener owes a cursor move before its next read, after a stale or late frame.
+    pending_skip: Option<OwedSkip>,
     pending_source: Option<SourceMetadata>,
     pending_receipt: Option<flac_ring::FrameReceipt>,
     pub(crate) first_sent: Option<flac_ring::FrameReceipt>,
@@ -433,12 +447,17 @@ pub(crate) struct CompressedListener {
     pub(crate) last_age_us: u64,
     pub(crate) max_age_us: u64,
     pub(crate) queue_frames_max: u64,
+    /// Live-policy resynchronizations: events, whole frames passed over, and the last event's time.
+    pub(crate) skips: u64,
+    pub(crate) frames_skipped: u64,
+    pub(crate) last_skip_us: u64,
 }
 impl CompressedListener {
     pub(crate) fn new(
         epoch: &Epoch,
         preset: Option<BufferPreset>,
         recognition: bool,
+        policy: ListenerPolicy,
         now: &mut impl FnMut() -> Duration,
     ) -> Self {
         let mut header = epoch.format.format().response_head().as_bytes().to_vec();
@@ -464,13 +483,21 @@ impl CompressedListener {
             phase: Phase::Admission(admission),
             cursor: None,
             header,
-            write_limit: Duration::from_millis(epoch.format.write_limit_ms(recognition)),
+            header_limit: Duration::from_millis(epoch.format.write_limit_ms(recognition)),
+            // A live frame may take as long as the ring holds audio: a socket that accepts
+            // nothing for longer has lost data the ring cannot supply, so it is dead, not slow.
+            write_limit: Duration::from_millis(match policy {
+                ListenerPolicy::Live => epoch.format.ring_depth_ms(recognition),
+                ListenerPolicy::Exact => epoch.format.write_limit_ms(recognition),
+            }),
             block_number: 0,
             refuse_buffered: false,
             read_wait: Duration::ZERO,
             frames_sent: 0,
             bytes_sent: 0,
             age: MediaAge::for_stream(preset, epoch.format),
+            policy,
+            pending_skip: None,
             pending_source: None,
             pending_receipt: None,
             first_sent: None,
@@ -478,11 +505,31 @@ impl CompressedListener {
             last_age_us: 0,
             max_age_us: 0,
             queue_frames_max: 0,
+            skips: 0,
+            frames_skipped: 0,
+            last_skip_us: 0,
         }
     }
     fn end(&mut self, end: End) -> ListenerStep {
         self.phase = Phase::End;
         ListenerStep::End(end)
+    }
+    /// A live listener owes a move before its next read; an exact one ends. A dropped frame is
+    /// counted here, at drop time, so a departure before that read still accounts for it.
+    fn lagged(&mut self, owed: OwedSkip, at_us: u64) -> ListenerStep {
+        match self.policy {
+            ListenerPolicy::Exact => self.end(End::MediaAge),
+            ListenerPolicy::Live => {
+                if owed == OwedSkip::Dropped {
+                    self.skips += 1;
+                    self.frames_skipped += 1;
+                    self.last_skip_us = at_us;
+                }
+                self.pending_skip = Some(owed);
+                self.phase = Phase::Frame;
+                ListenerStep::Progress
+            }
+        }
     }
     pub(crate) fn step_network(
         &mut self,
@@ -552,7 +599,7 @@ impl CompressedListener {
                 if epoch.retired() {
                     return self.end(End::Retired);
                 }
-                let deadline = now() + self.write_limit;
+                let deadline = now() + self.header_limit;
                 self.phase = Phase::Write {
                     deadline,
                     header: true,
@@ -580,19 +627,61 @@ impl CompressedListener {
                         if epoch.retired() {
                             Err(End::Retired)
                         } else {
-                            ring.read(self.cursor.as_mut().unwrap(), scratch)
-                                .map(|read| {
-                                    if let Some(receipt) = read.receipt {
-                                        self.queue_frames_max = self.queue_frames_max.max(
-                                            ring.progress().1.saturating_sub(receipt.sequence),
-                                        );
+                            let mut cursor = self.cursor.expect("reading listener holds a cursor");
+                            // One resynchronization of `frames` whole frames; nothing moved is
+                            // no skip. The three counters are fixed-size fields: no allocation.
+                            let mut record_skip = |frames: u64, event: bool, at: Duration| {
+                                if frames > 0 {
+                                    if event {
+                                        self.skips += 1;
                                     }
-                                    self.pending_receipt = read.receipt;
-                                    self.pending_source =
-                                        read.receipt.map(|receipt| receipt.metadata.source);
-                                    read.bytes
-                                })
-                                .map_err(End::from_encoded_read_error)
+                                    self.frames_skipped += frames;
+                                    self.last_skip_us = at.as_micros() as u64;
+                                }
+                            };
+                            // A move owed from a stale or late frame happens under this lock, at
+                            // a frame boundary, and records the lag it finds. A reset ends the
+                            // listener before anything more is counted.
+                            let owed = self.pending_skip.take();
+                            let caught_up = match owed {
+                                Some(_) => ring.catch_up(&mut cursor),
+                                None => Ok(0),
+                            };
+                            let mut read = match caught_up {
+                                Ok(passed) => {
+                                    self.queue_frames_max = self.queue_frames_max.max(passed);
+                                    // A drop is already counted: only the frames passed are added.
+                                    if let Some(owed) = owed {
+                                        record_skip(passed, owed == OwedSkip::Late, now());
+                                    }
+                                    ring.read(&mut cursor, scratch)
+                                }
+                                Err(error) => Err(error),
+                            };
+                            if self.policy == ListenerPolicy::Live
+                                && read == Err(flac_ring::ReadError::Overwritten)
+                            {
+                                // Lapped: record the lag, move to the newest whole frame under
+                                // the same lock, and read it now.
+                                if let Ok(passed) = ring.catch_up(&mut cursor) {
+                                    self.queue_frames_max = self.queue_frames_max.max(passed);
+                                    record_skip(passed, true, now());
+                                    read = ring.read(&mut cursor, scratch);
+                                }
+                            }
+                            self.cursor = Some(cursor);
+                            read.map(|read| {
+                                if let Some(receipt) = read.receipt {
+                                    self.queue_frames_max = self
+                                        .queue_frames_max
+                                        .max(ring.progress().1.saturating_sub(receipt.sequence));
+                                }
+                                self.pending_receipt = read.receipt;
+                                self.pending_source =
+                                    read.receipt.map(|receipt| receipt.metadata.source);
+                                read.bytes
+                            })
+                            .map_err(End::from_encoded_read_error)
                         }
                     }
                     Err(TryLockError::WouldBlock) => Ok(0),
@@ -633,12 +722,20 @@ impl CompressedListener {
                 {
                     return self.end(End::MediaAge);
                 }
+                let socket_deadline = at + self.write_limit;
                 let deadline = match self.age.deadline(
                     at.as_micros() as u64,
                     source.oldest_accepted_us,
-                    (at + self.write_limit).as_micros() as u64,
+                    socket_deadline.as_micros() as u64,
                 ) {
+                    // A live write gets the whole socket budget: the media bound is a reason to
+                    // skip, never to cut a frame short on the wire.
+                    Ok(_) if self.policy == ListenerPolicy::Live => socket_deadline,
                     Ok(deadline) => Duration::from_micros(deadline),
+                    // The stale frame is dropped unwritten.
+                    Err(AgeError::Stale) => {
+                        return self.lagged(OwedSkip::Dropped, at.as_micros() as u64)
+                    }
                     Err(_) => return self.end(End::MediaAge),
                 };
                 self.phase = Phase::Write {
@@ -684,7 +781,10 @@ impl CompressedListener {
             panic!("listener has no pending write")
         };
         if let Err(error) = result {
+            // A partial frame on the wire is a dead socket under either policy; only an exact
+            // reader also reports the media bound it was past.
             if !header
+                && self.policy == ListenerPolicy::Exact
                 && self
                     .age
                     .check(
@@ -710,15 +810,15 @@ impl CompressedListener {
             // FLAC numbering advances after a whole write and rejects numbers at 2^31.
             // MP3 ignores this counter, so wrap cannot alter its frame bytes.
             self.block_number = self.block_number.wrapping_add(1);
-            if self
+            let at_us = now().as_micros() as u64;
+            match self
                 .age
-                .check(
-                    now().as_micros() as u64,
-                    self.pending_source.unwrap().oldest_accepted_us,
-                )
-                .is_err()
+                .check(at_us, self.pending_source.unwrap().oldest_accepted_us)
             {
-                return self.end(End::MediaAge);
+                Ok(()) => {}
+                // Complete but late: the frame counts, and a live listener skips before reading on.
+                Err(AgeError::Stale) => return self.lagged(OwedSkip::Late, at_us),
+                Err(_) => return self.end(End::MediaAge),
             }
         }
         self.phase = Phase::Frame;

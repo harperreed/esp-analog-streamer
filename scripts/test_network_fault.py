@@ -48,8 +48,17 @@ def tc_output(*argv):
     return result.stdout + result.stderr
 
 
-def departure(peer, end, device_us, at_s):
-    return dict(kind='departure', peer=peer, end=end, device_us=device_us, at_s=at_s)
+def departure(peer, end, device_us, at_s, skips=None, frames_skipped=None, last_skip_us=None):
+    return dict(kind='departure', peer=peer, end=end, device_us=device_us, at_s=at_s,
+                skips=skips, frames_skipped=frames_skipped, last_skip_us=last_skip_us)
+
+
+def exact_setup(spec, before, tolerances, installed):
+    return nf.trial_setup(spec, before, tolerances, installed, nf.EXACT)
+
+
+def live_setup(spec, before, tolerances, installed):
+    return nf.trial_setup(spec, before, tolerances, installed, nf.LIVE)
 
 
 def close(peer, device_us, at_s):
@@ -232,8 +241,10 @@ class QdiscShowTests(unittest.TestCase):
 class TrialSpecTests(unittest.TestCase):
     def test_all_trials_are_named_in_plan_order(self):
         self.assertEqual(nf.TRIALS, ['null-1', 'null-2', 'stall-0.5-1', 'stall-0.5-2', 'stall-1-1', 'stall-1-2',
-                                     'stall-2.5-1', 'stall-2.5-2', 'stall-4-1', 'stall-4-2',
-                                     'deficit-0.8-1', 'deficit-0.5-1', 'delayed-reader-1'])
+                                     'stall-2.5-1', 'stall-2.5-2', 'stall-4-1', 'stall-4-2', 'stall-8-1', 'stall-8-2',
+                                     'stall-15-1', 'stall-15-2', 'deficit-0.8-1', 'deficit-0.5-1', 'delayed-reader-1'])
+        self.assertEqual(nf.trial_spec('stall-15-2'), dict(name='stall-15-2', kind='stall', listeners=2, seconds=20 + 15 + 20,
+                                                           profile=nf.stall_profile(15.0)))
 
     def test_trial_spec_parses_kind_listeners_and_profile(self):
         self.assertEqual(nf.trial_spec('null-2'), dict(name='null-2', kind='null', listeners=2, seconds=60.0, profile=None))
@@ -272,12 +283,16 @@ class TrialSetupTests(unittest.TestCase):
         for name in nf.TRIALS:
             for installed in (None, dict(kind='injection', phase='installed', at_s=20, apply_seconds=0.25)):
                 for tolerances in (None, TOLERANCES):
-                    trial = nf.trial_setup(nf.trial_spec(name), BEFORE, tolerances, installed)
-                    self.assertLessEqual(set(nf.VERDICT_TRIAL_KEYS), set(trial), name)
+                    for policy in nf.POLICIES:
+                        trial = nf.trial_setup(nf.trial_spec(name), BEFORE, tolerances, installed, policy)
+                        self.assertLessEqual(set(nf.VERDICT_TRIAL_KEYS), set(trial), name)
+                        self.assertEqual(trial['policy'], policy)
+        with self.assertRaises(ValueError):
+            nf.trial_setup(nf.trial_spec('null-1'), BEFORE, None, None, 'strict')
 
     def test_setup_predicts_from_the_unbuffered_bound_and_measured_tolerances(self):
         installed = dict(kind='injection', phase='installed', at_s=20, apply_seconds=0.25)
-        trial = nf.trial_setup(nf.trial_spec('deficit-0.5-1'), BEFORE, TOLERANCES, installed)
+        trial = exact_setup(nf.trial_spec('deficit-0.5-1'), BEFORE, TOLERANCES, installed)
         # Plain /stream.mp3 is Route::Stream with no preset: MediaAge::for_stream(None, Mp3) bounds at 4 s.
         self.assertEqual(trial['media_age_bound_s'], 4.0)
         self.assertNotIn('preset', trial)
@@ -286,21 +301,21 @@ class TrialSetupTests(unittest.TestCase):
         self.assertEqual(trial['expected_frames'], 48000 * 60)
         self.assertEqual(trial['largest_before'], BEFORE)
         self.assertEqual(trial['largest_tolerance_bytes'], TOLERANCES['largest_tolerance_bytes'])
-        self.assertIsNone(nf.trial_setup(nf.trial_spec('deficit-0.5-1'), BEFORE, TOLERANCES, None)['end_tolerance_s'])
-        self.assertIsNone(nf.trial_setup(nf.trial_spec('deficit-0.5-1'), BEFORE, None, installed)['end_tolerance_s'])
-        self.assertIsNone(nf.trial_setup(nf.trial_spec('stall-1-1'), BEFORE, None, None)['age_bound_us'])
+        self.assertIsNone(exact_setup(nf.trial_spec('deficit-0.5-1'), BEFORE, TOLERANCES, None)['end_tolerance_s'])
+        self.assertIsNone(exact_setup(nf.trial_spec('deficit-0.5-1'), BEFORE, None, installed)['end_tolerance_s'])
+        self.assertIsNone(exact_setup(nf.trial_spec('stall-1-1'), BEFORE, None, None)['age_bound_us'])
 
 
 class VerdictTests(unittest.TestCase):
     def null_trial(self, listeners=1):
-        return nf.trial_setup(nf.trial_spec(f'null-{listeners}'), BEFORE, None, None)
+        return exact_setup(nf.trial_spec(f'null-{listeners}'), BEFORE, None, None)
 
     def stall_trial(self, seconds=4, listeners=1):
-        return nf.trial_setup(nf.trial_spec(f'stall-{seconds:g}-{listeners}'), BEFORE, TOLERANCES, None)
+        return exact_setup(nf.trial_spec(f'stall-{seconds:g}-{listeners}'), BEFORE, TOLERANCES, None)
 
     def deficit_trial(self, fraction=0.5):
         installed = dict(kind='injection', phase='installed', at_s=20, apply_seconds=0.25)
-        return dict(nf.trial_setup(nf.trial_spec(f'deficit-{fraction:g}-1'), BEFORE, TOLERANCES, installed),
+        return dict(exact_setup(nf.trial_spec(f'deficit-{fraction:g}-1'), BEFORE, TOLERANCES, installed),
                     predicted_end_s=16.0, end_tolerance_s=2.0)
 
     def test_null_requires_exact_frames_no_departures_and_flat_counters(self):
@@ -401,7 +416,7 @@ class VerdictTests(unittest.TestCase):
                                                   decoder('listener-1', expected, expected), metrics(90)])['passed'])
 
     def test_delayed_reader_requires_continuous_mp3_and_checked_wav_media_age_departure(self):
-        trial = nf.trial_setup(nf.trial_spec('delayed-reader-1'), BEFORE, None, None)
+        trial = exact_setup(nf.trial_spec('delayed-reader-1'), BEFORE, None, None)
         expected = trial['expected_frames']
         # The starved WAV reader ends on media age (stream.rs:729/757), not the frame write timeout.
         events = [metrics(0), departure('wav', 'media age exceeded', 30_000_000, 12), close('wav', 30_050_000, 12.1),
@@ -502,11 +517,14 @@ class DriverHelperTests(unittest.TestCase):
         single = nf.budget_seconds(['null-1'])
         self.assertGreater(single, 60)
         self.assertGreater(nf.budget_seconds(['null-1', 'stall-4-1']), single + 44)
+        # A live listener keeps its socket through the stall, so the decoder's wall time grows by the stall.
+        self.assertGreaterEqual(nf.budget_seconds(['stall-15-1']), 180 + 55 + 15 + nf.FRESH_LISTENER_SECONDS + 30)
+        self.assertGreaterEqual(nf.budget_seconds(['stall-8-2']), 180 + 48 + 8 + nf.FRESH_LISTENER_SECONDS + 30)
 
     def test_apply_records_the_injection_event_it_returns(self):
         # The first device run died here: the event dict already names its kind (oct14-interruption result.json).
         with tempfile.TemporaryDirectory() as out:
-            args = argparse.Namespace(host='192.0.2.1', interface='lo', ifb='ifb0', trials=['null-1'], out=Path(out))
+            args = argparse.Namespace(host='192.0.2.1', interface='lo', ifb='ifb0', trials=['null-1'], out=Path(out), policy=nf.LIVE)
             driver = nf.Driver(args, Path(out))
             with (Path(out) / 'events.jsonl').open('w') as driver.events, contextlib.redirect_stdout(io.StringIO()):
                 event = driver.apply('installed', [])
@@ -664,7 +682,7 @@ def installed_of(events):
 
 class RetainedRunTests(unittest.TestCase):
     def test_run4_stall_4_1_survives_judged_on_last_active_age(self):
-        trial = nf.trial_setup(nf.trial_spec('stall-4-1'), RUN4_BEFORE, RUN4_TOLERANCES, installed_of(RUN4_STALL_4_1_EVENTS))
+        trial = exact_setup(nf.trial_spec('stall-4-1'), RUN4_BEFORE, RUN4_TOLERANCES, installed_of(RUN4_STALL_4_1_EVENTS))
         verdict = nf.trial_verdict(trial, RUN4_STALL_4_1_EVENTS + RUN4_STALL_4_1_SAMPLES)
         self.assertTrue(verdict['passed'], verdict)
         self.assertEqual(verdict['reason'], 'continuous')
@@ -675,11 +693,11 @@ class RetainedRunTests(unittest.TestCase):
         self.assertEqual(verdict['age_last_active_us'], 1550664)
 
     def test_fresh_join_before_the_old_close_counts_from_the_departure(self):
-        trial = nf.trial_setup(nf.trial_spec('deficit-0.5-1'), RUN4_BEFORE, RUN4_TOLERANCES, installed_of(RUN4_DEFICIT_0_5_1_EVENTS))
+        trial = exact_setup(nf.trial_spec('deficit-0.5-1'), RUN4_BEFORE, RUN4_TOLERANCES, installed_of(RUN4_DEFICIT_0_5_1_EVENTS))
         verdict = nf.trial_verdict(trial, RUN4_DEFICIT_0_5_1_EVENTS)
         self.assertTrue(verdict['passed'], verdict)
         self.assertAlmostEqual(verdict['observed_end_s'], 9.025, places=3)
-        trial = nf.trial_setup(nf.trial_spec('stall-2.5-1'), RUN4_BEFORE, RUN3_TOLERANCES, installed_of(RUN3_STALL_2_5_1_EVENTS))
+        trial = exact_setup(nf.trial_spec('stall-2.5-1'), RUN4_BEFORE, RUN3_TOLERANCES, installed_of(RUN3_STALL_2_5_1_EVENTS))
         verdict = nf.trial_verdict(trial, RUN3_STALL_2_5_1_EVENTS)
         self.assertTrue(verdict['passed'], verdict)
         self.assertEqual(verdict['departed'], 1)
@@ -687,7 +705,7 @@ class RetainedRunTests(unittest.TestCase):
         self.assertFalse(nf.trial_verdict(trial, [event for event in RUN3_STALL_2_5_1_EVENTS if event['kind'] != 'close'])['passed'])
 
     def test_run4_delayed_reader_wav_ended_on_its_frame_write_limit(self):
-        trial = nf.trial_setup(nf.trial_spec('delayed-reader-1'), RUN4_BEFORE, RUN4_TOLERANCES, None)
+        trial = exact_setup(nf.trial_spec('delayed-reader-1'), RUN4_BEFORE, RUN4_TOLERANCES, None)
         verdict = nf.trial_verdict(trial, RUN4_DELAYED_READER_EVENTS)
         self.assertTrue(verdict['passed'], verdict)
         self.assertEqual(verdict['wav_end_category'], 'frame_timeout')
@@ -696,13 +714,13 @@ class RetainedRunTests(unittest.TestCase):
         self.assertFalse(nf.trial_verdict(trial, broken)['passed'])
 
     def test_deficit_prediction_is_an_upper_bound(self):
-        trial = nf.trial_setup(nf.trial_spec('deficit-0.8-1'), RUN4_BEFORE, RUN4_TOLERANCES, installed_of(RUN4_DEFICIT_0_8_1_EVENTS))
+        trial = exact_setup(nf.trial_spec('deficit-0.8-1'), RUN4_BEFORE, RUN4_TOLERANCES, installed_of(RUN4_DEFICIT_0_8_1_EVENTS))
         self.assertAlmostEqual(trial['predicted_end_s'], 20.0)
         self.assertAlmostEqual(trial['end_tolerance_s'], 1.729315)
         verdict = nf.trial_verdict(trial, RUN4_DEFICIT_0_8_1_EVENTS)
         self.assertTrue(verdict['passed'], verdict)
         self.assertAlmostEqual(verdict['observed_end_s'], 18.5425, places=3)
-        trial3 = nf.trial_setup(nf.trial_spec('deficit-0.8-1'), RUN4_BEFORE, RUN3_TOLERANCES, installed_of(RUN3_DEFICIT_0_8_1_EVENTS))
+        trial3 = exact_setup(nf.trial_spec('deficit-0.8-1'), RUN4_BEFORE, RUN3_TOLERANCES, installed_of(RUN3_DEFICIT_0_8_1_EVENTS))
         verdict = nf.trial_verdict(trial3, RUN3_DEFICIT_0_8_1_EVENTS)
         self.assertTrue(verdict['passed'], verdict)
         self.assertAlmostEqual(verdict['observed_end_s'], 10.0235, places=3)
@@ -715,7 +733,7 @@ class RetainedRunTests(unittest.TestCase):
     def test_run3_stall_4_2_fails_on_the_missing_join_not_timing(self):
         # The fresh ffmpeg was started on the departure line while the survivor held the other slot and the
         # departed slot's close was 2.04 s away; no join line exists, so the records cannot pass.
-        trial = nf.trial_setup(nf.trial_spec('stall-4-2'), RUN4_BEFORE, RUN3_TOLERANCES, installed_of(RUN3_STALL_4_2_EVENTS))
+        trial = exact_setup(nf.trial_spec('stall-4-2'), RUN4_BEFORE, RUN3_TOLERANCES, installed_of(RUN3_STALL_4_2_EVENTS))
         verdict = nf.trial_verdict(trial, RUN3_STALL_4_2_EVENTS)
         self.assertFalse(verdict['passed'])
         self.assertIn('no fresh join', verdict['reason'])
@@ -727,7 +745,7 @@ class RetainedRunTests(unittest.TestCase):
 
 
     def test_two_departures_consume_two_distinct_joins(self):
-        trial = nf.trial_setup(nf.trial_spec('stall-2.5-2'), RUN4_BEFORE, RUN3_TOLERANCES, dict(kind='injection', phase='installed', at_s=20, apply_seconds=0.02))
+        trial = exact_setup(nf.trial_spec('stall-2.5-2'), RUN4_BEFORE, RUN3_TOLERANCES, dict(kind='injection', phase='installed', at_s=20, apply_seconds=0.02))
         expected = trial['expected_frames']
         events = [metrics(0), injection('installed', 20), injection('removed', 22.6),
                   departure('p1', 'media age exceeded', 50_000_000, 22.5), close('p1', 52_000_000, 24.6),
@@ -743,7 +761,7 @@ class RetainedRunTests(unittest.TestCase):
         self.assertIn('p2', verdict['reason'])
 
     def test_deficit_end_cannot_precede_the_age_floor(self):
-        trial = nf.trial_setup(nf.trial_spec('deficit-0.8-1'), RUN4_BEFORE, RUN4_TOLERANCES, installed_of(RUN4_DEFICIT_0_8_1_EVENTS))
+        trial = exact_setup(nf.trial_spec('deficit-0.8-1'), RUN4_BEFORE, RUN4_TOLERANCES, installed_of(RUN4_DEFICIT_0_8_1_EVENTS))
         installed_at = installed_of(RUN4_DEFICIT_0_8_1_EVENTS)['at_s']
         early = [dict(event, at_s=installed_at + 0.3) if event.get('end') == 'media age exceeded' else event for event in RUN4_DEFICIT_0_8_1_EVENTS]
         verdict = nf.trial_verdict(trial, early)
@@ -753,7 +771,7 @@ class RetainedRunTests(unittest.TestCase):
         self.assertTrue(nf.trial_verdict(trial, RUN4_DEFICIT_0_8_1_EVENTS)['passed'])
 
     def test_harness_close_logged_just_before_the_decoder_end_is_still_harness_owned(self):
-        trial = nf.trial_setup(nf.trial_spec('stall-4-1'), RUN4_BEFORE, RUN4_TOLERANCES, installed_of(RUN4_STALL_4_1_EVENTS))
+        trial = exact_setup(nf.trial_spec('stall-4-1'), RUN4_BEFORE, RUN4_TOLERANCES, installed_of(RUN4_STALL_4_1_EVENTS))
         ended_s = 480.91661526600365
         shifted = [dict(event, at_s=ended_s - 0.005) if event.get('end') == RESET else event for event in RUN4_STALL_4_1_EVENTS]
         verdict = nf.trial_verdict(trial, shifted + RUN4_STALL_4_1_SAMPLES)
@@ -764,7 +782,7 @@ class RetainedRunTests(unittest.TestCase):
 
 
     def test_run5_delayed_reader_fails_on_never_connected_not_missing_departure(self):
-        trial = nf.trial_setup(nf.trial_spec('delayed-reader-1'), RUN4_BEFORE, None, None)
+        trial = exact_setup(nf.trial_spec('delayed-reader-1'), RUN4_BEFORE, None, None)
         verdict = nf.trial_verdict(trial, RUN5_DELAYED_READER_EVENTS)
         self.assertFalse(verdict['passed'])
         self.assertTrue(verdict['reason'].startswith('WAV reader never connected'), verdict['reason'])
@@ -772,14 +790,14 @@ class RetainedRunTests(unittest.TestCase):
         self.assertIn('connect', verdict['reason'])
         self.assertNotIn('departure', verdict['reason'])
         # Attempt 4's record, with and without the richer wav fields, still passes.
-        trial4 = nf.trial_setup(nf.trial_spec('delayed-reader-1'), RUN4_BEFORE, RUN4_TOLERANCES, None)
+        trial4 = exact_setup(nf.trial_spec('delayed-reader-1'), RUN4_BEFORE, RUN4_TOLERANCES, None)
         self.assertTrue(nf.trial_verdict(trial4, RUN4_DELAYED_READER_EVENTS)['passed'])
         rich = [dict(event, connected_s=635.4, phase='reading', error=None, error_s=None) if event['kind'] == 'wav' else event
                 for event in RUN4_DELAYED_READER_EVENTS]
         self.assertTrue(nf.trial_verdict(trial4, rich)['passed'])
 
     def test_null_failure_detail_lists_departures_and_decoder_end_text(self):
-        trial = nf.trial_setup(nf.trial_spec('null-1'), RUN4_BEFORE, None, None)
+        trial = exact_setup(nf.trial_spec('null-1'), RUN4_BEFORE, None, None)
         events = [metrics(0), decoder('listener-1', 1_000_000, 2_880_000, exit_code=251, ended='ffmpeg integrity failure: Stream ends prematurely', ended_s=30),
                   departure('p1', 'media age exceeded', 50_000_000, 29.5), close('p1', 50_010_000, 31.5), metrics(60)]
         verdict = nf.trial_verdict(trial, events)
@@ -885,7 +903,7 @@ class RefusedStatusTests(unittest.TestCase):
         self.assertEqual(nf.refused_status(''), 'unknown')
 
     def test_missing_join_reason_names_the_refusal(self):
-        trial = nf.trial_setup(nf.trial_spec('stall-4-2'), RUN4_BEFORE, RUN3_TOLERANCES, installed_of(RUN3_STALL_4_2_EVENTS))
+        trial = exact_setup(nf.trial_spec('stall-4-2'), RUN4_BEFORE, RUN3_TOLERANCES, installed_of(RUN3_STALL_4_2_EVENTS))
         refused = [dict(event, refused_status=503) if event['kind'] == 'fresh' else event for event in RUN3_STALL_4_2_EVENTS]
         verdict = nf.trial_verdict(trial, refused)
         self.assertFalse(verdict['passed'])
@@ -936,6 +954,7 @@ class ReverdictTests(unittest.TestCase):
             self.assertEqual(sorted(path.name for path in run.iterdir()), ['events.jsonl', 'result.json', 'reverdict.json'])
             self.assertEqual({name: self.digest(run / name) for name in before}, before)
             written = json.loads((run / 'reverdict.json').read_text())
+            self.assertEqual(written['policy'], nf.LIVE)
             self.assertEqual(written['source_result_sha256'], before['result.json'])
             self.assertTrue(written['harness_commit'] is None or re.fullmatch('[0-9a-f]{40}', written['harness_commit']))
             self.assertEqual(written['harness_sha256'], {name: self.digest(SCRIPTS / name) for name in ('network_fault.py', 'encoder_fault_check.py')})
@@ -961,13 +980,24 @@ class ReverdictTests(unittest.TestCase):
             run.mkdir()
             for name in ('result.json', 'events.jsonl'):
                 shutil.copyfile(retained / name, run / name)
-            written, lines = nf.reverdict(run, SCRIPTS.parent)
+            written, lines = nf.reverdict(run, SCRIPTS.parent, nf.EXACT)
             self.assertEqual(json.loads((run / 'reverdict.json').read_text()), written)
+            self.assertEqual(written['policy'], nf.EXACT)
+            # Attempt 4's stall-4-1 completed with no product departure: a pass under both policies.
+            self.assertTrue(written['trials']['stall-4-1']['passed'], written['trials']['stall-4-1'])
+            live, _ = nf.reverdict(run, SCRIPTS.parent, nf.LIVE)
+            self.assertTrue(live['trials']['stall-4-1']['passed'], live['trials']['stall-4-1'])
+            self.assertEqual(live['trials']['stall-4-1']['skips'], 0)
+            # Its deficit trials ended in MediaAge departures: exact accepts them, live never does.
+            self.assertTrue(written['trials']['deficit-0.8-1']['passed'])
+            self.assertFalse(live['trials']['deficit-0.8-1']['passed'])
+            self.assertIn('departed', live['trials']['deficit-0.8-1']['reason'])
             self.assertEqual(written['source_result_sha256'], self.digest(retained / 'result.json'))
-            self.assertEqual(set(written['trials']), set(nf.TRIALS))
-            self.assertEqual(set(written['original']), set(nf.TRIALS))
-            self.assertEqual(written['tolerances'], json.loads((retained / 'result.json').read_text())['tolerances'])
-            self.assertEqual(len(lines), len(nf.TRIALS) + 1)
+            retained_result = json.loads((retained / 'result.json').read_text())
+            self.assertEqual(list(written['trials']), retained_result['trial_order'])
+            self.assertEqual(set(written['original']), set(retained_result['trial_order']))
+            self.assertEqual(written['tolerances'], retained_result['tolerances'])
+            self.assertEqual(len(lines), len(retained_result['trial_order']) + 1)
         self.assertFalse((retained / 'reverdict.json').exists() and False)
 
     def test_reverdict_fails_closed_without_null_tolerances_and_names_unrecorded_trials(self):
@@ -980,7 +1010,7 @@ class ReverdictTests(unittest.TestCase):
             result['trials']['null-1']['events'][0]['frames'] -= 1
             result['trial_order'].append('deficit-0.5-1')
             (run / 'result.json').write_text(json.dumps(result))
-            written, _ = nf.reverdict(run, SCRIPTS.parent)
+            written, _ = nf.reverdict(run, SCRIPTS.parent, nf.LIVE)
             self.assertFalse(written['trials']['null-1']['passed'])
             self.assertIsNone(written['tolerances'])
             self.assertFalse(written['trials']['stall-4-1']['passed'])
@@ -1022,6 +1052,12 @@ class CommandLineTests(unittest.TestCase):
             self.assertIn('sudo -n tc qdisc change dev ifb0 root netem rate 160000bit', lines)
             self.assertIn('sudo -n tc qdisc change dev ifb0 root netem rate 0bit', lines)
             self.assertEqual(lines[-1], 'sudo -n ip link del ifb0')
+            full = subprocess.run([str(wrapper), '--dry-run', BOARD, '--interface', 'lo', '--serial', '/dev/null', '--out', str(out)],
+                                  cwd=directory, capture_output=True, text=True, timeout=30)
+            self.assertEqual(full.returncode, 0, full.stderr)
+            self.assertEqual(list(Path(directory).iterdir()), [])
+            for name in ('stall-8-1', 'stall-8-2', 'stall-15-1', 'stall-15-2'):
+                self.assertIn(f'# trial {name}', full.stdout.splitlines())
             self.assertTrue(all(line.startswith('sudo -n ') or line.startswith('# ') for line in lines), lines)
 
     def test_help_and_bad_arguments_create_nothing(self):
@@ -1040,7 +1076,9 @@ class CommandLineTests(unittest.TestCase):
                      (['--reverdict', str(existing), BOARD], 2),
                      (['--reverdict', str(existing), '--dry-run'], 2),
                      (['--reverdict', str(existing), '--trials', 'null-1'], 2),
-                     (['--reverdict', str(existing), '--out', 'x'], 2)]
+                     (['--reverdict', str(existing), '--out', 'x'], 2),
+                     (['--reverdict', str(existing), '--policy', 'strict'], 2),
+                     ([BOARD, '--interface', 'lo', '--serial', '/dev/null', '--out', 'x', '--policy', 'strict', '--dry-run'], 2)]
             for args, expected in cases:
                 result = subprocess.run([str(wrapper), *args], cwd=directory, capture_output=True, text=True, timeout=30)
                 self.assertEqual(result.returncode, expected, (args, result.stdout, result.stderr))
@@ -1058,6 +1096,283 @@ import network_fault
 """
         result = subprocess.run([sys.executable, '-B', '-c', code, str(SCRIPTS)], capture_output=True, text=True, timeout=10)
         self.assertEqual(result.returncode, 0, result.stderr)
+
+
+# UART departure lines as the firmware logs them once the skip counters land; the harness reads the
+# tokens wherever they sit and tolerates their absence (retained attempts 3-5 have none).
+SKIP_LINE_AFTER = ('I (82627) esp_shazam_firmware::stream: stream: 192.168.23.153:52582 left after 60.1 s: socket error '
+                   'kind=ConnectionReset raw_os_error=Some(104) listener_stack_free_bytes=1148 event_us=81182401 '
+                   'skips=2 frames_skipped=333 last_skip_us=81000000')
+SKIP_LINE_BEFORE = ('I (429831) esp_shazam_firmware::stream: stream: 192.168.23.153:45016 left after 25.0 s: media age exceeded '
+                    'skips=1 frames_skipped=166 listener_stack_free_bytes=1652 event_us=427420327')
+NO_SKIP_LINE = ('I (82627) esp_shazam_firmware::stream: stream: 192.168.23.153:52582 left after 60.1 s: socket error '
+                'kind=ConnectionReset raw_os_error=Some(104) listener_stack_free_bytes=1148 event_us=81182401')
+
+
+class SkipFieldTests(unittest.TestCase):
+    def test_skip_fields_read_tokens_anywhere_and_tolerate_absence(self):
+        self.assertEqual(nf.skip_fields(SKIP_LINE_AFTER), dict(skips=2, frames_skipped=333, last_skip_us=81000000))
+        self.assertEqual(nf.skip_fields(SKIP_LINE_BEFORE), dict(skips=1, frames_skipped=166, last_skip_us=None))
+        self.assertEqual(nf.skip_fields(NO_SKIP_LINE), dict(skips=None, frames_skipped=None, last_skip_us=None))
+
+    def test_uart_departures_carry_skips_and_keep_the_end_text_clean(self):
+        events = nf.uart_events([SKIP_LINE_AFTER, SKIP_LINE_BEFORE, NO_SKIP_LINE], at_s=[1.0, 2.0, 3.0])
+        self.assertEqual(events, [
+            departure('192.168.23.153:52582', RESET, 81182401, 1.0, skips=2, frames_skipped=333, last_skip_us=81000000),
+            departure('192.168.23.153:45016', 'media age exceeded', 427420327, 2.0, skips=1, frames_skipped=166),
+            departure('192.168.23.153:52582', RESET, 81182401, 3.0)])
+        self.assertEqual([nf.listener_end_category(event['end']) for event in events], ['socket_error', 'media_age', 'socket_error'])
+
+    def test_metrics_sample_sums_active_slot_skips_or_says_none(self):
+        helper = DriverHelperTests()
+        snapshot = helper.snapshot(ages=(500_000, 900_000), states=('writing', 'ready'))
+        self.assertIsNone(nf.metrics_sample(snapshot, 1)['skips'])
+        self.assertIsNone(nf.metrics_sample(snapshot, 1)['frames_skipped'])
+        snapshot['listeners'][0].update(skips=2, frames_skipped=300, last_skip_us=5)
+        snapshot['listeners'][1].update(skips=1, frames_skipped=100, last_skip_us=6)
+        sample = nf.metrics_sample(snapshot, 1)
+        self.assertEqual((sample['skips'], sample['frames_skipped']), (3, 400))
+        idle = helper.snapshot(ages=(None, None), states=('idle', 'idle'))
+        idle['listeners'][0].update(skips=7, frames_skipped=900)
+        self.assertEqual(nf.metrics_sample(idle, 1)['skips'], 0)
+
+    def test_attribute_skips_pairs_decoders_with_admissions_in_device_order(self):
+        events = [decoder('t-listener-1', 10, 10), decoder('t-listener-2', 10, 10),
+                  admission('p2', 2_000, 1.1), admission('p1', 1_000, 1.0),
+                  departure('p1', RESET, 50_000, 9, skips=1, frames_skipped=166), departure('p2', RESET, 50_100, 9, skips=3, frames_skipped=500),
+                  admission('p1', 60_000, 12), departure('p1', RESET, 70_000, 13, skips=9, frames_skipped=999)]
+        decoders = [event for event in nf.attribute_skips(events) if event['kind'] == 'decoder']
+        self.assertEqual([(event['label'], event['skips'], event['frames_skipped'], event['skip_peer']) for event in decoders],
+                         [('t-listener-1', 1, 166, 'p1'), ('t-listener-2', 3, 500, 'p2')])
+        # Without counters on the lines the decoders say so; a departure before the admission never pairs.
+        bare = [decoder('t-listener-1', 10, 10), admission('p1', 1_000, 1.0), departure('p1', RESET, 500, 0.5, skips=4), departure('p1', RESET, 5_000, 9)]
+        self.assertEqual([event.get('skips') for event in nf.attribute_skips(bare) if event['kind'] == 'decoder'], [None])
+        self.assertEqual(nf.attribute_skips(bare)[1:], bare[1:])
+        # Already-attributed decoders (a retained result.json) are kept.
+        kept = [dict(decoder('t-listener-1', 10, 10), skips=5, frames_skipped=1, skip_peer='x'), admission('p1', 1_000, 1.0)]
+        self.assertEqual(nf.attribute_skips(kept)[0]['skips'], 5)
+
+    def test_trial_skips_prefers_departure_counters_then_metrics_then_zero(self):
+        lines = [departure('p1', RESET, 50_000, 9, skips=1, frames_skipped=166), departure('p2', RESET, 50_100, 9, skips=3, frames_skipped=500)]
+        self.assertEqual(nf.trial_skips(lines + [dict(metrics(5), skips=9, frames_skipped=9)]), dict(skips=4, frames_skipped=666, source='departures'))
+        self.assertEqual(nf.trial_skips([dict(metrics(5), skips=2, frames_skipped=300), dict(metrics(6), skips=3, frames_skipped=400), metrics(7)]),
+                         dict(skips=3, frames_skipped=400, source='metrics'))
+        self.assertEqual(nf.trial_skips([metrics(5), departure('p1', RESET, 1, 1)]), dict(skips=0, frames_skipped=0, source='none'))
+
+    def test_decoder_timeouts_grow_with_the_stall(self):
+        self.assertEqual(nf.decoder_timeouts(nf.trial_spec('null-1')), dict(rw_timeout_s=10, progress_timeout_s=20))
+        self.assertEqual(nf.decoder_timeouts(nf.trial_spec('deficit-0.5-1')), dict(rw_timeout_s=10, progress_timeout_s=20))
+        self.assertEqual(nf.decoder_timeouts(nf.trial_spec('stall-15-2')), dict(rw_timeout_s=25, progress_timeout_s=35))
+        self.assertEqual(nf.decoder_timeouts(nf.trial_spec('stall-0.5-1')), dict(rw_timeout_s=10.5, progress_timeout_s=20.5))
+
+
+# Attempt 4's stall-4-1 as the firmware will log it once the listener skips instead of departing: the decoder completed,
+# the only departure is the harness's own close, and that line carries the skip counters.
+LIVE_STALL_4_1_EVENTS = [dict(event, skips=1, frames_skipped=166, last_skip_us=458_400_000) if event['kind'] == 'departure' else event
+                         for event in RUN4_STALL_4_1_EVENTS]
+
+
+def deficit_samples(installed_s, removed_s, period_s, skips_at_start=0):
+    """One-second metrics whose skip counter rises every period_s after install; idle (no age) after removal."""
+    out = []
+    for at in range(int(installed_s) - 2, int(removed_s) + 20):
+        held = min(at, removed_s) - installed_s
+        skips = skips_at_start + (int(held // period_s) if held >= 0 else 0)
+        out.append(dict(sample(at, 100_000 if at < removed_s + 10 else None), skips=skips, frames_skipped=skips * 166))
+    return out
+
+
+class LivePolicyTests(unittest.TestCase):
+    def test_live_stall_passes_with_no_departure_and_discontinuities_within_the_skips(self):
+        trial = live_setup(nf.trial_spec('stall-4-1'), RUN4_BEFORE, RUN4_TOLERANCES, installed_of(LIVE_STALL_4_1_EVENTS))
+        verdict = nf.trial_verdict(trial, LIVE_STALL_4_1_EVENTS + RUN4_STALL_4_1_SAMPLES)
+        self.assertTrue(verdict['passed'], verdict)
+        self.assertEqual((verdict['skips'], verdict['frames_skipped'], verdict['departed']), (1, 166, 0))
+        self.assertEqual(verdict['decoders'][0]['skips'], 1)
+        self.assertEqual(verdict['age_last_active_us'], 56819)
+        self.assertIn('1 skip', verdict['reason'])
+        # The decoder may stop one skip's worth of audio early (ffmpeg -t ends at the jumped timeline), within one MP3 frame.
+        short = [dict(event, frames=2112000 - 166 * 1152 - 1152, ended='short') if event['kind'] == 'decoder' else event for event in LIVE_STALL_4_1_EVENTS]
+        self.assertTrue(nf.trial_verdict(trial, short + RUN4_STALL_4_1_SAMPLES)['passed'])
+        shorter = [dict(event, frames=2112000 - 167 * 1152 - 1153) if event['kind'] == 'decoder' else event for event in LIVE_STALL_4_1_EVENTS]
+        self.assertFalse(nf.trial_verdict(trial, shorter + RUN4_STALL_4_1_SAMPLES)['passed'])
+        gapped = [dict(event, discontinuities=1) if event['kind'] == 'decoder' else event for event in LIVE_STALL_4_1_EVENTS]
+        self.assertTrue(nf.trial_verdict(trial, gapped + RUN4_STALL_4_1_SAMPLES)['passed'])
+        over = [dict(event, discontinuities=2) if event['kind'] == 'decoder' else event for event in LIVE_STALL_4_1_EVENTS]
+        verdict = nf.trial_verdict(trial, over + RUN4_STALL_4_1_SAMPLES)
+        self.assertFalse(verdict['passed'])
+        self.assertIn('discontinuit', verdict['reason'])
+        failed = [dict(event, exit_code=1) if event['kind'] == 'decoder' else event for event in LIVE_STALL_4_1_EVENTS]
+        self.assertFalse(nf.trial_verdict(trial, failed + RUN4_STALL_4_1_SAMPLES)['passed'])
+        # Any product departure fails, including the MediaAge end exact policy accepts with a fresh admission.
+        departed = LIVE_STALL_4_1_EVENTS + [departure('p9', 'media age exceeded', 458_000_000, 459.0), close('p9', 458_100_000, 459.1),
+                                            admission('p10', 459_000_000, 460.0)]
+        verdict = nf.trial_verdict(trial, departed + RUN4_STALL_4_1_SAMPLES)
+        self.assertFalse(verdict['passed'])
+        self.assertIn('departed', verdict['reason'])
+        stuck = [dict(item, media_age_us=1550664) if item['media_age_us'] is not None else item for item in RUN4_STALL_4_1_SAMPLES]
+        self.assertFalse(nf.trial_verdict(trial, LIVE_STALL_4_1_EVENTS + stuck)['passed'])
+        self.assertFalse(nf.trial_verdict(dict(trial, age_bound_us=None), LIVE_STALL_4_1_EVENTS + RUN4_STALL_4_1_SAMPLES)['passed'])
+
+    def test_ring_depth_rule_splits_the_stall_matrix(self):
+        # MP3 ring: 500 frames x 1152 samples / 48 kHz.
+        self.assertAlmostEqual(nf.LIVE_WRITE_DEADLINE_S, 12.0)
+        self.assertEqual([nf.beyond_ring_depth(nf.trial_spec(name)['profile']['seconds']) for name in nf.TRIALS if name.startswith('stall')],
+                         [False] * 10 + [True, True])
+        self.assertFalse(nf.beyond_ring_depth(12.0))
+        self.assertTrue(nf.beyond_ring_depth(12.01))
+
+    def beyond_events(self, listeners=1):
+        trial = live_setup(nf.trial_spec(f'stall-15-{listeners}'), RUN4_BEFORE, RUN4_TOLERANCES, None)
+        expected = trial['expected_frames']
+        events = [metrics(0), injection('installed', 20), injection('removed', 35.1), metrics(50, age=None)]
+        for index in range(1, listeners + 1):
+            # The write deadline fires mid-stall; the harness replaces the listener once its close line arrives.
+            events += [admission(f'p{index}', 1_000_000 + index, 0.5),
+                       departure(f'p{index}', 'stopped reading', 50_000_000 + index, 32.0 + index / 10, skips=0, frames_skipped=0),
+                       close(f'p{index}', 50_010_000 + index, 32.2 + index / 10),
+                       admission(f'f{index}', 56_000_000 + index, 37.0 + index / 10),
+                       decoder(f'l-listener-{index}', expected // 3, expected, exit_code=251, ended='cut', ended_s=32.5 + index / 10),
+                       fresh(f'l-fresh-{index}', 47.3 + index / 10), reset_after(f'f{index}', 47.3 + index / 10, device_us=66_000_000 + index)]
+        return trial, events
+
+    def test_live_stall_beyond_ring_depth_expects_checked_frame_timeout_departures_then_fresh_admissions(self):
+        trial, events = self.beyond_events()
+        verdict = nf.trial_verdict(trial, events)
+        self.assertTrue(verdict['passed'], verdict)
+        self.assertEqual((verdict['beyond_ring_depth'], verdict['departed'], verdict['harness_closes']), (True, 1, 1))
+        self.assertIn('frame_timeout', verdict['reason'])
+        two, two_events = self.beyond_events(2)
+        verdict = nf.trial_verdict(two, two_events)
+        self.assertTrue(verdict['passed'], verdict)
+        self.assertEqual(verdict['departed'], 2)
+        # One survivor of two is not the expected outcome beyond the ring depth.
+        one_short = [event for event in two_events if event.get('peer') != 'p2' or event['kind'] == 'admission']
+        self.assertFalse(nf.trial_verdict(two, one_short)['passed'])
+        wrong_end = [dict(event, end='media age exceeded') if event['kind'] == 'departure' and event['end'] == 'stopped reading' else event
+                     for event in events]
+        self.assertFalse(nf.trial_verdict(trial, wrong_end)['passed'])
+        self.assertFalse(nf.trial_verdict(trial, [event for event in events if event['kind'] != 'close'])['passed'])
+        late_join = [dict(event, device_us=60_000_002) if event.get('peer') == 'f1' and event['kind'] == 'admission' else event for event in events]
+        verdict = nf.trial_verdict(trial, late_join)
+        self.assertFalse(verdict['passed'])
+        self.assertIn('no fresh join line', verdict['reason'])
+        no_removal = [event for event in events if not (event['kind'] == 'injection' and event['phase'] == 'removed')]
+        self.assertFalse(nf.trial_verdict(trial, no_removal)['passed'])
+        # A listener that stayed through a 15 s stall is not what the ring depth predicts either.
+        stayed = [metrics(0), injection('installed', 20), injection('removed', 35.1), admission('p1', 1_000_000, 0.5),
+                  decoder('l-listener-1', trial['expected_frames'], trial['expected_frames'], ended_s=56.0), reset_after('p1', 56.0), metrics(50, age=100_000)]
+        verdict = nf.trial_verdict(trial, stayed)
+        self.assertFalse(verdict['passed'])
+        self.assertIn('expected 1 frame_timeout', verdict['reason'])
+        self.assertTrue(verdict['beyond_ring_depth'])
+
+    def test_live_stall_8_stays_on_the_zero_departure_side(self):
+        trial = live_setup(nf.trial_spec('stall-8-1'), RUN4_BEFORE, RUN4_TOLERANCES, None)
+        expected = trial['expected_frames']
+        events = [metrics(0), injection('installed', 20), injection('removed', 28.1), metrics(29, age=3_000_000), metrics(45, age=100_000),
+                  admission('p1', 1_000_000, 0.5), decoder('l-listener-1', expected, expected, ended_s=48.2),
+                  departure('p1', RESET, 49_000_000, 48.5, skips=1, frames_skipped=333), metrics(50, age=None)]
+        verdict = nf.trial_verdict(trial, events)
+        self.assertTrue(verdict['passed'], verdict)
+        self.assertEqual((verdict['beyond_ring_depth'], verdict['skips']), (False, 1))
+        timed_out = events + [departure('p1', 'stopped reading', 48_000_000, 27.0), close('p1', 48_010_000, 27.1), admission('p2', 50_000_000, 29.0)]
+        verdict = nf.trial_verdict(trial, timed_out)
+        self.assertFalse(verdict['passed'])
+        self.assertIn('departed under live policy', verdict['reason'])
+
+    def test_live_stall_without_counters_bounds_discontinuities_by_zero(self):
+        trial = live_setup(nf.trial_spec('stall-4-1'), RUN4_BEFORE, RUN4_TOLERANCES, installed_of(RUN4_STALL_4_1_EVENTS))
+        verdict = nf.trial_verdict(trial, RUN4_STALL_4_1_EVENTS + RUN4_STALL_4_1_SAMPLES)
+        self.assertTrue(verdict['passed'], verdict)
+        self.assertEqual((verdict['skips'], verdict['skips_source']), (0, 'none'))
+        gapped = [dict(event, discontinuities=1) if event['kind'] == 'decoder' else event for event in RUN4_STALL_4_1_EVENTS]
+        self.assertFalse(nf.trial_verdict(trial, gapped + RUN4_STALL_4_1_SAMPLES)['passed'])
+        # Counters only in the metrics samples bound the sum for every decoder.
+        counted = [dict(item, skips=1, frames_skipped=166) for item in RUN4_STALL_4_1_SAMPLES]
+        verdict = nf.trial_verdict(trial, gapped + counted)
+        self.assertTrue(verdict['passed'], verdict)
+        self.assertEqual(verdict['skips_source'], 'metrics')
+
+    def test_live_two_listener_stall_judges_each_decoder_against_its_own_counters(self):
+        trial = live_setup(nf.trial_spec('stall-2.5-2'), RUN4_BEFORE, RUN4_TOLERANCES, None)
+        expected = trial['expected_frames']
+        events = [metrics(0), injection('installed', 20), injection('removed', 22.6), metrics(23, age=1_000_000), metrics(40, age=100_000),
+                  admission('p1', 1_000_000, 0.5), admission('p2', 1_100_000, 0.5),
+                  decoder('l-listener-1', expected, expected, discontinuities=1, ended_s=43.1), decoder('l-listener-2', expected, expected, ended_s=43.1),
+                  departure('p1', RESET, 44_000_000, 43.4, skips=1, frames_skipped=100), departure('p2', RESET, 44_100_000, 43.5, skips=0, frames_skipped=0),
+                  metrics(45, age=None)]
+        verdict = nf.trial_verdict(trial, events)
+        self.assertTrue(verdict['passed'], verdict)
+        self.assertEqual([item['skips'] for item in verdict['decoders']], [1, 0])
+        swapped = [dict(event, skips=0, frames_skipped=0) if event.get('peer') == 'p1' and event['kind'] == 'departure' else
+                   dict(event, skips=1, frames_skipped=100) if event.get('peer') == 'p2' and event['kind'] == 'departure' else event for event in events]
+        self.assertFalse(nf.trial_verdict(trial, swapped)['passed'])
+
+    def test_exact_policy_keeps_the_retained_verdicts(self):
+        trial = exact_setup(nf.trial_spec('stall-2.5-1'), RUN4_BEFORE, RUN3_TOLERANCES, installed_of(RUN3_STALL_2_5_1_EVENTS))
+        self.assertTrue(nf.trial_verdict(trial, RUN3_STALL_2_5_1_EVENTS)['passed'])
+        live = live_setup(nf.trial_spec('stall-2.5-1'), RUN4_BEFORE, RUN3_TOLERANCES, installed_of(RUN3_STALL_2_5_1_EVENTS))
+        self.assertFalse(nf.trial_verdict(live, RUN3_STALL_2_5_1_EVENTS)['passed'])
+        exact = exact_setup(nf.trial_spec('stall-4-1'), RUN4_BEFORE, RUN4_TOLERANCES, installed_of(LIVE_STALL_4_1_EVENTS))
+        verdict = nf.trial_verdict(exact, LIVE_STALL_4_1_EVENTS + RUN4_STALL_4_1_SAMPLES)
+        self.assertEqual(verdict['reason'], 'continuous')
+        self.assertNotIn('skips', verdict)
+
+    def deficit_events(self, period_s=8.0, listener_end_s=92.0):
+        installed, removed = injection('installed', 20, 0.02), injection('removed', 80.05, 0.02)
+        expected = round(nf.trial_spec('deficit-0.5-1')['seconds'] * 48000)
+        events = [installed, removed, admission('p1', 1_000_000, 0.5),
+                  decoder('d-listener-1', expected, expected, ended_s=listener_end_s), departure('p1', RESET, 95_000_000, listener_end_s + 0.3)]
+        return events + deficit_samples(20, 80.05, period_s)
+
+    def test_live_deficit_passes_when_the_listener_stays_and_skips_steadily(self):
+        events = self.deficit_events()
+        trial = live_setup(nf.trial_spec('deficit-0.5-1'), RUN4_BEFORE, None, installed_of(events))
+        verdict = nf.trial_verdict(trial, events)
+        self.assertTrue(verdict['passed'], verdict)
+        self.assertEqual(verdict['skips'], 7)
+        self.assertAlmostEqual(verdict['predicted_skip_period_s'], 8.0)
+        self.assertLessEqual(verdict['max_skip_gap_s'], 9.0)
+        self.assertEqual(verdict['departed'], 0)
+        self.assertIn('7 skips', verdict['reason'])
+
+    def test_live_deficit_fails_on_departure_cut_or_unsteady_skips(self):
+        trial = live_setup(nf.trial_spec('deficit-0.5-1'), RUN4_BEFORE, None, installed_of(self.deficit_events()))
+        departed = self.deficit_events() + [departure('p1', 'media age exceeded', 60_000_000, 50.0), close('p1', 60_010_000, 50.1)]
+        verdict = nf.trial_verdict(trial, departed)
+        self.assertFalse(verdict['passed'])
+        self.assertIn('departed', verdict['reason'])
+        cut = [dict(event, frames=1_000_000, exit_code=251, ended_s=60.0, ended='cut') if event['kind'] == 'decoder' else event for event in self.deficit_events()]
+        self.assertFalse(nf.trial_verdict(trial, cut)['passed'])
+        early_end = self.deficit_events(listener_end_s=70.0)
+        verdict = nf.trial_verdict(trial, early_end)
+        self.assertFalse(verdict['passed'])
+        self.assertIn('before the injection was removed', verdict['reason'])
+        none = [event for event in self.deficit_events() if event['kind'] != 'metrics'] + [dict(item, skips=0, frames_skipped=0) for item in deficit_samples(20, 80.05, 8.0)]
+        verdict = nf.trial_verdict(trial, none)
+        self.assertFalse(verdict['passed'])
+        self.assertIn('no skip', verdict['reason'])
+        unreported = [event for event in self.deficit_events() if event['kind'] != 'metrics'] + [sample(at, 100_000) for at in range(18, 100)]
+        self.assertFalse(nf.trial_verdict(trial, unreported)['passed'])
+        # A skip gap beyond twice the predicted period is not a steady rate.
+        sparse = self.deficit_events(period_s=17.0)
+        verdict = nf.trial_verdict(trial, sparse)
+        self.assertFalse(verdict['passed'])
+        self.assertIn('steady', verdict['reason'])
+        # The counter must never fall during the trial.
+        falling = [dict(item, skips=0) if item['kind'] == 'metrics' and item['at_s'] == 60 else item for item in self.deficit_events()]
+        self.assertFalse(nf.trial_verdict(trial, falling)['passed'])
+        self.assertFalse(nf.trial_verdict(trial, [event for event in self.deficit_events() if event['kind'] != 'injection'])['passed'])
+
+    def test_null_and_delayed_reader_are_policy_blind(self):
+        for policy in nf.POLICIES:
+            trial = nf.trial_setup(nf.trial_spec('delayed-reader-1'), RUN4_BEFORE, RUN4_TOLERANCES, None, policy)
+            self.assertTrue(nf.trial_verdict(trial, RUN4_DELAYED_READER_EVENTS)['passed'], policy)
+            null = nf.trial_setup(nf.trial_spec('null-1'), BEFORE, None, None, policy)
+            good = [metrics(0), decoder('listener-1', 48000 * 60, 48000 * 60, ended_s=60.2), reset_after('p1', 60.2), metrics(61)]
+            self.assertTrue(nf.trial_verdict(null, good)['passed'], policy)
+            self.assertFalse(nf.trial_verdict(null, good + [departure('p3', RESET, 50_000_000, 30)])['passed'], policy)
 
 
 if __name__ == '__main__':

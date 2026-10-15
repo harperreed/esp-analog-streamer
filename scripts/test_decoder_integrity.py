@@ -300,6 +300,31 @@ class IntegrityTests(unittest.TestCase):
                 finally:
                     counter.close()
 
+    def test_tolerated_discontinuity_is_counted_and_the_read_continues(self):
+        job = self.run_harness('fault-check', 'complete')
+        rows = job['hashes'].read_bytes().splitlines(keepends=True)
+        first = next(i for i, row in enumerate(rows) if not row.startswith(b'#'))
+        # Drop one record from the middle: the next pts no longer follows the previous one.
+        gapped = b''.join(rows[:first + 3] + rows[first + 4:])
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'gapped.framehash'
+            path.write_bytes(gapped)
+            strict = FrameHash(path)
+            try:
+                with self.assertRaises(ValueError):
+                    strict.update(final=True)
+            finally:
+                strict.close()
+            counter = FrameHash(path, tolerate_discontinuities=True)
+            try:
+                counter.update(final=True)
+                summary = counter.summary()
+                self.assertEqual(summary['decoded_discontinuities'], 1)
+                self.assertEqual(summary['decoded_audio_frames'], 144000 - 4608)
+                self.assertEqual(summary['skipped_source_audio_frames'], 4608)
+            finally:
+                counter.close()
+
     def test_soak_final_flush_between_process_polls_is_counted(self):
         self.check_soak_completion_race(exit_between_polls=True)
 

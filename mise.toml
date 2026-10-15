@@ -9,6 +9,10 @@ ripgrep = "15.1.0" # scripts/check-stream-replay, scripts/fuzz-host and scripts/
 # The decoder-integrity oracle needs FFmpeg 8: on 6.1 (ubuntu-24.04 apt) `-err_detect crccheck` lets
 # CRC-corrupted FLAC through and the soak format check reports a short decode. Prebuilt conda-forge package.
 "conda:ffmpeg" = "8.0.1"
+# Client zoo players (scripts/client-zoo): prebuilt conda-forge packages, no apt step.
+"conda:mpv" = "0.41.0"
+"conda:mpg123" = "1.33.7"
+"conda:sox" = "14.4.2"
 "cargo:cargo-llvm-cov" = "0.9.1"
 "cargo:cargo-mutants" = "27.1.0"
 node = "26.10.0" # built-in test runner for the self-contained web page

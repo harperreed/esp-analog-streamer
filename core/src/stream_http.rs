@@ -432,6 +432,38 @@ impl Route {
     }
 }
 
+/// How a compressed listener treats lag. A live reader skips forward to the newest frame and
+/// keeps its socket; an exact reader (`?exact=1`, and WAV by construction) ends instead, so its
+/// sample accounting stays whole.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ListenerPolicy {
+    Live,
+    Exact,
+}
+
+/// Reads the optional `exact=1` flag from a stream request; any other `exact` field is malformed.
+pub fn request_listener_policy(request_line: &str) -> io::Result<ListenerPolicy> {
+    let target = request_line.split_whitespace().nth(1).unwrap_or("");
+    let Some((_, query)) = target.split_once('?') else {
+        return Ok(ListenerPolicy::Live);
+    };
+    let mut policy = ListenerPolicy::Live;
+    for field in query.split('&') {
+        let (key, value) = field.split_once('=').unwrap_or((field, ""));
+        if key != "exact" {
+            continue;
+        }
+        if policy == ListenerPolicy::Exact || value != "1" {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                "invalid exact flag",
+            ));
+        }
+        policy = ListenerPolicy::Exact;
+    }
+    Ok(policy)
+}
+
 /// The statuses the server refuses a request with.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Status {
@@ -578,6 +610,7 @@ pub fn request_sonos_intent(request_line: &str) -> io::Result<Option<u64>> {
 }
 
 /// Routes live paths and strict compressed buffer queries. Other cache-busting queries stay live.
+/// The `exact=1` policy flag rides beside the tags; `request_listener_policy` reads it.
 pub fn route_for(request_line: &str, active: crate::stream_buffer::OutputFormat) -> Route {
     let mut parts = request_line.split_whitespace();
     let (Some(method), Some(target), Some(version), None) =
@@ -602,6 +635,7 @@ pub fn route_for(request_line: &str, active: crate::stream_buffer::OutputFormat)
     }
     if request_network_generation(request_line).is_err()
         || request_sonos_intent(request_line).is_err()
+        || request_listener_policy(request_line).is_err()
     {
         return Route::Refuse(Status::BadRequest);
     }
@@ -615,7 +649,7 @@ pub fn route_for(request_line: &str, active: crate::stream_buffer::OutputFormat)
             let mut fields = query.split('&').filter(|field| {
                 !matches!(
                     field.split('=').next(),
-                    Some("network_generation" | "sonos_intent")
+                    Some("network_generation" | "sonos_intent" | "exact")
                 )
             });
             let buffer = fields.next().unwrap_or("");

@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+# ABOUTME: Plays the board's MP3 and FLAC streams through real players, one at a time, across one receiver-side stall.
+# ABOUTME: Usage: scripts/client-zoo HOST --interface IF --serial DEV --out DIR [--seconds N] [--stall N] [--players a,b] [--formats mp3,flac] [--dry-run]; needs a cached sudo -v, never root.
+set -euo pipefail
+repo="$(cd "$(dirname "$0")/.." && pwd)"
+exec uv run --quiet --project "$repo" --locked python3 "$repo/scripts/client_zoo.py" "$@"

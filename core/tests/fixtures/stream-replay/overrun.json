@@ -41,7 +41,8 @@
       "at": 80000,
       "id": 4,
       "op": "admit",
-      "actor": 1
+      "actor": 1,
+      "exact": true
     },
     {
       "at": 100000,

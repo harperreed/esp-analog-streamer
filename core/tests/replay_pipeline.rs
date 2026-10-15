@@ -10,7 +10,9 @@ mod stream_pipeline;
 #[allow(dead_code)]
 #[path = "../../firmware/src/stream_runtime.rs"]
 mod stream_runtime;
-use esp_shazam_core::{capture_buffer::CaptureBuffer, stream_buffer::OutputFormat};
+use esp_shazam_core::{
+    capture_buffer::CaptureBuffer, stream_buffer::OutputFormat, stream_http::ListenerPolicy,
+};
 use std::time::Duration;
 use stream_pipeline::{EncoderPump, EncoderStep};
 use stream_runtime::Runtime;
@@ -89,7 +91,8 @@ fn pending_header_cannot_be_preempted_and_payload_accounting_requires_complete_w
     let (runtime, mut worker) = Runtime::new(OutputFormat::Flac, false).unwrap();
     let old = worker.epoch.clone();
     let mut time = Duration::ZERO;
-    let mut listener = CompressedListener::new(&old, None, false, &mut || time);
+    let mut listener =
+        CompressedListener::new(&old, None, false, ListenerPolicy::Live, &mut || time);
     let mut bytes = vec![0; OutputFormat::Flac.max_frame_bytes()];
     assert!(matches!(
         listener.step(&old, &mut bytes, &mut || time, &mut || panic!(
@@ -142,7 +145,10 @@ fn retirement_during_fresh_wait_is_retired_and_empty_expiry_is_stalled() {
             }
             let (runtime, mut worker) = Runtime::new(OutputFormat::Flac, false).unwrap();
             let epoch = worker.epoch.clone();
-            let mut listener = CompressedListener::new(&epoch, None, false, &mut || Duration::ZERO);
+            let mut listener =
+                CompressedListener::new(&epoch, None, false, ListenerPolicy::Live, &mut || {
+                    Duration::ZERO
+                });
             let mut bytes = vec![0; OutputFormat::Flac.max_frame_bytes()];
             listener.step(&epoch, &mut bytes, &mut || Duration::ZERO, &mut || true);
             listener.step(&epoch, &mut bytes, &mut || Duration::ZERO, &mut || true);
@@ -252,13 +258,30 @@ fn reset_inside_actual_atomic_copy_never_pushes_rejected_scratch() {
     assert_eq!(worker.epoch.ring.lock().unwrap().progress(), (1, 0));
 }
 
+#[derive(Clone, Copy, PartialEq)]
+enum WriteOutcome {
+    Complete,
+    TimedOut,
+    /// The deadline ran out and the frame aged past the media bound while it was on the wire.
+    TimedOutStale,
+}
+
 #[test]
 fn payload_counters_advance_only_after_a_whole_successful_write() {
     use stream_pipeline::{CompressedListener, End, ListenerStep};
-    for successful in [false, true] {
+    for (policy, outcome) in [
+        (ListenerPolicy::Exact, WriteOutcome::Complete),
+        (ListenerPolicy::Exact, WriteOutcome::TimedOut),
+        (ListenerPolicy::Exact, WriteOutcome::TimedOutStale),
+        (ListenerPolicy::Live, WriteOutcome::Complete),
+        (ListenerPolicy::Live, WriteOutcome::TimedOut),
+        (ListenerPolicy::Live, WriteOutcome::TimedOutStale),
+    ] {
+        let successful = outcome == WriteOutcome::Complete;
         let (_, mut worker) = Runtime::new(OutputFormat::Flac, false).unwrap();
         let epoch = worker.epoch.clone();
-        let mut listener = CompressedListener::new(&epoch, None, false, &mut || Duration::ZERO);
+        let mut listener =
+            CompressedListener::new(&epoch, None, false, policy, &mut || Duration::ZERO);
         let mut scratch = vec![0; OutputFormat::Flac.max_frame_bytes()];
         listener.step(&epoch, &mut scratch, &mut || Duration::ZERO, &mut || true);
         assert!(matches!(
@@ -313,20 +336,40 @@ fn payload_counters_advance_only_after_a_whole_successful_write() {
                 (1, payload_len)
             );
         } else {
-            assert!(matches!(
-                listener.write_finished(
-                    Err(std::io::Error::new(
-                        std::io::ErrorKind::TimedOut,
-                        "partial payload expired"
-                    )),
-                    &mut || Duration::ZERO
+            let finished = if outcome == WriteOutcome::TimedOutStale {
+                Duration::from_secs(5)
+            } else {
+                Duration::ZERO
+            };
+            let end = listener.write_finished(
+                Err(std::io::Error::new(
+                    std::io::ErrorKind::TimedOut,
+                    "partial payload expired",
+                )),
+                &mut || finished,
+            );
+            // A partial frame on the wire is a dead socket in both policies; only an exact reader
+            // still reports the media bound it was also past.
+            assert!(
+                matches!(
+                    (policy, outcome, &end),
+                    (
+                        ListenerPolicy::Exact,
+                        WriteOutcome::TimedOutStale,
+                        ListenerStep::End(End::MediaAge)
+                    ) | (_, _, ListenerStep::End(End::StoppedReading))
                 ),
-                ListenerStep::End(End::StoppedReading)
-            ));
+                "{policy:?} {:?}",
+                match end {
+                    ListenerStep::End(end) => format!("{end:?}"),
+                    _ => "continued".into(),
+                }
+            );
             assert_eq!((listener.frames_sent, listener.bytes_sent), (0, 0));
             assert_eq!(listener.first_sent, None);
             assert_eq!(listener.last_sent, None);
         }
+        assert_eq!((listener.skips, listener.frames_skipped), (0, 0));
         if successful {
             assert!(listener.first_sent.is_some());
             assert!(listener.last_sent.is_some());
@@ -534,55 +577,87 @@ fn encoded_failures_keep_identity_and_wait_accounting_at_freshness_boundaries() 
         Duration::from_secs(3),
     ] {
         for reset in [false, true] {
-            let (_runtime, worker) = Runtime::new(OutputFormat::Flac, false).unwrap();
-            let epoch = worker.epoch.clone();
-            let mut listener = CompressedListener::new(&epoch, None, false, &mut || Duration::ZERO);
-            let mut bytes = vec![0; OutputFormat::Flac.max_frame_bytes()];
-            listener.step(&epoch, &mut bytes, &mut || Duration::ZERO, &mut || true);
-            listener.step(&epoch, &mut bytes, &mut || Duration::ZERO, &mut || true);
-            listener.write_finished(Ok(()), &mut || Duration::ZERO);
-            assert!(matches!(
-                listener.step(&epoch, &mut bytes, &mut || Duration::ZERO, &mut || true),
-                ListenerStep::SleepUntil(_)
-            ));
-            {
-                let mut ring = epoch.ring.lock().unwrap();
-                if reset {
-                    ring.reset().unwrap();
-                } else {
-                    for _ in 0..=ring.capacity() {
-                        ring.push(
-                            b"frame",
-                            esp_shazam_core::flac_ring::SourceMetadata {
-                                raw_generation: 0,
-                                source_start: 0,
-                                source_end: 1,
-                                oldest_accepted_us: 0,
-                                raw_publication_us: 0,
-                            },
-                            || 0,
-                        )
-                        .unwrap();
+            for policy in [ListenerPolicy::Exact, ListenerPolicy::Live] {
+                let (_runtime, mut worker) = Runtime::new(OutputFormat::Flac, false).unwrap();
+                let epoch = worker.epoch.clone();
+                let mut listener =
+                    CompressedListener::new(&epoch, None, false, policy, &mut || Duration::ZERO);
+                let mut bytes = vec![0; OutputFormat::Flac.max_frame_bytes()];
+                listener.step(&epoch, &mut bytes, &mut || Duration::ZERO, &mut || true);
+                listener.step(&epoch, &mut bytes, &mut || Duration::ZERO, &mut || true);
+                listener.write_finished(Ok(()), &mut || Duration::ZERO);
+                assert!(matches!(
+                    listener.step(&epoch, &mut bytes, &mut || Duration::ZERO, &mut || true),
+                    ListenerStep::SleepUntil(_)
+                ));
+                worker.encoder.push(&vec![0; 8192]);
+                worker.encoder.encode_block(0, &mut worker.bytes).unwrap();
+                let capacity = {
+                    let mut ring = epoch.ring.lock().unwrap();
+                    if reset {
+                        ring.reset().unwrap();
+                    } else {
+                        for _ in 0..=ring.capacity() {
+                            ring.push(
+                                &worker.bytes,
+                                esp_shazam_core::flac_ring::SourceMetadata {
+                                    raw_generation: 0,
+                                    source_start: 0,
+                                    source_end: 1,
+                                    oldest_accepted_us: 0,
+                                    raw_publication_us: 0,
+                                },
+                                || 0,
+                            )
+                            .unwrap();
+                        }
+                    }
+                    ring.capacity() as u64
+                };
+                let mut clock_calls = 0;
+                let step = listener.step(
+                    &epoch,
+                    &mut bytes,
+                    &mut || {
+                        clock_calls += 1;
+                        elapsed
+                    },
+                    &mut || true,
+                );
+                assert_eq!(listener.read_wait, elapsed);
+                match (reset, policy) {
+                    (true, _) => {
+                        assert!(matches!(step, ListenerStep::End(End::EncodedReset)));
+                        assert_eq!(clock_calls, 1, "failed completion must not sample expiry");
+                        assert_eq!(listener.skips, 0);
+                    }
+                    (false, ListenerPolicy::Exact) => {
+                        assert!(matches!(step, ListenerStep::End(End::FellBehind)));
+                        assert_eq!(clock_calls, 1, "failed completion must not sample expiry");
+                        assert_eq!(listener.skips, 0);
+                    }
+                    (false, ListenerPolicy::Live) => {
+                        // Lapped by one: skip to the newest whole frame under the same lock and
+                        // send it; the lag is recorded before the move.
+                        assert!(matches!(step, ListenerStep::Write { header: false, .. }));
+                        assert_eq!(
+                            (
+                                listener.skips,
+                                listener.frames_skipped,
+                                listener.last_skip_us
+                            ),
+                            (1, capacity, elapsed.as_micros() as u64)
+                        );
+                        assert_eq!(listener.queue_frames_max, capacity);
+                        assert!(matches!(
+                            listener.write_finished(Ok(()), &mut || elapsed),
+                            ListenerStep::Progress
+                        ));
+                        assert_eq!(listener.frames_sent, 1);
+                        assert_eq!(listener.last_sent.unwrap().sequence, capacity + 1);
                     }
                 }
             }
-            let mut clock_calls = 0;
-            let end = listener.step(
-                &epoch,
-                &mut bytes,
-                &mut || {
-                    clock_calls += 1;
-                    elapsed
-                },
-                &mut || true,
-            );
-            assert!(matches!(
-                (reset, end),
-                (true, ListenerStep::End(End::EncodedReset))
-                    | (false, ListenerStep::End(End::FellBehind))
-            ));
-            assert_eq!(listener.read_wait, elapsed);
-            assert_eq!(clock_calls, 1, "failed completion must not sample expiry");
         }
     }
 }
@@ -651,8 +726,13 @@ fn network_retirement_precedes_buffered_admission_and_http_header() {
     for preset in [None, Some(BufferPreset::Medium)] {
         network.observe(network.snapshot(), Some("192.168.23.99".parse().unwrap()));
         let lease = network.lease().unwrap();
-        let mut actor =
-            CompressedListener::new(&worker.epoch, preset, false, &mut || Duration::ZERO);
+        let mut actor = CompressedListener::new(
+            &worker.epoch,
+            preset,
+            false,
+            ListenerPolicy::Live,
+            &mut || Duration::ZERO,
+        );
         if preset.is_none() {
             assert!(matches!(
                 actor.step_network(
@@ -684,51 +764,91 @@ fn network_retirement_precedes_buffered_admission_and_http_header() {
 #[test]
 fn encoded_metadata_accumulates_oldest_source_and_late_complete_counts_bytes() {
     use stream_pipeline::{CompressedListener, End, ListenerStep};
-    let (runtime, mut worker) = Runtime::new(OutputFormat::Mp3, false).unwrap();
-    let (mut publisher, raw) = CaptureBuffer::new(4800, 240);
-    let mut pump = EncoderPump::new();
-    let mut time = Duration::from_micros(100);
-    pump.step(&raw, &mut worker, &runtime, &mut || time, &mut |_| {});
-    let mut listener = CompressedListener::new(&worker.epoch, None, false, &mut || time);
-    let mut scratch = vec![0; OutputFormat::Mp3.max_frame_bytes()];
-    listener.step(&worker.epoch, &mut scratch, &mut || time, &mut || true);
-    listener.step(&worker.epoch, &mut scratch, &mut || time, &mut || true);
-    listener.write_finished(Ok(()), &mut || time);
-    let mut cursor = worker.epoch.ring.lock().unwrap().cursor_now();
-    for block in 0..5 {
-        publisher
-            .publish(&vec![17; 480], 100 + block, || 200 + block)
-            .unwrap();
-        time = Duration::from_micros(300 + block);
+    for policy in [ListenerPolicy::Exact, ListenerPolicy::Live] {
+        let (runtime, mut worker) = Runtime::new(OutputFormat::Mp3, false).unwrap();
+        let (mut publisher, raw) = CaptureBuffer::new(4800, 240);
+        let mut pump = EncoderPump::new();
+        let mut time = Duration::from_micros(100);
         pump.step(&raw, &mut worker, &runtime, &mut || time, &mut |_| {});
+        // One retained frame: two blocks published behind the listener's back lap it.
+        *worker.epoch.ring.lock().unwrap() =
+            esp_shazam_core::flac_ring::FlacRing::try_new(1, OutputFormat::Mp3.max_frame_bytes())
+                .unwrap();
+        let mut listener =
+            CompressedListener::new(&worker.epoch, None, false, policy, &mut || time);
+        let mut scratch = vec![0; OutputFormat::Mp3.max_frame_bytes()];
+        listener.step(&worker.epoch, &mut scratch, &mut || time, &mut || true);
+        listener.step(&worker.epoch, &mut scratch, &mut || time, &mut || true);
+        listener.write_finished(Ok(()), &mut || time);
+        let mut cursor = worker.epoch.ring.lock().unwrap().cursor_now();
+        for block in 0..5 {
+            publisher
+                .publish(&vec![17; 480], 100 + block, || 200 + block)
+                .unwrap();
+            time = Duration::from_micros(300 + block);
+            pump.step(&raw, &mut worker, &runtime, &mut || time, &mut |_| {});
+        }
+        let read = worker
+            .epoch
+            .ring
+            .lock()
+            .unwrap()
+            .read(&mut cursor, &mut scratch)
+            .unwrap();
+        let metadata = read.receipt.unwrap().metadata;
+        assert_eq!(metadata.source.oldest_accepted_us, 100);
+        assert_eq!(
+            (metadata.source.source_start, metadata.source.source_end),
+            (0, 1152)
+        );
+        assert_eq!(metadata.source.raw_publication_us, 204);
+        assert_eq!(metadata.encoded_production_us, 304);
+        assert!(matches!(
+            listener.step(&worker.epoch, &mut scratch, &mut || time, &mut || true),
+            ListenerStep::Write { header: false, .. }
+        ));
+        let len = listener.write_bytes(&scratch).len();
+        time = Duration::from_micros(4_000_100);
+        let finished = listener.write_finished(Ok(()), &mut || time);
+        assert_eq!(listener.bytes_sent, len as u64);
+        assert_eq!(listener.frames_sent, 1);
+        match policy {
+            ListenerPolicy::Exact => {
+                assert!(matches!(finished, ListenerStep::End(End::MediaAge)));
+                continue;
+            }
+            ListenerPolicy::Live => assert!(matches!(finished, ListenerStep::Progress)),
+        }
+        // Two newer blocks arrive before the next read: the late frame costs one skip over the
+        // block between, and the newest block goes out with the listener's numbering intact.
+        for block in 5..17 {
+            let at = 4_000_200 + block;
+            publisher.publish(&vec![17; 480], at, || at).unwrap();
+            time = Duration::from_micros(4_000_300 + block);
+            pump.step(&raw, &mut worker, &runtime, &mut || time, &mut |_| {});
+        }
+        assert_eq!(worker.epoch.ring.lock().unwrap().progress(), (0, 3));
+        assert!(matches!(
+            listener.step(&worker.epoch, &mut scratch, &mut || time, &mut || true),
+            ListenerStep::Write { header: false, .. }
+        ));
+        assert_eq!(
+            (
+                listener.skips,
+                listener.frames_skipped,
+                listener.last_skip_us
+            ),
+            (1, 1, time.as_micros() as u64)
+        );
+        // The owed skip records the lag it found, like a skip taken on a lapped read.
+        assert_eq!(listener.queue_frames_max, 1);
+        assert!(matches!(
+            listener.write_finished(Ok(()), &mut || time),
+            ListenerStep::Progress
+        ));
+        assert_eq!(listener.frames_sent, 2);
+        assert_eq!(listener.last_sent.unwrap().sequence, 3);
     }
-    let read = worker
-        .epoch
-        .ring
-        .lock()
-        .unwrap()
-        .read(&mut cursor, &mut scratch)
-        .unwrap();
-    let metadata = read.receipt.unwrap().metadata;
-    assert_eq!(metadata.source.oldest_accepted_us, 100);
-    assert_eq!(
-        (metadata.source.source_start, metadata.source.source_end),
-        (0, 1152)
-    );
-    assert_eq!(metadata.source.raw_publication_us, 204);
-    assert_eq!(metadata.encoded_production_us, 304);
-    assert!(matches!(
-        listener.step(&worker.epoch, &mut scratch, &mut || time, &mut || true),
-        ListenerStep::Write { header: false, .. }
-    ));
-    let len = listener.write_bytes(&scratch).len();
-    time = Duration::from_micros(4_000_100);
-    assert!(matches!(
-        listener.write_finished(Ok(()), &mut || time),
-        ListenerStep::End(End::MediaAge)
-    ));
-    assert_eq!(listener.bytes_sent, len as u64);
-    assert_eq!(listener.frames_sent, 1);
 }
 
 #[test]
@@ -878,7 +998,13 @@ fn unhealthy_listener_gate_does_not_acquire_encoded_ring_mutex() {
     use stream_pipeline::{CompressedListener, End, ListenerStep};
     use stream_runtime::health::State;
     let (runtime, worker) = Runtime::new(OutputFormat::Mp3, false).unwrap();
-    let mut listener = CompressedListener::new(&worker.epoch, None, false, &mut || Duration::ZERO);
+    let mut listener = CompressedListener::new(
+        &worker.epoch,
+        None,
+        false,
+        ListenerPolicy::Live,
+        &mut || Duration::ZERO,
+    );
     let _held = worker.epoch.ring.lock().unwrap();
     assert!(runtime
         .health

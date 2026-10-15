@@ -5,6 +5,7 @@ use esp_shazam_core::{
     capture_buffer::CaptureBuffer,
     flac_ring::FlacRing,
     stream_buffer::OutputFormat,
+    stream_http::ListenerPolicy,
     stream_wait::Slot,
     stream_write::{Action, WriteProgress},
 };
@@ -43,6 +44,11 @@ pub struct ExpectedActor {
     pub terminal: String,
     pub pending_source: Option<(usize, usize, usize)>,
     pub close_state: String,
+    /// Live-policy resynchronizations; an exact or never-lagging actor records none.
+    #[serde(default)]
+    pub skips: u64,
+    #[serde(default)]
+    pub frames_skipped: u64,
 }
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 pub struct GenerationReceipt {
@@ -86,6 +92,9 @@ pub enum Op {
         actor: usize,
         #[serde(default)]
         buffered: bool,
+        /// An exact-audio reader ends on lag; the default is the production default, live.
+        #[serde(default)]
+        exact: bool,
     },
     Listen {
         actor: usize,
@@ -175,6 +184,8 @@ pub struct Receipt {
     pub ranges: Vec<(usize, usize, usize)>,
     pub pending_source: Option<(usize, usize, usize)>,
     pub close_state: String,
+    pub skips: u64,
+    pub frames_skipped: u64,
 }
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct Replay {
@@ -445,7 +456,11 @@ pub fn run(fixture: &Fixture) -> Replay {
                     }
                 }
             }
-            Op::Admit { actor, buffered } => {
+            Op::Admit {
+                actor,
+                buffered,
+                exact,
+            } => {
                 if let Some(slot) = Slot::take(&slots, 2) {
                     let (_, lease) = runtime.admit("GET /stream.flac HTTP/1.1");
                     let epoch = lease.as_ref().unwrap().epoch.clone();
@@ -460,6 +475,11 @@ pub fn run(fixture: &Fixture) -> Replay {
                                     None
                                 },
                                 false,
+                                if *exact {
+                                    ListenerPolicy::Exact
+                                } else {
+                                    ListenerPolicy::Live
+                                },
                                 &mut now,
                             ),
                             epoch,
@@ -486,6 +506,8 @@ pub fn run(fixture: &Fixture) -> Replay {
                                 ranges: vec![],
                                 pending_source: None,
                                 close_state: "owned".into(),
+                                skips: 0,
+                                frames_skipped: 0,
                             },
                         },
                     );
@@ -564,6 +586,8 @@ pub fn run(fixture: &Fixture) -> Replay {
                             }
                             _ => {}
                         }
+                        a.receipt.skips = a.listener.skips;
+                        a.receipt.frames_skipped = a.listener.frames_skipped;
                     }
                 }
             }
@@ -620,9 +644,13 @@ pub fn run(fixture: &Fixture) -> Replay {
                             } else {
                                 let p = &publications[a.source.take().unwrap()];
                                 let (generation, first) = a.receipt.admission.unwrap();
+                                // Every publication is delivered or counted as skipped, in order.
                                 assert_eq!(
                                     p.encoded_position,
-                                    (generation, first + a.listener.frames_sent),
+                                    (
+                                        generation,
+                                        first + a.listener.frames_sent + a.listener.frames_skipped
+                                    ),
                                     "delivery_source_sequence: skipped or repeated publication"
                                 );
                                 a.receipt.publication_sequences.push(p.encoded_position);
@@ -644,6 +672,8 @@ pub fn run(fixture: &Fixture) -> Replay {
                             a.ended = true;
                         }
                         a.receipt.completed_frames = a.listener.frames_sent;
+                        a.receipt.skips = a.listener.skips;
+                        a.receipt.frames_skipped = a.listener.frames_skipped;
                         a.write = None;
                     }
                 }
@@ -789,6 +819,7 @@ impl Replay {
                         && r.terminal == expected.terminal
                         && r.pending_source == expected.pending_source
                         && r.close_state == expected.close_state
+                        && (r.skips, r.frames_skipped) == (expected.skips, expected.frames_skipped)
                 })
             })
     }
@@ -808,6 +839,7 @@ impl Replay {
                 "fell_behind" => {
                     assert!(self.listeners.values().any(|r| r.terminal == "FellBehind"))
                 }
+                "skipped" => assert!(self.listeners.values().any(|r| r.skips > 0)),
                 "stalled" => assert!(self
                     .listeners
                     .values()

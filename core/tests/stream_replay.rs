@@ -18,6 +18,7 @@ fn explicit_fixtures_repeat_exactly_and_emit_real_artifacts() {
     let names = [
         "delivery",
         "overrun",
+        "overrun-live",
         "reset",
         "partial",
         "ownership",
@@ -182,7 +183,9 @@ fn runtime_requests_obey_tokens_expiry_block_boundaries_and_draining_leases() {
 #[cfg(feature = "capture-fixture")]
 #[test]
 fn atomic_copy_reset_rejects_scratch_and_new_generation_reconnect_is_exact() {
-    use esp_shazam_core::{capture_buffer::CaptureBuffer, stream_buffer::OutputFormat};
+    use esp_shazam_core::{
+        capture_buffer::CaptureBuffer, stream_buffer::OutputFormat, stream_http::ListenerPolicy,
+    };
     use std::time::Duration;
     use stream_pipeline::{CompressedListener, EncoderObservation, EncoderPump, End, ListenerStep};
     let (runtime, mut worker) = stream_runtime::Runtime::new(OutputFormat::Flac, false).unwrap();
@@ -196,10 +199,13 @@ fn atomic_copy_reset_rejects_scratch_and_new_generation_reconnect_is_exact() {
         &mut |_| {},
     );
     let (_, old_lease) = runtime.admit("GET /stream.flac HTTP/1.1");
-    let mut old_listener =
-        CompressedListener::new(&old_lease.as_ref().unwrap().epoch, None, false, &mut || {
-            Duration::ZERO
-        });
+    let mut old_listener = CompressedListener::new(
+        &old_lease.as_ref().unwrap().epoch,
+        None,
+        false,
+        ListenerPolicy::Live,
+        &mut || Duration::ZERO,
+    );
     let mut old_scratch = vec![0; OutputFormat::Flac.max_frame_bytes()];
     old_listener.step(
         &worker.epoch,
@@ -246,7 +252,10 @@ fn atomic_copy_reset_rejects_scratch_and_new_generation_reconnect_is_exact() {
     ));
     let (_, new_lease) = runtime.admit("GET /stream.flac HTTP/1.1");
     let epoch = &new_lease.as_ref().unwrap().epoch;
-    let mut new_listener = CompressedListener::new(epoch, None, false, &mut || Duration::ZERO);
+    let mut new_listener =
+        CompressedListener::new(epoch, None, false, ListenerPolicy::Live, &mut || {
+            Duration::ZERO
+        });
     let mut scratch = vec![0; OutputFormat::Flac.max_frame_bytes()];
     new_listener.step(epoch, &mut scratch, &mut || Duration::ZERO, &mut || true);
     new_listener.step(epoch, &mut scratch, &mut || Duration::ZERO, &mut || true);
@@ -312,15 +321,22 @@ fn atomic_copy_reset_rejects_scratch_and_new_generation_reconnect_is_exact() {
 
 #[test]
 fn absent_capture_before_buffered_admission_expires_without_any_pcm() {
-    use esp_shazam_core::stream_buffer::{BufferPreset, OutputFormat};
+    use esp_shazam_core::{
+        stream_buffer::{BufferPreset, OutputFormat},
+        stream_http::ListenerPolicy,
+    };
     use std::time::Duration;
     use stream_pipeline::{CompressedListener, End, ListenerStep};
     let (runtime, worker) = stream_runtime::Runtime::new(OutputFormat::Flac, false).unwrap();
     let (_, lease) = runtime.admit("GET /stream.flac HTTP/1.1");
     let epoch = &lease.as_ref().unwrap().epoch;
-    let mut listener = CompressedListener::new(epoch, Some(BufferPreset::Low), false, &mut || {
-        Duration::ZERO
-    });
+    let mut listener = CompressedListener::new(
+        epoch,
+        Some(BufferPreset::Low),
+        false,
+        ListenerPolicy::Live,
+        &mut || Duration::ZERO,
+    );
     let mut scratch = vec![0; OutputFormat::Flac.max_frame_bytes()];
     assert!(matches!(
         listener.step(epoch, &mut scratch, &mut || Duration::ZERO, &mut || true),

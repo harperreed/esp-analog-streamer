@@ -140,6 +140,26 @@ impl FlacRing {
         }))
     }
 
+    /// Moves a lagging or lapped reader forward to the newest whole frame of this generation and
+    /// returns how many whole frames it passed over; a reader already at or past that frame stays
+    /// put. Hold the external mutex, and call only between frames: the move lands on a frame
+    /// boundary. A reader from another generation is left alone, since a reset ends it.
+    pub fn catch_up(&self, cursor: &mut Cursor) -> Result<u64, ReadError> {
+        if cursor.generation != self.generation {
+            return Err(ReadError::GenerationChanged);
+        }
+        let newest = self
+            .cursor_retained(1)
+            .ok()
+            .flatten()
+            .unwrap_or_else(|| self.cursor_now());
+        let passed = newest.sequence.saturating_sub(cursor.sequence);
+        if passed > 0 {
+            *cursor = newest;
+        }
+        Ok(passed)
+    }
+
     /// Producer position, including the generation so resets cannot conceal missing history.
     pub fn progress(&self) -> (u64, u64) {
         (self.generation, self.written)
@@ -635,6 +655,50 @@ mod tests {
         ring.generation = u64::MAX;
         assert!(ring.reset().is_err());
         assert_eq!(ring.progress(), (u64::MAX, u64::MAX));
+    }
+
+    #[test]
+    fn catch_up_moves_only_forward_to_the_newest_whole_frame_in_this_generation() {
+        let source = SourceMetadata {
+            raw_generation: 0,
+            source_start: 0,
+            source_end: 1,
+            oldest_accepted_us: 0,
+            raw_publication_us: 0,
+        };
+        let mut ring = FlacRing::try_new(2, 8).unwrap();
+        let mut cursor = ring.cursor_now();
+        // An empty generation has nothing newer: the cursor stays at the next frame.
+        assert_eq!(ring.catch_up(&mut cursor), Ok(0));
+        assert_eq!(cursor, ring.cursor_now());
+        for frame in [b"a" as &[u8], b"bb", b"ccc"] {
+            ring.push(frame, source, || 0).unwrap();
+        }
+        // Lapped by one: skip frames 0 and 1, land on frame 2 (the newest whole frame).
+        assert_eq!(
+            ring.read(&mut cursor, &mut [0; 8]),
+            Err(ReadError::Overwritten)
+        );
+        assert_eq!(ring.catch_up(&mut cursor), Ok(2));
+        let mut out = [0; 8];
+        let read = ring.read(&mut cursor, &mut out).unwrap();
+        assert_eq!((read.bytes, &out[..3]), (3, &b"ccc"[..]));
+        assert_eq!(read.receipt.unwrap().sequence, 3);
+        // Already current: no move, nothing skipped.
+        assert_eq!(ring.catch_up(&mut cursor), Ok(0));
+        assert_eq!(cursor, ring.cursor_now());
+        // Behind by one with the newest frame already next: no move either.
+        ring.push(b"dddd", source, || 0).unwrap();
+        assert_eq!(ring.catch_up(&mut cursor), Ok(0));
+        assert_eq!(ring.read(&mut cursor, &mut out).unwrap().bytes, 4);
+        // A reset is terminal for the reader: the cursor is left alone.
+        let before = cursor;
+        ring.reset().unwrap();
+        assert_eq!(
+            ring.catch_up(&mut cursor),
+            Err(ReadError::GenerationChanged)
+        );
+        assert_eq!(cursor, before);
     }
 
     #[test]

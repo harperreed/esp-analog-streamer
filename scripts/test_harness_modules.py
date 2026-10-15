@@ -56,6 +56,31 @@ class ModuleTests(unittest.TestCase):
         self.assertFalse(soak.parse_args([]).require_clean_startup)
         self.assertTrue(soak.parse_args(['--require-clean-startup']).require_clean_startup)
 
+    def test_soak_decoder_timeouts_default_and_follow_the_decoder_args(self):
+        import stream_soak as soak
+        from types import SimpleNamespace
+        base = dict(path='/stream.mp3', stream_port=8000, seconds=4)
+        command = soak.decoder_command(SimpleNamespace(**base), '192.0.2.1', Path('progress'), Path('hashes'))
+        self.assertEqual(command[command.index('-rw_timeout') + 1], str(soak.DECODER_RW_TIMEOUT_S * 1_000_000))
+        stretched = soak.decoder_command(SimpleNamespace(**base, rw_timeout_s=25.5), '192.0.2.1', Path('progress'), Path('hashes'))
+        self.assertEqual(stretched[stretched.index('-rw_timeout') + 1], '25500000')
+        self.assertEqual((soak.DECODER_RW_TIMEOUT_S, soak.DECODER_PROGRESS_TIMEOUT_S), (10, 20))
+        with tempfile.TemporaryDirectory() as directory:
+            hashes = Path(directory) / 'hashes'
+            process = subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(30)'], start_new_session=True)
+            job = dict(label='stalled', process=process, tail=soak.Tail(Path(directory) / 'progress'), errors=Path(directory) / 'log',
+                       log_tail=soak.Tail(Path(directory) / 'log'), accounting=soak.FrameHash(hashes), decoded_audio_frames=0,
+                       decoded_seconds=0, timeline_seconds=0, advanced_at=time.monotonic() - 25)
+            try:
+                soak.update_decoder(job, SimpleNamespace(**base, progress_timeout_s=30))
+                with self.assertRaisesRegex(soak.Failure, 'no decoder progress for 20 seconds'):
+                    soak.update_decoder(job, SimpleNamespace(**base))
+            finally:
+                soak.stop(process)
+                job['tail'].close()
+                job['log_tail'].close()
+                job['accounting'].close()
+
     def test_retention_timeout_uses_clipped_budget_and_rejects_early_return(self):
         source = (Path(__file__).parent / 'retention-check').read_text().split("<<'PY'\n", 1)[1].rsplit('\nPY', 1)[0]
         namespace = {'__name__': 'retention_test'}
@@ -418,7 +443,7 @@ def audit(event, args):
     if event.startswith('socket.') or event.startswith('subprocess.') or event in ('os.mkdir', 'os.system'):
         raise RuntimeError('import side effect: ' + event)
 sys.addaudithook(audit)
-import fault_check, encoder_fault_check, stream_soak, stream_check, network_fault, listener_churn, sonos_resume_probe
+import fault_check, encoder_fault_check, stream_soak, stream_check, network_fault, listener_churn, sonos_resume_probe, client_zoo
 assert before == {number: signal.getsignal(number) for number in before}
 assert not list(Path.cwd().iterdir())
 """
@@ -431,7 +456,7 @@ assert not list(Path.cwd().iterdir())
     def test_wrapper_help_and_errors_are_inert(self):
         scripts = Path(__file__).resolve().parent
         with tempfile.TemporaryDirectory() as directory:
-            for name in ('fault-check', 'encoder-fault-check', 'stream-soak', 'stream-check', 'network-fault', 'network-fault-batch', 'listener-churn', 'sonos-resume-probe'):
+            for name in ('fault-check', 'encoder-fault-check', 'stream-soak', 'stream-check', 'network-fault', 'network-fault-batch', 'listener-churn', 'sonos-resume-probe', 'client-zoo'):
                 for args, expected in [(['--help'], 0), (['--unrecognized-option'], 2)]:
                     result = subprocess.run([str(scripts/name), *args], cwd=directory,
                                             capture_output=True, text=True, timeout=10)

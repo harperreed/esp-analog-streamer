@@ -21,7 +21,8 @@ from decoder_integrity import FrameHash
 from device_metrics import fetch
 from encoder_fault_check import checked_listener_closes, listener_end_category, listener_event_us
 from sonos_http_check import CleanupDeadline, cleanup_attempt
-from stream_soak import LOSS_KEYS, Tail, decoder_command, stop, update_decoder
+from stream_soak import (DECODER_PROGRESS_TIMEOUT_S, DECODER_RW_TIMEOUT_S, LOSS_KEYS, Tail, decoder_command, stop,
+                         update_decoder)
 
 
 class Failure(Exception):
@@ -30,6 +31,18 @@ class Failure(Exception):
 
 # MP3 is 320 kbit/s fixed: 960 bytes per 1152-sample frame at 48 kHz.
 MP3_BITRATE_BIT_PER_S = 320_000
+MP3_FRAME_SAMPLES = 1152
+# Verdict policies. `live`: a lagging listener skips forward on its socket and is never terminated for lag
+# (docs/superpowers/plans/2026-10-15-live-stream-robustness.md, "The contract"). `exact`: the pre-skip
+# verdicts, a MediaAge departure with a checked close and a fresh admission, kept byte-for-byte.
+LIVE, EXACT = 'live', 'exact'
+POLICIES = (LIVE, EXACT)
+# A steady deficit skips about once per MEDIA_AGE_BASE_S / (1 - fraction); a gap beyond this multiple is not steady.
+SKIP_GAP_TOLERANCE = 2.0
+# Under live policy the per-frame write deadline is the encoded ring depth: the harness streams MP3, whose ring holds
+# 500 frames of 1152 samples at 48 kHz = 12.0 s (FLAC: 12.03 s, 2.05 s with recognition on; decision 2026-10-15).
+# A stall longer than this blocks the write past its budget, so the board ends the socket (`stopped reading`).
+LIVE_WRITE_DEADLINE_S = 500 * 1152 / 48000
 # Plain /stream.mp3 is Route::Stream with no preset (core/src/stream_http.rs:637, firmware/src/stream.rs:427),
 # so MediaAge::for_stream(None, Mp3) bounds the age at four seconds (core/src/media_age.rs).
 MEDIA_AGE_BASE_S = 4.0
@@ -44,14 +57,15 @@ DELAYED_READER_SECONDS = 40.0
 FRESH_LISTENER_SECONDS = 10.0
 STREAM_PORT = 8000
 TRIALS = ['null-1', 'null-2', 'stall-0.5-1', 'stall-0.5-2', 'stall-1-1', 'stall-1-2', 'stall-2.5-1', 'stall-2.5-2',
-          'stall-4-1', 'stall-4-2', 'deficit-0.8-1', 'deficit-0.5-1', 'delayed-reader-1']
+          'stall-4-1', 'stall-4-2', 'stall-8-1', 'stall-8-2', 'stall-15-1', 'stall-15-2', 'deficit-0.8-1', 'deficit-0.5-1',
+          'delayed-reader-1']
 # Band 4 of a four-band prio: the default priomap only names bands 0-2, so nothing but the u32 filter lands there.
 EGRESS_NETEM_PARENT = '1:4'
 IFB_NETEM_PARENT = 'root'
 DEFAULT_ROOT_KINDS = ('mq', 'fq_codel', 'pfifo_fast')
 # Every trial field trial_verdict reads; trial_setup must supply each one for every kind.
 VERDICT_TRIAL_KEYS = ('kind', 'listeners', 'age_bound_us', 'largest_tolerance_bytes', 'largest_before',
-                      'predicted_end_s', 'end_tolerance_s')
+                      'predicted_end_s', 'end_tolerance_s', 'policy', 'profile')
 
 
 def privileged(argv):
@@ -230,14 +244,37 @@ def trial_names(text):
     return [name for name in TRIALS if name in names]
 
 
+def stall_seconds(spec):
+    return spec['profile']['seconds'] if spec['kind'] == 'stall' else 0.0
+
+
+def beyond_ring_depth(stall_s):
+    """Whether a live listener is expected to end the socket on its write deadline during a stall of stall_s.
+
+    Shorter stalls (up to the ring depth) resync on the same socket with zero departures; longer ones end with one
+    checked `stopped reading` departure per listener followed by a fresh admission.
+    """
+    return stall_s > LIVE_WRITE_DEADLINE_S
+
+
 def budget_seconds(names):
-    # Startup after the serial reset, then each trial with its fresh listener, receipt wait and margin.
-    return 180 + sum(trial_spec(name)['seconds'] + FRESH_LISTENER_SECONDS + 30 for name in names)
+    # Startup after the serial reset, then each trial with its fresh listener, receipt wait and margin. A live
+    # listener keeps its socket through a stall, so its decoder's wall time grows by the stall as well.
+    return 180 + sum(trial_spec(name)['seconds'] + stall_seconds(trial_spec(name)) + FRESH_LISTENER_SECONDS + 30 for name in names)
 
 
-def trial_setup(spec, before, tolerances, installed):
-    """Everything trial_verdict reads, from the spec, the pre-trial snapshot, null-* tolerances and the install record."""
-    trial = dict(spec, expected_frames=round(spec['seconds'] * 48000),
+def decoder_timeouts(spec):
+    """ffmpeg's socket read timeout and the harness's progress watchdog, both stretched by the trial's stall so the
+    receiver side never ends a listener the board kept."""
+    extra = stall_seconds(spec)
+    return dict(rw_timeout_s=DECODER_RW_TIMEOUT_S + extra, progress_timeout_s=DECODER_PROGRESS_TIMEOUT_S + extra)
+
+
+def trial_setup(spec, before, tolerances, installed, policy):
+    """Everything trial_verdict reads, from the spec, the pre-trial snapshot, null-* tolerances, the install record and the policy."""
+    if policy not in POLICIES:
+        raise ValueError(f'policy must be one of {", ".join(POLICIES)}')
+    trial = dict(spec, expected_frames=round(spec['seconds'] * 48000), policy=policy,
                  largest_before=dict(internal_largest=before['internal_largest'], psram_largest=before['psram_largest']),
                  age_bound_us=tolerances['age_bound_us'] if tolerances else None,
                  largest_tolerance_bytes=tolerances['largest_tolerance_bytes'] if tolerances else None,
@@ -254,6 +291,18 @@ JOINED = re.compile(r'stream: (unknown peer|\S+) joined \S+ \(\d+ of \d+\) event
 LEFT = re.compile(r'stream: (unknown peer|\S+) left after [0-9.]+ s: (.*?) listener_stack_free_bytes=\d+ event_us=(\d+)')
 # Same production close line encoder_fault_check pairs with departures; the receipt that certifies it comes later.
 CLOSED = re.compile(r'stream: (\S+) socket closed in \d+ ms; releasing slot \(\d+ held\)')
+# Per-listener skip counters the firmware adds to the departure line (plan, "Skip rule"); position unspecified, absence tolerated.
+SKIP_KEYS = ('skips', 'frames_skipped', 'last_skip_us')
+SKIP_TOKEN = re.compile(r'\s*\b(' + '|'.join(SKIP_KEYS) + r')=(\d+)\b')
+
+
+def skip_fields(text):
+    found = {key: int(value) for key, value in SKIP_TOKEN.findall(text)}
+    return {key: found.get(key) for key in SKIP_KEYS}
+
+
+def without_skip_tokens(text):
+    return SKIP_TOKEN.sub('', text).strip()
 # SO_LINGER 2 s + the lwIP 500 ms poll + margin: a close line later than this is not coming.
 CLOSE_TIMEOUT_S = 3.0
 
@@ -311,7 +360,8 @@ def uart_events(lines, at_s):
             events.append(dict(kind='admission', peer=joined.group(1), device_us=int(joined.group(2)), at_s=at))
         left = LEFT.search(line)
         if left:
-            events.append(dict(kind='departure', peer=left.group(1), end=left.group(2), device_us=int(left.group(3)), at_s=at))
+            events.append(dict(kind='departure', peer=left.group(1), end=without_skip_tokens(left.group(2)), device_us=int(left.group(3)),
+                               at_s=at, **skip_fields(line)))
     for index, close in checked_listener_closes(lines):
         events.append(dict(kind='close', peer=close.group(1), device_us=listener_event_us(lines[index]), at_s=at_s[index]))
     return events
@@ -319,16 +369,77 @@ def uart_events(lines, at_s):
 
 def metrics_sample(value, at_s):
     # Ready carries the age recorded after every successful write (firmware/src/listener_observation.rs:185).
-    ages = [item['media_age_us'] for item in value['listeners'] if item['state'] in ('writing', 'ready')]
+    active = [item for item in value['listeners'] if item['state'] in ('writing', 'ready')]
+    ages = [item['media_age_us'] for item in active]
     capture = value.get('capture')
+
+    def counted(key):
+        # Per-slot skip counters are absent until the skip lands in firmware; None is unreported, not zero.
+        values = [item.get(key) for item in active]
+        return None if any(item is None for item in values) else sum(values)
     return dict(kind='metrics', at_s=at_s, served_device_us=value['served_device_us'],
-                media_age_us=max(ages) if ages else None,
+                media_age_us=max(ages) if ages else None, skips=counted('skips'), frames_skipped=counted('frames_skipped'),
                 internal_largest=capture['internal_largest'] if capture else None,
                 psram_largest=capture['psram_largest'] if capture else None,
                 capture={key: capture[key] for key in LOSS_KEYS} if capture else None,
                 read_frames=capture['read_frames'] if capture else None,
                 settings=value.get('settings'), network=value.get('network'),
                 boot_token=value.get('boot_token'), build_elf_sha256=value.get('build_elf_sha256'))
+
+
+def attribute_skips(events):
+    """Decoder events with the board's skip counters for their own listener.
+
+    The harness never learns a decoder's local port, so decoders (start order, by label) pair with the trial's
+    first admissions (device order) and each admission with the departure of that peer that follows it; the
+    departure line carries the counters. Decoders already attributed (a retained result.json) are kept, and
+    a decoder whose line carries no counters stays None.
+    """
+    decoders = sorted((event for event in events if event['kind'] == 'decoder'), key=lambda item: item['label'])
+    admissions = sorted((event for event in events if event['kind'] == 'admission'), key=lambda item: item['device_us'])
+    departures = [event for event in events if event['kind'] == 'departure']
+    counters = {}
+    for decoder, admission in zip(decoders, admissions):
+        if decoder.get('skips') is not None:
+            continue
+        departure = next((item for item in departures if item['peer'] == admission['peer'] and item['device_us'] >= admission['device_us']), None)
+        if departure is not None and departure.get('skips') is not None:
+            counters[decoder['label']] = dict(skips=departure['skips'], frames_skipped=departure.get('frames_skipped') or 0, skip_peer=admission['peer'])
+    return [dict(event, **counters[event['label']]) if event['kind'] == 'decoder' and event['label'] in counters else event for event in events]
+
+
+def trial_skips(events):
+    """Board skips for the whole trial: the sum over departure lines, else the last metrics sample that reports them, else zero."""
+    departures = [event for event in events if event['kind'] == 'departure' and event.get('skips') is not None]
+    if departures:
+        return dict(skips=sum(event['skips'] for event in departures),
+                    frames_skipped=sum(event.get('frames_skipped') or 0 for event in departures), source='departures')
+    samples = [event for event in events if event['kind'] == 'metrics' and event.get('skips') is not None]
+    if samples:
+        last = max(samples, key=lambda item: item['at_s'])
+        return dict(skips=last['skips'], frames_skipped=last.get('frames_skipped') or 0, source='metrics')
+    return dict(skips=0, frames_skipped=0, source='none')
+
+
+def skip_steadiness(samples, installed_s, removed_s, period_s):
+    """Skip counter progress over [installed_s, removed_s] from the metrics samples that report it.
+
+    Returns dict(skips, skip_times_s, max_skip_gap_s, monotonic); skips is None when no sample reports the counter.
+    The gap list starts at the install, so a first skip that never comes is a gap too.
+    """
+    window = sorted((item for item in samples if item.get('skips') is not None and installed_s <= item['at_s'] <= removed_s),
+                    key=lambda item: item['at_s'])
+    if not window:
+        return dict(skips=None, skip_times_s=[], max_skip_gap_s=None, monotonic=True)
+    times, previous, monotonic = [], window[0]['skips'], True
+    for item in window[1:]:
+        if item['skips'] < previous:
+            monotonic = False
+        times += [item['at_s']] * max(0, item['skips'] - previous)
+        previous = item['skips']
+    edges = [installed_s] + times + [removed_s]
+    return dict(skips=window[-1]['skips'] - window[0]['skips'], skip_times_s=times,
+                max_skip_gap_s=max(b - a for a, b in zip(edges, edges[1:])), monotonic=monotonic)
 
 
 def settings_problem(settings):
@@ -364,6 +475,7 @@ def merge_tolerances(current, measured):
 
 
 def trial_verdict(trial, events):
+    events = attribute_skips(events)
     by_kind = {}
     for event in events:
         by_kind.setdefault(event['kind'], []).append(event)
@@ -372,9 +484,11 @@ def trial_verdict(trial, events):
     admissions = by_kind.get('admission', [])
     samples = by_kind.get('metrics', [])
     injections = {event['phase']: event for event in by_kind.get('injection', [])}
-    # Sockets the harness closed itself: completed or stopped decoders, fresh listeners, the WAV reader.
+    # Sockets the harness closed itself: completed or stopped decoders, fresh listeners, the WAV reader. Under live
+    # policy the board never closes for lag, so a socket error at any decoder end is the receiver's own close
+    # (ffmpeg -t can end a decode short after a skip); the decoder record still has to justify that end.
     harness_ends = [event['ended_s'] for event in decoders + by_kind.get('fresh', [])
-                    if event['ended'] in ('completed', 'stopped') and event['ended_s'] is not None]
+                    if (trial['policy'] == LIVE or event['ended'] in ('completed', 'stopped')) and event['ended_s'] is not None]
     harness_ends += [event['closed_s'] for event in by_kind.get('wav', []) if event['closed_s'] is not None]
 
     def harness_owned(departure):
@@ -421,11 +535,117 @@ def trial_verdict(trial, events):
             return f"departure {departure['peer']} has no checked close"
         return None
 
+    total_skips = trial_skips(events)
+
+    def live_decoder(decoder):
+        """The decoder's record with its skip bound and the reason it is not continuous modulo skips, if any.
+
+        Counters come from the decoder's own departure line when attribute_skips paired it, else the trial
+        total bounds every decoder. A board skip shows to an MP3 decoder as late audio, not as a timestamp
+        gap, so discontinuities may fall short of the skips but never exceed them; ffmpeg -t ends at the
+        jumped timeline, so the decode may stop the skipped audio short, within one MP3 frame.
+        """
+        attributed = decoder.get('skips') is not None
+        skips = decoder['skips'] if attributed else total_skips['skips']
+        frames_skipped = (decoder.get('frames_skipped') or 0) if attributed else total_skips['frames_skipped']
+        record = dict(label=decoder['label'], frames=decoder['frames'], expected_frames=decoder['expected_frames'],
+                      discontinuities=decoder['discontinuities'], exit_code=decoder['exit_code'], ended=decoder['ended'],
+                      skips=skips, frames_skipped=frames_skipped, attributed=attributed)
+        floor = decoder['expected_frames'] - (frames_skipped + 1) * MP3_FRAME_SAMPLES
+        if decoder['exit_code'] != 0:
+            problem = f"exit code {decoder['exit_code']}"
+        elif decoder['discontinuities'] > skips:
+            problem = f"{decoder['discontinuities']} discontinuities exceed {skips} board skips"
+        elif not floor <= decoder['frames'] <= decoder['expected_frames']:
+            problem = f"{decoder['frames']} frames outside {floor}..{decoder['expected_frames']} (expected minus {frames_skipped} skipped)"
+        else:
+            problem = None
+        return record, problem
+
+    def live_verdict(records, reason, **detail):
+        return dict(passed=True, reason=reason, departed=0, decoders=records, skips=total_skips['skips'],
+                    frames_skipped=total_skips['frames_skipped'], skips_source=total_skips['source'], **detail)
+
+    def live_stall_beyond_ring_depth():
+        # Every listener's write blocked past the ring depth: the board ends each socket on its write deadline, the
+        # close is checked, and the slot is refilled by the harness's replacement within the admission window.
+        detail = dict(beyond_ring_depth=True, skips=total_skips['skips'], frames_skipped=total_skips['frames_skipped'],
+                      skips_source=total_skips['source'])
+        if 'removed' not in injections:
+            return fail('injection install/removal not recorded', **detail)
+        if len(departures) != trial['listeners']:
+            return fail(f"expected {trial['listeners']} frame_timeout departure(s) beyond the {LIVE_WRITE_DEADLINE_S:g} s ring depth, "
+                        f"found {len(departures)}", departures=departures, **detail)
+        for departure in sorted(departures, key=lambda item: item['device_us']):
+            problem = checked_departure(departure, 'frame_timeout')
+            if problem:
+                return fail(problem, **detail)
+            if not admitted_within(departure):
+                return fail(missing_join(departure), **detail)
+        return dict(passed=True, reason=f"{len(departures)} frame_timeout departure(s) beyond the ring depth with checked close and fresh admission",
+                    departed=len(departures), **detail)
+
+    def live_stall():
+        if trial['age_bound_us'] is None:
+            return fail('no media age bound; run null-* first')
+        if beyond_ring_depth(trial['profile']['seconds']):
+            return live_stall_beyond_ring_depth()
+        if departures:
+            return fail(f'{len(departures)} listener(s) departed under live policy', departures=departures)
+        if 'removed' not in injections:
+            return fail('injection install/removal not recorded')
+        records = []
+        for decoder in decoders:
+            record, problem = live_decoder(decoder)
+            records.append(record)
+            if problem:
+                return fail(f"{decoder['label']}: {problem}", decoders=records)
+        active_until = max((decoder['ended_s'] for decoder in decoders if decoder['ended_s'] is not None), default=None)
+        active = [sample['media_age_us'] for sample in samples if sample['media_age_us'] is not None
+                  and injections['removed']['at_s'] <= sample['at_s'] <= (active_until if active_until is not None else float('inf'))]
+        ages = dict(age_peak_after_removal_us=max(active) if active else None, age_last_active_us=active[-1] if active else None)
+        if not active or active[-1] > trial['age_bound_us']:
+            return fail('media age did not return under the null bound', decoders=records, **ages)
+        return live_verdict(records, f"continuous modulo {total_skips['skips']} skip(s), no departures", beyond_ring_depth=False, **ages)
+
+    def live_deficit():
+        if departures:
+            return fail(f'{len(departures)} listener(s) departed under live policy', departures=departures)
+        if 'installed' not in injections or 'removed' not in injections:
+            return fail('injection install/removal not recorded')
+        installed_s = injections['installed']['at_s'] + injections['installed']['apply_seconds']
+        removed_s = injections['removed']['at_s']
+        records = []
+        for decoder in decoders:
+            record, problem = live_decoder(decoder)
+            records.append(record)
+            if problem:
+                return fail(f"{decoder['label']}: {problem}", decoders=records)
+            if decoder['ended_s'] is not None and decoder['ended_s'] < removed_s:
+                return fail(f"{decoder['label']} ended {removed_s - decoder['ended_s']:.1f} s before the injection was removed", decoders=records)
+        period = MEDIA_AGE_BASE_S / (1 - trial['profile']['fraction'])
+        steady = skip_steadiness(samples, installed_s, removed_s, period)
+        detail = dict(predicted_skip_period_s=period, max_skip_gap_s=steady['max_skip_gap_s'], skip_times_s=steady['skip_times_s'])
+        if steady['skips'] is None:
+            return fail('no metrics sample reports skip counters during the deficit', decoders=records, **detail)
+        if steady['skips'] < 1:
+            return fail('no skip during the deficit', decoders=records, **detail)
+        if not steady['monotonic']:
+            return fail('skip counter fell during the deficit; not a steady rate', decoders=records, **detail)
+        if steady['max_skip_gap_s'] > SKIP_GAP_TOLERANCE * period:
+            return fail(f"skip gap {steady['max_skip_gap_s']:.1f} s exceeds {SKIP_GAP_TOLERANCE:g} x the predicted {period:.1f} s period; not steady",
+                        decoders=records, **detail)
+        return live_verdict(records, f"listener kept its socket with {steady['skips']} skips at a steady rate, no departures", **detail)
+
     def judge():
         if len(decoders) != trial['listeners']:
             return fail(f"expected {trial['listeners']} decoder records, found {len(decoders)}")
         cut = [decoder for decoder in decoders if not continuous(decoder)]
         kind = trial['kind']
+        if trial['policy'] == LIVE and kind == 'stall':
+            return live_stall()
+        if trial['policy'] == LIVE and kind == 'deficit':
+            return live_deficit()
         if kind == 'null':
             if cut:
                 return fail('decoder not continuous', decoders=cut, departures=departures)
@@ -561,7 +781,8 @@ class Poller(threading.Thread):
                 sample = metrics_sample(fetch(self.url, POLL_INTERVAL_S), self.clock())
                 with self.lock:
                     self.samples.append(sample)
-                self.record('metrics', **{key: sample[key] for key in ('at_s', 'media_age_us', 'internal_largest', 'psram_largest', 'capture')})
+                self.record('metrics', **{key: sample[key] for key in ('at_s', 'media_age_us', 'skips', 'frames_skipped', 'internal_largest',
+                                                                        'psram_largest', 'capture')})
             except Exception as error:
                 with self.lock:
                     self.unavailable += 1
@@ -591,7 +812,7 @@ class Driver:
         self.cleanup_errors = []
         self.tolerances = None
         self.tolerance_sources = []
-        self.result = dict(passed=False, error=None, host=args.host, interface=args.interface, ifb=args.ifb,
+        self.result = dict(passed=False, error=None, host=args.host, interface=args.interface, ifb=args.ifb, policy=args.policy,
                            started_utc=datetime.now(timezone.utc).isoformat(), trials={}, trial_order=list(args.trials),
                            board_reset_by_serial_open=True, restore_verified=None, cleanup_errors=self.cleanup_errors,
                            budget_seconds=budget_seconds(args.trials), tolerances=None,
@@ -676,8 +897,8 @@ class Driver:
                 previous = sample
             time.sleep(1)
 
-    def start_decoder(self, label, seconds):
-        decoder_args = SimpleNamespace(path='/stream.mp3', stream_port=STREAM_PORT, seconds=seconds)
+    def start_decoder(self, label, seconds, spec):
+        decoder_args = SimpleNamespace(path='/stream.mp3', stream_port=STREAM_PORT, seconds=seconds, **decoder_timeouts(spec))
         errors_path = self.out / f'{label}.ffmpeg.log'
         error_handle = errors_path.open('wb')
         self.handles.append(error_handle)
@@ -685,10 +906,11 @@ class Driver:
         process = subprocess.Popen(decoder_command(decoder_args, self.args.host, progress, hashes),
                                    stdout=subprocess.DEVNULL, stderr=error_handle, start_new_session=True)
         self.processes.append(process)
+        # Under live policy a flagged timestamp gap is evidence to count against the board's skips, not a reason to stop.
         job = dict(label=label, process=process, args=decoder_args, tail=Tail(progress), errors=errors_path, log_tail=Tail(errors_path),
-                   accounting=FrameHash(hashes), decoded_audio_frames=0, decoded_seconds=0, timeline_seconds=0,
-                   advanced_at=time.monotonic(), started_s=self.elapsed(), ended=None)
-        self.record('decoder_started', label=label, seconds=seconds)
+                   accounting=FrameHash(hashes, tolerate_discontinuities=self.args.policy == LIVE), decoded_audio_frames=0,
+                   decoded_seconds=0, timeline_seconds=0, advanced_at=time.monotonic(), started_s=self.elapsed(), ended=None)
+        self.record('decoder_started', label=label, seconds=seconds, **decoder_timeouts(spec))
         return job
 
     def poll_decoder(self, job):
@@ -778,7 +1000,7 @@ class Driver:
             self.record('trial_aborted', name=name, reason=problem)
             return trial
         install, remove = injection_commands(spec['profile'], self.args.interface, self.args.ifb)
-        jobs = [self.start_decoder(f'{name}-listener-{index}', spec['seconds']) for index in range(1, spec['listeners'] + 1)]
+        jobs = [self.start_decoder(f'{name}-listener-{index}', spec['seconds'], spec) for index in range(1, spec['listeners'] + 1)]
         fresh = []
         wav = dict(label=f'{name}-wav')
         wav_stop = threading.Event()
@@ -823,7 +1045,7 @@ class Driver:
                 if spec['kind'] in ('stall', 'deficit') and removed is not None:
                     for pending, trigger, close_device_us in replacement_decisions(departed, self.uart_lines, self.elapsed(), len(fresh), len(jobs)):
                         pending['replaced'] = True
-                        job = self.start_decoder(f'{name}-fresh-{len(fresh) + 1}', FRESH_LISTENER_SECONDS)
+                        job = self.start_decoder(f'{name}-fresh-{len(fresh) + 1}', FRESH_LISTENER_SECONDS, spec)
                         job['trigger'], job['close_device_us'] = trigger, close_device_us
                         self.record('fresh_listener', label=job['label'], trigger=trigger, close_device_us=close_device_us, replaces=pending['peer'])
                         fresh.append(job)
@@ -852,7 +1074,7 @@ class Driver:
             for job in jobs + fresh:
                 self.stop_job(job)
         trial['after'] = self.snapshot()
-        trial.update(trial_setup(spec, before, self.tolerances, installed))
+        trial.update(trial_setup(spec, before, self.tolerances, installed, self.args.policy))
         samples = [sample for sample in self.poller.since(trial['started_s'])]
         window = self.uart_lines[uart_start:]
         events = [self.decoder_event(job) for job in jobs] + [self.fresh_event(job) for job in fresh] + injections + samples
@@ -864,7 +1086,7 @@ class Driver:
         for job, event in zip(fresh, (event for event in events if event['kind'] == 'fresh')):
             if not any(item['kind'] == 'admission' and item['at_s'] >= job['started_s'] for item in uart):
                 job['refused_status'] = event['refused_status'] = refused_status(job['errors'].read_text(errors='replace')[-16384:])
-        events += uart
+        events = attribute_skips(events + uart)
         trial.update(trial_verdict(trial, events), wav_reader=wav if wav_thread is not None else None,
                      metrics_unavailable=self.poller.unavailable - unavailable_before,
                      events=[event for event in events if event['kind'] != 'metrics'], samples=len(samples), ended_s=self.elapsed())
@@ -967,8 +1189,8 @@ class Driver:
         return 0 if self.result['passed'] else 1
 
 
-def reverdict(directory, repo):
-    """Recompute every trial verdict of a retained run from its result.json and events.jsonl; writes reverdict.json only."""
+def reverdict(directory, repo, policy):
+    """Recompute every trial verdict of a retained run from its result.json and events.jsonl under `policy`; writes reverdict.json only."""
     directory = Path(directory)
     source = (directory / 'result.json').read_bytes()
     result = json.loads(source)
@@ -985,7 +1207,7 @@ def reverdict(directory, repo):
     # HEAD alone is ambiguous while the tree is dirty; the file hashes say which harness judged.
     hashes = {name: hashlib.sha256((Path(repo) / 'scripts' / name).read_bytes()).hexdigest() for name in ('network_fault.py', 'encoder_fault_check.py')}
     tolerances, sources = None, []
-    written = dict(source_result_sha256=hashlib.sha256(source).hexdigest(), harness_commit=commit.strip() if commit else None,
+    written = dict(policy=policy, source_result_sha256=hashlib.sha256(source).hexdigest(), harness_commit=commit.strip() if commit else None,
                    harness_sha256=hashes, harness_dirty=bool(status.strip()) if status is not None else None,
                    tolerances=None, trials={}, original={})
     for name in result['trial_order']:
@@ -1006,7 +1228,7 @@ def reverdict(directory, repo):
                       for event in events]
         installed = next((event for event in events if event['kind'] == 'injection' and event['phase'] == 'installed'), None)
         window = [item for item in samples if trial['started_s'] <= item['at_s'] <= trial['ended_s']]
-        setup = trial_setup(spec, trial['before'], tolerances, installed)
+        setup = trial_setup(spec, trial['before'], tolerances, installed, policy)
         verdict = trial_verdict(setup, events + window)
         written['trials'][name] = dict(verdict, age_bound_us=setup['age_bound_us'], largest_tolerance_bytes=setup['largest_tolerance_bytes'],
                                        predicted_end_s=setup['predicted_end_s'], end_tolerance_s=setup['end_tolerance_s'])
@@ -1033,7 +1255,10 @@ def argument_parser():
     parser.add_argument('host', nargs='?', type=board_address, help='board IPv4 address (live run)')
     parser.add_argument('--reverdict', type=Path, metavar='DIR',
                         help='recompute verdicts of a retained run from DIR/result.json and DIR/events.jsonl into DIR/reverdict.json; '
-                             'no board, root or serial; exits 0 once written even when verdicts fail; takes no other options')
+                             'no board, root or serial; exits 0 once written even when verdicts fail; takes only --policy')
+    parser.add_argument('--policy', choices=POLICIES, default=LIVE,
+                        help='verdict policy: live (default) never accepts a lag departure and allows decoder discontinuities up to the '
+                             'board-reported skips; exact keeps the MediaAge-departure-plus-fresh-admission verdicts')
     parser.add_argument('--interface', type=interface_name, help='receiver interface that carries board traffic (live run)')
     parser.add_argument('--ifb', default='ifb0', type=interface_name, help='ifb device for ingress shaping (default: ifb0)')
     parser.add_argument('--trials', type=trial_names, help='comma-separated trial names (default: all)')
@@ -1049,12 +1274,12 @@ def main(argv=None):
     repo = Path(__file__).resolve().parent.parent
     if args.reverdict is not None:
         if any(value not in (None, False) for value in (args.host, args.interface, args.serial, args.out, args.trials, args.dry_run)):
-            parser.error('--reverdict takes no other options')
+            parser.error('--reverdict takes only --policy')
         for name in ('result.json', 'events.jsonl'):
             if not (args.reverdict / name).is_file():
                 parser.error(f'{args.reverdict / name} is missing')
         # Analysis succeeded once the file is written; the verdicts themselves are in it.
-        for line in reverdict(args.reverdict, repo)[1]:
+        for line in reverdict(args.reverdict, repo, args.policy)[1]:
             print(line)
         return 0
     if args.trials is None:

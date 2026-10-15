@@ -93,6 +93,62 @@ mod models {
         });
     }
 
+    /// An encoder laps a two-frame ring while a live listener resynchronizes under the mutex.
+    /// Whatever the interleaving, the cursor move lands on a whole frame the next read copies,
+    /// or the read reports a terminal reset; it never produces `InvalidOffset`.
+    #[test]
+    fn encoder_wrap_never_leaves_a_resyncing_listener_on_a_partial_frame() {
+        check(|| {
+            use esp_shazam_core::flac_ring::{FlacRing, ReadError, SourceMetadata};
+            let source = SourceMetadata {
+                raw_generation: 0,
+                source_start: 0,
+                source_end: 1,
+                oldest_accepted_us: 0,
+                raw_publication_us: 0,
+            };
+            let ring = Arc::new(loom::sync::Mutex::new(FlacRing::try_new(2, 4).unwrap()));
+            let mut cursor = ring.lock().unwrap().cursor_now();
+            let encoder = thread::spawn({
+                let ring = ring.clone();
+                move || {
+                    // Three distinct-length frames cross the wrap; a reset ends the generation.
+                    for frame in [b"a" as &[u8], b"bb", b"ccc"] {
+                        ring.lock().unwrap().push(frame, source, || 0).unwrap();
+                    }
+                    ring.lock().unwrap().reset().unwrap();
+                }
+            });
+            let mut out = [0; 4];
+            for _ in 0..3 {
+                let guard = ring.lock().unwrap();
+                let read = match guard.read(&mut cursor, &mut out) {
+                    Err(ReadError::Overwritten) => {
+                        let passed = guard.catch_up(&mut cursor).unwrap();
+                        assert!(passed > 0, "a lapped cursor always has a newer whole frame");
+                        guard.read(&mut cursor, &mut out)
+                    }
+                    other => other,
+                };
+                match read {
+                    Ok(read) => {
+                        // Whole frames only: the copy is the frame's full length.
+                        let lengths = [0, 1, 2, 3];
+                        assert!(
+                            read.receipt.is_none_or(
+                                |receipt| lengths[receipt.sequence as usize] == read.bytes
+                            )
+                        );
+                    }
+                    Err(ReadError::GenerationChanged) => break,
+                    Err(ReadError::Overwritten) => unreachable!("catch_up lands within retention"),
+                    Err(ReadError::InvalidOffset) => panic!("cursor left mid-frame"),
+                }
+            }
+            encoder.join().unwrap();
+        });
+    }
+
     #[test]
     fn slot_saturation() {
         check(|| {

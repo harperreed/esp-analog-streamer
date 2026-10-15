@@ -69,6 +69,11 @@ impl OutputFormat {
             Self::Mp3 => 500,
         }
     }
+    /// How long the encoded ring holds audio: the most a live listener's frame write may take,
+    /// since a socket that accepts nothing for longer has lost data the ring can no longer supply.
+    pub const fn ring_depth_ms(self, recognition: bool) -> u64 {
+        (self.history_frames(recognition) * self.block_frames()) as u64 * 1_000 / 48_000
+    }
     pub const fn write_limit_ms(self, recognition: bool) -> u64 {
         match self {
             Self::Flac if recognition => 2048,

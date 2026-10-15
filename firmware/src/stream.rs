@@ -22,7 +22,7 @@ use esp_idf_svc::mdns::EspMdns;
 use esp_idf_svc::sys;
 use esp_shazam_core::stream_buffer::{BufferPreset, OutputFormat};
 use esp_shazam_core::stream_http::{
-    self, DeadlineWriter, Format, Route, Status, WriterDiagnostics,
+    self, DeadlineWriter, Format, ListenerPolicy, Route, Status, WriterDiagnostics,
 };
 use esp_shazam_core::stream_ring::{Cursor, ReadError};
 use esp_shazam_core::stream_wait::{
@@ -105,6 +105,7 @@ struct ListenerJob {
     ring: SharedStreamRing,
     buffer: ListenerBuffer,
     preset: Option<BufferPreset>,
+    policy: ListenerPolicy,
     network: Network,
     network_lease: NetworkLease,
 }
@@ -117,6 +118,7 @@ fn output_job(job: ListenerJob) {
         ring,
         buffer,
         preset,
+        policy,
         network,
         network_lease,
     } = job;
@@ -143,7 +145,15 @@ fn output_job(job: ListenerJob) {
             sonos_intent: resources.slot.intent_id(),
         },
     });
-    listen(connection, ring, buffer, preset, network, network_lease);
+    listen(
+        connection,
+        ring,
+        buffer,
+        preset,
+        policy,
+        network,
+        network_lease,
+    );
 }
 
 /// Keeps the listener slot until its socket close succeeds, including dispatch failure.
@@ -420,6 +430,14 @@ fn answer(
             return;
         }
     };
+    // `?exact=1` keeps lag terminal for archive readers; everyone else skips forward and stays.
+    let policy = match stream_http::request_listener_policy(&request_line) {
+        Ok(policy) => policy,
+        Err(_) => {
+            refuse(sock, &peer, &request_line, Status::BadRequest);
+            return;
+        }
+    };
     let (route, lease) = runtime.admit(&request_line);
     match route {
         Route::Stream(_) | Route::Buffered(_) => {
@@ -511,6 +529,7 @@ fn answer(
                         ring: ring.clone(),
                         buffer,
                         preset,
+                        policy,
                         network: network.clone(),
                         network_lease,
                     };
@@ -561,6 +580,7 @@ fn listen(
     ring: SharedStreamRing,
     buffer: ListenerBuffer,
     preset: Option<BufferPreset>,
+    policy: ListenerPolicy,
     network: Network,
     network_lease: NetworkLease,
 ) {
@@ -596,6 +616,7 @@ fn listen(
                 &lease.as_ref().expect("compressed lease").epoch,
                 bytes.as_mut_slice(),
                 preset,
+                policy,
                 peer,
                 &mut metrics,
                 &network,
@@ -1076,6 +1097,7 @@ fn stream_compressed(
     epoch: &Epoch,
     bytes: &mut [u8],
     preset: Option<BufferPreset>,
+    policy: ListenerPolicy,
     peer: Option<SocketAddr>,
     metrics: &mut ListenerMetrics,
     network: &Network,
@@ -1085,9 +1107,10 @@ fn stream_compressed(
         &mut crate::listener_frame_state::Owner<'_>,
     >,
 ) -> End {
-    let mut listener = CompressedListener::new(epoch, preset, CONFIG.shazam_enabled, &mut || {
-        Duration::from_micros(event_us())
-    });
+    let mut listener =
+        CompressedListener::new(epoch, preset, CONFIG.shazam_enabled, policy, &mut || {
+            Duration::from_micros(event_us())
+        });
     let mut writer = DeadlineWriter::new(sock);
     let mut payload_started = None;
     let observation = crate::listener_observation::REGISTRY.register(event_us());
