@@ -1,28 +1,22 @@
 # Ownership-safe Sonos resume over HTTP/UPnP (pqqq)
 
 ## Now
-- Step: WAITING on the speaker. Parser + driver committed as `0610fc0`
-  (`scripts/check` run.gNstaDT7, 27 stages). Probe image built from
-  `0610fc0` + `close.patch` + `broadcast.patch` (hand-applied
-  `set_uri_with_metadata` hunk; tree diff saved as
-  `target/kata-hardening/oct14-resume-probe/probe-tree-applied.diff`),
-  ELF `f34fce16…`, flashed and attested. Cycle 1 refused at its
-  precondition: the Altec was PLAYING a foreign source with status OK
-  (`cycle1-plain/result.json`, retained; Sonos 97.1-80312). Doctor Biz:
-  "Someone is listening; wait" (2026-10-14).
-- **The board is on the probe image.** It cuts the first Sonos-owned
-  stream 10 s into payload, once per boot, and its Play path accepts
-  `?broadcast=1`. Do not use the board for listening until the ordinary
-  image is restored; restore is `git checkout -- core firmware && 
-  ESPFLASH_PORT=/dev/ttyUSB0 scripts/flash`, then compare the hash with a
-  clean rebuild of `0610fc0`.
-- Next: when the speaker is STOPPED and ungrouped, re-run cycle 1
-  (`scripts/sonos-resume-probe 192.168.23.217 --serial /dev/ttyUSB0
-  --image target/kata-hardening/oct14-resume-probe/esp-shazam-probe-0610fc0.elf
-  --out …/cycle1-plain-2 --cycle close --scheme plain`), then cycle 2 with
-  `--scheme broadcast --previous-boot <cycle 1 boot>`, restore, evidence
-- Open: when the speaker is free; whether Doctor Biz will press Stop in
-  the Sonos app for one cycle
+- Step: probe complete (2026-10-14, "its playable now"); ordinary image
+  `4b6c4d69…` restored. Evidence
+  `docs/audit-evidence/2026-10-14/sonos-resume-probe.{md,json}`.
+  **Design A is withdrawn**: after our close the player reports
+  `STOPPED/OK` on our URI, identical to a Stop. **Design B is unproven**
+  with one concrete obstacle: under the broadcast scheme the player
+  acknowledges Play (with a 20 s deadline), joins our tagged stream as
+  `role=sonos`, then resets the connection after 0.1 s; the self-retry
+  question was never reached.
+- Next: nothing further in this plan. The executable gate is a new
+  bounded ticket: make the board's MP3 response acceptable to the
+  player's broadcast client, then one close cycle under broadcast. pqqq
+  stays open with that as its exact next gate; no firmware behavior
+  changed.
+- Open: none for the agent. Whether to pursue the broadcast-response
+  ticket is Doctor Biz's call.
 - Approved: "pqqq: ownership-safe Sonos resume (Recommended)"
   (2026-10-14, build-target question); "Yes, run the probe (Recommended)"
   (2026-10-14, probe-first question). Decision 1 (fail closed on `OK`)

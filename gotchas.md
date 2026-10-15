@@ -1289,3 +1289,15 @@ found it PLAYING a foreign source with status OK before any board Play and
 refused to start; Doctor Biz chose to wait rather than interrupt. Every
 Sonos test must precondition on remote STOPPED and an ungrouped coordinator,
 and a refusal is evidence, not a harness failure. Never override it.
+
+Two measured Sonos facts (Altec, software 97.1-80312, October 14): after
+the board closes a stream, GetTransportInfo reports STOPPED with status OK
+on the unchanged URI, identical to a Stop, because every board-side
+termination is a clean TCP close that the player treats as end of track.
+No readable transport status distinguishes them; do not design on it.
+Handing the same tagged URL as x-rincon-mp3radio with audioBroadcast DIDL
+is accepted and echoed, the player connects to the stream before it
+acknowledges Play (the 5 s Play deadline refuses its own fetch with 503),
+and with 20 s it joins as role=sonos then resets after 0.1 s. What its
+broadcast client expects in the response is unestablished. See
+docs/audit-evidence/2026-10-14/sonos-resume-probe.md.
