@@ -1,7 +1,10 @@
 # Toolchain for esp-shazam. `mise install` sets it up; scripts load it with `eval "$(mise env -s bash)"`.
 # Then `mise run esp-toolchain` installs the Xtensa Rust toolchain ("esp") the firmware builds with.
 [tools]
-rust = { version = "1.93.0", components = ["llvm-tools"] } # canonical rustup component name; matching coverage LLVM
+# Canonical rustup component names. llvm-tools: matching coverage LLVM. rustfmt and clippy: a fresh
+# rustup (hosted runners) uses the minimal profile, which omits them; scripts/check needs both.
+rust = { version = "1.93.0", components = ["llvm-tools", "rustfmt", "clippy"] }
+uv = "0.12.19" # Python harnesses (scripts/check-harnesses and friends); pyproject.toml and uv.lock pin the rest
 "cargo:cargo-llvm-cov" = "0.9.1"
 "cargo:cargo-mutants" = "27.1.0"
 node = "26.10.0" # built-in test runner for the self-contained web page

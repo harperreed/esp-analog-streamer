@@ -153,6 +153,36 @@ class EvidenceTests(unittest.TestCase):
                 self.git('reset', '--hard', '-q', 'HEAD')
                 (self.root / 'mise.toml').unlink(missing_ok=True)
 
+    def install_firmware_manifest(self):
+        # Mirror the real repo: .embuild/ (the ESP-IDF bootstrap) and vendor/ are ignored directories under firmware/.
+        (self.root / '.gitignore').write_text('/target/\n.embuild/\nvendor/\n')
+        (self.root / 'firmware').mkdir()
+        (self.root / 'firmware/Cargo.toml').write_text('[package]\nname = "firmware"\n')
+        self.git('add', '.gitignore', 'firmware/Cargo.toml')
+        self.git('commit', '-qm', 'firmware manifest')
+
+    def test_embuild_sdk_manifests_are_not_config(self):
+        self.install_firmware_manifest()
+        result = self.run_shell('check_init || exit; mkdir -p firmware/.embuild/x; echo "[package]" > firmware/.embuild/x/Cargo.toml; check_finalize')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        config = (self.run_dir() / 'end.config').read_text()
+        self.assertNotIn('.embuild', config)
+        self.assertIn('firmware/Cargo.toml\tpresent\t', config)
+        self.assertEqual((self.run_dir() / 'run.status').read_text(), 'complete\n')
+
+    def test_firmware_manifest_changes_still_fail(self):
+        self.install_firmware_manifest()
+        cases = [
+            ('tracked manifest edited', 'echo "[features]" >> firmware/Cargo.toml', 'boundary '),
+            ('ignored manifest appears', 'mkdir -p firmware/vendor/x; echo "[package]" > firmware/vendor/x/Cargo.toml', 'boundary config comparison failed'),
+        ]
+        for name, change, message in cases:
+            with self.subTest(case=name):
+                result = self.run_shell('check_init || exit; ' + change + '; check_finalize')
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn(message, result.stderr)
+                self.git('reset', '--hard', '-q', 'HEAD')
+
     def test_dirty_and_untracked_limit(self):
         result = self.run_shell('echo dirty > source; echo first > loose; check_init || exit; echo second > loose; check_finalize')
         self.assertEqual(result.returncode, 0, result.stderr)

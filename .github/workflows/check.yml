@@ -40,9 +40,8 @@ jobs:
         run: |
           mise trust mise.toml
           mise install
-          mise install uv@0.12.19
       - name: Check host
-        run: mise exec uv@0.12.19 -- scripts/check --host
+        run: scripts/check --host
       - name: Retain check evidence
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -80,13 +79,12 @@ jobs:
         run: |
           mise trust mise.toml
           mise install
-          mise install uv@0.12.19
       - name: Prepare firmware build
         run: |
           mise run esp-toolchain
           cp firmware/cfg.toml.example firmware/cfg.toml
       - name: Check firmware
-        run: mise exec uv@0.12.19 -- scripts/check --firmware
+        run: scripts/check --firmware
       - name: Retain check evidence
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2

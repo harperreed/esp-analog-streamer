@@ -20,7 +20,8 @@ check_snapshot() {
   if ! { printf '%s\n' scripts/check mise.toml Cargo.toml Cargo.lock firmware/Cargo.toml firmware/Cargo.lock fuzz/Cargo.toml fuzz/Cargo.lock pyproject.toml uv.lock .cargo/config .cargo/config.toml firmware/.cargo/config firmware/.cargo/config.toml fuzz/.cargo/config fuzz/.cargo/config.toml || return 1;
     for directory in core mp3 tools firmware fuzz .cargo; do
       if [[ -d "$directory" ]]; then
-        find "$directory" -type d -name target -prune -o -type f \( -name Cargo.toml -o -name Cargo.lock -o -name mise.toml -o -path '*/.cargo/config' -o -path '*/.cargo/config.toml' \) -print || return 1
+        # target and .embuild (the ESP-IDF bootstrap, gitignored) are generated; their manifests are not our config.
+        find "$directory" -type d \( -name target -o -name .embuild \) -prune -o -type f \( -name Cargo.toml -o -name Cargo.lock -o -name mise.toml -o -path '*/.cargo/config' -o -path '*/.cargo/config.toml' \) -print || return 1
       fi
     done;
   } > "$LOG_DIR/$boundary.paths.raw"; then

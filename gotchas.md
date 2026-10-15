@@ -1301,3 +1301,10 @@ acknowledges Play (the 5 s Play deadline refuses its own fetch with 503),
 and with 20 s it joins as role=sonos then resets after 0.1 s. What its
 broadcast client expects in the response is unestablished. See
 docs/audit-evidence/2026-10-14/sonos-resume-probe.md.
+
+Ticket closure is the agent's verification, not Doctor Biz's choice ("you
+should verify and close. why would i know?", October 15). Check each
+candidate against its own acceptance and the evidence, close with typed
+evidence when met, comment the exact unmet gate when not. Reserve a single
+yes/no for outward or irreversible actions: a first push, a security
+change, physical or speaker settings.

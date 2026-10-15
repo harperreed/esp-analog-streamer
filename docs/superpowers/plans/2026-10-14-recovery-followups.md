@@ -21,8 +21,23 @@
 - Follow-up noted, not ticketed: start/poll-decoder helpers exist three
   times (stream_soak inline, network_fault.Driver, listener_churn); lift
   into stream_soak when one of them next changes.
+- 2026-10-15: hv4x closed on verified acceptance; dctv kept open with the
+  agent's recommendation (bounded skip for live Sonos); branch pushed and
+  draft PR #1 opened for m31k/97bk. First hosted `Canonical checks` run
+  (38764870099, `push` event) failed on infrastructure only: rustfmt and
+  clippy components absent for the pinned toolchain, `uv` not a mise tool
+  so every Python stage got `uv: not found`, and the firmware job's final
+  boundary check tripped on seven ESP-IDF bootstrap `Cargo.toml` files
+  under `firmware/.embuild`. Stages that ran passed (test, loom, sonos-web,
+  coverage-host, firmware-build, firmware-warnings). No `pull_request`
+  event ran any workflow, so host-coverage, host-fuzz and stream-replay
+  never started; cause under investigation. Fixes delegated; m31k stays
+  open until the hosted coverage job runs and its reports are inspected.
 - Open: none
-- Approved: "let's add katas and then start nuking em" (2026-10-14)
+- Approved: "let's add katas and then start nuking em" (2026-10-14);
+  "you should verify and close. why would i know?" (2026-10-15, closures
+  are the agent's verification); "Yes, push and open the draft PR"
+  (2026-10-15, first push of wip/kata-capture-protection for m31k)
 - Compactions: 0
 
 ## Scope
