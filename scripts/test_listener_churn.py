@@ -24,6 +24,8 @@ FRAMEHASH_HEADER = ['#format: frame checksums', '#version: 2', '#hash: SHA256', 
 def snapshot(states=('idle', 'idle'), largest=47_104, free=120_000, overflows=0, boot_token='a' * 32):
     listeners = [dict(generation=1 if state != 'idle' else 0, state=state, sample_us=10,
                       media_age_us=5 if state in ('writing', 'ready') else None,
+                      skips=0 if state != 'idle' else None, frames_skipped=0 if state != 'idle' else None,
+                      last_skip_us=0 if state != 'idle' else None,
                       write_us=0 if state in ('writing', 'ready') else None) for state in states]
     capture = dict.fromkeys(dm.CAPTURE_U32, 0)
     capture.update(queue_overflows=overflows, read_frames=480_000, capture_begin_us=0, capture_end_us=10)

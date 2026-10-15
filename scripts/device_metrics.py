@@ -20,7 +20,11 @@ STAGE_KEYS = {
     'raw': ('generation', 'committed_frames', 'publication_device_us'),
     'encoded': ('operator_epoch', 'generation', 'sequence', 'raw_generation', 'source_start', 'source_end', 'oldest_accepted_us', 'raw_publication_us', 'production_device_us'),
 }
-DEPARTURE_STATS = ('elapsed_us', 'payload_elapsed_us', 'frames_sent', 'bytes_sent', 'frame_write_wall_total_us', 'frame_write_wall_max_us', 'frame_read_wait_wall_total_us', 'task_runtime_us', 'runtime_valid', 'block_samples', 'media')
+DEPARTURE_STATS = ('elapsed_us', 'payload_elapsed_us', 'frames_sent', 'bytes_sent', 'frame_write_wall_total_us', 'frame_write_wall_max_us', 'frame_read_wait_wall_total_us', 'task_runtime_us', 'runtime_valid', 'block_samples', 'skips', 'frames_skipped', 'last_skip_us', 'media')
+# Per-slot live resync counters (firmware/src/listener_observation.rs): integers on every owner publication, null once idle.
+LISTENER_SKIPS = ('skips', 'frames_skipped', 'last_skip_us')
+# The firmware's serialized response cap, MAX_BODY_BYTES in firmware/src/device_metrics.rs; the measured maximal body is 4383.
+MAX_BODY_BYTES = 4608
 NETWORK = ('generation', 'connected', 'disconnects')
 CAPTURE_U32 = ('read_frames callbacks queue_overflows software_dropped_frames read_errors restarts '
                'supervisor_restarts overflow_restarts settling_discarded_frames discontinuities '
@@ -145,6 +149,11 @@ def validate(value):
                 raise ValueError('invalid inactive listener values')
             if state == 'waiting' and item['generation'] == 0:
                 raise ValueError('invalid active generation')
+            counters = [item[key] for key in LISTENER_SKIPS]
+            if state in ('writing', 'ready') or (state != 'idle' and any(c is not None for c in counters)):
+                for counter in counters: integer(counter)
+            elif any(c is not None for c in counters):
+                raise ValueError('invalid idle listener counters')
         for family in FAMILIES:
             item = value.get(family) if family in ('media_progress', 'last_listener_departure') else value[family]
             if item is None: continue
@@ -212,9 +221,9 @@ def fetch(url, timeout):
         connection.request('GET', '/api/metrics', headers={'Accept': 'application/json', 'Connection': 'close'})
         response = connection.getresponse()
         if response.status != 200: raise ValueError('metrics HTTP status unavailable')
-        body = response.read(4097)
+        body = response.read(MAX_BODY_BYTES + 1)
         if time.monotonic() >= deadline: raise TimeoutError('metrics deadline exceeded')
-        if len(body) > 4096: raise ValueError('metrics body too large')
+        if len(body) > MAX_BODY_BYTES: raise ValueError('metrics body too large')
         try: value = json.loads(body)
         except (ValueError, UnicodeError): raise ValueError('invalid metrics JSON') from None
         return validate(value)
@@ -235,7 +244,7 @@ class Collector:
     def accept(self, value, now):
         validate(value)
         owned = {key: value.get(key) for key in ('schema_version', 'served_device_us', 'boot_token', 'build_elf_sha256', 'http_stack_free_bytes')}
-        owned['listeners'] = [{key: item[key] for key in ('generation', 'state', 'sample_us', 'media_age_us', 'write_us')} for item in value['listeners']]
+        owned['listeners'] = [{key: item[key] for key in ('generation', 'state', 'sample_us', 'media_age_us', 'write_us') + LISTENER_SKIPS} for item in value['listeners']]
         owned['network'] = None if value.get('network') is None else {key: value['network'][key] for key in NETWORK}
         owned['settings'] = None if value.get('settings') is None else dict(value['settings'])
         for family in FAMILIES:
@@ -311,6 +320,10 @@ class Collector:
             if item['state'] in ('writing', 'ready'):
                 gauge('device_listener_media_age_seconds', 'Writing sampled; ready recorded age.', item['media_age_us'] / 1e6, slot=slot, state=item['state'])
                 gauge('device_listener_write_seconds', 'Payload write wall time.', item['write_us'] / 1e6, slot=slot, state=item['state'])
+            if item['skips'] is not None:
+                gauge('device_listener_skips', 'Live resyncs since admission; resets with a new owner.', item['skips'], slot=slot)
+                gauge('device_listener_skipped_frames', 'Frames passed over by resyncs since admission.', item['frames_skipped'], slot=slot)
+                gauge('device_listener_last_skip_device_seconds', 'Device time of the last resync; zero when none.', item['last_skip_us'] / 1e6, slot=slot)
         for family in FAMILIES:
             item = None if value is None else value[family]
             age = None

@@ -4,13 +4,19 @@
 use std::io::{self, BufReader};
 use std::net::{SocketAddr, TcpListener, TcpStream};
 use std::sync::{Condvar, Mutex};
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
-use esp_shazam_core::stream_http::{read_request_line, DeadlineReader};
+use esp_shazam_core::stream_http::{read_request_line, write_response, DeadlineReader, Format};
 
 pub fn read_head(socket: &TcpStream, deadline: Instant, max_bytes: u64) -> io::Result<String> {
     let reader = DeadlineReader::new(socket, deadline);
     read_request_line(BufReader::with_capacity(256, reader), max_bytes)
+}
+
+/// Answers a `HEAD` with the stream's head and nothing after it; the caller closes the socket.
+/// Nothing here admits: no slot, lease or reservation is touched.
+pub fn answer_head(socket: &TcpStream, format: Format, timeout: Duration) -> io::Result<()> {
+    write_response(socket, format.response_head().as_bytes(), timeout)
 }
 
 /// A bounded accept turn owns the listener's generation, including its queued connections.

@@ -1333,3 +1333,10 @@ on this workstation's own interface, filtered to the board. AP-side
 evidence (n4jb's AP boundary, ek5b's hop attribution, hv4x's sender/AP
 correlation, z5fs's configurable AP) is unobtainable here by rule, not by
 effort; tickets record that gap instead of chasing it.
+
+/api/metrics has a body cap on both sides that must agree:
+firmware/src/device_metrics.rs MAX_BODY_BYTES and scripts/device_metrics.py
+MAX_BODY_BYTES (4608 since October 15; measured maximal body 4383). A
+firmware field added without raising the Python side makes every harness
+poll fail with 'metrics body too large' mid-trial. Each constant's comment
+names the other; the Rust maximal-body test keeps a 128-byte margin.

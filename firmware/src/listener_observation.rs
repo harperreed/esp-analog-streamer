@@ -14,6 +14,14 @@ pub(crate) enum State {
     Writing,
     Ready,
 }
+/// A live listener's resynchronizations so far: events, whole frames passed over, and the last
+/// event's device time. Only live-policy compressed listeners ever count; others stay at zero.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub(crate) struct SkipCounters {
+    pub skips: u64,
+    pub frames_skipped: u64,
+    pub last_skip_us: u64,
+}
 #[derive(Clone, Copy, Debug, Default, serde::Serialize)]
 pub(crate) struct Observation {
     pub generation: u32,
@@ -21,8 +29,12 @@ pub(crate) struct Observation {
     pub sample_us: u64,
     pub media_age_us: Option<u64>,
     pub write_us: Option<u64>,
+    /// The owner's skip counters at its last publication; null while no owner holds the slot.
+    pub skips: Option<u64>,
+    pub frames_skipped: Option<u64>,
+    pub last_skip_us: Option<u64>,
 }
-const _: () = assert!(std::mem::size_of::<Observation>() <= 48);
+const _: () = assert!(std::mem::size_of::<Observation>() <= 96);
 #[derive(Clone, Copy)]
 struct Payload {
     revision: u32,
@@ -50,6 +62,9 @@ impl Slot {
                     sample_us: 0,
                     media_age_us: None,
                     write_us: None,
+                    skips: None,
+                    frames_skipped: None,
+                    last_skip_us: None,
                 },
                 oldest_us: 0,
                 started_us: 0,
@@ -95,7 +110,7 @@ impl Registry {
                     slot,
                     lease: lease + 1,
                 };
-                owner.publish(State::Waiting, now, 0, 0);
+                owner.publish(State::Waiting, now, 0, 0, SkipCounters::default());
                 return Some(owner);
             }
         }
@@ -143,7 +158,7 @@ impl Registry {
     }
 }
 impl Owner<'_> {
-    fn publish(&self, state: State, now: u64, started: u64, oldest: u64) {
+    fn publish(&self, state: State, now: u64, started: u64, oldest: u64, skips: SkipCounters) {
         if self.slot.lease.load(Ordering::Acquire) != self.lease {
             return;
         }
@@ -176,13 +191,23 @@ impl Owner<'_> {
                 sample_us: now,
                 media_age_us: (state == State::Ready).then(|| now.saturating_sub(oldest)),
                 write_us: (state == State::Ready).then(|| now.saturating_sub(started)),
+                skips: Some(skips.skips),
+                frames_skipped: Some(skips.frames_skipped),
+                last_skip_us: Some(skips.last_skip_us),
             },
         };
     }
-    pub fn begin(&self, now: u64, oldest: u64) {
-        self.publish(State::Writing, now, now, oldest);
+    pub fn begin(&self, now: u64, oldest: u64, skips: SkipCounters) {
+        self.publish(State::Writing, now, now, oldest, skips);
     }
-    pub fn finish(&self, now: u64, started: u64, oldest: u64, succeeded: bool) {
+    pub fn finish(
+        &self,
+        now: u64,
+        started: u64,
+        oldest: u64,
+        succeeded: bool,
+        skips: SkipCounters,
+    ) {
         self.publish(
             if succeeded {
                 State::Ready
@@ -192,6 +217,7 @@ impl Owner<'_> {
             now,
             started,
             oldest,
+            skips,
         );
     }
 }
@@ -212,9 +238,9 @@ mod tests {
     fn held_copy_lock_cannot_delay_completion_or_drop() {
         let registry = Registry::new();
         let owner = registry.register(1).unwrap();
-        owner.begin(10, 0);
+        owner.begin(10, 0, SkipCounters::default());
         let guard = registry.slots[0].payload.lock().unwrap();
-        owner.finish(20, 10, 0, true);
+        owner.finish(20, 10, 0, true, SkipCounters::default());
         drop(guard);
         assert_eq!(registry.sample(|| 30)[0].state, State::Unavailable);
         let guard = registry.slots[0].payload.lock().unwrap();
@@ -226,7 +252,7 @@ mod tests {
             slot: &registry.slots[0],
             lease: 1,
         };
-        stale.finish(60, 0, 0, true);
+        stale.finish(60, 0, 0, true, SkipCounters::default());
         drop(stale);
         assert_eq!(registry.sample(|| 70)[0].state, State::Waiting);
         drop(replacement);
@@ -235,10 +261,10 @@ mod tests {
     fn clock_runs_without_payload_guard_and_rejects_replaced_copy() {
         let registry = Registry::new();
         let owner = registry.register(1).unwrap();
-        owner.begin(10, 0);
+        owner.begin(10, 0, SkipCounters::default());
         let sample = registry.sample(|| {
             assert!(registry.slots[0].payload.try_lock().is_ok());
-            owner.begin(20, 0);
+            owner.begin(20, 0, SkipCounters::default());
             30
         });
         assert_eq!(sample[0].state, State::Unavailable);
@@ -264,7 +290,7 @@ mod tests {
         registry.slots[1]
             .revision
             .store(u32::MAX, Ordering::Release);
-        second.begin(3, 0);
+        second.begin(3, 0, SkipCounters::default());
         assert_eq!(registry.sample(|| 4)[1].state, State::Unavailable);
         drop((first, second));
         registry.slots[0]

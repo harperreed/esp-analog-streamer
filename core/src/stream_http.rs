@@ -383,28 +383,40 @@ impl Format {
             .expect("every stream response has a content type")
     }
 
-    /// The head of the 200 response. It has no Content-Length: the body ends when the connection does.
+    /// The head of the 200 response, the shape Icecast serves: no Content-Length, the body ends
+    /// when the connection does; `Accept-Ranges: none` so players never seek; `icy-name` and
+    /// `icy-description` as plain station tags, with no metadata interleaving (`Icy-MetaData`
+    /// requests are ignored, so there is never an `icy-metaint`).
     pub fn response_head(self) -> &'static str {
         match self {
             Format::Wav => {
                 "HTTP/1.1 200 OK\r\n\
                  Content-Type: audio/wav\r\n\
-                 Cache-Control: no-store\r\n\
+                 Cache-Control: no-cache, no-store\r\n\
                  Connection: close\r\n\
+                 Accept-Ranges: none\r\n\
+                 icy-name: esp-shazam\r\n\
+                 icy-description: live line-in\r\n\
                  \r\n"
             }
             Format::Flac => {
                 "HTTP/1.1 200 OK\r\n\
                  Content-Type: audio/flac\r\n\
-                 Cache-Control: no-store\r\n\
+                 Cache-Control: no-cache, no-store\r\n\
                  Connection: close\r\n\
+                 Accept-Ranges: none\r\n\
+                 icy-name: esp-shazam\r\n\
+                 icy-description: live line-in\r\n\
                  \r\n"
             }
             Format::Mp3 => {
                 "HTTP/1.1 200 OK\r\n\
                  Content-Type: audio/mpeg\r\n\
-                 Cache-Control: no-store\r\n\
+                 Cache-Control: no-cache, no-store\r\n\
                  Connection: close\r\n\
+                 Accept-Ranges: none\r\n\
+                 icy-name: esp-shazam\r\n\
+                 icy-description: live line-in\r\n\
                  \r\n"
             }
         }
@@ -418,6 +430,12 @@ pub enum Route {
     Stream(Format),
     /// Whole-frame retained startup history, available only in the streaming profile.
     Buffered(crate::stream_buffer::BufferPreset),
+    /// `HEAD` of a stream or buffered path: send that stream's head, no body, and close. It
+    /// describes the path, never admission: no slot, lease, reservation or capacity is touched,
+    /// so it says 200 where a GET might still be refused for a full board. A stale
+    /// `network_generation` tag is still refused 503 before routing, as for GET
+    /// (`firmware/src/stream.rs` `answer`).
+    Head(Format),
     /// Answer with this status and close.
     Refuse(Status),
 }
@@ -471,7 +489,7 @@ pub enum Status {
     BadRequest,
     /// 404: a GET for a path the server doesn't have.
     NotFound,
-    /// 405: a method other than GET.
+    /// 405: a method other than GET or HEAD.
     MethodNotAllowed,
     /// 503: every listener slot is taken.
     ServiceUnavailable,
@@ -503,8 +521,8 @@ impl Status {
             ),
             Status::MethodNotAllowed => (
                 "405 Method Not Allowed",
-                "Allow: GET\r\n",
-                "Only GET is allowed.\n".to_owned(),
+                "Allow: GET, HEAD\r\n",
+                "Only GET and HEAD are allowed.\n".to_owned(),
             ),
             Status::ServiceUnavailable => (
                 "503 Service Unavailable",
@@ -621,9 +639,27 @@ pub fn route_for(request_line: &str, active: crate::stream_buffer::OutputFormat)
     if !target.starts_with('/') || !version.starts_with("HTTP/1.") {
         return Route::Refuse(Status::BadRequest);
     }
-    if method != "GET" {
-        return Route::Refuse(Status::MethodNotAllowed);
+    let route = match method {
+        "GET" | "HEAD" => target_route(target, request_line, active),
+        _ => return Route::Refuse(Status::MethodNotAllowed),
+    };
+    if method != "HEAD" {
+        return route;
     }
+    // A HEAD resolves exactly as the GET would, then answers with that stream's head alone.
+    match route {
+        Route::Stream(format) => Route::Head(format),
+        Route::Buffered(_) => Route::Head(active.format()),
+        route => route,
+    }
+}
+
+/// Resolves a GET target: the stream path, its buffer query and the tags that ride beside it.
+fn target_route(
+    target: &str,
+    request_line: &str,
+    active: crate::stream_buffer::OutputFormat,
+) -> Route {
     let (path, query) = target
         .split_once('?')
         .map_or((target, None), |(path, query)| (path, Some(query)));
@@ -679,16 +715,59 @@ pub fn route_for(request_line: &str, active: crate::stream_buffer::OutputFormat)
 mod tests {
     use super::*;
     #[test]
-    fn tagged_head_preserves_method_refusal_and_allow_header() {
+    fn tagged_head_gets_the_head_route_and_no_reservation_effects() {
+        // Tags ride along unread: a HEAD never reserves, admits or refuses on their account.
         let line = "HEAD /stream.flac?buffer=med&network_generation=1&sonos_intent=41 HTTP/1.1";
-        let Route::Refuse(status) = route(line) else {
-            panic!("HEAD must refuse payload admission");
-        };
-        let status = reservation_refusal(status, request_sonos_intent(line).unwrap().is_some());
-        assert_eq!(status, Status::MethodNotAllowed);
-        let response = status.response();
-        assert!(response.starts_with("HTTP/1.1 405 Method Not Allowed\r\n"));
-        assert!(response.contains("\r\nAllow: GET\r\n"));
+        assert_eq!(route(line), Route::Head(Format::Flac));
+        assert_eq!(
+            route("HEAD /stream.flac?sonos_intent=41&exact=1 HTTP/1.1"),
+            Route::Head(Format::Flac)
+        );
+        // A malformed tag is still a bad request, as it is for GET.
+        assert_eq!(
+            route("HEAD /stream.flac?sonos_intent=x HTTP/1.1"),
+            Route::Refuse(Status::BadRequest)
+        );
+    }
+
+    #[test]
+    fn head_answers_every_stream_path_and_the_buffered_route_with_the_active_format() {
+        use crate::stream_buffer::{BufferPreset, OutputFormat};
+        assert_eq!(route("HEAD /stream.wav HTTP/1.1"), Route::Head(Format::Wav));
+        assert_eq!(
+            route("HEAD /stream.flac HTTP/1.0"),
+            Route::Head(Format::Flac)
+        );
+        assert_eq!(
+            route("HEAD /stream.flac?buffer=low HTTP/1.1"),
+            Route::Head(Format::Flac)
+        );
+        assert_eq!(
+            route_for("HEAD /stream.mp3?buffer=high HTTP/1.1", OutputFormat::Mp3),
+            Route::Head(Format::Mp3)
+        );
+        // The inactive compressed path, an unknown path and a bad buffer refuse exactly as GET.
+        assert_eq!(
+            route("HEAD /stream.mp3 HTTP/1.1"),
+            Route::Refuse(Status::NotFound)
+        );
+        assert_eq!(
+            route("HEAD /missing HTTP/1.1"),
+            Route::Refuse(Status::NotFound)
+        );
+        assert_eq!(
+            route("HEAD /stream.flac?buffer=huge HTTP/1.1"),
+            Route::Refuse(Status::BadRequest)
+        );
+        assert_eq!(
+            route("GET /stream.flac?buffer=low HTTP/1.1"),
+            Route::Buffered(BufferPreset::Low)
+        );
+        // A HEAD describes the path, never admission: buffer availability leaves it alone.
+        assert_eq!(
+            Route::Head(Format::Flac).with_buffer_availability(false),
+            Route::Head(Format::Flac)
+        );
     }
 
     #[test]
@@ -1187,9 +1266,9 @@ mod tests {
     }
 
     #[test]
-    fn methods_other_than_get_are_not_allowed() {
+    fn methods_other_than_get_and_head_are_not_allowed() {
         for path in ["/stream.wav", "/stream.flac"] {
-            for method in ["HEAD", "POST", "PUT", "OPTIONS"] {
+            for method in ["POST", "PUT", "OPTIONS", "DELETE"] {
                 assert_eq!(
                     route(&format!("{method} {path} HTTP/1.1")),
                     Route::Refuse(Status::MethodNotAllowed),
@@ -1244,28 +1323,50 @@ mod tests {
     }
 
     #[test]
-    fn method_not_allowed_says_which_method_is() {
+    fn method_not_allowed_says_which_methods_are() {
         assert!(Status::MethodNotAllowed
             .response()
-            .contains("\r\nAllow: GET\r\n"));
+            .contains("\r\nAllow: GET, HEAD\r\n"));
     }
 
     #[test]
-    fn each_stream_head_has_its_type_and_no_length() {
+    fn each_stream_head_has_its_type_no_length_and_the_icecast_shape() {
+        // Contract point 4: the head Icecast serves and every player and browser accepts.
         for (format, content_type) in [
             (Format::Wav, "Content-Type: audio/wav"),
             (Format::Flac, "Content-Type: audio/flac"),
+            (Format::Mp3, "Content-Type: audio/mpeg"),
         ] {
-            let (head, body) = format.response_head().split_once("\r\n\r\n").unwrap();
+            let response_head = format.response_head();
+            assert!(response_head.is_ascii(), "{format:?}: plain ASCII only");
+            let (head, body) = response_head.split_once("\r\n\r\n").unwrap();
             assert_eq!(body, "", "{format:?}: the head ends with its blank line");
             let mut lines = head.split("\r\n");
             assert_eq!(lines.next(), Some("HTTP/1.1 200 OK"), "{format:?}");
             let headers: Vec<&str> = lines.collect();
-            assert!(headers.contains(&content_type), "{format:?}: {headers:?}");
-            assert!(headers.contains(&"Connection: close"), "{format:?}");
-            assert!(
-                !headers.iter().any(|h| h.starts_with("Content-Length")),
-                "{format:?}: an endless body has no length"
+            for header in [
+                content_type,
+                "Cache-Control: no-cache, no-store",
+                "Connection: close",
+                "Accept-Ranges: none",
+                "icy-name: esp-shazam",
+                "icy-description: live line-in",
+            ] {
+                assert!(
+                    headers.contains(&header),
+                    "{format:?}: {header} in {headers:?}"
+                );
+            }
+            for forbidden in ["Content-Length", "Transfer-Encoding", "icy-metaint"] {
+                assert!(
+                    !headers.iter().any(|h| h.starts_with(forbidden)),
+                    "{format:?}: {forbidden} on a close-delimited body without metadata"
+                );
+            }
+            assert_eq!(
+                format!("Content-Type: {}", format.content_type()),
+                content_type,
+                "{format:?}: content_type reads the head back"
             );
         }
     }

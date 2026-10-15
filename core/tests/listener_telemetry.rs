@@ -449,6 +449,9 @@ fn fixed_departure_keeps_sender_counters_and_error_identity_without_heap_message
                     poll_calls: 2,
                     ..Default::default()
                 },
+                skips: 0,
+                frames_skipped: 0,
+                last_skip_us: 0,
             }),
             tenths: 1,
             end: EndCode::Failed(ErrorCode::from(&error)),
@@ -994,5 +997,145 @@ fn sonos_replacement_cannot_send_success_before_checked_close_receipt() {
         drop(old_peer);
         slots.clear(intent);
         assert!(Slot::take(&slots, 2).is_some());
+    }
+}
+
+#[test]
+fn departure_line_carries_skip_tokens_between_end_text_and_stack_watermark() {
+    use listener_telemetry::{Departure, DepartureLine};
+    let metrics = Departure {
+        media: Default::default(),
+        elapsed_us: 20,
+        task_runtime_us: 7,
+        runtime_valid: true,
+        frames_sent: 2,
+        bytes_sent: 1234,
+        frame_write_wall_total_us: 9,
+        frame_write_wall_max_us: 8,
+        frame_read_wait_wall_total_us: 3,
+        payload_elapsed_us: 18,
+        block_samples: 1152,
+        socket: Default::default(),
+        skips: 2,
+        frames_skipped: 333,
+        last_skip_us: 81_000_000,
+    };
+    // The shape `scripts/network_fault.py` LEFT and SKIP_TOKEN parse: tokens inside the end
+    // capture, which `without_skip_tokens` strips back to the end text.
+    let line = DepartureLine {
+        peer: "192.168.23.153:52582",
+        tenths: 601,
+        end: "media age exceeded",
+        metrics: Some(&metrics),
+        owner_stack_free_bytes: 1148,
+        event_us: 81_182_401,
+    }
+    .to_string();
+    assert_eq!(
+        line,
+        "stream: 192.168.23.153:52582 left after 60.1 s: media age exceeded skips=2 frames_skipped=333 last_skip_us=81000000 listener_stack_free_bytes=1148 event_us=81182401"
+    );
+    // A departure without listener metrics (the WAV path) keeps the retained shape, no tokens.
+    let bare = DepartureLine {
+        peer: "unknown peer",
+        tenths: 3,
+        end: "stopped reading",
+        metrics: None,
+        owner_stack_free_bytes: 512,
+        event_us: 9,
+    }
+    .to_string();
+    assert_eq!(
+        bare,
+        "stream: unknown peer left after 0.3 s: stopped reading listener_stack_free_bytes=512 event_us=9"
+    );
+}
+
+/// Encodes one block of silence and publishes it to the epoch's ring at `at` microseconds.
+fn publish_silence(worker: &mut stream_runtime::Worker, epoch: &stream_runtime::Epoch, at: u64) {
+    let pcm = vec![0i32; 2 * epoch.format.block_frames()];
+    for chunk in pcm.chunks(480) {
+        worker.encoder.push(chunk);
+    }
+    worker.encoder.encode_block(0, &mut worker.bytes).unwrap();
+    let source = esp_shazam_core::flac_ring::SourceMetadata {
+        raw_generation: 0,
+        source_start: 0,
+        source_end: 1,
+        oldest_accepted_us: at,
+        raw_publication_us: at,
+    };
+    epoch
+        .ring
+        .lock()
+        .unwrap()
+        .push(&worker.bytes, source, || at)
+        .unwrap();
+}
+
+#[test]
+fn timeout_receipt_labels_the_budget_the_listener_gave_the_write() {
+    use stream_pipeline::{CompressedListener, ListenerStep};
+    // The header keeps the fixed limit under both policies; a live frame gets the ring depth
+    // (contract point 2) and the receipt must say so, not quote the exact reader's limit.
+    for (policy, frame_limit_ms) in [
+        (ListenerPolicy::Live, OutputFormat::Mp3.ring_depth_ms(false)),
+        (
+            ListenerPolicy::Exact,
+            OutputFormat::Mp3.write_limit_ms(false),
+        ),
+    ] {
+        assert_eq!(OutputFormat::Mp3.write_limit_ms(false), 8_016);
+        let (_runtime, mut worker) = Runtime::new(OutputFormat::Mp3, false).unwrap();
+        let epoch = worker.epoch.clone();
+        let time = Duration::from_secs(1);
+        let mut scratch = vec![0; OutputFormat::Mp3.max_frame_bytes()];
+        let mut listener = CompressedListener::new(&epoch, None, false, policy, &mut || time);
+        assert!(matches!(
+            listener.step(&epoch, &mut scratch, &mut || time, &mut || true),
+            ListenerStep::Progress
+        ));
+        let ListenerStep::Write {
+            deadline,
+            header: true,
+        } = listener.step(&epoch, &mut scratch, &mut || time, &mut || true)
+        else {
+            panic!("header write");
+        };
+        assert_eq!(listener.pending_write_limit(), Duration::from_millis(8_016));
+        assert_eq!(deadline, time + listener.pending_write_limit());
+        listener.write_finished(Ok(()), &mut || time);
+        publish_silence(&mut worker, &epoch, 1_000_000);
+        let ListenerStep::Write {
+            deadline,
+            header: false,
+        } = listener.step(&epoch, &mut scratch, &mut || time, &mut || true)
+        else {
+            panic!("frame write under {policy:?}");
+        };
+        let limit = listener.pending_write_limit();
+        assert_eq!(limit, Duration::from_millis(frame_limit_ms), "{policy:?}");
+        let q = Queue::new();
+        let timing = listener_telemetry::WriteTiming::new(
+            time.as_micros() as u64,
+            deadline.as_micros() as u64,
+            limit.as_millis() as u64,
+        );
+        let result = Err(std::io::Error::from(std::io::ErrorKind::TimedOut));
+        listener_telemetry::report_timeout(&q, None, &result, 12_001, timing, 9, || 7);
+        let Payload::Timeout {
+            nominal_limit_ms,
+            remaining_budget_us,
+            ..
+        } = q.take().unwrap().payload
+        else {
+            panic!("timeout receipt");
+        };
+        assert_eq!(nominal_limit_ms, frame_limit_ms, "{policy:?}");
+        if policy == ListenerPolicy::Live {
+            assert_eq!(remaining_budget_us, frame_limit_ms * 1_000);
+        } else {
+            assert!(remaining_budget_us <= frame_limit_ms * 1_000);
+        }
     }
 }

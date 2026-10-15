@@ -765,6 +765,15 @@ impl CompressedListener {
             _ => None,
         }
     }
+    /// The budget the pending write was given: the header's fixed limit, or the frame budget the
+    /// policy set (ring depth for a live reader). Timeout receipts label themselves with it.
+    pub(crate) fn pending_write_limit(&self) -> Duration {
+        match self.phase {
+            Phase::Write { header: true, .. } => self.header_limit,
+            Phase::Write { .. } => self.write_limit,
+            _ => panic!("listener has no pending write"),
+        }
+    }
     pub(crate) fn write_bytes<'a>(&'a self, scratch: &'a [u8]) -> &'a [u8] {
         match self.phase {
             Phase::Write { header: true, .. } => &self.header,

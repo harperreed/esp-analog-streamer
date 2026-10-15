@@ -148,6 +148,9 @@ pub(crate) struct DepartureStats {
     pub task_runtime_us: Option<u32>,
     pub runtime_valid: bool,
     pub block_samples: usize,
+    pub skips: u64,
+    pub frames_skipped: u64,
+    pub last_skip_us: u64,
     pub media: Option<ListenerMedia>,
 }
 #[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize)]
@@ -284,7 +287,9 @@ struct Response<'a> {
     snapshot: &'a Snapshot,
 }
 const _: () = assert!(std::mem::size_of::<Response>() <= 768);
-pub(crate) const MAX_BODY_BYTES: usize = 4096;
+// The maximal response (every counter at its type's maximum, both slots writing) serializes to
+// 4383 bytes; `maximal_response_fits` in core/tests/device_metrics.rs measures it.
+pub(crate) const MAX_BODY_BYTES: usize = 4608;
 #[derive(Debug)]
 pub(crate) enum ResponseError {
     Unavailable(Unavailable),
@@ -450,6 +455,9 @@ pub(crate) fn project_departure(
             task_runtime_us: value.runtime_valid.then_some(value.task_runtime_us),
             runtime_valid: value.runtime_valid,
             block_samples: value.block_samples,
+            skips: value.skips,
+            frames_skipped: value.frames_skipped,
+            last_skip_us: value.last_skip_us,
             media: value.media.valid.then_some(ListenerMedia {
                 last_age_us: value.media.last_age_us,
                 max_age_us: value.media.max_age_us,

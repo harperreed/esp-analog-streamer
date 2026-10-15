@@ -44,6 +44,45 @@ pub(crate) struct Departure {
     pub block_samples: usize,
     pub socket: esp_shazam_core::stream_http::WriterDiagnostics,
     pub media: ListenerMedia,
+    /// Live-policy resynchronizations: events, whole frames passed over, the last event's time.
+    pub skips: u64,
+    pub frames_skipped: u64,
+    pub last_skip_us: u64,
+}
+/// The departure receipt line the harnesses parse (`scripts/network_fault.py` `LEFT`). The skip
+/// tokens sit between the end text and the stack watermark; a departure without listener
+/// metrics (the WAV path) carries none, which the parsers read as unreported.
+pub(crate) struct DepartureLine<'a, E> {
+    pub peer: &'a str,
+    pub tenths: u64,
+    pub end: E,
+    pub metrics: Option<&'a Departure>,
+    pub owner_stack_free_bytes: u32,
+    pub event_us: u64,
+}
+impl<E: std::fmt::Display> std::fmt::Display for DepartureLine<'_, E> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "stream: {} left after {}.{} s: {}",
+            self.peer,
+            self.tenths / 10,
+            self.tenths % 10,
+            self.end
+        )?;
+        if let Some(m) = self.metrics {
+            write!(
+                f,
+                " skips={} frames_skipped={} last_skip_us={}",
+                m.skips, m.frames_skipped, m.last_skip_us
+            )?;
+        }
+        write!(
+            f,
+            " listener_stack_free_bytes={} event_us={}",
+            self.owner_stack_free_bytes, self.event_us
+        )
+    }
 }
 #[derive(Clone, Copy, Debug)]
 pub(crate) enum EndCode {

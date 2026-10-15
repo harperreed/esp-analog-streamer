@@ -32,6 +32,7 @@ use esp_shazam_core::wav;
 
 use crate::audio_in::{SharedStreamRing, CAPTURE_RATE_HZ};
 use crate::config::CONFIG;
+use crate::listener_observation::SkipCounters;
 use crate::listener_telemetry::{
     self, Departure, EndCode, ErrorCode, Payload, Record, RefusalReason, EVENTS,
 };
@@ -440,6 +441,17 @@ fn answer(
     };
     let (route, lease) = runtime.admit(&request_line);
     match route {
+        // Before any slot, reservation or buffer: a HEAD describes the stream and leaves.
+        Route::Head(format) => {
+            let head = format.response_head();
+            log::info!(
+                "stream: {peer} {request_line:?}: {}",
+                head.lines().next().unwrap_or_default()
+            );
+            if let Err(e) = crate::stream_admission::answer_head(&sock, format, HEAD_TIMEOUT) {
+                log::info!("stream: {peer}: response not sent ({e})");
+            }
+        }
         Route::Stream(_) | Route::Buffered(_) => {
             let (format, preset) = match route {
                 Route::Stream(format) => (format, None),
@@ -452,7 +464,7 @@ fn answer(
                         .format(),
                     Some(preset),
                 ),
-                Route::Refuse(_) => unreachable!(),
+                Route::Head(_) | Route::Refuse(_) => unreachable!(),
             };
             // Reject unsupported close configuration before taking a slot or allocating audio.
             if let Err(error) = socket_close::configure(&sock) {
@@ -760,7 +772,7 @@ fn stream_wav(
         let at = event_us();
         let write_started_us = event_us();
         if let (Some(owner), Some(oldest)) = (&observation, oldest) {
-            owner.begin(write_started_us, oldest);
+            owner.begin(write_started_us, oldest, SkipCounters::default());
         }
         let result = if let Some(oldest) = oldest {
             let deadline = match age.deadline(
@@ -776,7 +788,13 @@ fn stream_wav(
             write_frame(&mut writer, &bytes, write_limit, peer)
         };
         if let (Some(owner), Some(oldest)) = (&observation, oldest) {
-            owner.finish(event_us(), write_started_us, oldest, result.is_ok());
+            owner.finish(
+                event_us(),
+                write_started_us,
+                oldest,
+                result.is_ok(),
+                SkipCounters::default(),
+            );
         }
         if oldest.is_some_and(|oldest| age.check(event_us(), oldest).is_err()) {
             return End::MediaAge;
@@ -1050,6 +1068,16 @@ struct ListenerMetrics {
     payload_elapsed_us: u64,
     socket: WriterDiagnostics,
     media: listener_telemetry::ListenerMedia,
+    skips: SkipCounters,
+}
+
+/// The listener's resynchronizations so far, for the slot observation and the departure.
+fn skip_counters(listener: &CompressedListener) -> SkipCounters {
+    SkipCounters {
+        skips: listener.skips,
+        frames_skipped: listener.frames_skipped,
+        last_skip_us: listener.last_skip_us,
+    }
 }
 
 impl ListenerMetrics {
@@ -1067,6 +1095,7 @@ impl ListenerMetrics {
             payload_elapsed_us: 0,
             socket: WriterDiagnostics::default(),
             media: listener_telemetry::ListenerMedia::default(),
+            skips: SkipCounters::default(),
         }
     }
 
@@ -1085,6 +1114,9 @@ impl ListenerMetrics {
             block_samples: self.block_frames,
             socket: self.socket,
             media: self.media,
+            skips: self.skips.skips,
+            frames_skipped: self.skips.frames_skipped,
+            last_skip_us: self.skips.last_skip_us,
         }
     }
 }
@@ -1155,16 +1187,17 @@ fn stream_compressed(
                 let timing = listener_telemetry::WriteTiming::new(
                     write_started_us,
                     deadline.as_micros() as u64,
-                    epoch.format.write_limit_ms(CONFIG.shazam_enabled),
+                    listener.pending_write_limit().as_millis() as u64,
                 );
                 let oldest_us = listener.pending_oldest_accepted_us();
+                let skips = skip_counters(&listener);
                 if let (Some(owner), Some(oldest)) = (&observation, oldest_us) {
-                    owner.begin(write_started_us, oldest);
+                    owner.begin(write_started_us, oldest, skips);
                 }
                 let result =
                     writer.write_all_before(listener.write_bytes(bytes), socket_deadline(deadline));
                 if let (Some(owner), Some(oldest)) = (&observation, oldest_us) {
-                    owner.finish(event_us(), write_started_us, oldest, result.is_ok());
+                    owner.finish(event_us(), write_started_us, oldest, result.is_ok(), skips);
                 }
                 #[cfg(feature = "listener-frame-state")]
                 if !header {
@@ -1219,6 +1252,7 @@ fn stream_compressed(
     metrics.frame_read_wait_wall_total_us += listener.read_wait.as_micros() as u64;
     metrics.frames_sent += listener.frames_sent;
     metrics.bytes_sent += listener.bytes_sent;
+    metrics.skips = skip_counters(&listener);
     if let (Some(first), Some(last)) = (listener.first_sent, listener.last_sent) {
         metrics.media = listener_telemetry::ListenerMedia {
             valid: true,
@@ -1454,7 +1488,7 @@ pub(crate) fn export_listener_events() {
                         d.poll_errors, d.poll_error_ready, d.poll_wall_total_us, d.poll_wall_max_us,
                         d.poll_over_10ms, d.ready_to_send_wall_max_us, d.ready_then_would_block, event_us);
                 }
-                log::info!("stream: {peer} left after {}.{} s: {end} listener_stack_free_bytes={owner_stack_free_bytes} event_us={event_us}", tenths / 10, tenths % 10);
+                log::info!("{}", listener_telemetry::DepartureLine { peer: &peer, tenths, end, metrics: metrics.as_ref(), owner_stack_free_bytes, event_us });
             }
         }
     }

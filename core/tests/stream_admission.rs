@@ -557,3 +557,34 @@ fn network_change_discards_backlog_and_rebinds_with_accepted_peer_alive() {
     assert!(listener.accept(&network).unwrap().is_none());
     assert!(listener.local_addr().is_none());
 }
+
+#[test]
+fn head_request_gets_the_stream_head_bytes_then_eof() {
+    use esp_shazam_core::stream_http::{route_for, Format, Route};
+    // This proves the bytes and the close. The no-slot guarantee lives in the ordering of
+    // firmware/src/stream.rs `answer`: the `Route::Head` arm answers before
+    // `socket_close::configure`, `Capacity::admit_request` and `Slot::take` are reached.
+    let listener = BoundListener::bind().unwrap();
+    let mut client = TcpStream::connect(listener.local_addr().unwrap()).unwrap();
+    client.set_write_timeout(Some(HEAD)).unwrap();
+    client.set_read_timeout(Some(HEAD)).unwrap();
+    let served = thread::spawn(move || {
+        let (socket, _peer) = accept_one(&Mutex::new(listener)).unwrap();
+        let line = read_head(&socket, Instant::now() + HEAD, 4096).unwrap();
+        let Route::Head(format) =
+            route_for(&line, esp_shazam_core::stream_buffer::OutputFormat::Flac)
+        else {
+            panic!("{line:?} must route as a HEAD");
+        };
+        stream_admission::answer_head(&socket, format, HEAD).unwrap();
+        drop(socket);
+        format
+    });
+    client
+        .write_all(b"HEAD /stream.flac?buffer=med HTTP/1.1\r\nHost: x\r\nIcy-MetaData: 1\r\n\r\n")
+        .unwrap();
+    let mut response = Vec::new();
+    client.read_to_end(&mut response).unwrap();
+    assert_eq!(served.join().unwrap(), Format::Flac);
+    assert_eq!(response, Format::Flac.response_head().as_bytes());
+}

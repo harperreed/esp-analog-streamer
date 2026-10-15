@@ -235,6 +235,9 @@ fn maximal_departure() -> LastListenerDeparture {
             task_runtime_us: Some(u32::MAX),
             runtime_valid: false,
             block_samples: usize::MAX,
+            skips: u64::MAX,
+            frames_skipped: u64::MAX,
+            last_skip_us: u64::MAX,
             media: Some(ListenerMedia {
                 last_age_us: u64::MAX,
                 max_age_us: u64::MAX,

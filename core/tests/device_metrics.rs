@@ -251,6 +251,9 @@ fn maximal_response_fits() {
         sample_us: u64::MAX,
         media_age_us: Some(u64::MAX),
         write_us: Some(u64::MAX),
+        skips: Some(u64::MAX),
+        frames_skipped: Some(u64::MAX),
+        last_skip_us: Some(u64::MAX),
     }; 2];
     cache.publish_capture(maximal_capture());
     cache.publish_media_progress(maximal_stage());
@@ -317,7 +320,13 @@ fn maximal_response_fits() {
         std::mem::size_of::<Snapshot>(),
         std::mem::size_of::<Cache>()
     );
-    assert!(body.len() <= MAX_BODY_BYTES);
+    // The measured maximum is 4383 (firmware/src/device_metrics.rs MAX_BODY_BYTES); a silent
+    // drift into the last 128 bytes of the cap fails here before it fails on the board.
+    assert!(
+        body.len() + 128 <= MAX_BODY_BYTES,
+        "maximal body {} within 128 of {MAX_BODY_BYTES}",
+        body.len()
+    );
     let value: serde_json::Value = serde_json::from_slice(&body).unwrap();
     assert_eq!(value["capture"]["read_frames"], u32::MAX);
 }
@@ -656,12 +665,15 @@ fn latest_departure_replaces_stats_without_inventing_live_health() {
             queue_frames_max: 70,
             ..Default::default()
         },
+        skips: 2,
+        frames_skipped: 333,
+        last_skip_us: 9,
     };
     cache.publish_last_listener_departure(project_departure(10, 0, Some(&departure)));
     let value = serde_json::to_value(cache.snapshot().unwrap().last_listener_departure).unwrap();
     assert_eq!(
         value,
-        serde_json::json!({"observed_device_us":10,"listener_stack_free_bytes":0,"stats":{"elapsed_us":1,"payload_elapsed_us":7,"frames_sent":2,"bytes_sent":3,"frame_write_wall_total_us":4,"frame_write_wall_max_us":5,"frame_read_wait_wall_total_us":6,"task_runtime_us":null,"runtime_valid":false,"block_samples":8,"media":null}})
+        serde_json::json!({"observed_device_us":10,"listener_stack_free_bytes":0,"stats":{"elapsed_us":1,"payload_elapsed_us":7,"frames_sent":2,"bytes_sent":3,"frame_write_wall_total_us":4,"frame_write_wall_max_us":5,"frame_read_wait_wall_total_us":6,"task_runtime_us":null,"runtime_valid":false,"block_samples":8,"skips":2,"frames_skipped":333,"last_skip_us":9,"media":null}})
     );
     departure.runtime_valid = true;
     departure.task_runtime_us = 0;
@@ -722,6 +734,9 @@ fn maximal_departure() -> LastListenerDeparture {
             task_runtime_us: Some(u32::MAX),
             runtime_valid: false,
             block_samples: usize::MAX,
+            skips: u64::MAX,
+            frames_skipped: u64::MAX,
+            last_skip_us: u64::MAX,
             media: Some(ListenerMedia {
                 last_age_us: u64::MAX,
                 max_age_us: u64::MAX,
@@ -800,7 +815,7 @@ fn response_observes_live_listener_progress_without_logging_owner_publication() 
     cache.publish_capture(maximal_capture());
     let registry = listener_observation::Registry::new();
     let owner = registry.register(1).unwrap();
-    owner.begin(10, 0);
+    owner.begin(10, 0, listener_observation::SkipCounters::default());
     let response = |now| {
         serde_json::from_slice::<serde_json::Value>(
             &prepare_response(
@@ -834,7 +849,7 @@ fn response_samples_listeners_after_cache_unlock_before_served_clock() {
     cache.publish_capture(capture);
     let registry = listener_observation::Registry::new();
     let owner = registry.register(1).unwrap();
-    owner.begin(10, 0);
+    owner.begin(10, 0, listener_observation::SkipCounters::default());
     let sampled = std::cell::Cell::new(false);
     let body = prepare_response(
         &cache,
@@ -862,4 +877,48 @@ fn response_samples_listeners_after_cache_unlock_before_served_clock() {
     assert_eq!(value["listeners"][0]["sample_us"], 20);
     assert_eq!(value["capture"]["read_frames"], u32::MAX);
     assert_eq!(cache.snapshot().unwrap().capture.unwrap().read_frames, 0);
+}
+#[test]
+fn listener_slots_carry_skip_counters_while_owned_and_null_when_idle() {
+    let cache = Cache::new();
+    let registry = listener_observation::Registry::new();
+    let owner = registry.register(1).unwrap();
+    owner.begin(
+        10,
+        0,
+        listener_observation::SkipCounters {
+            skips: 2,
+            frames_skipped: 333,
+            last_skip_us: 9,
+        },
+    );
+    let response = |now| {
+        serde_json::from_slice::<serde_json::Value>(
+            &prepare_response(
+                &cache,
+                || now,
+                None,
+                None,
+                None,
+                None,
+                || registry.sample(|| now),
+            )
+            .unwrap(),
+        )
+        .unwrap()
+    };
+    let writing = response(20);
+    assert_eq!(writing["listeners"][0]["state"], "writing");
+    assert_eq!(writing["listeners"][0]["skips"], 2);
+    assert_eq!(writing["listeners"][0]["frames_skipped"], 333);
+    assert_eq!(writing["listeners"][0]["last_skip_us"], 9);
+    for key in ["skips", "frames_skipped", "last_skip_us"] {
+        assert!(writing["listeners"][1][key].is_null(), "{key}");
+    }
+    drop(owner);
+    let idle = response(30);
+    assert_eq!(idle["listeners"][0]["state"], "idle");
+    for key in ["skips", "frames_skipped", "last_skip_us"] {
+        assert!(idle["listeners"][0][key].is_null(), "{key}");
+    }
 }

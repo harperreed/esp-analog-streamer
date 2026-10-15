@@ -15,7 +15,8 @@ import device_metrics as dm
 def snapshot():
     return dict(schema_version=1, served_device_us=20_000_000, boot_token=None,
                 build_attestation=None, capture=None, encoder=None,
-                listeners=[dict(generation=0, state="unavailable", sample_us=0, media_age_us=None, write_us=None) for _ in range(2)],
+                listeners=[dict(generation=0, state="unavailable", sample_us=0, media_age_us=None, write_us=None,
+                                skips=None, frames_skipped=None, last_skip_us=None) for _ in range(2)],
                 listener_loss=dict(observed_device_us=20_000_000, dropped=0,
                                    loss_occurred=False, metrics_stack_free_bytes=None), encoder_loss=None)
 
@@ -32,16 +33,57 @@ def stage_snapshot():
         stats=dict(elapsed_us=5_000_000, payload_elapsed_us=4_000_000, frames_sent=2,
                    bytes_sent=1000, frame_write_wall_total_us=50, frame_write_wall_max_us=30,
                    frame_read_wait_wall_total_us=20, task_runtime_us=0, runtime_valid=True,
-                   block_samples=1152, media=dict(last_age_us=100, max_age_us=200, queue_frames_max=2)))
+                   block_samples=1152, skips=1, frames_skipped=166, last_skip_us=19_000_000,
+                   media=dict(last_age_us=100, max_age_us=200, queue_frames_max=2)))
     value['network'] = dict(generation=5, connected=True, disconnects=0)
     return value
+
+
+# The largest body the firmware can serve: every counter at its type's maximum, both slots
+# writing. core/tests/device_metrics.rs `maximal_response_fits` measures the firmware's own
+# serialization at 4383 bytes; this fixture carries the same fields and values except
+# backlog_frames, which the validator's raw-minus-encoded rule pins to zero at the maximum.
+MEASURED_MAXIMAL_BODY_BYTES = 4383
+
+
+def maximal_snapshot():
+    item = snapshot(); maximum = (1 << 64) - 1
+    item['served_device_us'] = maximum
+    item.update(boot_token='fe' * 16, build_elf_sha256='fe' * 32,
+                settings=dict(active_format='flac', next_play_format='flac', next_play_buffer='high',
+                              buffer_available=False, autoplay=False, recognition_enabled=False, pga_gain=255))
+    item['http_stack_free_bytes'] = (1 << 32) - 1
+    item['capture'] = dict.fromkeys(('read_frames callbacks queue_overflows software_dropped_frames read_errors restarts supervisor_restarts overflow_restarts settling_discarded_frames discontinuities health_restart_requests read_service_delay_estimate_max_us raw_work_max_us meter_work_max_us store_work_max_us raw_read_max_us').split(), (1 << 32) - 1)
+    item['capture'].update(dict.fromkeys('internal_free internal_largest internal_min_sum psram_free psram_largest psram_min_sum'.split(), maximum))
+    item['capture'].update(capture_begin_us=maximum - 1, capture_end_us=maximum)
+    item['encoder'] = dict.fromkeys('window_start_us window_end_us telemetry_epoch telemetry_window encoded_frames resets encode_max_us raw_read_frames raw_read_overruns raw_read_retries encode_wall_total_us raw_wait_total_us raw_wait_max_us encoded_lock_wait_wall_total_us encoded_push_held_wall_total_us'.split(), maximum)
+    item['encoder'].update(kind='window', window_start_us=maximum - 1, block_samples=maximum, listeners_start=maximum, listeners_end=maximum, stack_free_bytes=(1 << 32) - 1, task_runtime_us=(1 << 32) - 1, runtime_valid=True)
+    loss = dict(observed_device_us=maximum, dropped=(1 << 32) - 1, loss_occurred=True, metrics_stack_free_bytes=(1 << 32) - 1)
+    item.update(listener_loss=loss, encoder_loss=dict(loss))
+    extra = stage_snapshot()
+    progress = extra['media_progress']; progress['observed_device_us'] = maximum
+    progress['operator_epoch'] = (1 << 32) - 1
+    for name in ('accepted', 'raw', 'encoded'):
+        for key in progress[name]: progress[name][key] = maximum
+    progress['encoded']['operator_epoch'] = (1 << 32) - 1
+    progress['backlog_frames'] = 0
+    departure = extra['last_listener_departure']; departure['observed_device_us'] = maximum
+    departure['listener_stack_free_bytes'] = (1 << 32) - 1
+    for key in departure['stats']:
+        if key not in ('runtime_valid', 'task_runtime_us', 'media'): departure['stats'][key] = maximum
+    departure['stats']['task_runtime_us'] = (1 << 32) - 1
+    departure['stats']['media'] = dict(last_age_us=maximum, max_age_us=maximum, queue_frames_max=maximum)
+    item.update(media_progress=progress, last_listener_departure=departure, network=dict(generation=(1 << 32) - 1, connected=True, disconnects=(1 << 32) - 1))
+    item['listeners'] = [dict(generation=(1 << 32) - 1, state=state, sample_us=maximum, media_age_us=maximum, write_us=maximum,
+                              skips=maximum, frames_skipped=maximum, last_skip_us=maximum) for state in ('writing', 'ready')]
+    return item
 
 
 class LiveListeners(unittest.TestCase):
     def test_live_values_fixed_slots_and_independent_source_freshness(self):
         item = snapshot()
-        item['listeners'] = [dict(generation=9, state='writing', sample_us=19_000_000, media_age_us=500_000, write_us=300_000),
-                             dict(generation=12, state='ready', sample_us=1_000_000, media_age_us=700_000, write_us=400_000)]
+        item['listeners'] = [dict(generation=9, state='writing', sample_us=19_000_000, media_age_us=500_000, write_us=300_000, skips=0, frames_skipped=0, last_skip_us=0),
+                             dict(generation=12, state='ready', sample_us=1_000_000, media_age_us=700_000, write_us=400_000, skips=0, frames_skipped=0, last_skip_us=0)]
         item['listeners'][0]['secret'] = {'peer': ['x' * 4096]}
         cache = dm.Collector(stale=5); cache.accept(item, 10)
         text = cache.render(11)
@@ -59,7 +101,7 @@ class LiveListeners(unittest.TestCase):
 
     def test_ready_does_not_extrapolate_and_idle_differs_from_unknown(self):
         item = snapshot()
-        item['listeners'][0].update(generation=1, state='ready', sample_us=20_000_000, media_age_us=100, write_us=0)
+        item['listeners'][0].update(generation=1, state='ready', sample_us=20_000_000, media_age_us=100, write_us=0, skips=0, frames_skipped=0, last_skip_us=0)
         item['listeners'][1].update(state='idle', sample_us=20_000_000)
         cache = dm.Collector(); cache.accept(item, 10)
         text = cache.render(12)
@@ -84,6 +126,38 @@ class LiveListeners(unittest.TestCase):
             item = snapshot(); item['http_stack_free_bytes'] = number
             with self.assertRaises(ValueError): dm.validate(item)
 
+    def test_skip_counters_validated_projected_and_rendered(self):
+        # The shape firmware/src/listener_observation.rs publishes: counters on every owner
+        # publication (waiting carries zeros), null once the slot is idle.
+        item = snapshot()
+        item['listeners'][0].update(generation=4, state='writing', sample_us=19_000_000, media_age_us=500_000, write_us=300_000,
+                                    skips=2, frames_skipped=333, last_skip_us=18_500_000)
+        item['listeners'][1].update(generation=3, state='waiting', sample_us=19_000_000, skips=0, frames_skipped=0, last_skip_us=0)
+        cache = dm.Collector(stale=5); cache.accept(item, 10)
+        text = cache.render(11)
+        self.assertIn('device_listener_skips{slot="1"} 2', text)
+        self.assertIn('device_listener_skipped_frames{slot="1"} 333', text)
+        self.assertIn('device_listener_last_skip_device_seconds{slot="1"} 18.5', text)
+        self.assertIn('device_listener_skips{slot="2"} 0', text)
+        # The owned copy keeps the counters it validated, never the caller's later mutations.
+        item['listeners'][0]['skips'] = 999
+        self.assertIn('device_listener_skips{slot="1"} 2', cache.render(11))
+        self.assertEqual(cache.value['listeners'][0]['frames_skipped'], 333)
+        waiting = snapshot(); waiting['listeners'][1].update(generation=3, state='waiting', sample_us=1)
+        dm.validate(waiting)
+        idle = snapshot(); idle['listeners'][1].update(state='idle', sample_us=1)
+        dm.validate(idle)
+        idle['served_device_us'] += 1
+        cache.accept(idle, 12)
+        self.assertNotIn('device_listener_skips', cache.render(12))
+        departure = stage_snapshot(); cache = dm.Collector(); cache.accept(departure, 10)
+        self.assertEqual(cache.value['last_listener_departure']['stats']['frames_skipped'], 166)
+        for key, bad in [('skips', True), ('frames_skipped', -1), ('last_skip_us', None)]:
+            item = stage_snapshot(); item['last_listener_departure']['stats'][key] = bad
+            with self.subTest(key=key), self.assertRaises(ValueError): dm.validate(item)
+        item = stage_snapshot(); del item['last_listener_departure']['stats']['skips']
+        with self.assertRaises(ValueError): dm.validate(item)
+
     def test_invalid_listener_wire_rejected(self):
         for mutation in [lambda v: v.pop('listeners'), lambda v: v['listeners'].pop(),
                          lambda v: v.update(listeners={}),
@@ -94,7 +168,15 @@ class LiveListeners(unittest.TestCase):
                          lambda v: v['listeners'][0].update(sample_us=20_000_001),
                          lambda v: v['listeners'][0].update(media_age_us=0),
                          lambda v: v['listeners'][0].update(state='writing', generation=1, write_us=0),
-                         lambda v: v['listeners'][0].update(state='ready', generation=1, write_us=0, media_age_us=-1)]:
+                         lambda v: v['listeners'][0].update(state='ready', generation=1, write_us=0, media_age_us=-1),
+                         # Skip counters mirror media_age_us: integers while writing or ready, null while idle.
+                         lambda v: v['listeners'][0].update(state='writing', generation=1, write_us=0, media_age_us=0),
+                         lambda v: v['listeners'][0].update(state='ready', generation=1, write_us=0, media_age_us=0, skips=0, frames_skipped=0),
+                         lambda v: v['listeners'][0].update(state='ready', generation=1, write_us=0, media_age_us=0, skips=True, frames_skipped=0, last_skip_us=0),
+                         lambda v: v['listeners'][0].update(state='ready', generation=1, write_us=0, media_age_us=0, skips=0, frames_skipped=-1, last_skip_us=0),
+                         lambda v: v['listeners'][0].update(state='ready', generation=1, write_us=0, media_age_us=0, skips=0, frames_skipped=0, last_skip_us=1 << 64),
+                         lambda v: v['listeners'][0].update(state='idle', skips=0),
+                         lambda v: v['listeners'][0].pop('last_skip_us')]:
             item = snapshot(); mutation(item)
             with self.subTest(item=item), self.assertRaises(ValueError): dm.validate(item)
 
@@ -270,6 +352,7 @@ class Validation(unittest.TestCase):
 
 class Transport(unittest.TestCase):
     def serve(self, mode):
+        self_test = self
         class Handler(BaseHTTPRequestHandler):
             def log_message(self, *_): pass
             def do_GET(self):
@@ -282,8 +365,12 @@ class Transport(unittest.TestCase):
                     value.update(boot_token='a' * 32, build_elf_sha256='b' * 64,
                                  private_song='SECRET', settings=None)
                 body = json.dumps(value).encode()
-                if mode == 'maximum': body += b' ' * (4096 - len(body))
-                if mode == 'oversize': body = b' ' * 4097
+                if mode == 'measured':
+                    value = maximal_snapshot(); body = json.dumps(value, separators=(',', ':')).encode()
+                    self_test.assertLessEqual(len(body), MEASURED_MAXIMAL_BODY_BYTES)
+                    body += b' ' * (MEASURED_MAXIMAL_BODY_BYTES - len(body))
+                if mode == 'maximum': body += b' ' * (dm.MAX_BODY_BYTES - len(body))
+                if mode == 'oversize': body = b' ' * (dm.MAX_BODY_BYTES + 1)
                 if mode == 'malformed': body = b'no'
                 self.send_response(302 if mode == 'redirect' else 200)
                 self.send_header('Location', '/api/metrics')
@@ -299,9 +386,15 @@ class Transport(unittest.TestCase):
         self.addCleanup(server.server_close); self.addCleanup(server.shutdown)
         return f'http://127.0.0.1:{server.server_port}/api/metrics'
 
-    def test_good_and_maximum(self):
-        for mode in ['good', 'maximum']:
-            self.assertEqual(dm.fetch(self.serve(mode), .5)['schema_version'], 1)
+    def test_good_measured_and_maximum(self):
+        # The cap is the firmware's MAX_BODY_BYTES (firmware/src/device_metrics.rs); the measured
+        # maximal body sits inside it with room to spare.
+        self.assertEqual(dm.MAX_BODY_BYTES, 4608)
+        self.assertLessEqual(MEASURED_MAXIMAL_BODY_BYTES + 128, dm.MAX_BODY_BYTES)
+        for mode in ['good', 'measured', 'maximum']:
+            value = dm.fetch(self.serve(mode), .5)
+            self.assertEqual(value['schema_version'], 1)
+            if mode == 'measured': self.assertEqual(value['listeners'][1]['skips'], (1 << 64) - 1)
 
     def test_rejects_wire_failures(self):
         for mode in ['oversize', 'malformed', 'redirect', 'slow']:
@@ -346,31 +439,7 @@ class Exporter(unittest.TestCase):
         self.assertEqual(client.getresponse().status, 503)
 
     def test_maximum_prometheus_response(self):
-        item = snapshot(); maximum = (1 << 64) - 1
-        item['served_device_us'] = maximum
-        item['http_stack_free_bytes'] = (1 << 32) - 1
-        item['capture'] = dict.fromkeys(('read_frames callbacks queue_overflows software_dropped_frames read_errors restarts supervisor_restarts overflow_restarts settling_discarded_frames discontinuities health_restart_requests read_service_delay_estimate_max_us raw_work_max_us meter_work_max_us store_work_max_us raw_read_max_us').split(), (1 << 32) - 1)
-        item['capture'].update(dict.fromkeys('internal_free internal_largest internal_min_sum psram_free psram_largest psram_min_sum'.split(), maximum))
-        item['capture'].update(capture_begin_us=maximum - 1, capture_end_us=maximum)
-        item['encoder'] = dict.fromkeys('window_start_us window_end_us telemetry_epoch telemetry_window encoded_frames resets encode_max_us raw_read_frames raw_read_overruns raw_read_retries encode_wall_total_us raw_wait_total_us raw_wait_max_us encoded_lock_wait_wall_total_us encoded_push_held_wall_total_us'.split(), maximum)
-        item['encoder'].update(kind='window', window_start_us=maximum - 1, block_samples=maximum, listeners_start=maximum, listeners_end=maximum, stack_free_bytes=(1 << 32) - 1, task_runtime_us=(1 << 32) - 1, runtime_valid=True)
-        loss = dict(observed_device_us=maximum, dropped=(1 << 32) - 1, loss_occurred=True, metrics_stack_free_bytes=(1 << 32) - 1)
-        item.update(listener_loss=loss, encoder_loss=dict(loss))
-        extra = stage_snapshot()
-        progress = extra['media_progress']; progress['observed_device_us'] = maximum
-        progress['operator_epoch'] = (1 << 32) - 1
-        for name in ('accepted', 'raw', 'encoded'):
-            for key in progress[name]: progress[name][key] = maximum
-        progress['encoded']['operator_epoch'] = (1 << 32) - 1
-        progress['backlog_frames'] = 0
-        departure = extra['last_listener_departure']; departure['observed_device_us'] = maximum
-        departure['listener_stack_free_bytes'] = (1 << 32) - 1
-        for key in departure['stats']:
-            if key not in ('runtime_valid', 'task_runtime_us', 'media'): departure['stats'][key] = maximum
-        departure['stats']['task_runtime_us'] = (1 << 32) - 1
-        departure['stats']['media'] = dict(last_age_us=maximum, max_age_us=maximum, queue_frames_max=maximum)
-        item.update(media_progress=progress, last_listener_departure=departure, network=dict(generation=(1 << 32) - 1, connected=True, disconnects=(1 << 32) - 1))
-        item['listeners'] = [dict(generation=(1 << 32) - 1, state=state, sample_us=maximum, media_age_us=maximum, write_us=maximum) for state in ('writing', 'ready')]
+        item = maximal_snapshot()
         cache = dm.Collector(); cache.accept(item, time.monotonic() - .123456789)
         self.assertLessEqual(len(cache.render(time.monotonic()).encode()), 12288)
         server = dm.MetricsServer(cache, 0)
