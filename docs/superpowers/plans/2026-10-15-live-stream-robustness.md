@@ -1,16 +1,15 @@
 # Live-stream robustness for any consumer
 
 ## Now
-- Step: Task 2 landed and committed (skip policy with ring-depth write
-  deadline, reviewed; harness `--policy live|exact` with 8/15 s stalls;
-  client zoo; pins). Check: host 22 stages `run.DAFQkM3P`, firmware 5
-  stages `run.S7zce0xK` after a formatting-only correction.
-- Next: Task 3 — export `skips`/`frames_skipped`/`last_skip_us` on the
-  UART departure line and in `/api/metrics` (listener slot and
-  `last_listener_departure.stats`), fix the `WriteTiming` budget label
-  for Live timeouts, head `no-cache` + `icy-name`/`icy-description` +
-  `Accept-Ranges: none`, answer `HEAD`; then flash and run the stall
-  matrix under `--policy live` and the zoo on the board.
+- Step: Tasks 2 and 3 landed, reviewed and committed (`aae0089`, Task 3
+  commit after it); all 27 canonical stages pass in one invocation,
+  `run.6DBjPTby`. Flashing the committed image next.
+- Next: hardware acceptance from Doctor Biz's tty (sudo for `tc`):
+  `scripts/network-fault-batch -- --policy live` over the full matrix
+  (null, stall 0.5/1/2.5/4/8/15 × {1,2}, deficit 0.8/0.5, delayed
+  reader), then `scripts/client-zoo` for mp3 and flac with a 4 s stall;
+  the agent evaluates, writes the evidence pair, and records dctv (closes
+  on this), v6vw and pqqq outcomes.
 - Known consequence to state in the evidence: a Live listener whose
   supply (encoder) is persistently more than 4 s stale drops frame after
   frame with one skip event each and never terminates; that is the
