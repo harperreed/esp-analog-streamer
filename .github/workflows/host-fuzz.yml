@@ -27,9 +27,20 @@ jobs:
           persist_github_token: false
       - name: Install scoped fuzz tools
         run: |
+          mise trust mise.toml
           mise trust fuzz/mise.toml
+          mise install ripgrep
           cd fuzz
           mise install rust@nightly-2026-02-01 cargo:cargo-fuzz@0.13.2
+      # The bootstrap step exports nothing (env and export_path are off, and it runs before
+      # mise trust). scripts/test-fuzz-host and scripts/fuzz-host expect rg on PATH, so export
+      # the installed root tools the way mise-action does: variables through GITHUB_ENV, mise's
+      # PATH prefix through GITHUB_PATH (each line prepends, so the last line wins). mise env
+      # skips root tools that are not installed; it does not install them.
+      - name: Activate pinned tools for later steps
+        run: |
+          mise env --dotenv | sed '/^PATH=/d' >> "$GITHUB_ENV"
+          mise bin-paths | tac >> "$GITHUB_PATH"
       - name: Check wrapper
         run: scripts/test-fuzz-host
       - name: Fuzz real host entry points

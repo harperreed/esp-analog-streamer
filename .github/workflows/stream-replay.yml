@@ -37,11 +37,18 @@ jobs:
           sudo apt-get install -y --no-install-recommends build-essential pkg-config libasound2-dev ffmpeg
           mise trust mise.toml
           mise install
-          mise install uv@0.12.19
+      # The bootstrap step exports nothing (env and export_path are off, and it runs before
+      # mise trust). Later steps call harness scripts that expect uv, rg and ffmpeg on PATH, so
+      # export the pinned environment the way mise-action does: variables through GITHUB_ENV,
+      # mise's PATH prefix through GITHUB_PATH (each line prepends, so the last line wins).
+      - name: Activate pinned tools for later steps
+        run: |
+          mise env --dotenv | sed '/^PATH=/d' >> "$GITHUB_ENV"
+          mise bin-paths | tac >> "$GITHUB_PATH"
       - name: Check the audio oracle
-        run: mise exec uv@0.12.19 -- scripts/test-replay-stream
+        run: scripts/test-replay-stream
       - name: Replay production streaming scenarios
-        run: mise exec uv@0.12.19 -- scripts/check-stream-replay
+        run: scripts/check-stream-replay
       - name: Retain replay evidence
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2

@@ -1308,3 +1308,12 @@ candidate against its own acceptance and the evidence, close with typed
 evidence when met, comment the exact unmet gate when not. Reserve a single
 yes/no for outward or irreversible actions: a first push, a security
 change, physical or speaker settings.
+
+The decoder-integrity oracle depends on FFmpeg's own diagnostics: on
+ffmpeg 6.1 (Ubuntu 24.04 apt) `-err_detect crccheck` lets CRC-corrupted
+FLAC through and the soak format check reports a short decode, so the
+hosted runner silently passed corrupted audio on October 15. mise pins
+`conda:ffmpeg 8.0.1` and `ripgrep 15.1.0`; scripts activate `mise env`
+themselves, so a workflow step that calls harness scripts directly must
+export mise's env and bin paths first. Never loosen the negative controls
+to fit an older ffmpeg.

@@ -110,3 +110,40 @@ is now implemented, reviewed and linted; the [hardening plan](../../superpowers/
 records that later checkpoint. Its first hosted execution and artifact upload
 remain unverified, so m31k stays open. Local pilot success does not establish CI
 execution or device coverage.
+
+## Hosted run, 2026-10-15
+
+The first hosted execution of `.github/workflows/host-coverage.yml` ran on
+pull request #1 at `5f46cef` (run 38767598920, job `coverage`, success,
+16:16–16:23 UTC, ubuntu-24.04). Its artifact
+`host-coverage-38767598920-1/run.pMOyxP8e` carries the tool-version logs
+(cargo, rustc 1.93.0, cargo-llvm-cov, llvm-profdata, llvm-cov), the
+working-tree and revision receipts, `reports/coverage.json` and
+`reports/html`. Totals: lines 14,240 of 14,975 (95.1%), functions 1,346 of
+1,437 (93.7%), regions 22,820 of 24,095 (94.7%) over 55 files.
+
+Scope, stated honestly: the report includes 26 files under `firmware/src`
+because the host test adapter (`core/tests/sonos_adapter.rs` and friends)
+compiles that source on the host with `#[path]`. Those lines executed on
+Linux under the adapter's fixtures, not on the ESP32; none of this is
+device, FFI, ISR or Wi-Fi execution coverage, and the firmware's
+`#[cfg(target_os = "espidf")]` bodies are outside the measurement.
+
+Files below 85% line coverage: `tools/src/main.rs` 27.7% (CLI entry, 101
+lines), `core/src/fingerprinting/signature_format.rs` 40.6% (133 lines;
+decoding paths exercised only by the golden test's round trip),
+`core/src/fingerprinting/algorithm.rs` 80.0% (155 lines),
+`firmware/src/stream_pipeline.rs` 80.1% (538 lines). The last is the one
+that matters for this ticket's purpose: the uncovered fifth of the listener
+pipeline is where end-of-stream, retained-close and generation-change
+branches live, and it is the next place to add real-socket tests rather
+than a target to chase as a percentage.
+
+The local pilot and the hosted run agree on scope (same 55-file set shape)
+and the hosted job keeps its instrumented artifacts in its own run
+directory, separate from release builds. The same push's `Host fuzz` and
+`Deterministic stream replay` jobs failed on a missing `rg` binary, and the
+canonical host job failed two ffmpeg-dependent harness tests on the
+runner's ffmpeg 6.1 (the integrity oracle's CRC negative control passed
+corrupted audio there); those are runner-provisioning defects recorded on
+97bk, not coverage findings.
