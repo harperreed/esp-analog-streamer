@@ -1325,3 +1325,11 @@ October 11 and the fuzz harness kept asserting independent channels; the
 committed seed `ramp` crashed the replay for four days and nothing noticed
 until the first hosted fuzz run on October 15. After an encoder or parser
 change, run scripts/fuzz-host once before calling the change checked.
+
+The Wi-Fi is an office network on UniFi. Never block, kick, rate-limit,
+reconfigure or capture on it, and never propose it ("you can't fuck with
+the wifi. this is an office", October 15). Fault injection exists only
+on this workstation's own interface, filtered to the board. AP-side
+evidence (n4jb's AP boundary, ek5b's hop attribution, hv4x's sender/AP
+correlation, z5fs's configurable AP) is unobtainable here by rule, not by
+effort; tickets record that gap instead of chasing it.
