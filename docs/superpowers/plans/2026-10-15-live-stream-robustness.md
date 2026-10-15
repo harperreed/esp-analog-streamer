@@ -1,11 +1,21 @@
 # Live-stream robustness for any consumer
 
 ## Now
-- Step: Task 2, skip-to-live in `firmware/src/stream_pipeline.rs` behind
-  an `exact` flag, counters, `?exact=1` route, tests per the table;
-  delegated to a clean-context implementer. Task 1's table is below.
-- Next: Task 3, firmware head/HEAD/metrics fields and `scripts/check`;
-  then the harness verdicts and the client zoo
+- Step: Task 2 landed and committed (skip policy with ring-depth write
+  deadline, reviewed; harness `--policy live|exact` with 8/15 s stalls;
+  client zoo; pins). Check: host 22 stages `run.DAFQkM3P`, firmware 5
+  stages `run.S7zce0xK` after a formatting-only correction.
+- Next: Task 3 — export `skips`/`frames_skipped`/`last_skip_us` on the
+  UART departure line and in `/api/metrics` (listener slot and
+  `last_listener_departure.stats`), fix the `WriteTiming` budget label
+  for Live timeouts, head `no-cache` + `icy-name`/`icy-description` +
+  `Accept-Ranges: none`, answer `HEAD`; then flash and run the stall
+  matrix under `--policy live` and the zoo on the board.
+- Known consequence to state in the evidence: a Live listener whose
+  supply (encoder) is persistently more than 4 s stale drops frame after
+  frame with one skip event each and never terminates; that is the
+  contract, and it will read as a skip storm in metrics rather than a
+  departure. Exact readers still end with `MediaAge` there.
 - Open: none
 - Approved: "i want to stop thinking about sonos directly, and focus on
   making the stream MUCH more robust. for ANY consumer" (2026-10-15);
@@ -46,8 +56,13 @@ linger hits a held slot and gets 503 (cv5a attempt 3 `stall-4-2`).
    receipt (frames skipped, seconds skipped, count).
 2. **Termination is for dead sockets only**: write error, TCP timeout,
    network lease change, capture reset where no valid frame exists to
-   skip to, or an explicit Stop. The 8 s per-frame write deadline stays as
-   the socket-death detector; it no longer competes with media age.
+   skip to, or an explicit Stop. The socket-death detector for a live
+   listener is the encoded ring depth (about 12 s for MP3 and FLAC, 2 s
+   for FLAC with recognition on), decided 2026-10-15: a socket that has
+   accepted nothing for longer than the board holds audio has lost data
+   that cannot be supplied, so it ends with `StoppedReading`; any shorter
+   stall never ends the listener. Exact readers keep the 8 s limit. It no
+   longer competes with media age.
 3. **Debug and archive readers keep exact-audio termination** (the WAV
    diagnostic path and any `?exact=1` request): a skip would corrupt
    sample accounting there. Default for an unknown consumer on
@@ -82,13 +97,18 @@ that isn't Sonos.
 
 ## Acceptance, measurable
 
-- **Stall matrix, existing harness**: `scripts/network-fault-batch`
-  stalls of 0.5/1/2.5/4 s with one and two listeners, plus 8 s and 15 s:
-  zero listener departures, decoders continuous modulo counted skips
-  (the verdict gains `skips` and allows discontinuities equal to the
-  skip count, nothing else), fresh admission not needed. Deficit trials:
-  sustained 0.8× and 0.5× for 60 s end with the listener still connected
-  and skipping at a steady rate, never departed.
+- **Stall matrix, existing harness**: `scripts/network-fault-batch
+  -- --policy live`, stalls of 0.5/1/2.5/4/8 s with one and two
+  listeners: zero listener departures, decoders exit clean, decoder
+  discontinuities at most the board-reported skips (ffmpeg derives MP3
+  and FLAC timestamps by frame counting, so a skip shows as late audio,
+  not a PTS gap), decoded frames within one frame of expected minus
+  frames skipped, media age back under the null bound. Stall 15 s is
+  beyond the ring depth: exactly one checked `stopped reading` departure
+  per listener and a fresh admission within 10 s of it. Deficit trials:
+  sustained 0.8× and 0.5× for 60 s end with the listener still connected,
+  skip counter monotonic with no gap longer than twice the predicted
+  period, never departed.
 - **Client zoo, on the workstation, wired**: ffmpeg, mpv, VLC, `curl |
   mpg123`, a browser `<audio>` element, each playing `/stream.mp3` and
   `/stream.flac` through a 4 s receiver stall without a reconnect, with
