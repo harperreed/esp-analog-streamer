@@ -33,6 +33,14 @@
   event ran any workflow, so host-coverage, host-fuzz and stream-replay
   never started; cause under investigation. Fixes delegated; m31k stays
   open until the hosted coverage job runs and its reports are inspected.
+- 2026-10-15, later: `5f46cef` (rustfmt/clippy/uv pins, `.embuild`
+  prune) and `e8ee49a` (ripgrep, conda ffmpeg 8.0.1, workflow activation)
+  pushed; `pull_request` runs now fire on synchronize. At `e8ee49a`:
+  canonical host+firmware, coverage and replay GREEN; m31k CLOSED on the
+  inspected hosted coverage report. Host fuzz FAILED on a stale harness:
+  seed `ramp` encodes left/side since Oct 11 and `fuzz/src/lib.rs`
+  asserts independent channels; reproduced locally; fix delegated (harness
+  only). Open count 13.
 - Open: none
 - Approved: "let's add katas and then start nuking em" (2026-10-14);
   "you should verify and close. why would i know?" (2026-10-15, closures

@@ -1317,3 +1317,11 @@ hosted runner silently passed corrupted audio on October 15. mise pins
 themselves, so a workflow step that calls harness scripts directly must
 export mise's env and bin paths first. Never loosen the negative controls
 to fit an older ffmpeg.
+
+scripts/check's fuzz-host stage is the fuzz harness's self-test, not the
+fuzzer. The real run is scripts/fuzz-host (needs a clean tracked tree) or
+the hosted Host fuzz job. Left/side stereo landed in the FLAC encoder on
+October 11 and the fuzz harness kept asserting independent channels; the
+committed seed `ramp` crashed the replay for four days and nothing noticed
+until the first hosted fuzz run on October 15. After an encoder or parser
+change, run scripts/fuzz-host once before calling the change checked.

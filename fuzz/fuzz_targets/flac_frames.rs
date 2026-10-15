@@ -33,7 +33,8 @@ fuzz_target!(|input: &[u8]| {
         match flac::renumber_frame(&mut buffer, len, new) {
             Err(_) => assert_eq!(before, buffer),
             Ok(n) => {
-                let end = header(&buffer[..n]);
+                let (end, _) = header(&buffer[..n]);
+                assert_eq!(&before[..4], &buffer[..4]);
                 assert_eq!(number(&buffer[4..]), new);
                 let count = if before[4] < 128 {
                     1
@@ -62,12 +63,13 @@ fuzz_target!(|input: &[u8]| {
         let mut encoded = Vec::with_capacity(MAX_FRAME_BYTES);
         encoder.encode_block(old, &mut encoded);
         assert!(encoded.len() <= MAX_FRAME_BYTES);
-        let end = header(&encoded);
+        let (end, assignment) = header(&encoded);
         assert_eq!(number(&encoded[4..]), old);
         buffer[..encoded.len()].copy_from_slice(&encoded);
         match flac::renumber_frame(&mut buffer, encoded.len(), new) {
             Ok(n) => {
-                let h = header(&buffer[..n]);
+                let (h, renumbered) = header(&buffer[..n]);
+                assert_eq!(renumbered, assignment);
                 assert_eq!(number(&buffer[4..]), new);
                 assert_eq!(&encoded[end..encoded.len() - 2], &buffer[h..n - 2]);
             }

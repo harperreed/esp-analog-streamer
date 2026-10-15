@@ -44,8 +44,23 @@ pub fn number(bytes: &[u8]) -> u32 {
     assert!(value >= minimum && value <= 0x7fffffff);
     value
 }
-pub fn header(frame: &[u8]) -> usize {
-    assert_eq!(&frame[..4], &[0xff, 0xf8, 0xca, 0x18]);
+/// The channel assignment the encoder chose for one block.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Assignment {
+    /// Two 16-bit subframes: left, then right.
+    Independent,
+    /// A 16-bit left subframe, then a 17-bit side (left minus right) subframe.
+    LeftSide,
+}
+/// Checks the fixed header fields, number, CRC-8 and CRC-16 of one encoder frame.
+/// Returns where the subframes start and which assignment the header declares.
+pub fn header(frame: &[u8]) -> (usize, Assignment) {
+    assert_eq!(&frame[..3], &[0xff, 0xf8, 0xca]);
+    let assignment = match frame[3] {
+        0x18 => Assignment::Independent,
+        0x88 => Assignment::LeftSide,
+        byte => panic!("unexpected channel assignment byte {byte:#04x}"),
+    };
     let count = match frame[4].leading_ones() {
         0 => 1,
         n @ 2..=6 => n as usize,
@@ -55,27 +70,58 @@ pub fn header(frame: &[u8]) -> usize {
     let end = 5 + count;
     assert_eq!(crc(&frame[..end], 8, 7), 0);
     assert_eq!(crc(frame, 16, 0x8005), 0);
-    end
+    // Two constant subframes: 24 bits each, 25 for the 17-bit side, rounded up to bytes.
+    let minimum_subframes = match assignment {
+        Assignment::Independent => 6,
+        Assignment::LeftSide => 7,
+    };
+    assert!(frame.len() >= end + minimum_subframes + 2);
+    (end, assignment)
 }
 #[cfg(test)]
 mod encoded_tests {
     use super::*;
     use esp_shazam_core::flac::{self, Encoder};
-    fn encoded() -> Vec<u8> {
+    fn encoded_from(samples: &[i32]) -> Vec<u8> {
         let mut encoder = Encoder::try_new().unwrap();
-        encoder.push(&vec![0; 8192]);
+        encoder.push(samples);
         let mut frame = Vec::with_capacity(flac::MAX_FRAME_BYTES);
         encoder.encode_block(0, &mut frame);
         frame
     }
+    fn encoded() -> Vec<u8> {
+        encoded_from(&vec![0; 8192])
+    }
+    fn decoded(frame: Vec<u8>) -> Vec<i32> {
+        let stream: Vec<u8> = flac::stream_header().into_iter().chain(frame).collect();
+        let mut reader = claxon::FlacReader::new(&stream[..]).unwrap();
+        reader.samples().collect::<Result<_, _>>().unwrap()
+    }
     #[test]
     fn independent_decoder_reads_complete_silent_block() {
         let frame = encoded();
-        header(&frame);
-        let stream: Vec<u8> = flac::stream_header().into_iter().chain(frame).collect();
-        let mut reader = claxon::FlacReader::new(&stream[..]).unwrap();
-        let decoded: Vec<i32> = reader.samples().collect::<Result<_, _>>().unwrap();
-        assert_eq!(decoded, vec![0; 8192]);
+        assert_eq!(header(&frame).1, Assignment::Independent);
+        assert_eq!(decoded(frame), vec![0; 8192]);
+    }
+    #[test]
+    fn independent_decoder_reads_left_side_block() {
+        // Full-scale noise on both channels: the side channel is constant, so the encoder
+        // picks left-side and the decoder must undo it to the same quantized samples.
+        let mut state = 0x2545_f491_4f6c_dd1du64;
+        let samples: Vec<i32> = (0..4096)
+            .flat_map(|_| {
+                state = state.wrapping_mul(6364136223846793005).wrapping_add(1);
+                let sample = (state >> 40) as i32 - (1 << 23);
+                [sample, sample]
+            })
+            .collect();
+        let frame = encoded_from(&samples);
+        assert_eq!(header(&frame).1, Assignment::LeftSide);
+        let expected: Vec<i32> = samples
+            .iter()
+            .map(|&s| (s >> 8).clamp(-32768, 32767))
+            .collect();
+        assert_eq!(decoded(frame), expected);
     }
     #[test]
     fn oracle_rejects_corrupted_header_and_footer() {
@@ -85,6 +131,19 @@ mod encoded_tests {
             broken[position] ^= 1;
             assert!(std::panic::catch_unwind(|| header(&broken)).is_err());
         }
+    }
+    #[test]
+    fn oracle_rejects_mid_side_assignment_with_valid_crcs() {
+        let mut broken = encoded();
+        let (end, _) = header(&broken);
+        broken[3] = 0x28;
+        broken[end - 1] = crc(&broken[..end - 1], 8, 7) as u8;
+        let len = broken.len();
+        let footer = crc(&broken[..len - 2], 16, 0x8005).to_be_bytes();
+        broken[len - 2..].copy_from_slice(&footer);
+        assert_eq!(crc(&broken[..end], 8, 7), 0);
+        assert_eq!(crc(&broken, 16, 0x8005), 0);
+        assert!(std::panic::catch_unwind(|| header(&broken)).is_err());
     }
 }
 
