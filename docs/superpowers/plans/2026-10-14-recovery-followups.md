@@ -41,6 +41,16 @@
   seed `ramp` encodes left/side since Oct 11 and `fuzz/src/lib.rs`
   asserts independent channels; reproduced locally; fix delegated (harness
   only). Open count 13.
+- `e4ce144` fixes the fuzz harness (left/side accepted, mid-side and
+  corrupted bytes still rejected, assignment survives renumbering). Local
+  `scripts/fuzz-host --seconds 60` passes at `e4ce144` (run.8uLmJAZH,
+  three targets, zero artifacts), the first real fuzz receipt since Oct
+  10. Hosted at `e4ce144`: Host fuzz GREEN, coverage GREEN, replay GREEN,
+  canonical push-event GREEN (host+firmware); the pull_request-event
+  firmware job failed 18 s in on mise-action's download of mise (curl
+  exit 22) before any project step; the re-run passed unchanged, so it
+  was transient. Every hosted check on PR #1 is green at `e4ce144`.
+  97bk's hosted gates are met; HIL remains absent, so it stays blocked.
 - Open: none
 - Approved: "let's add katas and then start nuking em" (2026-10-14);
   "you should verify and close. why would i know?" (2026-10-15, closures
