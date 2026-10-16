@@ -1,15 +1,16 @@
 # Live-stream robustness for any consumer
 
 ## Now
-- Step: Tasks 2 and 3 landed, reviewed and committed (`aae0089`, Task 3
-  commit after it); all 27 canonical stages pass in one invocation,
-  `run.6DBjPTby`. Flashing the committed image next.
-- Next: hardware acceptance from Doctor Biz's tty (sudo for `tc`):
-  `scripts/network-fault-batch -- --policy live` over the full matrix
-  (null, stall 0.5/1/2.5/4/8/15 × {1,2}, deficit 0.8/0.5, delayed
-  reader), then `scripts/client-zoo` for mp3 and flac with a 4 s stall;
-  the agent evaluates, writes the evidence pair, and records dctv (closes
-  on this), v6vw and pqqq outcomes.
+- Step: hardware batch 1 evaluated (see below): 15/17, both failures
+  explained. Live write deadline doubled to 2× ring depth (24 s); the
+  harness deficit verdict falls back to attributed decoder skips when
+  the rate limit starves metrics; `stall-30` added as the beyond case.
+  All 27 stages `run.oxngNGDg`. Both subagents were lost to a rate
+  limit mid-task; the fixes were finished by hand.
+- Next: flash, then batch 2 from Doctor Biz's tty
+  (`scripts/network-fault-batch -- --policy live`, now 19 trials), then
+  `scripts/client-zoo`; evidence pair; dctv closes on this; v6vw and pqqq
+  outcomes recorded.
 - Known consequence to state in the evidence: a Live listener whose
   supply (encoder) is persistently more than 4 s stale drops frame after
   frame with one skip event each and never terminates; that is the
@@ -211,6 +212,33 @@ it needs a close reaper and is its own task after the skip lands.
    driver over the five players with receipts.
 5. Hardware: the stall matrix and the client zoo on the board; evidence
    pair; close dctv, record v6vw/pqqq outcomes.
+
+## Hardware batch 1 (2026-10-16, `oct16-interruption-1`, image `217cfbfa…`)
+
+15 of 17 under `--policy live`, 1037 s, qdisc restored. Every stall from
+0.5 s to 8 s with one listener kept its socket with exact decoded frames
+and zero departures (board skips 0–2 per listener, matching the harness);
+both 15 s stalls ended with one checked `stopped reading` per listener
+and a fresh admission, as the contract said; 0.8× deficit kept its socket
+with 4 board skips at a steady rate; the delayed WAV reader ended on its
+own deadline with the MP3 listener exact. Two failures, neither the
+board's:
+
+- `stall-8-2`: one of two listeners departed `stopped reading` with a
+  single sender poll of 12,048,858 µs — the 12 s live deadline, hit
+  exactly. Its write began ~2 s into the 8 s blackhole and the first ACK
+  came back more than 12 s later: lwIP's retransmit backoff adds several
+  seconds on top of the blackhole. The ring depth was never a real bound
+  (the frame is a private copy), so the live deadline becomes 2× ring
+  depth (24 s MP3/FLAC, 4.1 s FLAC with recognition); 15 s stalls are
+  expected to survive and 30 s becomes the beyond-deadline case.
+- `deficit-0.5-1`: the board skipped (`skips=7 frames_skipped=1261`, 30 s
+  of audio) and the decoder got exactly 60 s of audio over 90 s of wall
+  time, but the verdict read zero skips because the ifb0 rate limit
+  throttles all board→workstation traffic including `/api/metrics` (0
+  of 96 samples) and the departure fell outside the window. Harness
+  verdict fix: attributed decoder skips first; metrics starvation
+  recorded, not failed.
 
 ## Limits
 

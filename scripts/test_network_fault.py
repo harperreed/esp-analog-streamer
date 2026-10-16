@@ -242,7 +242,8 @@ class TrialSpecTests(unittest.TestCase):
     def test_all_trials_are_named_in_plan_order(self):
         self.assertEqual(nf.TRIALS, ['null-1', 'null-2', 'stall-0.5-1', 'stall-0.5-2', 'stall-1-1', 'stall-1-2',
                                      'stall-2.5-1', 'stall-2.5-2', 'stall-4-1', 'stall-4-2', 'stall-8-1', 'stall-8-2',
-                                     'stall-15-1', 'stall-15-2', 'deficit-0.8-1', 'deficit-0.5-1', 'delayed-reader-1'])
+                                     'stall-15-1', 'stall-15-2', 'stall-30-1', 'stall-30-2', 'deficit-0.8-1', 'deficit-0.5-1',
+                                     'delayed-reader-1'])
         self.assertEqual(nf.trial_spec('stall-15-2'), dict(name='stall-15-2', kind='stall', listeners=2, seconds=20 + 15 + 20,
                                                            profile=nf.stall_profile(15.0)))
 
@@ -1215,26 +1216,46 @@ class LivePolicyTests(unittest.TestCase):
         self.assertFalse(nf.trial_verdict(dict(trial, age_bound_us=None), LIVE_STALL_4_1_EVENTS + RUN4_STALL_4_1_SAMPLES)['passed'])
 
     def test_ring_depth_rule_splits_the_stall_matrix(self):
-        # MP3 ring: 500 frames x 1152 samples / 48 kHz.
-        self.assertAlmostEqual(nf.LIVE_WRITE_DEADLINE_S, 12.0)
+        # Twice the MP3 ring: 2 x 500 frames x 1152 samples / 48 kHz. 15 s stalls must survive; 30 s is beyond.
+        self.assertAlmostEqual(nf.LIVE_WRITE_DEADLINE_S, 24.0)
         self.assertEqual([nf.beyond_ring_depth(nf.trial_spec(name)['profile']['seconds']) for name in nf.TRIALS if name.startswith('stall')],
-                         [False] * 10 + [True, True])
-        self.assertFalse(nf.beyond_ring_depth(12.0))
-        self.assertTrue(nf.beyond_ring_depth(12.01))
+                         [False] * 12 + [True, True])
+        self.assertFalse(nf.beyond_ring_depth(24.0))
+        self.assertTrue(nf.beyond_ring_depth(24.01))
 
     def beyond_events(self, listeners=1):
-        trial = live_setup(nf.trial_spec(f'stall-15-{listeners}'), RUN4_BEFORE, RUN4_TOLERANCES, None)
+        trial = live_setup(nf.trial_spec(f'stall-30-{listeners}'), RUN4_BEFORE, RUN4_TOLERANCES, None)
         expected = trial['expected_frames']
-        events = [metrics(0), injection('installed', 20), injection('removed', 35.1), metrics(50, age=None)]
+        events = [metrics(0), injection('installed', 20), injection('removed', 50.1), metrics(65, age=None)]
         for index in range(1, listeners + 1):
             # The write deadline fires mid-stall; the harness replaces the listener once its close line arrives.
             events += [admission(f'p{index}', 1_000_000 + index, 0.5),
-                       departure(f'p{index}', 'stopped reading', 50_000_000 + index, 32.0 + index / 10, skips=0, frames_skipped=0),
-                       close(f'p{index}', 50_010_000 + index, 32.2 + index / 10),
-                       admission(f'f{index}', 56_000_000 + index, 37.0 + index / 10),
-                       decoder(f'l-listener-{index}', expected // 3, expected, exit_code=251, ended='cut', ended_s=32.5 + index / 10),
-                       fresh(f'l-fresh-{index}', 47.3 + index / 10), reset_after(f'f{index}', 47.3 + index / 10, device_us=66_000_000 + index)]
+                       departure(f'p{index}', 'stopped reading', 50_000_000 + index, 44.0 + index / 10, skips=0, frames_skipped=0),
+                       close(f'p{index}', 50_010_000 + index, 44.2 + index / 10),
+                       admission(f'f{index}', 56_000_000 + index, 49.0 + index / 10),
+                       decoder(f'l-listener-{index}', expected // 3, expected, exit_code=251, ended='cut', ended_s=44.5 + index / 10),
+                       fresh(f'l-fresh-{index}', 59.3 + index / 10), reset_after(f'f{index}', 59.3 + index / 10, device_us=66_000_000 + index)]
         return trial, events
+
+    def test_live_deficit_falls_back_to_attributed_skips_when_metrics_are_starved(self):
+        # oct16-interruption-1 deficit-0.5-1: the ifb0 rate limit starved every metrics poll (0 of 96 samples), the
+        # listener kept its socket, and its departure line carried skips=7 frames_skipped=1261, attributed to the decoder.
+        trial = live_setup(nf.trial_spec('deficit-0.5-1'), RUN4_BEFORE, None, installed_of(self.deficit_events()))
+        starved = [event for event in self.deficit_events() if event['kind'] != 'metrics']
+        starved = [dict(event, skips=7, frames_skipped=1261) if event['kind'] == 'decoder' else event for event in starved]
+        verdict = nf.trial_verdict(trial, starved)
+        self.assertTrue(verdict['passed'], verdict)
+        self.assertTrue(verdict['metrics_starved'])
+        self.assertIn('7 attributed skips', verdict['reason'])
+        self.assertIn('unjudged', verdict['reason'])
+        none = [dict(event, skips=0, frames_skipped=0) if event['kind'] == 'decoder' else event for event in starved]
+        verdict = nf.trial_verdict(trial, none)
+        self.assertFalse(verdict['passed'])
+        self.assertIn('no skip', verdict['reason'])
+        unattributed = [dict(event, skips=None, frames_skipped=None) if event['kind'] == 'decoder' else event for event in starved]
+        verdict = nf.trial_verdict(trial, unattributed)
+        self.assertFalse(verdict['passed'])
+        self.assertIn('attributed departure', verdict['reason'])
 
     def test_live_stall_beyond_ring_depth_expects_checked_frame_timeout_departures_then_fresh_admissions(self):
         trial, events = self.beyond_events()

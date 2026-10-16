@@ -638,12 +638,12 @@ fn skips_cost_no_heap_allocation() {
 }
 
 #[test]
-fn live_frame_writes_get_the_ring_depth_and_exact_keeps_the_fixed_limit() {
+fn live_frame_writes_get_twice_the_ring_depth_and_exact_keeps_the_fixed_limit() {
     use esp_shazam_core::stream_buffer::BufferPreset;
     // An exact deadline is the smaller of the media bound and the fixed limit, so the exact rows
     // carry enough startup history for the fixed limit to be the one that shows.
     for (format, recognition, policy, preset, frame_limit_ms) in [
-        (OutputFormat::Mp3, false, ListenerPolicy::Live, None, 12_000),
+        (OutputFormat::Mp3, false, ListenerPolicy::Live, None, 24_000),
         (
             OutputFormat::Mp3,
             false,
@@ -656,7 +656,7 @@ fn live_frame_writes_get_the_ring_depth_and_exact_keeps_the_fixed_limit() {
             false,
             ListenerPolicy::Live,
             None,
-            12_032,
+            24_064,
         ),
         (
             OutputFormat::Flac,
@@ -665,7 +665,7 @@ fn live_frame_writes_get_the_ring_depth_and_exact_keeps_the_fixed_limit() {
             Some(BufferPreset::High),
             8_021,
         ),
-        (OutputFormat::Flac, true, ListenerPolicy::Live, None, 2_048),
+        (OutputFormat::Flac, true, ListenerPolicy::Live, None, 4_096),
         (OutputFormat::Flac, true, ListenerPolicy::Exact, None, 2_048),
     ] {
         assert_eq!(
@@ -727,7 +727,7 @@ fn live_frame_writes_get_the_ring_depth_and_exact_keeps_the_fixed_limit() {
 }
 
 #[test]
-fn live_mp3_listener_outlives_a_ten_second_stall_and_ends_only_past_the_ring_depth() {
+fn live_mp3_listener_outlives_a_ten_second_stall_and_ends_only_past_twice_the_ring_depth() {
     let (_runtime, mut worker) = Runtime::new(OutputFormat::Mp3, false).unwrap();
     let epoch = worker.epoch.clone();
     let mut time = Duration::ZERO;
@@ -740,14 +740,15 @@ fn live_mp3_listener_outlives_a_ten_second_stall_and_ends_only_past_the_ring_dep
         &mut stream,
         &mut || time,
     );
-    // The peer accepts nothing for 10 s, then takes the whole frame: inside the ring depth.
+    // The peer accepts nothing for 10 s, then takes the whole frame: inside the live budget of
+    // twice the ring depth.
     publish_block(&mut worker, &epoch, 0, 0);
     let ListenerStep::Write { deadline, .. } =
         listener.step(&epoch, &mut scratch, &mut || time, &mut || true)
     else {
         panic!("frame write");
     };
-    assert_eq!(deadline, Duration::from_secs(12));
+    assert_eq!(deadline, Duration::from_secs(24));
     time = Duration::from_secs(10);
     assert!(matches!(
         listener.write_finished(Ok(()), &mut || time),
@@ -766,13 +767,14 @@ fn live_mp3_listener_outlives_a_ten_second_stall_and_ends_only_past_the_ring_dep
     assert_eq!(sequence, 3);
     assert_eq!((listener.skips, listener.frames_skipped), (1, 1));
     assert_eq!(listener.frames_sent, 2);
-    // Nothing accepted for longer than the ring holds: the socket is dead, the departure counts.
+    // Nothing accepted for longer than twice the ring depth: the socket is dead, the departure
+    // counts.
     publish_block(&mut worker, &epoch, 3, 10_000_000);
     assert!(matches!(
         listener.step(&epoch, &mut scratch, &mut || time, &mut || true),
         ListenerStep::Write { header: false, .. }
     ));
-    time = Duration::from_millis(22_100);
+    time = Duration::from_millis(34_100);
     assert!(matches!(
         listener.write_finished(
             Err(std::io::Error::new(

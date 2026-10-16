@@ -1079,7 +1079,10 @@ fn timeout_receipt_labels_the_budget_the_listener_gave_the_write() {
     // The header keeps the fixed limit under both policies; a live frame gets the ring depth
     // (contract point 2) and the receipt must say so, not quote the exact reader's limit.
     for (policy, frame_limit_ms) in [
-        (ListenerPolicy::Live, OutputFormat::Mp3.ring_depth_ms(false)),
+        (
+            ListenerPolicy::Live,
+            OutputFormat::Mp3.live_write_limit_ms(false),
+        ),
         (
             ListenerPolicy::Exact,
             OutputFormat::Mp3.write_limit_ms(false),

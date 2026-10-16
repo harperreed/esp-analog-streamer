@@ -484,10 +484,10 @@ impl CompressedListener {
             cursor: None,
             header,
             header_limit: Duration::from_millis(epoch.format.write_limit_ms(recognition)),
-            // A live frame may take as long as the ring holds audio: a socket that accepts
-            // nothing for longer has lost data the ring cannot supply, so it is dead, not slow.
+            // A live frame may take twice as long as the ring holds audio; a socket that accepts
+            // nothing for longer is dead, not slow. See OutputFormat::live_write_limit_ms.
             write_limit: Duration::from_millis(match policy {
-                ListenerPolicy::Live => epoch.format.ring_depth_ms(recognition),
+                ListenerPolicy::Live => epoch.format.live_write_limit_ms(recognition),
                 ListenerPolicy::Exact => epoch.format.write_limit_ms(recognition),
             }),
             block_number: 0,

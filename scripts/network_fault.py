@@ -39,10 +39,12 @@ LIVE, EXACT = 'live', 'exact'
 POLICIES = (LIVE, EXACT)
 # A steady deficit skips about once per MEDIA_AGE_BASE_S / (1 - fraction); a gap beyond this multiple is not steady.
 SKIP_GAP_TOLERANCE = 2.0
-# Under live policy the per-frame write deadline is the encoded ring depth: the harness streams MP3, whose ring holds
-# 500 frames of 1152 samples at 48 kHz = 12.0 s (FLAC: 12.03 s, 2.05 s with recognition on; decision 2026-10-15).
-# A stall longer than this blocks the write past its budget, so the board ends the socket (`stopped reading`).
-LIVE_WRITE_DEADLINE_S = 500 * 1152 / 48000
+# Under live policy the per-frame write deadline is twice the encoded ring depth: the harness streams MP3, whose ring
+# holds 500 frames of 1152 samples at 48 kHz = 12.0 s, so the budget is 24.0 s (FLAC 24.06 s, 4.1 s with recognition).
+# One ring depth was too tight on hardware: an 8 s blackhole ended a listener with a 12.05 s poll because the board's
+# TCP retransmit backoff adds several seconds after the path returns (oct16-interruption-1, stall-8-2). A stall longer
+# than the budget blocks the write past it, so the board ends the socket (`stopped reading`).
+LIVE_WRITE_DEADLINE_S = 2 * 500 * 1152 / 48000
 # Plain /stream.mp3 is Route::Stream with no preset (core/src/stream_http.rs:637, firmware/src/stream.rs:427),
 # so MediaAge::for_stream(None, Mp3) bounds the age at four seconds (core/src/media_age.rs).
 MEDIA_AGE_BASE_S = 4.0
@@ -57,7 +59,8 @@ DELAYED_READER_SECONDS = 40.0
 FRESH_LISTENER_SECONDS = 10.0
 STREAM_PORT = 8000
 TRIALS = ['null-1', 'null-2', 'stall-0.5-1', 'stall-0.5-2', 'stall-1-1', 'stall-1-2', 'stall-2.5-1', 'stall-2.5-2',
-          'stall-4-1', 'stall-4-2', 'stall-8-1', 'stall-8-2', 'stall-15-1', 'stall-15-2', 'deficit-0.8-1', 'deficit-0.5-1',
+          'stall-4-1', 'stall-4-2', 'stall-8-1', 'stall-8-2', 'stall-15-1', 'stall-15-2', 'stall-30-1', 'stall-30-2',
+          'deficit-0.8-1', 'deficit-0.5-1',
           'delayed-reader-1']
 # Band 4 of a four-band prio: the default priomap only names bands 0-2, so nothing but the u32 filter lands there.
 EGRESS_NETEM_PARENT = '1:4'
@@ -627,7 +630,18 @@ def trial_verdict(trial, events):
         steady = skip_steadiness(samples, installed_s, removed_s, period)
         detail = dict(predicted_skip_period_s=period, max_skip_gap_s=steady['max_skip_gap_s'], skip_times_s=steady['skip_times_s'])
         if steady['skips'] is None:
-            return fail('no metrics sample reports skip counters during the deficit', decoders=records, **detail)
+            # The ifb0 rate limit throttles every board->workstation byte, metrics replies included, so a hard
+            # deficit can starve the poller entirely (oct16-interruption-1 deficit-0.5-1: 0 of 96 samples). The
+            # board's own counters on the listener's departure line, attributed by attribute_skips, still say
+            # whether it skipped; steadiness is unjudged and recorded as such.
+            attributed = [decoder['skips'] for decoder in decoders if decoder.get('skips') is not None]
+            if not attributed:
+                return fail('no metrics sample or attributed departure reports skip counters during the deficit',
+                            decoders=records, **detail)
+            if sum(attributed) < 1:
+                return fail('no skip during the deficit', decoders=records, metrics_starved=True, **detail)
+            return live_verdict(records, f'listener kept its socket with {sum(attributed)} attributed skips; metrics '
+                                'starved during the deficit so steadiness is unjudged', metrics_starved=True, **detail)
         if steady['skips'] < 1:
             return fail('no skip during the deficit', decoders=records, **detail)
         if not steady['monotonic']:

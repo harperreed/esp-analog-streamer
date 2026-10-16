@@ -69,10 +69,17 @@ impl OutputFormat {
             Self::Mp3 => 500,
         }
     }
-    /// How long the encoded ring holds audio: the most a live listener's frame write may take,
-    /// since a socket that accepts nothing for longer has lost data the ring can no longer supply.
+    /// How long the encoded ring holds audio.
     pub const fn ring_depth_ms(self, recognition: bool) -> u64 {
         (self.history_frames(recognition) * self.block_frames()) as u64 * 1_000 / 48_000
+    }
+    /// The most a live listener's frame write may take: twice the ring depth. The frame being
+    /// written is a private copy, so the ring wrapping underneath is harmless; the bound exists to
+    /// call a socket dead. One ring depth was too tight on hardware: an 8 s blackhole ended a
+    /// listener with a 12.05 s poll, because lwIP's retransmit backoff adds several seconds after
+    /// the path returns (oct16-interruption-1, stall-8-2).
+    pub const fn live_write_limit_ms(self, recognition: bool) -> u64 {
+        2 * self.ring_depth_ms(recognition)
     }
     pub const fn write_limit_ms(self, recognition: bool) -> u64 {
         match self {
