@@ -1,16 +1,16 @@
 # Live-stream robustness for any consumer
 
 ## Now
-- Step: hardware batch 1 evaluated (see below): 15/17, both failures
-  explained. Live write deadline doubled to 2× ring depth (24 s); the
-  harness deficit verdict falls back to attributed decoder skips when
-  the rate limit starves metrics; `stall-30` added as the beyond case.
-  All 27 stages `run.oxngNGDg`. Both subagents were lost to a rate
-  limit mid-task; the fixes were finished by hand.
-- Next: flash, then batch 2 from Doctor Biz's tty
-  (`scripts/network-fault-batch -- --policy live`, now 19 trials), then
-  `scripts/client-zoo`; evidence pair; dctv closes on this; v6vw and pqqq
-  outcomes recorded.
+- Step: hardware acceptance DONE (2026-10-18). Batch 2 on image
+  `613e7621…` (24 s live budget): 19/19 under the final verdict
+  (`19d7608`), every stall through 15 s survived with exact frames, 30 s
+  departed cleanly and re-admitted, both deficits kept their sockets.
+  Client zoo 5/5 (ffmpeg, mpv, mpg123, sox, curl, zero reconnects). A
+  narrow sudoers rule for `tc`/`ip link` now lets the agent run the
+  batches itself. Evidence pair under `docs/audit-evidence/2026-10-18/`.
+- Next: commit the evidence, close dctv on it, record v6vw/pqqq/cv5a
+  outcomes; then the one remaining item from the contract, early slot
+  release during close linger (a close reaper), as its own bounded task.
 - Known consequence to state in the evidence: a Live listener whose
   supply (encoder) is persistently more than 4 s stale drops frame after
   frame with one skip event each and never terminates; that is the

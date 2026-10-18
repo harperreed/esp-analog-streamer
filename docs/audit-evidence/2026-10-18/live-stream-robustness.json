@@ -1,0 +1,1595 @@
+{
+ "schema": 1,
+ "plan": "docs/superpowers/plans/2026-10-15-live-stream-robustness.md",
+ "tickets": [
+  "dctv",
+  "v6vw",
+  "pqqq",
+  "cv5a"
+ ],
+ "harness_commit": "19d76088e84e72897d8ca8c958d3986419eda3dc",
+ "product_commits": [
+  "aae0089",
+  "98e54a0",
+  "3fb6667"
+ ],
+ "harness_sha256": {
+  "scripts/network_fault.py": "a1dbb6e1510c0d1240f003e8e370dce55ac55030bca6606e2e427be18b793157",
+  "scripts/client_zoo.py": "981cea589cd85ade318a73733e43b9d486009ccb53841844d138e87916427ce6",
+  "firmware/src/stream_pipeline.rs": "12cb3bf2acfeff06f31c1d154619bb3462c2418ded003449183f3795c8779f33",
+  "core/src/flac_ring.rs": "6f674fdd5c4bfd86e26b3508df30e0a02c1903230fe6249911b288e8d3104bbb"
+ },
+ "board": "192.168.23.217",
+ "batches": {
+  "oct16-interruption-1": {
+   "directory": "target/kata-hardening/oct16-interruption-1",
+   "started_utc": "2026-10-16T19:16:51.307668+00:00",
+   "elapsed_seconds": 1037.207,
+   "original_passed": false,
+   "error": null,
+   "boot_token": "1a3d7b15c2fa15b54499cefe2a81f934",
+   "build_elf_sha256": "217cfbfac94e4343213112e5dacbfe43a262a668bda6d048246e843a63900021",
+   "restore_verified": true,
+   "cleanup_errors": [],
+   "tolerances": {
+    "age_bound_us": 521812,
+    "largest_tolerance_bytes": {
+     "internal_largest": 2048,
+     "psram_largest": 0
+    },
+    "source": [
+     "null-1",
+     "null-2"
+    ]
+   },
+   "environment": {
+    "route": "192.168.23.217 dev enp5s0 src 192.168.23.153 uid 1000 \n    cache \n",
+    "route_interface": "enp5s0",
+    "tc_version": "tc utility, iproute2-6.19.0, libbpf 1.6.3",
+    "kernel": "7.0.0-38-generic",
+    "qdisc_before": "qdisc mq 0: root \nqdisc fq_codel 0: parent :4 limit 10240p flows 1024 quantum 1514 target 5ms interval 100ms memory_limit 32Mb ecn drop_batch 64 \nqdisc fq_codel 0: parent :3 limit 10240p flows 1024 quantum 1514 target 5ms interval 100ms memory_limit 32Mb ecn drop_batch 64 \nqdisc fq_codel 0: parent :2 limit 10240p flows 1024 quantum 1514 target 5ms interval 100ms memory_limit 32Mb ecn drop_batch 64 \nqdisc fq_codel 0: parent :1 limit 10240p flows 1024 quantum 1514 target 5ms interval 100ms memory_limit 32Mb ecn drop_batch 64 \n"
+   },
+   "qdisc_installed": "qdisc prio 1: root refcnt 9 bands 4 priomap 1 2 2 2 1 2 0 0 1 1 1 1 1 1 1 1\nqdisc netem 10: parent 1:4 limit 1000 seed 4895776739570355583\nqdisc ingress ffff: parent ffff:fff1 ---------------- \n",
+   "original_trials": {
+    "null-1": {
+     "passed": true,
+     "reason": "exact frames, no departures, counters flat",
+     "metrics_unavailable": 0,
+     "harness_closes": 1,
+     "decoders": [
+      {
+       "frames": 2880000,
+       "expected": 2880000,
+       "discontinuities": 0,
+       "completed": true,
+       "skips": 0,
+       "frames_skipped": 0
+      }
+     ],
+     "product_departures": []
+    },
+    "null-2": {
+     "passed": true,
+     "reason": "exact frames, no departures, counters flat",
+     "metrics_unavailable": 5,
+     "harness_closes": 2,
+     "decoders": [
+      {
+       "frames": 2880000,
+       "expected": 2880000,
+       "discontinuities": 0,
+       "completed": true,
+       "skips": 0,
+       "frames_skipped": 0
+      },
+      {
+       "frames": 2880000,
+       "expected": 2880000,
+       "discontinuities": 0,
+       "completed": true,
+       "skips": 0,
+       "frames_skipped": 0
+      }
+     ],
+     "product_departures": []
+    },
+    "stall-0.5-1": {
+     "passed": true,
+     "reason": "continuous modulo 0 skip(s), no departures",
+     "stall_actual_s": 0.551,
+     "beyond_ring_depth": false,
+     "departed": 0,
+     "metrics_unavailable": 2,
+     "harness_closes": 1,
+     "skips": 0,
+     "frames_skipped": 0,
+     "age_peak_after_removal_us": 1602557,
+     "age_last_active_us": 43683,
+     "decoders": [
+      {
+       "frames": 1944000,
+       "expected": 1944000,
+       "discontinuities": 0,
+       "completed": true,
+       "skips": 0,
+       "frames_skipped": 0
+      }
+     ],
+     "product_departures": []
+    },
+    "stall-0.5-2": {
+     "passed": true,
+     "reason": "continuous modulo 2 skip(s), no departures",
+     "stall_actual_s": 0.568,
+     "beyond_ring_depth": false,
+     "departed": 0,
+     "metrics_unavailable": 3,
+     "harness_closes": 2,
+     "skips": 2,
+     "frames_skipped": 456,
+     "age_peak_after_removal_us": 5182225,
+     "age_last_active_us": 65685,
+     "decoders": [
+      {
+       "frames": 1944000,
+       "expected": 1944000,
+       "discontinuities": 0,
+       "completed": true,
+       "skips": 1,
+       "frames_skipped": 228
+      },
+      {
+       "frames": 1944000,
+       "expected": 1944000,
+       "discontinuities": 0,
+       "completed": true,
+       "skips": 1,
+       "frames_skipped": 228
+      }
+     ],
+     "product_departures": []
+    },
+    "stall-1-1": {
+     "passed": true,
+     "reason": "continuous modulo 0 skip(s), no departures",
+     "stall_actual_s": 1.093,
+     "beyond_ring_depth": false,
+     "departed": 0,
+     "metrics_unavailable": 3,
+     "harness_closes": 1,
+     "skips": 0,
+     "frames_skipped": 0,
+     "age_peak_after_removal_us": 1921170,
+     "age_last_active_us": 47014,
+     "decoders": [
+      {
+       "frames": 1968000,
+       "expected": 1968000,
+       "discontinuities": 0,
+       "completed": true,
+       "skips": 0,
+       "frames_skipped": 0
+      }
+     ],
+     "product_departures": []
+    },
+    "stall-1-2": {
+     "passed": true,
+     "reason": "continuous modulo 0 skip(s), no departures",
+     "stall_actual_s": 1.092,
+     "beyond_ring_depth": false,
+     "departed": 0,
+     "metrics_unavailable": 2,
+     "harness_closes": 2,
+     "skips": 0,
+     "frames_skipped": 0,
+     "age_peak_after_removal_us": 1893274,
+     "age_last_active_us": 50351,
+     "decoders": [
+      {
+       "frames": 1968000,
+       "expected": 1968000,
+       "discontinuities": 0,
+       "completed": true,
+       "skips": 0,
+       "frames_skipped": 0
+      },
+      {
+       "frames": 1968000,
+       "expected": 1968000,
+       "discontinuities": 0,
+       "completed": true,
+       "skips": 0,
+       "frames_skipped": 0
+      }
+     ],
+     "product_departures": []
+    },
+    "stall-2.5-1": {
+     "passed": true,
+     "reason": "continuous modulo 1 skip(s), no departures",
+     "stall_actual_s": 2.566,
+     "beyond_ring_depth": false,
+     "departed": 0,
+     "metrics_unavailable": 5,
+     "harness_closes": 1,
+     "skips": 1,
+     "frames_skipped": 238,
+     "age_peak_after_removal_us": 5753965,
+     "age_last_active_us": 49233,
+     "decoders": [
+      {
+       "frames": 2040000,
+       "expected": 2040000,
+       "discontinuities": 0,
+       "completed": true,
+       "skips": 1,
+       "frames_skipped": 238
+      }
+     ],
+     "product_departures": []
+    },
+    "stall-2.5-2": {
+     "passed": true,
+     "reason": "continuous modulo 2 skip(s), no departures",
+     "stall_actual_s": 2.582,
+     "beyond_ring_depth": false,
+     "departed": 0,
+     "metrics_unavailable": 5,
+     "harness_closes": 2,
+     "skips": 2,
+     "frames_skipped": 606,
+     "age_peak_after_removal_us": 6469670,
+     "age_last_active_us": 99560,
+     "decoders": [
+      {
+       "frames": 2040000,
+       "expected": 2040000,
+       "discontinuities": 0,
+       "completed": true,
+       "skips": 1,
+       "frames_skipped": 303
+      },
+      {
+       "frames": 2040000,
+       "expected": 2040000,
+       "discontinuities": 0,
+       "completed": true,
+       "skips": 1,
+       "frames_skipped": 303
+      }
+     ],
+     "product_departures": []
+    },
+    "stall-4-1": {
+     "passed": true,
+     "reason": "continuous modulo 2 skip(s), no departures",
+     "stall_actual_s": 4.137,
+     "beyond_ring_depth": false,
+     "departed": 0,
+     "metrics_unavailable": 8,
+     "harness_closes": 1,
+     "skips": 2,
+     "frames_skipped": 570,
+     "age_peak_after_removal_us": 9281352,
+     "age_last_active_us": 51650,
+     "decoders": [
+      {
+       "frames": 2112000,
+       "expected": 2112000,
+       "discontinuities": 0,
+       "completed": true,
+       "skips": 2,
+       "frames_skipped": 570
+      }
+     ],
+     "product_departures": []
+    },
+    "stall-4-2": {
+     "passed": true,
+     "reason": "continuous modulo 0 skip(s), no departures",
+     "stall_actual_s": 4.049,
+     "beyond_ring_depth": false,
+     "departed": 0,
+     "metrics_unavailable": 7,
+     "harness_closes": 2,
+     "skips": 0,
+     "frames_skipped": 0,
+     "age_peak_after_removal_us": 3504759,
+     "age_last_active_us": 47984,
+     "decoders": [
+      {
+       "frames": 2112000,
+       "expected": 2112000,
+       "discontinuities": 0,
+       "completed": true,
+       "skips": 0,
+       "frames_skipped": 0
+      },
+      {
+       "frames": 2112000,
+       "expected": 2112000,
+       "discontinuities": 0,
+       "completed": true,
+       "skips": 0,
+       "frames_skipped": 0
+      }
+     ],
+     "product_departures": []
+    },
+    "stall-8-1": {
+     "passed": true,
+     "reason": "continuous modulo 1 skip(s), no departures",
+     "stall_actual_s": 8.11,
+     "beyond_ring_depth": false,
+     "departed": 0,
+     "metrics_unavailable": 13,
+     "harness_closes": 1,
+     "skips": 1,
+     "frames_skipped": 396,
+     "age_peak_after_removal_us": 8608276,
+     "age_last_active_us": 46740,
+     "decoders": [
+      {
+       "frames": 2304000,
+       "expected": 2304000,
+       "discontinuities": 0,
+       "completed": true,
+       "skips": 1,
+       "frames_skipped": 396
+      }
+     ],
+     "product_departures": []
+    },
+    "stall-8-2": {
+     "passed": false,
+     "reason": "1 listener(s) departed under live policy",
+     "stall_actual_s": 8.068,
+     "metrics_unavailable": 11,
+     "harness_closes": 2,
+     "decoders": [
+      {
+       "frames": 2304000,
+       "expected": 2304000,
+       "discontinuities": 0,
+       "completed": true,
+       "skips": 0,
+       "frames_skipped": 0
+      },
+      {
+       "frames": 919296,
+       "expected": 2304000,
+       "discontinuities": 0,
+       "completed": false,
+       "skips": 1,
+       "frames_skipped": 410
+      }
+     ],
+     "product_departures": [
+      "stopped reading"
+     ]
+    },
+    "stall-15-1": {
+     "passed": true,
+     "reason": "1 frame_timeout departure(s) beyond the ring depth with checked close and fresh admission",
+     "stall_actual_s": 15.086,
+     "beyond_ring_depth": true,
+     "departed": 1,
+     "metrics_unavailable": 17,
+     "harness_closes": 1,
+     "skips": 0,
+     "frames_skipped": 0,
+     "decoders": [
+      {
+       "frames": 944640,
+       "expected": 2640000,
+       "discontinuities": 0,
+       "completed": false,
+       "skips": 0,
+       "frames_skipped": 0
+      }
+     ],
+     "product_departures": [
+      "stopped reading"
+     ]
+    },
+    "stall-15-2": {
+     "passed": true,
+     "reason": "2 frame_timeout departure(s) beyond the ring depth with checked close and fresh admission",
+     "stall_actual_s": 15.044,
+     "beyond_ring_depth": true,
+     "departed": 2,
+     "metrics_unavailable": 17,
+     "harness_closes": 2,
+     "skips": 0,
+     "frames_skipped": 0,
+     "decoders": [
+      {
+       "frames": 827136,
+       "expected": 2640000,
+       "discontinuities": 0,
+       "completed": false,
+       "skips": 0,
+       "frames_skipped": 0
+      },
+      {
+       "frames": 949248,
+       "expected": 2640000,
+       "discontinuities": 0,
+       "completed": false,
+       "skips": 0,
+       "frames_skipped": 0
+      }
+     ],
+     "product_departures": [
+      "stopped reading",
+      "stopped reading"
+     ]
+    },
+    "deficit-0.8-1": {
+     "passed": true,
+     "reason": "listener kept its socket with 3 skips at a steady rate, no departures",
+     "departed": 0,
+     "metrics_unavailable": 55,
+     "harness_closes": 1,
+     "skips": 4,
+     "frames_skipped": 798,
+     "decoders": [
+      {
+       "frames": 2880000,
+       "expected": 2880000,
+       "discontinuities": 0,
+       "completed": true,
+       "skips": 4,
+       "frames_skipped": 798
+      }
+     ],
+     "product_departures": []
+    },
+    "deficit-0.5-1": {
+     "passed": false,
+     "reason": "no skip during the deficit",
+     "metrics_unavailable": 57,
+     "harness_closes": 1,
+     "decoders": [
+      {
+       "frames": 2880000,
+       "expected": 2880000,
+       "discontinuities": 0,
+       "completed": true,
+       "skips": 7,
+       "frames_skipped": 1261
+      }
+     ],
+     "product_departures": []
+    },
+    "delayed-reader-1": {
+     "passed": true,
+     "reason": "MP3 continuous; WAV reader ended on its deadline (frame_timeout) with checked close",
+     "metrics_unavailable": 0,
+     "harness_closes": 1,
+     "decoders": [
+      {
+       "frames": 1920000,
+       "expected": 1920000,
+       "discontinuities": 0,
+       "completed": true,
+       "skips": null,
+       "frames_skipped": null
+      }
+     ],
+     "product_departures": [
+      "stopped reading"
+     ]
+    }
+   },
+   "raw_artifacts": {
+    "events.jsonl": {
+     "sha256": "ea7768e80af248e323e6234934d60dd09e961383c4df216b2b92f13b8bed83a0",
+     "bytes": 295100
+    },
+    "result.json": {
+     "sha256": "5fe8d21eefd13e0d8e2c9e96b1c9d9bb1510c43b429ccb780eec821a9521b0d8",
+     "bytes": 96989
+    },
+    "reverdict.json": {
+     "sha256": "86bf9cf2ac849a71be070571b0bf6d319064b62ef12831b0a41d772b56e1e3f2",
+     "bytes": 15500
+    },
+    "serial.log": {
+     "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+     "bytes": 0
+    },
+    "uart.log": {
+     "sha256": "667452384ec67ce490538e4f68fa66e56e03f88ea5992076859d8eb3759e131c",
+     "bytes": 527633
+    }
+   },
+   "reverdict": {
+    "harness_commit": "19d76088e84e72897d8ca8c958d3986419eda3dc",
+    "harness_dirty": false,
+    "policy": "live",
+    "source_result_sha256": "5fe8d21eefd13e0d8e2c9e96b1c9d9bb1510c43b429ccb780eec821a9521b0d8",
+    "trials": {
+     "null-1": {
+      "passed": true,
+      "reason": "exact frames, no departures, counters flat",
+      "harness_closes": 1
+     },
+     "null-2": {
+      "passed": true,
+      "reason": "exact frames, no departures, counters flat",
+      "harness_closes": 2
+     },
+     "stall-0.5-1": {
+      "passed": true,
+      "reason": "continuous modulo 0 skip(s), no departures",
+      "beyond_ring_depth": false,
+      "departed": 0,
+      "harness_closes": 1,
+      "skips": 0,
+      "frames_skipped": 0,
+      "age_peak_after_removal_us": 1602557,
+      "age_last_active_us": 43683
+     },
+     "stall-0.5-2": {
+      "passed": true,
+      "reason": "continuous modulo 2 skip(s), no departures",
+      "beyond_ring_depth": false,
+      "departed": 0,
+      "harness_closes": 2,
+      "skips": 2,
+      "frames_skipped": 456,
+      "age_peak_after_removal_us": 5182225,
+      "age_last_active_us": 65685
+     },
+     "stall-1-1": {
+      "passed": true,
+      "reason": "continuous modulo 0 skip(s), no departures",
+      "beyond_ring_depth": false,
+      "departed": 0,
+      "harness_closes": 1,
+      "skips": 0,
+      "frames_skipped": 0,
+      "age_peak_after_removal_us": 1921170,
+      "age_last_active_us": 47014
+     },
+     "stall-1-2": {
+      "passed": true,
+      "reason": "continuous modulo 0 skip(s), no departures",
+      "beyond_ring_depth": false,
+      "departed": 0,
+      "harness_closes": 2,
+      "skips": 0,
+      "frames_skipped": 0,
+      "age_peak_after_removal_us": 1893274,
+      "age_last_active_us": 50351
+     },
+     "stall-2.5-1": {
+      "passed": true,
+      "reason": "continuous modulo 1 skip(s), no departures",
+      "beyond_ring_depth": false,
+      "departed": 0,
+      "harness_closes": 1,
+      "skips": 1,
+      "frames_skipped": 238,
+      "age_peak_after_removal_us": 5753965,
+      "age_last_active_us": 49233
+     },
+     "stall-2.5-2": {
+      "passed": true,
+      "reason": "continuous modulo 2 skip(s), no departures",
+      "beyond_ring_depth": false,
+      "departed": 0,
+      "harness_closes": 2,
+      "skips": 2,
+      "frames_skipped": 606,
+      "age_peak_after_removal_us": 6469670,
+      "age_last_active_us": 99560
+     },
+     "stall-4-1": {
+      "passed": true,
+      "reason": "continuous modulo 2 skip(s), no departures",
+      "beyond_ring_depth": false,
+      "departed": 0,
+      "harness_closes": 1,
+      "skips": 2,
+      "frames_skipped": 570,
+      "age_peak_after_removal_us": 9281352,
+      "age_last_active_us": 51650
+     },
+     "stall-4-2": {
+      "passed": true,
+      "reason": "continuous modulo 0 skip(s), no departures",
+      "beyond_ring_depth": false,
+      "departed": 0,
+      "harness_closes": 2,
+      "skips": 0,
+      "frames_skipped": 0,
+      "age_peak_after_removal_us": 3504759,
+      "age_last_active_us": 47984
+     },
+     "stall-8-1": {
+      "passed": true,
+      "reason": "continuous modulo 1 skip(s), no departures",
+      "beyond_ring_depth": false,
+      "departed": 0,
+      "harness_closes": 1,
+      "skips": 1,
+      "frames_skipped": 396,
+      "age_peak_after_removal_us": 8608276,
+      "age_last_active_us": 46740
+     },
+     "stall-8-2": {
+      "passed": false,
+      "reason": "1 listener(s) departed under live policy",
+      "harness_closes": 2
+     },
+     "stall-15-1": {
+      "passed": false,
+      "reason": "1 listener(s) departed under live policy",
+      "harness_closes": 1
+     },
+     "stall-15-2": {
+      "passed": false,
+      "reason": "2 listener(s) departed under live policy",
+      "harness_closes": 2
+     },
+     "deficit-0.8-1": {
+      "passed": true,
+      "reason": "listener kept its socket with 3 skips at a steady rate, no departures",
+      "departed": 0,
+      "harness_closes": 1,
+      "skips": 4,
+      "frames_skipped": 798
+     },
+     "deficit-0.5-1": {
+      "passed": true,
+      "reason": "listener kept its socket with 7 attributed skips; metrics starved during the deficit so steadiness is unjudged",
+      "departed": 0,
+      "metrics_starved": true,
+      "harness_closes": 1,
+      "skips": 7,
+      "frames_skipped": 1261
+     },
+     "delayed-reader-1": {
+      "passed": true,
+      "reason": "MP3 continuous; WAV reader ended on its deadline (frame_timeout) with checked close",
+      "harness_closes": 1
+     }
+    }
+   }
+  },
+  "oct18-interruption-1": {
+   "directory": "target/kata-hardening/oct18-interruption-1",
+   "started_utc": "2026-10-18T13:58:58.970919+00:00",
+   "elapsed_seconds": 0.009,
+   "original_passed": false,
+   "error": "Failure: true failed (1): sudo: interactive authentication is required",
+   "boot_token": null,
+   "build_elf_sha256": null,
+   "restore_verified": null,
+   "cleanup_errors": [
+    "restore-check: no pre-run qdisc listing"
+   ],
+   "tolerances": null,
+   "environment": null,
+   "qdisc_installed": null,
+   "original_trials": {},
+   "raw_artifacts": {
+    "events.jsonl": {
+     "sha256": "b54dffae8dc73851b9e6414bb55e8b6797ecc5bc981b58eab5de478e18e00d82",
+     "bytes": 302
+    },
+    "result.json": {
+     "sha256": "45db39eb0022f9d0159ee7718216d9a575a49a847b926df3e727020cf2fb9399",
+     "bytes": 1613
+    }
+   }
+  },
+  "oct18-interruption-2": {
+   "directory": "target/kata-hardening/oct18-interruption-2",
+   "started_utc": "2026-10-18T13:59:40.389344+00:00",
+   "elapsed_seconds": 1183.582,
+   "original_passed": false,
+   "error": null,
+   "boot_token": "0eb82152aeb6bda50586e4a6898c2c99",
+   "build_elf_sha256": "613e7621bd61053a95f07acdf5cf5d9ff5c5463c694d3f32794e29ecc1c6cf3f",
+   "restore_verified": true,
+   "cleanup_errors": [],
+   "tolerances": {
+    "age_bound_us": 144638,
+    "largest_tolerance_bytes": {
+     "internal_largest": 2048,
+     "psram_largest": 0
+    },
+    "source": [
+     "null-1",
+     "null-2"
+    ]
+   },
+   "environment": {
+    "route": "192.168.23.217 dev enp5s0 src 192.168.23.153 uid 1000 \n    cache \n",
+    "route_interface": "enp5s0",
+    "tc_version": "tc utility, iproute2-6.19.0, libbpf 1.6.3",
+    "kernel": "7.0.0-38-generic",
+    "qdisc_before": "qdisc mq 0: root \nqdisc fq_codel 0: parent :4 limit 10240p flows 1024 quantum 1514 target 5ms interval 100ms memory_limit 32Mb ecn drop_batch 64 \nqdisc fq_codel 0: parent :3 limit 10240p flows 1024 quantum 1514 target 5ms interval 100ms memory_limit 32Mb ecn drop_batch 64 \nqdisc fq_codel 0: parent :2 limit 10240p flows 1024 quantum 1514 target 5ms interval 100ms memory_limit 32Mb ecn drop_batch 64 \nqdisc fq_codel 0: parent :1 limit 10240p flows 1024 quantum 1514 target 5ms interval 100ms memory_limit 32Mb ecn drop_batch 64 \n"
+   },
+   "qdisc_installed": "qdisc prio 1: root refcnt 9 bands 4 priomap 1 2 2 2 1 2 0 0 1 1 1 1 1 1 1 1\nqdisc netem 10: parent 1:4 limit 1000 seed 6521279411241291233\nqdisc ingress ffff: parent ffff:fff1 ---------------- \n",
+   "original_trials": {
+    "null-1": {
+     "passed": true,
+     "reason": "exact frames, no departures, counters flat",
+     "metrics_unavailable": 0,
+     "harness_closes": 1,
+     "decoders": [
+      {
+       "frames": 2880000,
+       "expected": 2880000,
+       "discontinuities": 0,
+       "completed": true,
+       "skips": 0,
+       "frames_skipped": 0
+      }
+     ],
+     "product_departures": []
+    },
+    "null-2": {
+     "passed": true,
+     "reason": "exact frames, no departures, counters flat",
+     "metrics_unavailable": 1,
+     "harness_closes": 2,
+     "decoders": [
+      {
+       "frames": 2880000,
+       "expected": 2880000,
+       "discontinuities": 0,
+       "completed": true,
+       "skips": 0,
+       "frames_skipped": 0
+      },
+      {
+       "frames": 2880000,
+       "expected": 2880000,
+       "discontinuities": 0,
+       "completed": true,
+       "skips": 0,
+       "frames_skipped": 0
+      }
+     ],
+     "product_departures": []
+    },
+    "stall-0.5-1": {
+     "passed": true,
+     "reason": "continuous modulo 0 skip(s), no departures",
+     "stall_actual_s": 0.546,
+     "beyond_ring_depth": false,
+     "departed": 0,
+     "metrics_unavailable": 2,
+     "harness_closes": 1,
+     "skips": 0,
+     "frames_skipped": 0,
+     "age_peak_after_removal_us": 371066,
+     "age_last_active_us": 49689,
+     "decoders": [
+      {
+       "frames": 1944000,
+       "expected": 1944000,
+       "discontinuities": 0,
+       "completed": true,
+       "skips": 0,
+       "frames_skipped": 0
+      }
+     ],
+     "product_departures": []
+    },
+    "stall-0.5-2": {
+     "passed": true,
+     "reason": "continuous modulo 0 skip(s), no departures",
+     "stall_actual_s": 0.565,
+     "beyond_ring_depth": false,
+     "departed": 0,
+     "metrics_unavailable": 1,
+     "harness_closes": 2,
+     "skips": 0,
+     "frames_skipped": 0,
+     "age_peak_after_removal_us": 916980,
+     "age_last_active_us": 62350,
+     "decoders": [
+      {
+       "frames": 1944000,
+       "expected": 1944000,
+       "discontinuities": 0,
+       "completed": true,
+       "skips": 0,
+       "frames_skipped": 0
+      },
+      {
+       "frames": 1944000,
+       "expected": 1944000,
+       "discontinuities": 0,
+       "completed": true,
+       "skips": 0,
+       "frames_skipped": 0
+      }
+     ],
+     "product_departures": []
+    },
+    "stall-1-1": {
+     "passed": true,
+     "reason": "continuous modulo 0 skip(s), no departures",
+     "stall_actual_s": 1.076,
+     "beyond_ring_depth": false,
+     "departed": 0,
+     "metrics_unavailable": 1,
+     "harness_closes": 1,
+     "skips": 0,
+     "frames_skipped": 0,
+     "age_peak_after_removal_us": 846904,
+     "age_last_active_us": 60236,
+     "decoders": [
+      {
+       "frames": 1968000,
+       "expected": 1968000,
+       "discontinuities": 0,
+       "completed": true,
+       "skips": 0,
+       "frames_skipped": 0
+      }
+     ],
+     "product_departures": []
+    },
+    "stall-1-2": {
+     "passed": true,
+     "reason": "continuous modulo 0 skip(s), no departures",
+     "stall_actual_s": 1.049,
+     "beyond_ring_depth": false,
+     "departed": 0,
+     "metrics_unavailable": 1,
+     "harness_closes": 2,
+     "skips": 0,
+     "frames_skipped": 0,
+     "age_peak_after_removal_us": 951358,
+     "age_last_active_us": 83932,
+     "decoders": [
+      {
+       "frames": 1968000,
+       "expected": 1968000,
+       "discontinuities": 0,
+       "completed": true,
+       "skips": 0,
+       "frames_skipped": 0
+      },
+      {
+       "frames": 1968000,
+       "expected": 1968000,
+       "discontinuities": 0,
+       "completed": true,
+       "skips": 0,
+       "frames_skipped": 0
+      }
+     ],
+     "product_departures": []
+    },
+    "stall-2.5-1": {
+     "passed": true,
+     "reason": "continuous modulo 0 skip(s), no departures",
+     "stall_actual_s": 2.593,
+     "beyond_ring_depth": false,
+     "departed": 0,
+     "metrics_unavailable": 3,
+     "harness_closes": 1,
+     "skips": 0,
+     "frames_skipped": 0,
+     "age_peak_after_removal_us": 3032218,
+     "age_last_active_us": 56977,
+     "decoders": [
+      {
+       "frames": 2040000,
+       "expected": 2040000,
+       "discontinuities": 0,
+       "completed": true,
+       "skips": 0,
+       "frames_skipped": 0
+      }
+     ],
+     "product_departures": []
+    },
+    "stall-2.5-2": {
+     "passed": true,
+     "reason": "continuous modulo 0 skip(s), no departures",
+     "stall_actual_s": 2.544,
+     "beyond_ring_depth": false,
+     "departed": 0,
+     "metrics_unavailable": 3,
+     "harness_closes": 2,
+     "skips": 0,
+     "frames_skipped": 0,
+     "age_peak_after_removal_us": 3123200,
+     "age_last_active_us": 117597,
+     "decoders": [
+      {
+       "frames": 2040000,
+       "expected": 2040000,
+       "discontinuities": 0,
+       "completed": true,
+       "skips": 0,
+       "frames_skipped": 0
+      },
+      {
+       "frames": 2040000,
+       "expected": 2040000,
+       "discontinuities": 0,
+       "completed": true,
+       "skips": 0,
+       "frames_skipped": 0
+      }
+     ],
+     "product_departures": []
+    },
+    "stall-4-1": {
+     "passed": true,
+     "reason": "continuous modulo 0 skip(s), no departures",
+     "stall_actual_s": 4.041,
+     "beyond_ring_depth": false,
+     "departed": 0,
+     "metrics_unavailable": 5,
+     "harness_closes": 1,
+     "skips": 0,
+     "frames_skipped": 0,
+     "age_peak_after_removal_us": 2631603,
+     "age_last_active_us": 45766,
+     "decoders": [
+      {
+       "frames": 2112000,
+       "expected": 2112000,
+       "discontinuities": 0,
+       "completed": true,
+       "skips": 0,
+       "frames_skipped": 0
+      }
+     ],
+     "product_departures": []
+    },
+    "stall-4-2": {
+     "passed": true,
+     "reason": "continuous modulo 0 skip(s), no departures",
+     "stall_actual_s": 4.079,
+     "beyond_ring_depth": false,
+     "departed": 0,
+     "metrics_unavailable": 4,
+     "harness_closes": 2,
+     "skips": 0,
+     "frames_skipped": 0,
+     "age_peak_after_removal_us": 3283594,
+     "age_last_active_us": 49026,
+     "decoders": [
+      {
+       "frames": 2112000,
+       "expected": 2112000,
+       "discontinuities": 0,
+       "completed": true,
+       "skips": 0,
+       "frames_skipped": 0
+      },
+      {
+       "frames": 2112000,
+       "expected": 2112000,
+       "discontinuities": 0,
+       "completed": true,
+       "skips": 0,
+       "frames_skipped": 0
+      }
+     ],
+     "product_departures": []
+    },
+    "stall-8-1": {
+     "passed": true,
+     "reason": "continuous modulo 1 skip(s), no departures",
+     "stall_actual_s": 8.091,
+     "beyond_ring_depth": false,
+     "departed": 0,
+     "metrics_unavailable": 8,
+     "harness_closes": 1,
+     "skips": 1,
+     "frames_skipped": 386,
+     "age_peak_after_removal_us": 8518252,
+     "age_last_active_us": 95899,
+     "decoders": [
+      {
+       "frames": 2304000,
+       "expected": 2304000,
+       "discontinuities": 0,
+       "completed": true,
+       "skips": 1,
+       "frames_skipped": 386
+      }
+     ],
+     "product_departures": []
+    },
+    "stall-8-2": {
+     "passed": true,
+     "reason": "continuous modulo 2 skip(s), no departures",
+     "stall_actual_s": 8.044,
+     "beyond_ring_depth": false,
+     "departed": 0,
+     "metrics_unavailable": 8,
+     "harness_closes": 2,
+     "skips": 2,
+     "frames_skipped": 770,
+     "age_peak_after_removal_us": 8929130,
+     "age_last_active_us": 56236,
+     "decoders": [
+      {
+       "frames": 2304000,
+       "expected": 2304000,
+       "discontinuities": 0,
+       "completed": true,
+       "skips": 1,
+       "frames_skipped": 386
+      },
+      {
+       "frames": 2304000,
+       "expected": 2304000,
+       "discontinuities": 0,
+       "completed": true,
+       "skips": 1,
+       "frames_skipped": 384
+      }
+     ],
+     "product_departures": []
+    },
+    "stall-15-1": {
+     "passed": true,
+     "reason": "continuous modulo 1 skip(s), no departures",
+     "stall_actual_s": 15.053,
+     "beyond_ring_depth": false,
+     "departed": 0,
+     "metrics_unavailable": 15,
+     "harness_closes": 1,
+     "skips": 1,
+     "frames_skipped": 895,
+     "age_peak_after_removal_us": 21127490,
+     "age_last_active_us": 51497,
+     "decoders": [
+      {
+       "frames": 2640000,
+       "expected": 2640000,
+       "discontinuities": 0,
+       "completed": true,
+       "skips": 1,
+       "frames_skipped": 895
+      }
+     ],
+     "product_departures": []
+    },
+    "stall-15-2": {
+     "passed": true,
+     "reason": "continuous modulo 2 skip(s), no departures",
+     "stall_actual_s": 15.054,
+     "beyond_ring_depth": false,
+     "departed": 0,
+     "metrics_unavailable": 16,
+     "harness_closes": 2,
+     "skips": 2,
+     "frames_skipped": 1763,
+     "age_peak_after_removal_us": 21027787,
+     "age_last_active_us": 55527,
+     "decoders": [
+      {
+       "frames": 2640000,
+       "expected": 2640000,
+       "discontinuities": 0,
+       "completed": true,
+       "skips": 1,
+       "frames_skipped": 883
+      },
+      {
+       "frames": 2640000,
+       "expected": 2640000,
+       "discontinuities": 0,
+       "completed": true,
+       "skips": 1,
+       "frames_skipped": 880
+      }
+     ],
+     "product_departures": []
+    },
+    "stall-30-1": {
+     "passed": true,
+     "reason": "1 frame_timeout departure(s) beyond the ring depth with checked close and fresh admission",
+     "stall_actual_s": 30.083,
+     "beyond_ring_depth": true,
+     "departed": 1,
+     "metrics_unavailable": 31,
+     "harness_closes": 1,
+     "skips": 0,
+     "frames_skipped": 0,
+     "decoders": [
+      {
+       "frames": 950400,
+       "expected": 3360000,
+       "discontinuities": 0,
+       "completed": false,
+       "skips": 0,
+       "frames_skipped": 0
+      }
+     ],
+     "product_departures": [
+      "stopped reading"
+     ]
+    },
+    "stall-30-2": {
+     "passed": true,
+     "reason": "2 frame_timeout departure(s) beyond the ring depth with checked close and fresh admission",
+     "stall_actual_s": 30.079,
+     "beyond_ring_depth": true,
+     "departed": 2,
+     "metrics_unavailable": 30,
+     "harness_closes": 2,
+     "skips": 0,
+     "frames_skipped": 0,
+     "decoders": [
+      {
+       "frames": 955008,
+       "expected": 3360000,
+       "discontinuities": 0,
+       "completed": false,
+       "skips": 0,
+       "frames_skipped": 0
+      },
+      {
+       "frames": 955008,
+       "expected": 3360000,
+       "discontinuities": 0,
+       "completed": false,
+       "skips": 0,
+       "frames_skipped": 0
+      }
+     ],
+     "product_departures": [
+      "stopped reading",
+      "stopped reading"
+     ]
+    },
+    "deficit-0.8-1": {
+     "passed": false,
+     "reason": "1 listener(s) departed under live policy",
+     "metrics_unavailable": 54,
+     "harness_closes": 0,
+     "decoders": [
+      {
+       "frames": 2880000,
+       "expected": 2880000,
+       "discontinuities": 0,
+       "completed": true,
+       "skips": 3,
+       "frames_skipped": 502
+      }
+     ],
+     "product_departures": []
+    },
+    "deficit-0.5-1": {
+     "passed": true,
+     "reason": "listener kept its socket with 7 attributed skips; metrics starved during the deficit so steadiness is unjudged",
+     "departed": 0,
+     "metrics_starved": true,
+     "metrics_unavailable": 60,
+     "harness_closes": 1,
+     "skips": 7,
+     "frames_skipped": 1237,
+     "decoders": [
+      {
+       "frames": 2880000,
+       "expected": 2880000,
+       "discontinuities": 0,
+       "completed": true,
+       "skips": 7,
+       "frames_skipped": 1237
+      }
+     ],
+     "product_departures": []
+    },
+    "delayed-reader-1": {
+     "passed": true,
+     "reason": "MP3 continuous; WAV reader ended on its deadline (frame_timeout) with checked close",
+     "metrics_unavailable": 0,
+     "harness_closes": 1,
+     "decoders": [
+      {
+       "frames": 1920000,
+       "expected": 1920000,
+       "discontinuities": 0,
+       "completed": true,
+       "skips": null,
+       "frames_skipped": null
+      }
+     ],
+     "product_departures": [
+      "stopped reading"
+     ]
+    }
+   },
+   "raw_artifacts": {
+    "events.jsonl": {
+     "sha256": "5a9e2602bbad23c1141ab4d826b6a4e33c70506c81a6b675c0129aeb6fc8c91d",
+     "bytes": 333840
+    },
+    "result.json": {
+     "sha256": "ad76e88829419b850afcdaa3a8956ef19d249a0e32edbfea1975143b5247c45e",
+     "bytes": 107804
+    },
+    "reverdict.json": {
+     "sha256": "dc92119fd5fc157bdbca4a97dd8fe0fc42456b0fae9f1673f05ea015baa45352",
+     "bytes": 17581
+    },
+    "serial.log": {
+     "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+     "bytes": 0
+    },
+    "uart.log": {
+     "sha256": "9be5e810e53254c18186c284c1dca765b20d56078e3b3a348721c00769843567",
+     "bytes": 591672
+    }
+   },
+   "reverdict": {
+    "harness_commit": "19d76088e84e72897d8ca8c958d3986419eda3dc",
+    "harness_dirty": false,
+    "policy": "live",
+    "source_result_sha256": "ad76e88829419b850afcdaa3a8956ef19d249a0e32edbfea1975143b5247c45e",
+    "trials": {
+     "null-1": {
+      "passed": true,
+      "reason": "exact frames, no departures, counters flat",
+      "harness_closes": 1
+     },
+     "null-2": {
+      "passed": true,
+      "reason": "exact frames, no departures, counters flat",
+      "harness_closes": 2
+     },
+     "stall-0.5-1": {
+      "passed": true,
+      "reason": "continuous modulo 0 skip(s), no departures",
+      "beyond_ring_depth": false,
+      "departed": 0,
+      "harness_closes": 1,
+      "skips": 0,
+      "frames_skipped": 0,
+      "age_peak_after_removal_us": 371066,
+      "age_last_active_us": 49689
+     },
+     "stall-0.5-2": {
+      "passed": true,
+      "reason": "continuous modulo 0 skip(s), no departures",
+      "beyond_ring_depth": false,
+      "departed": 0,
+      "harness_closes": 2,
+      "skips": 0,
+      "frames_skipped": 0,
+      "age_peak_after_removal_us": 916980,
+      "age_last_active_us": 62350
+     },
+     "stall-1-1": {
+      "passed": true,
+      "reason": "continuous modulo 0 skip(s), no departures",
+      "beyond_ring_depth": false,
+      "departed": 0,
+      "harness_closes": 1,
+      "skips": 0,
+      "frames_skipped": 0,
+      "age_peak_after_removal_us": 846904,
+      "age_last_active_us": 60236
+     },
+     "stall-1-2": {
+      "passed": true,
+      "reason": "continuous modulo 0 skip(s), no departures",
+      "beyond_ring_depth": false,
+      "departed": 0,
+      "harness_closes": 2,
+      "skips": 0,
+      "frames_skipped": 0,
+      "age_peak_after_removal_us": 951358,
+      "age_last_active_us": 83932
+     },
+     "stall-2.5-1": {
+      "passed": true,
+      "reason": "continuous modulo 0 skip(s), no departures",
+      "beyond_ring_depth": false,
+      "departed": 0,
+      "harness_closes": 1,
+      "skips": 0,
+      "frames_skipped": 0,
+      "age_peak_after_removal_us": 3032218,
+      "age_last_active_us": 56977
+     },
+     "stall-2.5-2": {
+      "passed": true,
+      "reason": "continuous modulo 0 skip(s), no departures",
+      "beyond_ring_depth": false,
+      "departed": 0,
+      "harness_closes": 2,
+      "skips": 0,
+      "frames_skipped": 0,
+      "age_peak_after_removal_us": 3123200,
+      "age_last_active_us": 117597
+     },
+     "stall-4-1": {
+      "passed": true,
+      "reason": "continuous modulo 0 skip(s), no departures",
+      "beyond_ring_depth": false,
+      "departed": 0,
+      "harness_closes": 1,
+      "skips": 0,
+      "frames_skipped": 0,
+      "age_peak_after_removal_us": 2631603,
+      "age_last_active_us": 45766
+     },
+     "stall-4-2": {
+      "passed": true,
+      "reason": "continuous modulo 0 skip(s), no departures",
+      "beyond_ring_depth": false,
+      "departed": 0,
+      "harness_closes": 2,
+      "skips": 0,
+      "frames_skipped": 0,
+      "age_peak_after_removal_us": 3283594,
+      "age_last_active_us": 49026
+     },
+     "stall-8-1": {
+      "passed": true,
+      "reason": "continuous modulo 1 skip(s), no departures",
+      "beyond_ring_depth": false,
+      "departed": 0,
+      "harness_closes": 1,
+      "skips": 1,
+      "frames_skipped": 386,
+      "age_peak_after_removal_us": 8518252,
+      "age_last_active_us": 95899
+     },
+     "stall-8-2": {
+      "passed": true,
+      "reason": "continuous modulo 2 skip(s), no departures",
+      "beyond_ring_depth": false,
+      "departed": 0,
+      "harness_closes": 2,
+      "skips": 2,
+      "frames_skipped": 770,
+      "age_peak_after_removal_us": 8929130,
+      "age_last_active_us": 56236
+     },
+     "stall-15-1": {
+      "passed": true,
+      "reason": "continuous modulo 1 skip(s), no departures",
+      "beyond_ring_depth": false,
+      "departed": 0,
+      "harness_closes": 1,
+      "skips": 1,
+      "frames_skipped": 895,
+      "age_peak_after_removal_us": 21127490,
+      "age_last_active_us": 51497
+     },
+     "stall-15-2": {
+      "passed": true,
+      "reason": "continuous modulo 2 skip(s), no departures",
+      "beyond_ring_depth": false,
+      "departed": 0,
+      "harness_closes": 2,
+      "skips": 2,
+      "frames_skipped": 1763,
+      "age_peak_after_removal_us": 21027787,
+      "age_last_active_us": 55527
+     },
+     "stall-30-1": {
+      "passed": true,
+      "reason": "1 frame_timeout departure(s) beyond the ring depth with checked close and fresh admission",
+      "beyond_ring_depth": true,
+      "departed": 1,
+      "harness_closes": 1,
+      "skips": 0,
+      "frames_skipped": 0
+     },
+     "stall-30-2": {
+      "passed": true,
+      "reason": "2 frame_timeout departure(s) beyond the ring depth with checked close and fresh admission",
+      "beyond_ring_depth": true,
+      "departed": 2,
+      "harness_closes": 2,
+      "skips": 0,
+      "frames_skipped": 0
+     },
+     "deficit-0.8-1": {
+      "passed": true,
+      "reason": "listener kept its socket with 3 attributed skips; metrics starved during the deficit so steadiness is unjudged",
+      "departed": 0,
+      "metrics_starved": true,
+      "harness_closes": 1,
+      "skips": 3,
+      "frames_skipped": 502
+     },
+     "deficit-0.5-1": {
+      "passed": true,
+      "reason": "listener kept its socket with 7 attributed skips; metrics starved during the deficit so steadiness is unjudged",
+      "departed": 0,
+      "metrics_starved": true,
+      "harness_closes": 1,
+      "skips": 7,
+      "frames_skipped": 1237
+     },
+     "delayed-reader-1": {
+      "passed": true,
+      "reason": "MP3 continuous; WAV reader ended on its deadline (frame_timeout) with checked close",
+      "harness_closes": 1
+     }
+    }
+   }
+  }
+ },
+ "client_zoo": {
+  "directory": "target/kata-hardening/oct18-zoo-1",
+  "started_utc": "2026-10-18T14:21:09.677726+00:00",
+  "elapsed_seconds": 193.624,
+  "passed": true,
+  "restore_verified": true,
+  "cleanup_errors": [],
+  "seconds": 30.0,
+  "stall_s": 4.0,
+  "steady_s": 10.0,
+  "runs": {
+   "ffmpeg-mp3": {
+    "player": "ffmpeg",
+    "format": "mp3",
+    "passed": true,
+    "reason": "no reconnect, still receiving at the end",
+    "reconnects": 0,
+    "board_reconnects": 0,
+    "player_reconnects": 0,
+    "board_joins": 1,
+    "receiving_at_end": true,
+    "skips_before": 0,
+    "skips_during": 0,
+    "departure_skips": 0,
+    "exit_codes": [
+     255
+    ],
+    "unit": "samples"
+   },
+   "mpv-mp3": {
+    "player": "mpv",
+    "format": "mp3",
+    "passed": true,
+    "reason": "no reconnect, still receiving at the end",
+    "reconnects": 0,
+    "board_reconnects": 0,
+    "player_reconnects": 0,
+    "board_joins": 1,
+    "receiving_at_end": true,
+    "skips_before": 0,
+    "skips_during": 1,
+    "departure_skips": 1,
+    "exit_codes": [
+     4
+    ],
+    "unit": "playback_seconds"
+   },
+   "mpg123-mp3": {
+    "player": "mpg123",
+    "format": "mp3",
+    "passed": true,
+    "reason": "no reconnect, still receiving at the end",
+    "reconnects": 0,
+    "board_reconnects": 0,
+    "player_reconnects": null,
+    "board_joins": 1,
+    "receiving_at_end": true,
+    "skips_before": 0,
+    "skips_during": 1,
+    "departure_skips": 1,
+    "exit_codes": [
+     0
+    ],
+    "unit": "samples"
+   },
+   "sox-mp3": {
+    "player": "sox",
+    "format": "mp3",
+    "passed": true,
+    "reason": "no reconnect, still receiving at the end",
+    "reconnects": 0,
+    "board_reconnects": 0,
+    "player_reconnects": 0,
+    "board_joins": 1,
+    "receiving_at_end": true,
+    "skips_before": 0,
+    "skips_during": 1,
+    "departure_skips": 1,
+    "exit_codes": [
+     23,
+     0
+    ],
+    "unit": "samples"
+   },
+   "curl-mp3": {
+    "player": "curl",
+    "format": "mp3",
+    "passed": true,
+    "reason": "no reconnect, still receiving at the end",
+    "reconnects": 0,
+    "board_reconnects": 0,
+    "player_reconnects": 0,
+    "board_joins": 1,
+    "receiving_at_end": true,
+    "skips_before": 0,
+    "skips_during": 1,
+    "departure_skips": 1,
+    "exit_codes": [
+     -15
+    ],
+    "unit": "bytes"
+   }
+  },
+  "raw_artifacts": {
+   "curl-mp3.curl.stderr": {
+    "sha256": "c640c6684c15651558bec90cf9e7e97b6ea86fd567891d3516582a6824e9e984",
+    "bytes": 494
+   },
+   "curl-mp3.mp3": {
+    "sha256": "4f9e76fcd04f47a04e89e556a8972e7d0557a4c28641934726f27937cd921450",
+    "bytes": 919200
+   },
+   "events.jsonl": {
+    "sha256": "e7030c7f81e9a89f9c42d0deb02f5761c44e02a2aaa926f2f9f09d4869357c80",
+    "bytes": 9219
+   },
+   "ffmpeg-mp3.ffmpeg.stderr": {
+    "sha256": "b628c4f3f1902a227ad77e24502a4c3e61c750a371b5006f739fbc517887190a",
+    "bytes": 5838
+   },
+   "mpg123-mp3.mpg123.stderr": {
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "bytes": 0
+   },
+   "mpg123-mp3.wav": {
+    "sha256": "1dcd7fd3f5ca5a3eec8943b9b20f882ee0e6dc462390498e17f9eef35e14f8cd",
+    "bytes": 4833836
+   },
+   "mpv-mp3.mpv.log": {
+    "sha256": "d602aedfe983d4d9e7696dad8193fc8ab465787674fece1e902da71cf3742ab4",
+    "bytes": 11299
+   },
+   "mpv-mp3.mpv.stderr": {
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "bytes": 0
+   },
+   "result.json": {
+    "sha256": "e2674401f2c71b60200853ede8742ae99d76401a9297ae7d89beeafffc5276db",
+    "bytes": 41844
+   },
+   "serial.log": {
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "bytes": 0
+   },
+   "sox-mp3.curl.stderr": {
+    "sha256": "b33a988b0265c9c7d83601658b3c6b585f3f724013278eaadce0b2471e15f842",
+    "bytes": 621
+   },
+   "sox-mp3.sox.stderr": {
+    "sha256": "8d205a2eea2cb1b0a06cf0a3bc0510f53ebff1735f06f0b40576aa16a66547dc",
+    "bytes": 7659
+   },
+   "uart.log": {
+    "sha256": "bf02133560e0a09652dc65916dfb5728e3e51c266dde160cb44a280c20a45688",
+    "bytes": 102523
+   }
+  }
+ },
+ "limits": [
+  "MP3 as deployed; FLAC's skip path is covered by host tests with real decoders, not hardware.",
+  "Receiver-side shaping on a wired host: recovery from receiver-visible loss and rate limits, not RF, AP queueing or the board's Wi-Fi hop.",
+  "Deficit steadiness unjudged where the rate limit starved the metrics path; verdict rests on the board's attributed departure counters.",
+  "Batch 1 and the first batch 2 verdicts were produced by earlier verdict code and are retained unchanged; reverdict.json beside each is the final judgment.",
+  "Skips are audible gaps the length of the consumer's own stall; continuity, not lossless delivery.",
+  "A live listener whose supply is persistently stale drops frames without terminating, by contract.",
+  "Early slot release during close linger is not built."
+ ]
+}

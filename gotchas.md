@@ -1340,3 +1340,11 @@ MAX_BODY_BYTES (4608 since October 15; measured maximal body 4383). A
 firmware field added without raising the Python side makes every harness
 poll fail with 'metrics body too large' mid-trial. Each constant's comment
 names the other; the Rust maximal-body test keeps a 128-byte margin.
+
+Harness lessons from the live-stream batches (October 16–18): a sudo rule
+that covers only `tc` and `ip link` refuses `sudo -n true`, so probes must
+run a covered command (`tc -V`). The ifb0 rate limit throttles every byte
+the board sends, metrics replies included, so a deficit trial can starve
+the poller; the board's departure-line counters are the truth and the
+decoder's attribution carries them. ffmpeg's `-t` counts audio seconds, so
+a live listener that skipped finishes before the injection is lifted.
