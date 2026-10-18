@@ -1348,3 +1348,12 @@ the board sends, metrics replies included, so a deficit trial can starve
 the poller; the board's departure-line counters are the truth and the
 decoder's attribution carries them. ffmpeg's `-t` counts audio seconds, so
 a live listener that skipped finishes before the injection is lifted.
+
+With the close reaper (October 18), a listener's slot and lease are released
+at hand-off, before the socket's checked close; the Closed UART line keeps
+its wording for the parsers, so its `held` count is the release-time count
+and `released_us` is the real release instant, about 2.5 s before the
+close's `event_us`. Departure ≤ released < close, by construction.
+scripts/stream_soak and scripts/network_fault import each other, so
+stream_soak imports network_fault lazily inside a function; a top-level
+import is a cycle.

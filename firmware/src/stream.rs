@@ -10,11 +10,12 @@ use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::{Arc, Mutex, OnceLock};
 use std::time::{Duration, Instant};
 
+use crate::close_reaper::Reaper;
 use crate::encoder_telemetry::{self, EncoderMetrics, RawReadMetrics, Reason, Sample};
 use crate::stream_codec as codec;
 use crate::stream_pipeline::{
-    CompressedListener, ConnectionResources, EncoderObservation, EncoderPump, EncoderStep, End,
-    ListenerStep, CAUGHT_UP_SLEEP, CHUNK_FRAMES, FRESH_AUDIO_TIMEOUT,
+    CompressedListener, ConnectionResources, DrainingSocket, EncoderObservation, EncoderPump,
+    EncoderStep, End, ListenerStep, CAUGHT_UP_SLEEP, CHUNK_FRAMES, FRESH_AUDIO_TIMEOUT,
 };
 use anyhow::Result;
 use esp_idf_svc::hal::cpu::Core;
@@ -157,11 +158,20 @@ fn output_job(job: ListenerJob) {
     );
 }
 
-/// Keeps the listener slot until its socket close succeeds, including dispatch failure.
+/// Keeps the listener slot until its socket is handed to the close reaper, including dispatch
+/// failure and refusal after admission.
 struct ListenerConnection {
     resources: Option<ConnectionResources<TcpStream>>,
     peer: Option<SocketAddr>,
+    reaper: Arc<CloseReaper>,
 }
+
+/// A departed listener's socket on its way to the checked close, with the receipt's peer.
+struct DrainingListener {
+    socket: DrainingSocket<TcpStream>,
+    peer: Option<SocketAddr>,
+}
+type CloseReaper = Reaper<DrainingListener>;
 
 impl ListenerConnection {
     fn socket(&self) -> &TcpStream {
@@ -176,30 +186,52 @@ impl ListenerConnection {
 impl Drop for ListenerConnection {
     fn drop(&mut self) {
         if let Some(resources) = self.resources.take() {
-            match listener_telemetry::close_and_report(
-                resources,
-                &EVENTS,
-                self.peer,
-                event_us,
-                |socket| socket_close::close(socket).map(|report| report.elapsed),
-            ) {
-                Ok(()) => {}
-                Err(_failure) => {
-                    // Keep the failure's owned socket and this slot alive through restart.
-                    // Logging here could block recovery on a lock held by another task.
-                    // SAFETY: ESP-IDF is initialized, and restart never returns or unwinds.
-                    // The failed owned socket and slot stay held until reset reclaims them.
-                    unsafe { esp_idf_svc::sys::esp_restart() }
-                }
-            }
+            // A draining place is reserved with the slot still held, so a third departed socket
+            // waits here instead of growing memory. Then the slot and lease are released and
+            // the socket queued: admission proceeds while the reaper runs the checked close.
+            let permit = self
+                .reaper
+                .reserve()
+                .expect("the close reaper runs for the board's lifetime");
+            let socket = resources.release(event_us);
+            permit.submit(DrainingListener {
+                socket,
+                peer: self.peer,
+            });
         }
     }
+}
+
+/// Closes every handed-off socket, one at a time, with the bounded linger and stamps its receipt.
+fn reap(reaper: &CloseReaper) {
+    reaper.work(|DrainingListener { socket, peer }| {
+        match listener_telemetry::close_and_report(
+            socket,
+            &EVENTS,
+            peer,
+            event_us,
+            // Lifetime minimum for this permanent reaper task, across every close.
+            // SAFETY: NULL selects this live task; IDF reports stack headroom in bytes.
+            || unsafe { sys::uxTaskGetStackHighWaterMark(std::ptr::null_mut()) },
+            |socket| socket_close::close(socket).map(|report| report.elapsed),
+        ) {
+            Ok(()) => {}
+            Err(_failure) => {
+                // Keep the failure's owned socket alive through restart: its state is unknown
+                // and its slot was already released, so no listener may reuse it silently.
+                // Logging here could block recovery on a lock held by another task.
+                // SAFETY: ESP-IDF is initialized, and restart never returns or unwinds.
+                unsafe { esp_idf_svc::sys::esp_restart() }
+            }
+        }
+    });
 }
 
 /// The stream's port. The page and `/api/state` stay on port 80.
 pub const PORT: u16 = 8000;
 /// WAV and compressed listeners share the slots, and a third listener of either gets 503. Each one takes a
 /// permanent worker, TCP buffers that prefer PSRAM, and Wi-Fi: 2.3 Mbit/s for the WAV, less for compressed audio.
+/// A departed listener's socket drains in the close reaper, outside the slots, at most two at a time.
 const MAX_LISTENERS: usize = 2;
 // Both compressed codecs encode the capture sample rate.
 const _: () = assert!(codec::SAMPLE_RATE_HZ == CAPTURE_RATE_HZ);
@@ -230,6 +262,11 @@ const LISTENER_THREAD: ThreadSpec = ThreadSpec {
     name: c"stream-out",
     ..ACCEPT_THREAD
 };
+/// Spends its life blocked in lwIP close; it needs the stack of one close and one receipt.
+const REAPER_THREAD: ThreadSpec = ThreadSpec {
+    name: c"stream-reap",
+    ..ACCEPT_THREAD
+};
 
 /// Listens on port 8000 with two admission workers, and advertises the stream over mDNS as
 /// "esp-shazam stream", next to the page's "esp-shazam".
@@ -256,18 +293,29 @@ pub fn start(ring: SharedStreamRing, mdns: &mut EspMdns, network: Network) -> Re
     let internal_before =
         unsafe { sys::heap_caps_get_free_size(sys::MALLOC_CAP_INTERNAL | sys::MALLOC_CAP_8BIT) };
     let outputs = Arc::new(OutputMailbox::new());
-    log::info!("stream-output-layout: job={} mailbox={} native_backing=excluded allocator_overhead=excluded", std::mem::size_of::<ListenerJob>(), std::mem::size_of::<OutputMailbox>());
+    log::info!("stream-output-layout: job={} mailbox={} reaper={} native_backing=excluded allocator_overhead=excluded", std::mem::size_of::<ListenerJob>(), std::mem::size_of::<OutputMailbox>(), std::mem::size_of::<CloseReaper>());
+    let reaper = Arc::new(CloseReaper::new());
+    {
+        let reaper = reaper.clone();
+        if let Err(error) = REAPER_THREAD.spawn(move || reap(&reaper)) {
+            gate.exit();
+            outputs.close();
+            return Err(error);
+        }
+    }
     for index in 0..2 {
         let mailbox = outputs.clone();
         if let Err(error) = LISTENER_THREAD.spawn(move || mailbox.work(index, output_job)) {
             gate.exit();
             outputs.close();
+            reaper.close();
             return Err(error);
         }
     }
     if !outputs.wait_ready(Instant::now() + Duration::from_secs(2)) {
         gate.exit();
         outputs.close();
+        reaper.close();
         return Err(anyhow::anyhow!("output workers did not enter initial wait"));
     }
     for &name in ADMISSION_WORKERS {
@@ -279,25 +327,34 @@ pub fn start(ring: SharedStreamRing, mdns: &mut EspMdns, network: Network) -> Re
             gate.clone(),
         );
         let network = network.clone();
-        let worker_outputs = outputs.clone();
+        let (worker_outputs, worker_reaper) = (outputs.clone(), reaper.clone());
         if let Err(error) = (ThreadSpec {
             name,
             ..ACCEPT_THREAD
         })
         .spawn(move || {
             if worker_gate.wait() {
-                accept(listener, ring, runtime, listeners, network, worker_outputs);
+                accept(
+                    listener,
+                    ring,
+                    runtime,
+                    listeners,
+                    network,
+                    worker_outputs,
+                    worker_reaper,
+                );
             }
         }) {
             gate.exit();
             outputs.close();
+            reaper.close();
             return Err(error);
         }
     }
     // SAFETY: same startup-only read-only allocator query as above.
     let internal_after =
         unsafe { sys::heap_caps_get_free_size(sys::MALLOC_CAP_INTERNAL | sys::MALLOC_CAP_8BIT) };
-    log::info!("stream-output-startup: workers=2 stack_bytes_each=4096 internal_free_before={} internal_free_after={} scope=output_mailbox_and_output_and_admission_startup", internal_before, internal_after);
+    log::info!("stream-output-startup: workers=2 reaper=1 stack_bytes_each=4096 internal_free_before={} internal_free_after={} scope=output_mailbox_and_reaper_and_output_and_admission_startup", internal_before, internal_after);
     outputs.run();
     gate.run();
     #[cfg(feature = "admission-resources")]
@@ -323,6 +380,7 @@ fn accept(
     listeners: Arc<Capacity>,
     network: Network,
     outputs: Arc<OutputMailbox>,
+    reaper: Arc<CloseReaper>,
 ) -> ! {
     loop {
         let accepted = listener
@@ -330,9 +388,9 @@ fn accept(
             .expect("stream listener mutex poisoned")
             .accept(&network);
         match accepted {
-            Ok(Some((sock, _, lease))) => {
-                answer(sock, &ring, &runtime, &listeners, &network, lease, &outputs)
-            }
+            Ok(Some((sock, _, lease))) => answer(
+                sock, &ring, &runtime, &listeners, &network, lease, &outputs, &reaper,
+            ),
             Ok(None) => std::thread::sleep(Duration::from_millis(100)),
             Err(e) => {
                 log::warn!("stream: accept failed: {e}");
@@ -380,6 +438,7 @@ pub(crate) fn export_admission_resources(sequence: &mut u64) {
 }
 
 /// Reads one request and answers it: an owned job for a stream, or a refusal.
+#[allow(clippy::too_many_arguments)]
 fn answer(
     sock: TcpStream,
     ring: &SharedStreamRing,
@@ -388,6 +447,7 @@ fn answer(
     network: &Network,
     network_lease: NetworkLease,
     outputs: &OutputMailbox,
+    reaper: &Arc<CloseReaper>,
 ) {
     if !network.is_current(network_lease) {
         return;
@@ -512,6 +572,7 @@ fn answer(
                     let connection = ListenerConnection {
                         resources: Some(ConnectionResources::new(sock, slot, lease)),
                         peer: peer_address,
+                        reaper: reaper.clone(),
                     };
                     // Required frame storage is admitted before dispatching or sending HTTP 200.
                     // A failed allocation cannot fall back to memory needed by DMA or stacks.
@@ -552,7 +613,7 @@ fn answer(
                             &request_line,
                             Status::ServiceUnavailable,
                         );
-                        // Rejection returns ownership; checked close runs outside the mailbox lock.
+                        // Rejection returns ownership; the hand-off runs outside the mailbox lock.
                         drop(job);
                         log::error!("stream: output mailbox rejected admitted listener");
                     }
@@ -658,12 +719,15 @@ fn listen(
             owner_stack_free_bytes,
         },
     });
-    // The connection holds its slot through blocking close: queued payload gets two seconds to
-    // drain, plus lwIP's 500 ms close poll and scheduling delay, before abort reclaims it. On this
-    // routed path the final RST may never reach a stalled peer; board reclamation does not depend
-    // on its arrival. FIN/TIME_WAIT control PCBs can still outlive successful close, so the slot
-    // cap bounds active/draining payloads rather than every TCP object. Failures retain the slot
-    // until reboot instead of admitting another listener against uncertain resources.
+    // Hand-off: the drop reserves a draining place (waiting, slot held, while two sockets already
+    // drain), releases the slot and lease, and queues the socket for the reaper's checked close,
+    // so this worker is free at once. Queued payload still gets two seconds to drain, plus lwIP's
+    // 500 ms close poll and scheduling delay, before abort reclaims it. On this routed path the
+    // final RST may never reach a stalled peer; board reclamation does not depend on its arrival.
+    // FIN/TIME_WAIT control PCBs can still outlive successful close, so the slot cap plus the
+    // drain bound limits payload sockets to four rather than every TCP object. A close failure
+    // keeps the socket until reboot instead of admitting another listener against uncertain
+    // resources.
     drop(connection);
 }
 
@@ -1457,7 +1521,7 @@ pub(crate) fn export_listener_events() {
         let event_us = record.event_us;
         match record.payload {
             Payload::Joined { format, held, owner_id, sonos_intent } => log::info!("stream: {peer} joined {} ({held} of {MAX_LISTENERS}) event_us={event_us} owner_id={owner_id} sonos_intent={sonos_intent} role={}", format.path(), if sonos_intent == 0 { "diagnostic" } else { "sonos" }),
-            Payload::Closed { elapsed_ms, held, owner_id, sonos_intent } => log::info!("stream: {peer} socket closed in {elapsed_ms} ms; releasing slot ({held} held) event_us={event_us} owner_id={owner_id} sonos_intent={sonos_intent}"),
+            Payload::Closed { elapsed_ms, held, owner_id, sonos_intent, released_us, reaper_stack_free_bytes } => log::info!("stream: {peer} socket closed in {elapsed_ms} ms; releasing slot ({held} held) event_us={event_us} owner_id={owner_id} sonos_intent={sonos_intent} released_us={released_us} reaper_stack_free_bytes={reaper_stack_free_bytes}"),
             Payload::Timeout { elapsed_ms, nominal_limit_ms, remaining_budget_us, deadline_us, bytes } => log::info!("stream: frame write timed out elapsed_ms={elapsed_ms} nominal_limit_ms={nominal_limit_ms} remaining_budget_us={remaining_budget_us} deadline_us={deadline_us:?} bytes={bytes} peer={peer} event_us={event_us}"),
             Payload::Refusal { reason, status, response_error } => {
                 let (reason, allocation_error) = match reason {

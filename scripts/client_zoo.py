@@ -137,7 +137,12 @@ class MpvIpcReader:
             if self.sock is None:
                 sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
                 sock.settimeout(1.0)
-                sock.connect(str(self.path))
+                try:
+                    sock.connect(str(self.path))
+                except OSError:
+                    # mpv has not created its IPC socket yet; a failed connect must not leak the fd.
+                    sock.close()
+                    raise
                 self.sock, self.file = sock, sock.makefile('r')
             played = self.ask('playback-time')
             detail = dict(stream_pos=self.ask('stream-pos'), eof=self.ask('eof-reached'))

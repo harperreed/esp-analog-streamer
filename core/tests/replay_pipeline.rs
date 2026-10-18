@@ -40,7 +40,7 @@ fn absent_capture_retains_partial_input_and_generation_reset_discards_it() {
 }
 
 #[test]
-fn close_failure_retains_slot_and_epoch_lease_until_actor_is_released() {
+fn close_failure_after_release_retains_only_the_socket() {
     use esp_shazam_core::stream_wait::Slot;
     use std::sync::Arc;
     use stream_pipeline::ConnectionResources;
@@ -48,30 +48,9 @@ fn close_failure_retains_slot_and_epoch_lease_until_actor_is_released() {
     let (_, lease) = runtime.admit("GET /stream.flac HTTP/1.1");
     let slots = Arc::new(esp_shazam_core::stream_wait::Capacity::default());
     let resources = ConnectionResources::new((), Slot::take(&slots, 1).unwrap(), lease);
-    let retained = resources
-        .close(|_| Err::<(), _>("uncertain close"))
-        .err()
-        .unwrap();
-    assert_eq!(slots.held(), 1);
-    let request = runtime.begin_switch(
-        OutputFormat::Mp3,
-        false,
-        Arc::new(std::sync::Mutex::new(true)),
-        Duration::from_secs(1),
-    );
-    assert!(
-        !worker.service(&runtime),
-        "retained lease must block idle switch"
-    );
-    let stream_runtime::SwitchStart::Pending(pending) = request else {
-        panic!("pending")
-    };
-    assert!(matches!(
-        pending.poll(),
-        stream_runtime::SwitchPoll::Finished(Ok(false))
-    ));
-    drop(retained);
-    assert_eq!(slots.held(), 0);
+    let draining = resources.release(|| 7);
+    assert_eq!(slots.held(), 0, "the slot is released at hand-off");
+    assert_eq!(draining.released_us, 7);
     let request = runtime.begin_switch(
         OutputFormat::Mp3,
         false,
@@ -80,9 +59,22 @@ fn close_failure_retains_slot_and_epoch_lease_until_actor_is_released() {
     );
     assert!(
         worker.service(&runtime),
-        "released lease permits idle switch"
+        "the released lease no longer blocks an idle switch"
     );
-    drop(request);
+    let stream_runtime::SwitchStart::Pending(pending) = request else {
+        panic!("pending")
+    };
+    assert!(matches!(
+        pending.poll(),
+        stream_runtime::SwitchPoll::Finished(Ok(true))
+    ));
+    let retained = draining
+        .close(|_| Err::<(), _>("uncertain close"))
+        .err()
+        .unwrap();
+    // The failure owns whatever the close left behind until its owner decides.
+    drop(retained);
+    assert_eq!(slots.held(), 0);
 }
 
 #[test]
@@ -178,7 +170,7 @@ fn retirement_during_fresh_wait_is_retired_and_empty_expiry_is_stalled() {
 }
 
 #[test]
-fn close_callback_runs_once_before_releasing_slot_and_lease() {
+fn close_callback_runs_once_after_slot_and_lease_release() {
     use esp_shazam_core::stream_wait::Slot;
     use std::sync::{Arc, Mutex};
     use stream_pipeline::ConnectionResources;
@@ -189,32 +181,25 @@ fn close_callback_runs_once_before_releasing_slot_and_lease() {
     let mut calls = 0;
     assert_eq!(
         resources
+            .release(|| 0)
             .close(|_| {
                 calls += 1;
-                assert_eq!(slots.held(), 1);
+                assert_eq!(slots.held(), 0);
                 let request = runtime.begin_switch(
                     OutputFormat::Mp3,
                     false,
                     Arc::new(Mutex::new(true)),
                     Duration::from_secs(1),
                 );
-                assert!(!worker.service(&runtime));
+                assert!(worker.service(&runtime));
                 drop(request);
                 Ok::<_, ()>(13)
             })
             .ok(),
-        Some((13, 1))
+        Some(13)
     );
     assert_eq!(calls, 1);
     assert_eq!(slots.held(), 0);
-    let request = runtime.begin_switch(
-        OutputFormat::Mp3,
-        false,
-        Arc::new(Mutex::new(true)),
-        Duration::from_secs(1),
-    );
-    assert!(worker.service(&runtime));
-    drop(request);
 }
 
 #[cfg(feature = "capture-fixture")]
@@ -378,24 +363,20 @@ fn payload_counters_advance_only_after_a_whole_successful_write() {
 }
 
 #[test]
-fn close_reports_slots_held_after_actual_close_before_releasing_its_slot() {
+fn release_reports_slots_held_at_the_release_before_the_close() {
     use esp_shazam_core::stream_wait::Slot;
     use std::sync::Arc;
     let slots = Arc::new(esp_shazam_core::stream_wait::Capacity::default());
     let own = Slot::take(&slots, 2).unwrap();
     let other = Slot::take(&slots, 2).unwrap();
     let resources = stream_pipeline::ConnectionResources::new((), own, None);
-    let result = resources
-        .close(|_| {
-            assert_eq!(slots.held(), 2);
-            // Another close completes while this close is in progress.
-            drop(other);
-            assert_eq!(slots.held(), 1);
-            Ok::<_, ()>(37)
-        })
-        .ok();
-    assert_eq!(result, Some((37, 1)));
+    let draining = resources.release(|| 0);
+    assert_eq!(draining.held, 2, "held counts this socket at its release");
+    assert_eq!(slots.held(), 1);
+    // Another release completes while this socket is still draining.
+    drop(other);
     assert_eq!(slots.held(), 0);
+    assert_eq!(draining.close(|_| Ok::<_, ()>(37)).ok(), Some(37));
 }
 
 #[test]

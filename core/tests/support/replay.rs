@@ -686,6 +686,7 @@ pub fn run(fixture: &Fixture) -> Replay {
                             a.receipt.close_state = "retained".into();
                             a.retained = Some(
                                 resources
+                                    .release(|| now().as_micros() as u64)
                                     .close(|_| Err::<(), _>("reset_required"))
                                     .err()
                                     .unwrap(),
@@ -694,6 +695,7 @@ pub fn run(fixture: &Fixture) -> Replay {
                         } else {
                             a.receipt.close_state = "closed".into();
                             resources
+                                .release(|| now().as_micros() as u64)
                                 .close(|socket| {
                                     trace.push(format!("closed:{socket}"));
                                     Ok::<(), ()>(())
@@ -834,8 +836,8 @@ impl Replay {
         for expected in &fixture.expected {
             match expected.as_str() {
                 "partial_timeout" => assert!(self.has_partial_timeout()),
+                // A retained close holds no slot either: the slot is released at hand-off.
                 "zero_slots" => assert_eq!(self.slots, 0),
-                "retained_slot" => assert_eq!(self.slots, 1),
                 "fell_behind" => {
                     assert!(self.listeners.values().any(|r| r.terminal == "FellBehind"))
                 }

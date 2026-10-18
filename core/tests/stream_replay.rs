@@ -146,7 +146,11 @@ fn runtime_requests_obey_tokens_expiry_block_boundaries_and_draining_leases() {
     worker.service(&runtime);
     assert!(matches!(idle.poll(), SwitchPoll::Finished(Ok(false))));
     assert_eq!(runtime.active_format(), OutputFormat::Flac);
-    draining.close(|_| Ok::<_, ()>(())).ok().unwrap();
+    draining
+        .release(|| 0)
+        .close(|_| Ok::<_, ()>(()))
+        .ok()
+        .unwrap();
     let old = worker.epoch.clone();
     publisher.publish(&[22222; 32], 0, || 0).unwrap();
     clock.store(20000, Ordering::Release);

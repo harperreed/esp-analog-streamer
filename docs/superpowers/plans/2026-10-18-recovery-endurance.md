@@ -1,12 +1,19 @@
 # Close reaper and the six-hour soak (wmsy: new reaper ticket, bf85)
 
 ## Now
-- Step: starting both. The six-hour two-listener soak launches on today's
-  image (`613e7621…`, commit `3fb6667` + harness-only changes) once its
-  output budget is confirmed; the close reaper is built on the host in
-  parallel (board untouched until the soak ends)
-- Next: reaper review + `scripts/check`; soak evaluation; flash the reaper
-  image; its harness trial; bf85 close-or-record
+- Step: soak 1 running since 23:15 UTC on image `613e7621…`
+  (`target/kata-hardening/oct18-soak-1`, clean at 34 min: both listeners
+  exact, zero discontinuities, capture flat). Close reaper implemented,
+  reviewed (no blockers; four fixes applied) and committed with the
+  stall-soak option (`--stall-every/--stall-seconds/--interface`), the
+  zoo's fd leak fix and gotchas; all 27 stages `run.BgV4hg8E`.
+- Next: when soak 1 ends (~05:15 UTC): evaluate against the bounds in #2
+  run 1; flash the reaper image; attest; reaper trial
+  (`network-fault --policy live --trials null-1,null-2,stall-30-2`:
+  replacement admitted before the departed socket's close line,
+  `released_us` < Joined < Closed, `reaper_stack_free_bytes` read); client
+  zoo; a 120 s stall-soak live check; then bf85's six hours with a 4 s
+  stall every 300 s overnight.
 - Open: whether `tcpdump` joins the sudoers rule (only ek5b needs it; not
   this plan)
 - Approved: "ok. let's do it. let's do #1, and then #2 (starting now? )"

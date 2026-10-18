@@ -102,6 +102,15 @@ def injection(phase, at_s, apply_seconds=0.0):
     return dict(kind='injection', phase=phase, at_s=at_s, apply_seconds=apply_seconds)
 
 
+class CloseLineTests(unittest.TestCase):
+    def test_close_line_matches_with_and_without_the_release_stamp(self):
+        line = ('I (37827) esp_shazam_firmware::stream: stream: 192.168.23.153:60800 socket closed in 242 ms; '
+                'releasing slot (1 held) event_us=32605374 owner_id=3 sonos_intent=0')
+        self.assertEqual(nf.CLOSED.search(line).group(1), '192.168.23.153:60800')
+        self.assertEqual(nf.CLOSED.search(line + ' released_us=32363100').group(1), '192.168.23.153:60800')
+        self.assertEqual(nf.listener_event_us(line + ' released_us=32363100'), 32605374)
+
+
 class QdiscPlanTests(unittest.TestCase):
     def test_privileged_prefixes_non_interactive_sudo(self):
         self.assertEqual(nf.privileged(['tc', '-V']), ['sudo', '-n', 'tc', '-V'])

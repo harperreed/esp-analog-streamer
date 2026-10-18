@@ -6,7 +6,7 @@
   "encoded_capacity": 64,
   "expected": [
     "rejected",
-    "retained_slot"
+    "zero_slots"
   ],
   "events": [
     {

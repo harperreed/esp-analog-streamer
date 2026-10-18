@@ -36,6 +36,8 @@ fn record(n: u64) -> Record {
             held: 1,
             owner_id: n,
             sonos_intent: 0,
+            released_us: n,
+            reaper_stack_free_bytes: 0,
         },
     }
 }
@@ -107,10 +109,11 @@ fn blocked_exporter_cannot_delay_real_close_slot_or_format_lease_release() {
         assert!(q.publish(record(n)));
     }
     let close = listener_telemetry::close_and_report(
-        resources,
+        resources.release(|| 9),
         &q,
         record(10).peer,
         || 10,
+        || 0,
         |socket| {
             let start = std::time::Instant::now();
             socket.shutdown(std::net::Shutdown::Both)?;
@@ -242,7 +245,7 @@ fn timeout_result_is_reported_without_consuming_or_changing_terminal_error() {
 }
 
 #[test]
-fn real_failed_close_retains_slot_and_format_lease_without_false_success_event() {
+fn real_failed_close_retains_socket_without_false_success_event_after_release() {
     let q = Queue::new();
     let slots = Arc::new(esp_shazam_core::stream_wait::Capacity::default());
     let (runtime, mut worker) = Runtime::new(OutputFormat::Flac, false).unwrap();
@@ -258,11 +261,14 @@ fn real_failed_close_retains_slot_and_format_lease_without_false_success_event()
         Slot::take(&slots, 2).unwrap(),
         lease,
     );
+    let draining = resources.release(|| 19);
+    assert_eq!(slots.held(), 0, "the slot is released at hand-off");
     let failed = listener_telemetry::close_and_report(
-        resources,
+        draining,
         &q,
         None,
         || 20,
+        || 0,
         |socket| {
             // An unconnected real TCP socket fails shutdown; retain its owned handle.
             match socket.shutdown(std::net::Shutdown::Both) {
@@ -275,8 +281,7 @@ fn real_failed_close_retains_slot_and_format_lease_without_false_success_event()
         },
     )
     .expect_err("actual OS shutdown must fail");
-    assert_eq!(slots.held(), 1);
-    assert!(q.take().is_none());
+    assert!(q.take().is_none(), "a failed close publishes no receipt");
     let SwitchStart::Pending(pending) = runtime.begin_switch(
         OutputFormat::Mp3,
         false,
@@ -286,8 +291,10 @@ fn real_failed_close_retains_slot_and_format_lease_without_false_success_event()
         panic!("switch must enqueue");
     };
     worker.service(&runtime);
-    assert!(matches!(pending.poll(), SwitchPoll::Finished(Ok(false))));
-    assert_eq!(runtime.active_format(), OutputFormat::Flac);
+    assert!(
+        matches!(pending.poll(), SwitchPoll::Finished(Ok(true))),
+        "the lease was released at hand-off"
+    );
     drop(failed);
     assert_eq!(slots.held(), 0);
 }
@@ -397,10 +404,11 @@ fn real_socket_timeout_and_refusal_reach_close_with_full_queue_and_blocked_expor
             ));
         }
         assert!(listener_telemetry::close_and_report(
-            resources,
+            resources.release(|| 39),
             &q,
             Some(address),
             || 40,
+            || 0,
             |socket| {
                 let start = std::time::Instant::now();
                 socket.shutdown(std::net::Shutdown::Both)?;
@@ -495,7 +503,7 @@ fn fixed_departure_keeps_sender_counters_and_error_identity_without_heap_message
 }
 
 #[test]
-fn delayed_actual_close_holds_admission_until_socket_operation_finishes() {
+fn delayed_actual_close_holds_neither_slot_nor_lease_after_hand_off() {
     let q = Arc::new(Queue::new());
     for n in 0..8 {
         assert!(q.publish(record(n)));
@@ -515,10 +523,11 @@ fn delayed_actual_close_holds_admission_until_socket_operation_finishes() {
         let q = q.clone();
         std::thread::spawn(move || {
             listener_telemetry::close_and_report(
-                resources,
+                resources.release(|| 49),
                 &q,
                 Some(address),
                 || 50,
+                || 0,
                 |socket| {
                     let started = std::time::Instant::now();
                     started_tx.send(()).unwrap();
@@ -532,7 +541,8 @@ fn delayed_actual_close_holds_admission_until_socket_operation_finishes() {
         })
     };
     started_rx.recv_timeout(Duration::from_secs(1)).unwrap();
-    assert_eq!(slots.held(), 1);
+    // The close is in progress; both admission guards are already free.
+    assert_eq!(slots.held(), 0);
     let SwitchStart::Pending(pending) = runtime.begin_switch(
         OutputFormat::Mp3,
         false,
@@ -542,9 +552,10 @@ fn delayed_actual_close_holds_admission_until_socket_operation_finishes() {
         panic!("switch must enqueue");
     };
     worker.service(&runtime);
-    assert!(matches!(pending.poll(), SwitchPoll::Finished(Ok(false))));
+    assert!(matches!(pending.poll(), SwitchPoll::Finished(Ok(true))));
     assert!(
-        matches!(peer.read(&mut [0]),Err(error) if matches!(error.kind(),std::io::ErrorKind::WouldBlock | std::io::ErrorKind::TimedOut))
+        matches!(peer.read(&mut [0]),Err(error) if matches!(error.kind(),std::io::ErrorKind::WouldBlock | std::io::ErrorKind::TimedOut)),
+        "the socket is still open while it drains"
     );
     finish_tx.send(()).unwrap();
     assert!(closer.join().unwrap());
@@ -801,10 +812,11 @@ fn actual_listener_launch_failure_closes_captured_resources() {
     impl Drop for ClosingOwner {
         fn drop(&mut self) {
             let closed = listener_telemetry::close_and_report(
-                self.resources.take().unwrap(),
+                self.resources.take().unwrap().release(|| 29),
                 &self.queue,
                 None,
                 || 30,
+                || 0,
                 |socket| {
                     socket.shutdown(std::net::Shutdown::Both)?;
                     drop(socket);
@@ -858,7 +870,7 @@ fn actual_listener_launch_failure_closes_captured_resources() {
 }
 
 #[test]
-fn sonos_replacement_cannot_send_success_before_checked_close_receipt() {
+fn sonos_replacement_sends_success_while_the_old_socket_still_drains() {
     use esp_shazam_core::{network_lifecycle::Network, stream_wait::Capacity};
     use std::{
         io,
@@ -916,7 +928,7 @@ fn sonos_replacement_cannot_send_success_before_checked_close_receipt() {
         };
         let mut replacement_peer = TcpStream::connect(listener.local_addr().unwrap()).unwrap();
         replacement_peer
-            .set_read_timeout(Some(Duration::from_millis(40)))
+            .set_read_timeout(Some(Duration::from_secs(1)))
             .unwrap();
         let (replacement_socket, peer) = listener.accept().unwrap();
         let request = format!(
@@ -932,15 +944,20 @@ fn sonos_replacement_cannot_send_success_before_checked_close_receipt() {
         assert!(old_slot.revoked());
         assert!(!diagnostic.revoked());
         let resources = ConnectionResources::new(old_socket, old_slot, None);
+        let mut old_peer_reader = old_peer.try_clone().unwrap();
+        old_peer_reader
+            .set_read_timeout(Some(Duration::from_secs(1)))
+            .unwrap();
         let (closing, entered) = mpsc::channel();
         let (release, released) = mpsc::channel();
         let closer = std::thread::spawn(move || {
             let queue = Queue::new();
             assert!(listener_telemetry::close_and_report(
-                resources,
+                resources.release(|| 0),
                 &queue,
                 Some(peer),
                 || 1,
+                || 0,
                 |socket| {
                     closing.send(()).unwrap();
                     released.recv().unwrap();
@@ -970,6 +987,7 @@ fn sonos_replacement_cannot_send_success_before_checked_close_receipt() {
                 .write_all_before(b"HTTP/1.1 200 OK\r\n\r\n", deadline)
                 .unwrap();
             assert!(resources
+                .release(|| 2)
                 .close(|socket| {
                     socket.shutdown(std::net::Shutdown::Both)?;
                     drop(socket);
@@ -977,21 +995,25 @@ fn sonos_replacement_cannot_send_success_before_checked_close_receipt() {
                 })
                 .is_ok());
         });
+        // The old close is still in progress, yet the replacement is admitted and answers.
         let mut first = [0; 1];
-        let before_receipt = replacement_peer.read(&mut first);
+        assert_eq!(replacement_peer.read(&mut first).unwrap(), 1);
+        assert_eq!(first, *b"H");
         assert!(
-            matches!(before_receipt, Err(ref error) if matches!(error.kind(), io::ErrorKind::WouldBlock | io::ErrorKind::TimedOut))
+            matches!(old_peer_reader.read(&mut [0]), Err(ref error) if matches!(error.kind(), io::ErrorKind::WouldBlock | io::ErrorKind::TimedOut)),
+            "the old socket still drains"
         );
-        assert_eq!(slots.held(), 2);
+        assert!(
+            (1..=2).contains(&slots.held()),
+            "the diagnostic slot stays held"
+        );
         release.send(()).unwrap();
         closer.join().unwrap();
         replacement.join().unwrap();
-        replacement_peer
-            .set_read_timeout(Some(Duration::from_secs(1)))
-            .unwrap();
+        assert_eq!(old_peer_reader.read(&mut [0]).unwrap(), 0);
         let mut response = Vec::new();
         replacement_peer.read_to_end(&mut response).unwrap();
-        assert!(response.starts_with(b"HTTP/1.1 200"));
+        assert!(response.starts_with(b"TTP/1.1 200"));
         assert_eq!(slots.held(), 1);
         assert!(!diagnostic.revoked());
         drop(old_peer);

@@ -299,6 +299,10 @@ class ModuleTests(unittest.TestCase):
         # Prefix variation must not change peer identity; another port must.
         self.assertEqual(len(encoder.checked_listener_closes([left.replace('esp_shazam_firmware::stream: ', ''), close, receipt])), 1)
         self.assertEqual(encoder.checked_listener_closes([left.replace(':60800 left', ':60801 left'), close, receipt]), [])
+        # The close reaper appends the slot release stamp after the identity tokens.
+        reaped = close + ' owner_id=3 sonos_intent=0 released_us=32363100'
+        self.assertEqual(encoder.checked_listener_closes([left, reaped, receipt])[0][1].group(1), '192.168.23.153:60800')
+        self.assertEqual(encoder.listener_event_ms(reaped), 32605.374)
 
     def test_wait_revalidates_real_file_changed_by_success_callback(self):
         import fault_check as fault

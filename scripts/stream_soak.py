@@ -14,15 +14,27 @@ import time
 import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
+from types import SimpleNamespace
 
 from stream_format import input_format_args, validate_stream_decoder_log
 from decoder_integrity import FrameHash, validate_decoder_line
+from device_metrics import fetch
 from failure_observation import observation_seconds, observe_failure
 from encoder_fault_check import validate_encoder_export
 
 
 class Failure(Exception):
     pass
+
+
+def fault_tools():
+    """network_fault imports this module's decoder helpers, so its qdisc helpers load on demand to avoid the cycle."""
+    import network_fault
+    return network_fault
+
+
+# The ifb device the stall tree mirrors the board's packets through; network_fault's default.
+IFB = 'ifb0'
 
 
 # A framehash decoder writes about 4.7 KB/s (280,239 bytes per 60 s measured on oct16-interruption-1), so six
@@ -96,6 +108,79 @@ def port(value):
     return int(value)
 
 
+def interface(value):
+    try:
+        return fault_tools().interface_name(value)
+    except ValueError as error:
+        raise argparse.ArgumentTypeError(str(error)) from None
+
+
+def stall_options_problem(args):
+    """Why the stall flags are inconsistent, or None; the flags come as a set or not at all."""
+    on = args.stall_every is not None or args.stall_seconds is not None
+    if (args.stall_every is None) != (args.stall_seconds is None):
+        return '--stall-every and --stall-seconds are required together'
+    if on and args.interface is None:
+        return '--interface is required with --stall-every/--stall-seconds'
+    if not on and args.interface is not None:
+        return '--interface applies only with --stall-every/--stall-seconds'
+    if on and args.stall_seconds >= args.stall_every:
+        return '--stall-seconds must be shorter than --stall-every'
+    if on and args.path != '/stream.mp3':
+        return 'stalls are judged against MP3 skips; use --path /stream.mp3'
+    return None
+
+
+def stall_schedule(run_seconds, every, stall_seconds):
+    """Wall offsets from decoder start at which a stall begins; a stall that would outlast the run is left out."""
+    starts = [float(every) * k for k in range(1, int(run_seconds // every) + 1)]
+    return [start for start in starts if start + stall_seconds <= run_seconds]
+
+
+def decoder_arguments(args):
+    """The decoder's args: unchanged without stalls, else with both timeouts stretched by the stall like network_fault's trials."""
+    if args.stall_seconds is None:
+        return args
+    tools = fault_tools()
+    spec = dict(kind='stall', profile=tools.stall_profile(args.stall_seconds))
+    return SimpleNamespace(**vars(args), **tools.decoder_timeouts(spec), frames_short_allowed=0)
+
+
+def continuity_problem(decoder, expected_frames, skips, frames_skipped):
+    """Why a decoder is not continuous modulo the board's skips, or None: network_fault's live rule.
+
+    A board skip shows to an MP3 decoder as late audio, not always as a timestamp gap, so discontinuities may fall
+    short of the skips but never exceed them; ffmpeg -t ends at the jumped timeline, so the decode may stop the
+    skipped audio short, within one MP3 frame.
+    """
+    floor = expected_frames - (frames_skipped + 1) * fault_tools().MP3_FRAME_SAMPLES
+    if decoder['decoded_discontinuities'] > skips:
+        return f"{decoder['decoded_discontinuities']} discontinuities exceed {skips} board skips"
+    if not floor <= decoder['decoded_audio_frames'] <= expected_frames:
+        return f"{decoder['decoded_audio_frames']} frames outside {floor}..{expected_frames} (expected minus {frames_skipped} skipped)"
+    return None
+
+
+def restore_tree(run, show, interface, board_ip, before, ifb=IFB):
+    """Tear the stall tree down with every step attempted, then compare the listing with the pre-install one.
+
+    Returns (restore_verified, errors); `run` executes one privileged argv, `show` returns the interface's qdisc listing.
+    """
+    tools = fault_tools()
+    errors = []
+    for argv in tools.qdisc_teardown(interface, board_ip, ifb):
+        try:
+            run(argv)
+        except Exception as error:
+            errors.append(f"{' '.join(argv)}: {error}")
+    try:
+        verified = tools.restore_matches(before, show())
+    except Exception as error:
+        errors.append('restore-check: ' + repr(error))
+        verified = None
+    return verified, errors
+
+
 def update_decoder(job, args):
     job['accounting'].update(final=job['process'].poll() is not None)
     before = job['decoded_audio_frames']
@@ -121,7 +206,9 @@ def update_decoder(job, args):
         for line in job['tail'].lines():
             if line.startswith('out_time_us=') and line.split('=', 1)[1].isdigit():
                 job['timeline_seconds'] = int(line.split('=', 1)[1]) / 1_000_000
-        if code != 0 or job['decoded_audio_frames'] != round(args.seconds * 48000):
+        # A stalled soak lets the decode stop short by the board's skipped frames; otherwise the count is exact.
+        expected = round(args.seconds * 48000)
+        if code != 0 or not expected - getattr(args, 'frames_short_allowed', 0) <= job['decoded_audio_frames'] <= expected:
             raise Failure(f"{job['label']}: exit={code}, decoded={job['decoded_audio_frames']} actual frames, "
                           f"timeline={job['timeline_seconds']:.3f}s, requested={args.seconds:g}s; see {job['errors']}")
     elif time.monotonic() - job['advanced_at'] > getattr(args, 'progress_timeout_s', DECODER_PROGRESS_TIMEOUT_S):
@@ -198,7 +285,9 @@ def argument_parser():
         'baseline and poll /api/state. UART logs are private. Run under caffeinate -is to prevent '
         'host sleep; keep continuous LINE IN audio playing. No flashing occurs. Decoder success '
         'and counters do not detect every omitted DMA interrupt. Runtime-stat wrap is not a capture fault. '
-        'A checked 384 MiB total output budget stops the run on overflow; logs are retained, not rotated.')
+        'A checked 384 MiB total output budget stops the run on overflow; logs are retained, not rotated. '
+        'With --stall-every/--stall-seconds/--interface the receiver side blackholes the board (network_fault\'s tc '
+        'tree, sudo -n) on that schedule after the baseline and judges decoders continuous modulo the board\'s skips.')
     parser.add_argument('host', nargs='?', default='esp-shazam.local')
     parser.add_argument('--seconds', type=seconds, default=21600.0)
     parser.add_argument('--listeners', type=int, choices=[1, 2], default=2, help='simultaneous real decoders (default: 2)')
@@ -211,11 +300,19 @@ def argument_parser():
                         help='require every capture sample, including before baseline/decoder startup, to have zero loss/recovery counters; expected queue_overflows and settling discards are allowed before baseline (default: steady-state gate only)')
     parser.add_argument('--failure-observe-seconds', type=observation_seconds, default=0.0,
                         help='retain existing raw UART and decoders after failure for 0..120 seconds (default: 0); counters remain pre-failure snapshots')
+    parser.add_argument('--stall-every', type=seconds, help='blackhole the board every N seconds of decoding (default: no stalls); needs --stall-seconds and --interface')
+    parser.add_argument('--stall-seconds', type=seconds, help='length of each stall, shorter than --stall-every; stretches the decoder timeouts by as much')
+    parser.add_argument('--interface', type=interface, help='workstation interface that routes to the board, shaped with sudo -n tc')
     return parser
 
 
 def parse_args(argv=None):
-    return argument_parser().parse_args(argv)
+    parser = argument_parser()
+    args = parser.parse_args(argv)
+    problem = stall_options_problem(args)
+    if problem:
+        parser.error(problem)
+    return args
 
 
 def main(argv=None):
@@ -250,6 +347,22 @@ def main(argv=None):
     ip = None
     loss_keys = LOSS_KEYS
     capture_gate = 'clean_startup_and_steady_state' if args.require_clean_startup else 'steady_state_only'
+    decoder_args = decoder_arguments(args)
+    stalls_on = args.stall_seconds is not None
+    schedule = stall_schedule(args.seconds, args.stall_every, args.stall_seconds) if stalls_on else []
+    # A live listener keeps its socket through a stall, so wall time may grow by every stall (network_fault's budget rule).
+    stall_wall_seconds = len(schedule) * (args.stall_seconds or 0)
+    qdisc_before = qdisc_after = None
+    installed_steps = 0
+    stall_installed = None
+    stalls_applied = []
+    cleanup_errors = []
+    restore_verified = None
+    # Board skip counters, from the last metrics sample with every soak listener active; absent counters leave it exact.
+    skip_totals = None
+    departure_seen = None
+    departures = 0
+    metrics_polls = 0
 
     def check_output_budget():
         return check_budget(out)
@@ -269,6 +382,52 @@ def main(argv=None):
             raise Failure('/api/state must report shazam_enabled=false')
         state_polls += 1
         record('state', shazam_enabled=False, level_dbfs=value.get('level_dbfs'))
+
+    def sh(argv, timeout=15):
+        # Same privileged runner and command record as network_fault's driver.
+        tools = fault_tools()
+        began = time.monotonic()
+        completed = subprocess.run(tools.privileged(argv), capture_output=True, text=True, timeout=timeout)
+        record('command', argv=tools.privileged(argv), returncode=completed.returncode,
+               seconds=round(time.monotonic() - began, 3), stderr=completed.stderr[-512:])
+        if completed.returncode != 0:
+            raise Failure(f"{' '.join(argv)} failed ({completed.returncode}): {completed.stderr.strip()[-200:]}")
+        return completed.stdout
+
+    def unprivileged(argv):
+        return subprocess.run(argv, capture_output=True, text=True, timeout=15, check=True).stdout
+
+    def qdisc_show():
+        return unprivileged(['tc', 'qdisc', 'show', 'dev', args.interface])
+
+    def apply(phase, commands):
+        began = time.monotonic() - started
+        for argv in commands:
+            sh(argv)
+        fields = dict(phase=phase, at_s=round(began, 3), apply_seconds=round(time.monotonic() - started - began, 3))
+        record('injection', **fields)
+        return dict(kind='injection', **fields)
+
+    def metrics():
+        """Read the board's skip counters and last departure; a departure while every decoder still runs fails the soak."""
+        nonlocal skip_totals, departure_seen, departures, metrics_polls
+        value = fetch(f'http://{ip}:{args.state_port}/api/metrics', 3)
+        sample = fault_tools().metrics_sample(value, round(time.monotonic() - started, 3))
+        active = sum(1 for item in value['listeners'] if item['state'] in ('writing', 'ready'))
+        departure = value.get('last_listener_departure')
+        observed = departure['observed_device_us'] if departure else None
+        running = all(job['process'].poll() is None for job in jobs)
+        metrics_polls += 1
+        record('metrics', skips=sample['skips'], frames_skipped=sample['frames_skipped'], media_age_us=sample['media_age_us'],
+               listeners_active=active, departure_device_us=observed)
+        if metrics_polls > 1 and observed != departure_seen and running:
+            # The harness's own closes after a decoder exits are not departures of the run.
+            departures += 1
+            raise Failure('listener departed during the soak (last_listener_departure moved); see private uart.log')
+        departure_seen = observed
+        if active == args.listeners and sample['skips'] is not None and sample['frames_skipped'] is not None:
+            skip_totals = dict(skips=sample['skips'], frames_skipped=sample['frames_skipped'], source='metrics')
+            decoder_args.frames_short_allowed = (sample['frames_skipped'] + 1) * fault_tools().MP3_FRAME_SAMPLES
 
     def uart_updates():
         nonlocal latest, latest_at, samples, boots, captured, runtime_invalid_windows
@@ -304,22 +463,42 @@ def main(argv=None):
             record('capture', counters=sample)
 
     def decoder_updates(job):
-        return update_decoder(job, args)
+        return update_decoder(job, decoder_args)
 
 
     try:
         ip = socket.getaddrinfo(args.host, args.stream_port, socket.AF_INET, socket.SOCK_STREAM)[0][4][0]
         # Refuse a reset of firmware running with recognition enabled.
         state()
+        if stalls_on:
+            # Fail here, before the serial reset, on a lapsed sudo timestamp or a tree that is not the default one.
+            # Probe with a command the operator's sudo rule covers: a NOPASSWD entry for tc alone refuses `sudo -n true`.
+            tools = fault_tools()
+            sh(['tc', '-V'])
+            route = unprivileged(['ip', 'route', 'get', ip])
+            if tools.route_interface(route) != args.interface:
+                raise Failure(f'route to {ip} uses {tools.route_interface(route)}, not {args.interface}')
+            qdisc_before = qdisc_show()
+            try:
+                socket.if_nametoindex(IFB)
+                ifb_exists = True
+            except OSError:
+                ifb_exists = False
+            problem = tools.preinstall_problem(qdisc_before, ifb_exists)
+            if problem:
+                raise Failure('refusing to install: ' + problem)
         raw = (out / 'uart.log').open('wb')
         serial_errors = (out / 'serial.log').open('wb')
         handles += [raw, serial_errors]
-        serial = subprocess.Popen([str(repo / 'scripts/serial-log'), str(args.seconds + 180 + args.failure_observe_seconds)],
+        serial = subprocess.Popen([str(repo / 'scripts/serial-log'), str(args.seconds + 180 + args.failure_observe_seconds + stall_wall_seconds)],
                                   stdout=raw, stderr=serial_errors, start_new_session=True)
         processes.append(serial)
         uart_tail = Tail(out / 'uart.log')
         tails.append(uart_tail)
         record('start', host=args.host, path=args.path, stream_port=args.stream_port, state_port=args.state_port, ip=ip, requested_seconds=args.seconds, listeners=args.listeners, capture_gate=capture_gate)
+        if stalls_on:
+            record('stall_plan', interface=args.interface, ifb=IFB, route=route.strip(), every_seconds=args.stall_every, stall_seconds=args.stall_seconds,
+                   scheduled=len(schedule), rw_timeout_s=decoder_args.rw_timeout_s, progress_timeout_s=decoder_args.progress_timeout_s)
         startup_deadline = time.monotonic() + 60
         state_seen = False
         next_state = 0
@@ -346,6 +525,13 @@ def main(argv=None):
             if time.monotonic() >= startup_deadline:
                 raise Failure('no stable post-startup capture/UART/state baseline within 60 seconds')
             time.sleep(0.2)
+        if stalls_on:
+            # The tree shapes nothing until a stall is applied; install it only on a clean baseline.
+            for argv in fault_tools().qdisc_plan(args.interface, ip, IFB):
+                sh(argv)
+                installed_steps += 1
+            record('qdisc_installed', listing=qdisc_show())
+            stall_install, stall_remove = fault_tools().injection_commands(fault_tools().stall_profile(args.stall_seconds), args.interface, IFB)
         for index in listener_indices(args):
             label = f'listener-{index}'
             errors_path = out / f'{label}.ffmpeg.log'
@@ -354,21 +540,23 @@ def main(argv=None):
             progress = out / f'{label}.progress'
             hashes = out / f'{label}.framehash'
             process = subprocess.Popen(
-                decoder_command(args, ip, progress, hashes),
+                decoder_command(decoder_args, ip, progress, hashes),
                 stdout=subprocess.DEVNULL, stderr=error_handle, start_new_session=True)
             processes.append(process)
             tail = Tail(progress)
             tails.append(tail)
             log_tail = Tail(errors_path)
             tails.append(log_tail)
+            # Under stalls a flagged timestamp gap is evidence to count against the board's skips, not a reason to stop.
             jobs.append(dict(label=label, process=process, tail=tail, errors=errors_path,
                              log_tail=log_tail,
-                             accounting=FrameHash(hashes), decoded_audio_frames=0,
+                             accounting=FrameHash(hashes, tolerate_discontinuities=stalls_on), decoded_audio_frames=0,
                              decoded_seconds=0, timeline_seconds=0, advanced_at=time.monotonic()))
         decode_started = time.monotonic()
-        deadline = decode_started + args.seconds + 60
+        deadline = decode_started + args.seconds + 60 + stall_wall_seconds
         next_state = 0
         next_progress = 0
+        sleep_for = 0.5
         while True:
             uart_updates()
             if serial.poll() is not None:
@@ -377,8 +565,24 @@ def main(argv=None):
                 raise Failure('capture UART telemetry missing for 25 seconds')
             for job in jobs:
                 decoder_updates(job)
-            if time.monotonic() >= next_state:
+            if stalls_on:
+                since_decode = time.monotonic() - decode_started
+                if stall_installed is None and len(stalls_applied) < len(schedule) and since_decode >= schedule[len(stalls_applied)]:
+                    stall_installed = apply('installed', stall_install)
+                if stall_installed is not None:
+                    due = stall_installed['at_s'] + stall_installed['apply_seconds'] + args.stall_seconds
+                    if time.monotonic() - started >= due:
+                        removed = apply('removed', stall_remove)
+                        stalls_applied.append(dict(scheduled_s=schedule[len(stalls_applied)], installed=stall_installed, removed=removed,
+                                                   actual_seconds=round(removed['at_s'] + removed['apply_seconds'] - stall_installed['at_s'], 3)))
+                        stall_installed = None
+                # Hold a stall for its requested seconds, not the poll interval rounded up.
+                sleep_for = max(0.0, min(0.5, due - (time.monotonic() - started))) if stall_installed is not None else 0.5
+            # HTTP to the board cannot answer through a blackhole; the polls resume once the stall is removed.
+            if time.monotonic() >= next_state and stall_installed is None:
                 state()
+                if stalls_on:
+                    metrics()
                 next_state = time.monotonic() + 5
             if time.monotonic() >= next_progress:
                 record('progress', listeners=[dict(label=job['label'], timeline_seconds=job['timeline_seconds'],
@@ -386,11 +590,11 @@ def main(argv=None):
                        capture_samples=samples, minimums=minimums,
                        runtime_invalid_windows=runtime_invalid_windows)
                 next_progress = time.monotonic() + 60
-            if decoders_completed(jobs, args):
+            if decoders_completed(jobs, decoder_args):
                 break
             if time.monotonic() >= deadline:
                 raise Failure('decoders exceeded requested duration plus 60 seconds of wall time')
-            time.sleep(0.5)
+            time.sleep(sleep_for)
         finished_at = time.monotonic()
         # Require a UART sample after all decoders finish, covering their final capture window.
         final_deadline = finished_at + 20
@@ -402,6 +606,15 @@ def main(argv=None):
                 state()
                 next_state = time.monotonic() + 5
             time.sleep(0.2)
+        if stalls_on:
+            # Zero departures were enforced at every poll; decoders must be continuous modulo the board's skips.
+            if len(stalls_applied) != len(schedule):
+                raise Failure(f'{len(stalls_applied)} of {len(schedule)} scheduled stalls applied')
+            bound = skip_totals or dict(skips=0, frames_skipped=0, source='absent')
+            for job in jobs:
+                problem = continuity_problem(job['accounting'].summary(), round(args.seconds * 48000), bound['skips'], bound['frames_skipped'])
+                if problem:
+                    raise Failure(f"{job['label']}: {problem}")
         record('assertions_passed', listeners=[job['accounting'].summary() for job in jobs])
         check_output_budget()
     except KeyboardInterrupt:
@@ -420,6 +633,20 @@ def main(argv=None):
             failure_observation.update(started_elapsed_seconds=observation_started - started,
                                        ended_elapsed_seconds=time.monotonic() - started)
     finally:
+        if installed_steps:
+            # A second interrupt must not skip the remaining tc calls; the tree comes down on every exit path.
+            previous = {number: signal.signal(number, signal.SIG_IGN) for number in (signal.SIGINT, signal.SIGTERM)}
+            try:
+                restore_verified, cleanup_errors = restore_tree(sh, qdisc_show, args.interface, ip, qdisc_before, IFB)
+                qdisc_after = qdisc_show()
+            except Exception as error:
+                cleanup_errors.append('teardown: ' + repr(error))
+            finally:
+                for number, handler in previous.items():
+                    signal.signal(number, handler)
+            record('restore', verified=restore_verified, errors=cleanup_errors)
+            if restore_verified is not True or cleanup_errors:
+                failure = failure or f'qdisc restore not verified: {cleanup_errors}'
         for process in reversed(processes):
             try:
                 stop(process)
@@ -445,6 +672,13 @@ def main(argv=None):
                        last_capture_age_seconds_at_failure=max(0, failure_at - latest_at) if failure_at is not None and latest is not None else None,
                        last_capture_age_seconds_at_summary=max(0, time.monotonic() - latest_at) if latest is not None else None,
                        failure_observation=failure_observation,
+                       stalls=dict(interface=args.interface, ifb=IFB, every_seconds=args.stall_every, seconds=args.stall_seconds,
+                                   scheduled=len(schedule), count=len(stalls_applied), times=[stall['installed']['at_s'] for stall in stalls_applied],
+                                   actual_seconds=[stall['actual_seconds'] for stall in stalls_applied], applied=stalls_applied,
+                                   incomplete=stall_installed, qdisc_before=qdisc_before, qdisc_after=qdisc_after,
+                                   cleanup_errors=cleanup_errors) if stalls_on else None,
+                       restore_verified=restore_verified, skips=skip_totals if stalls_on else None,
+                       departures_while_running=departures if stalls_on else None, metrics_polls=metrics_polls if stalls_on else None,
                        capture_samples=samples, minimums=minimums, runtime_invalid_windows=runtime_invalid_windows,
                        output_bytes_before_summary=output_bytes(out), output_budget_bytes=OUTPUT_BUDGET_BYTES,
                        counter_deltas={key: ((latest[key] - baseline[key]) & 0xffffffff) for key in loss_keys} if baseline and latest else None,

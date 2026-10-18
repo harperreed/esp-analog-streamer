@@ -841,12 +841,23 @@ pub(crate) struct ConnectionResources<S> {
     pub(crate) slot: esp_shazam_core::stream_wait::Slot,
     pub(crate) lease: Option<crate::stream_runtime::Lease>,
 }
-/// An uncertain close retains the concrete failure and both admission guards.
+/// A socket whose admission guards are released and whose checked close is still owed.
+/// Its close bookkeeping travels with it to the close reaper.
+pub(crate) struct DrainingSocket<S> {
+    pub(crate) socket: S,
+    pub(crate) owner_id: u64,
+    pub(crate) sonos_intent: u64,
+    /// Slots held at the release, counting this socket's.
+    pub(crate) held: usize,
+    /// When the slot was released, stamped before the owner record reset so a replacement's
+    /// join never precedes it.
+    pub(crate) released_us: u64,
+}
+/// An uncertain close retains the concrete failure, which owns the socket when close was
+/// never called. The caller applies its recovery policy; the slot was released at hand-off.
 #[must_use]
 pub(crate) struct RetainedClose<F> {
     _failure: F,
-    _slot: esp_shazam_core::stream_wait::Slot,
-    _lease: Option<crate::stream_runtime::Lease>,
 }
 impl<S> ConnectionResources<S> {
     pub(crate) fn new(
@@ -860,29 +871,37 @@ impl<S> ConnectionResources<S> {
             lease,
         }
     }
-    pub(crate) fn close<R, F>(
-        self,
-        close_once: impl FnOnce(S) -> Result<R, F>,
-    ) -> Result<(R, usize), RetainedClose<F>> {
+    /// Releases both admission guards and returns the socket with its close bookkeeping.
+    /// Call this only once a draining place is reserved, so the socket cannot be lost.
+    pub(crate) fn release(self, now: impl FnOnce() -> u64) -> DrainingSocket<S> {
         let Self {
             socket,
             slot,
             lease,
         } = self;
-        match close_once(socket) {
-            Ok(report) => {
-                // Preserve the departure log's count: close completed, our slot still held.
-                let held = slot.taken();
-                drop(slot);
-                drop(lease);
-                Ok((report, held))
-            }
-            Err(failure) => Err(RetainedClose {
-                _failure: failure,
-                _slot: slot,
-                _lease: lease,
-            }),
+        let owner_id = slot.owner_id();
+        let sonos_intent = slot.intent_id();
+        let held = slot.taken();
+        let released_us = now();
+        drop(slot);
+        drop(lease);
+        DrainingSocket {
+            socket,
+            owner_id,
+            sonos_intent,
+            held,
+            released_us,
         }
+    }
+}
+impl<S> DrainingSocket<S> {
+    /// Closes exactly once. A failure is retained, never retried, because the socket's state
+    /// is unknown.
+    pub(crate) fn close<R, F>(
+        self,
+        close_once: impl FnOnce(S) -> Result<R, F>,
+    ) -> Result<R, RetainedClose<F>> {
+        close_once(self.socket).map_err(|failure| RetainedClose { _failure: failure })
     }
 }
 

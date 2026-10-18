@@ -3,6 +3,9 @@
 #![cfg(feature = "listener-loom")]
 // These imports also carry ordinary channel/codec methods outside this model boundary.
 #[allow(dead_code)]
+#[path = "../../firmware/src/close_reaper.rs"]
+mod close_reaper;
+#[allow(dead_code)]
 #[path = "../../firmware/src/stream_codec.rs"]
 mod stream_codec;
 #[allow(dead_code)]
@@ -146,6 +149,53 @@ mod models {
                 }
             }
             encoder.join().unwrap();
+        });
+    }
+
+    /// One listener hands its socket to the reaper and reconnects at once; the other leaves
+    /// while this thread reaps. Owners never exceed two, draining sockets never exceed two,
+    /// and a hand-off at the drain limit waits for a finished drain while keeping its slot.
+    #[test]
+    fn admission_racing_a_drain_never_exceeds_two_active_and_two_draining() {
+        check(|| {
+            use crate::close_reaper::Reaper;
+            let capacity = Arc::new(esp_shazam_core::stream_wait::Capacity::default());
+            let reaper = Arc::new(Reaper::<u64>::new());
+            let first = Slot::take(&capacity, 2).unwrap();
+            let second = Slot::take(&capacity, 2).unwrap();
+            fn hand_off(slot: Slot, reaper: &Reaper<u64>) {
+                let permit = reaper.reserve().unwrap();
+                let id = slot.owner_id();
+                drop(slot);
+                permit.submit(id);
+            }
+            let reconnecting = {
+                let (reaper, capacity) = (reaper.clone(), capacity.clone());
+                thread::spawn(move || {
+                    hand_off(first, &reaper);
+                    // Its own hand-off freed a slot, so the reconnect is always admitted; it
+                    // hands off again, waiting at the drain limit until a drain finishes.
+                    hand_off(Slot::take(&capacity, 2).unwrap(), &reaper);
+                })
+            };
+            let leaving = {
+                let reaper = reaper.clone();
+                thread::spawn(move || hand_off(second, &reaper))
+            };
+            // This thread is the reaper: three hand-offs always arrive, and the reconnect's
+            // may precede the second departure's.
+            let mut reaped = Vec::new();
+            for _ in 0..3 {
+                reaped.push(reaper.next().unwrap());
+                reaper.finished();
+            }
+            reconnecting.join().unwrap();
+            leaving.join().unwrap();
+            reaped.sort_unstable();
+            assert_eq!(reaped, [1, 2, 3]);
+            assert_eq!(capacity.held(), 0);
+            assert_eq!(reaper.draining(), 0);
+            assert_eq!(Arc::strong_count(&reaper), 1);
         });
     }
 

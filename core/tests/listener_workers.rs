@@ -92,6 +92,7 @@ impl Drop for SocketJob {
         self.resources
             .take()
             .unwrap()
+            .release(|| 0)
             .close(|socket| {
                 socket.shutdown(std::net::Shutdown::Both)?;
                 drop(socket);

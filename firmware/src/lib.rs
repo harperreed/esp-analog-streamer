@@ -5,6 +5,7 @@ mod audio_in;
 mod capture_failure_telemetry;
 #[cfg(feature = "capture-fixture")]
 mod capture_fixture;
+mod close_reaper;
 mod codec;
 mod config;
 mod i2s_capture;

@@ -1,6 +1,6 @@
 // ABOUTME: Stores bounded listener events without waiting for diagnostic output.
 // ABOUTME: Keeps socket cleanup and admission release independent of the exporter.
-use crate::stream_pipeline::{ConnectionResources, RetainedClose};
+use crate::stream_pipeline::{DrainingSocket, RetainedClose};
 use std::{
     net::SocketAddr,
     sync::{
@@ -138,6 +138,9 @@ pub(crate) enum Payload {
         held: usize,
         owner_id: u64,
         sonos_intent: u64,
+        released_us: u64,
+        /// The reaper task's lifetime stack minimum, sampled after this close.
+        reaper_stack_free_bytes: u32,
     },
     Timeout {
         elapsed_ms: u64,
@@ -310,27 +313,36 @@ impl Queue {
         self.dropped.load(Ordering::Relaxed)
     }
 }
+/// Runs the checked close of a socket whose slot was released at hand-off, then stamps the
+/// Closed receipt with the closing task's stack minimum. A failure publishes nothing and
+/// returns the retained socket.
 pub(crate) fn close_and_report<S, F>(
-    resources: ConnectionResources<S>,
+    draining: DrainingSocket<S>,
     queue: &Queue,
     peer: Option<SocketAddr>,
     now: impl FnOnce() -> u64,
+    stack_free: impl FnOnce() -> u32,
     close: impl FnOnce(S) -> Result<Duration, F>,
 ) -> Result<(), RetainedClose<F>> {
-    let owner_id = resources.slot.owner_id();
-    let sonos_intent = resources.slot.intent_id();
-    // Stamp checked close before releasing the slot so a replacement's join
-    // can be ordered against it without depending on exporter scheduling.
-    let ((elapsed, event_us), held) =
-        resources.close(|socket| close(socket).map(|elapsed| (elapsed, now())))?;
+    let DrainingSocket {
+        owner_id,
+        sonos_intent,
+        held,
+        released_us,
+        ..
+    } = draining;
+    let elapsed = draining.close(close)?;
+    let reaper_stack_free_bytes = stack_free();
     queue.publish(Record {
-        event_us,
+        event_us: now(),
         peer,
         payload: Payload::Closed {
             elapsed_ms: elapsed.as_millis() as u64,
             held,
             owner_id,
             sonos_intent,
+            released_us,
+            reaper_stack_free_bytes,
         },
     });
     Ok(())
@@ -341,8 +353,9 @@ pub(crate) static EVENTS: Queue = Queue::new();
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::stream_pipeline::ConnectionResources;
     #[test]
-    fn close_timestamp_precedes_capacity_reuse() {
+    fn slot_release_precedes_close_timestamp() {
         use esp_shazam_core::stream_wait::{Capacity, Slot};
         use std::{
             io::Read,
@@ -357,14 +370,17 @@ mod tests {
         let slot = Slot::take(&capacity, 2).unwrap();
         let expected_owner = slot.owner_id();
         let queue = Queue::new();
+        let draining = ConnectionResources::new(socket, slot, None).release(|| 100);
+        assert_eq!(capacity.held(), 0, "the slot is free before the close");
         assert!(close_and_report(
-            ConnectionResources::new(socket, slot, None),
+            draining,
             &queue,
             Some(address),
             || {
-                assert_eq!(capacity.held(), 1, "timestamp must precede slot reuse");
+                assert_eq!(capacity.held(), 0, "close never holds the slot");
                 123
             },
+            || 777,
             |socket| {
                 socket.shutdown(Shutdown::Both)?;
                 drop(socket);
@@ -372,13 +388,13 @@ mod tests {
             }
         )
         .is_ok());
-        assert_eq!(capacity.held(), 0);
         assert_eq!(peer.read(&mut [0]).unwrap(), 0);
         let record = queue.take().unwrap();
         assert_eq!(record.event_us, 123);
         assert_eq!(record.peer, Some(address));
         assert!(matches!(record.payload, Payload::Closed {
-            owner_id, sonos_intent: 0, elapsed_ms: 2, held: 1,
+            owner_id, sonos_intent: 0, elapsed_ms: 2, held: 1, released_us: 100,
+            reaper_stack_free_bytes: 777,
         } if owner_id == expected_owner));
     }
     fn record() -> Record {
@@ -390,6 +406,8 @@ mod tests {
                 held: 1,
                 owner_id: 1,
                 sonos_intent: 0,
+                released_us: 10,
+                reaper_stack_free_bytes: 0,
             },
         }
     }
@@ -520,10 +538,11 @@ mod tests {
             let (_, lease) = runtime.admit("GET /stream.flac HTTP/1.1");
             let resources = ConnectionResources::new(socket, Slot::take(&slots, 2).unwrap(), lease);
             assert!(close_and_report(
-                resources,
+                resources.release(|| 11),
                 &q,
                 Some(address),
                 || 12,
+                || 0,
                 |socket| {
                     socket.shutdown(Shutdown::Both)?;
                     drop(socket);

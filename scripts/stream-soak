@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ABOUTME: Runs real compressed-audio decoders while checking live capture counters and heap telemetry.
-# ABOUTME: Usage: scripts/stream-soak [HOST] [--seconds N] [--listeners 1|2] [--stream-port PORT] [--state-port PORT] [--out DIR]; resets once and keeps UART private.
+# ABOUTME: Usage: scripts/stream-soak [HOST] [--seconds N] [--listeners 1|2] [--stream-port PORT] [--state-port PORT] [--out DIR] [--stall-every S --stall-seconds S --interface IFACE]; resets once and keeps UART private.
 set -euo pipefail
 repo="$(cd "$(dirname "$0")/.." && pwd)"
 exec uv run --quiet --project "$repo" --locked python3 "$repo/scripts/stream_soak.py" "$@"
