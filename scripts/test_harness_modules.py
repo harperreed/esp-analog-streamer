@@ -512,17 +512,20 @@ assert not list(Path.cwd().iterdir())
         with tempfile.TemporaryDirectory() as directory:
             out = Path(directory)
             path = out/'evidence.log'
-            with path.open('wb') as output:
-                output.truncate(128*1024*1024)
-            for check, error in [(encoder.check_budget, RuntimeError), (soak.check_budget, soak.Failure)]:
+            # Each checker has its own budget: the encoder harness keeps 128 MiB, the soak 384 MiB (six hours
+            # of two framehash listeners is about 202 MB).
+            for check, error, budget in [(encoder.check_budget, RuntimeError, 128*1024*1024),
+                                         (soak.check_budget, soak.Failure, soak.OUTPUT_BUDGET_BYTES)]:
+                with path.open('wb') as output:
+                    output.truncate(budget)
                 check(out)
                 with path.open('r+b') as output:
-                    output.truncate(128*1024*1024+1)
+                    output.truncate(budget+1)
                 with self.assertRaisesRegex(error, 'logs retained'):
                     check(out)
-                self.assertEqual(path.stat().st_size, 128*1024*1024+1)
+                self.assertEqual(path.stat().st_size, budget+1)
                 with path.open('r+b') as output:
-                    output.truncate(128*1024*1024)
+                    output.truncate(budget)
 
     def test_stop_helpers_reap_real_process_groups(self):
         import fault_check as fault
@@ -633,7 +636,7 @@ assert not list(Path.cwd().iterdir())
                         self.assertEqual(summary['error'], 'interrupted' if interrupt else
                                          '/api/state must report shazam_enabled=false')
                         self.assertIn('FAIL '+str(summaries[0]), stdout)
-                        self.assertEqual(summary['output_budget_bytes'], 128*1024*1024)
+                        self.assertEqual(summary['output_budget_bytes'], 384*1024*1024)
                         self.assertFalse(list((Path(directory)/output).glob('*/uart.log')),
                                          'state rejection must precede UART collector startup')
                     finally:

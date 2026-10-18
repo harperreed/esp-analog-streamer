@@ -25,7 +25,9 @@ class Failure(Exception):
     pass
 
 
-OUTPUT_BUDGET_BYTES = 128 * 1024 * 1024
+# A framehash decoder writes about 4.7 KB/s (280,239 bytes per 60 s measured on oct16-interruption-1), so six
+# hours of two listeners is about 202 MB; 384 MiB leaves headroom for the polling overshoot.
+OUTPUT_BUDGET_BYTES = 384 * 1024 * 1024
 # ffmpeg's socket read timeout and the no-progress watchdog; a harness may stretch both on its decoder args.
 DECODER_RW_TIMEOUT_S = 10
 DECODER_PROGRESS_TIMEOUT_S = 20
@@ -196,7 +198,7 @@ def argument_parser():
         'baseline and poll /api/state. UART logs are private. Run under caffeinate -is to prevent '
         'host sleep; keep continuous LINE IN audio playing. No flashing occurs. Decoder success '
         'and counters do not detect every omitted DMA interrupt. Runtime-stat wrap is not a capture fault. '
-        'A checked 128 MiB total output budget stops the run on overflow; logs are retained, not rotated.')
+        'A checked 384 MiB total output budget stops the run on overflow; logs are retained, not rotated.')
     parser.add_argument('host', nargs='?', default='esp-shazam.local')
     parser.add_argument('--seconds', type=seconds, default=21600.0)
     parser.add_argument('--listeners', type=int, choices=[1, 2], default=2, help='simultaneous real decoders (default: 2)')
