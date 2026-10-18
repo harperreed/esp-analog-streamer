@@ -585,7 +585,8 @@ class Driver:
         self.write_result()
         failure = None
         try:
-            self.sh(['true'])
+            # Probe with a command the operator's sudo rule covers; a tc-only NOPASSWD rule refuses `sudo -n true`.
+            self.sh(['tc', '-V'])
             self.result['environment'] = self.environment()
             if self.result['environment']['route_interface'] != self.args.interface:
                 raise Failure(f"route to {self.args.host} uses {self.result['environment']['route_interface']}, not {self.args.interface}")

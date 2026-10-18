@@ -494,10 +494,22 @@ def trial_verdict(trial, events):
                     if (trial['policy'] == LIVE or event['ended'] in ('completed', 'stopped')) and event['ended_s'] is not None]
     harness_ends += [event['closed_s'] for event in by_kind.get('wav', []) if event['closed_s'] is not None]
 
+    # A decoder that completed with every expected frame got everything and closed; the only socket error the board
+    # can then report for it is our close, which it notices on its next write. Under a rate limit that write can
+    # wait up to the live budget (oct18-interruption-2 deficit-0.8-1: the reset line landed 2.000 s after the end).
+    # Only the peer attribute_skips paired with that decoder qualifies, so a stranger's reset stays a departure.
+    complete_ends = [(event['skip_peer'], event['ended_s']) for event in by_kind.get('decoder', []) + by_kind.get('fresh', [])
+                     if event['ended'] == 'completed' and event.get('frames') == event.get('expected_frames')
+                     and event['ended_s'] is not None and event.get('skip_peer') is not None]
+
     def harness_owned(departure):
         # UART is read before decoders are polled, so the board's line can precede ended_s by up to one poll.
-        return (listener_end_category(departure['end']) == 'socket_error'
-                and any(-POLL_INTERVAL_S <= departure['at_s'] - at <= HARNESS_CLOSE_WINDOW_S for at in harness_ends))
+        if listener_end_category(departure['end']) != 'socket_error':
+            return False
+        if any(-POLL_INTERVAL_S <= departure['at_s'] - at <= HARNESS_CLOSE_WINDOW_S for at in harness_ends):
+            return True
+        return any(peer == departure['peer'] and -POLL_INTERVAL_S <= departure['at_s'] - at <= LIVE_WRITE_DEADLINE_S
+                   for peer, at in complete_ends)
 
     departures = [event for event in by_kind.get('departure', []) if not harness_owned(event)]
     harness_closes = len(by_kind.get('departure', [])) - len(departures)
@@ -624,17 +636,21 @@ def trial_verdict(trial, events):
             records.append(record)
             if problem:
                 return fail(f"{decoder['label']}: {problem}", decoders=records)
-            if decoder['ended_s'] is not None and decoder['ended_s'] < removed_s:
+            # ffmpeg -t counts audio seconds, and every skip shortens the wall time it takes to collect them, so a
+            # decoder that completed with every frame can finish before the deficit is lifted (oct18-interruption-2
+            # deficit-0.8-1: three skips, done 6.5 s early). Only a cut decoder ending early is a failure.
+            if decoder['ended_s'] is not None and decoder['ended_s'] < removed_s and not continuous(decoder):
                 return fail(f"{decoder['label']} ended {removed_s - decoder['ended_s']:.1f} s before the injection was removed", decoders=records)
         period = MEDIA_AGE_BASE_S / (1 - trial['profile']['fraction'])
         steady = skip_steadiness(samples, installed_s, removed_s, period)
         detail = dict(predicted_skip_period_s=period, max_skip_gap_s=steady['max_skip_gap_s'], skip_times_s=steady['skip_times_s'])
-        if steady['skips'] is None:
+        attributed = [decoder['skips'] for decoder in decoders if decoder.get('skips') is not None]
+        if steady['skips'] is None or (steady['skips'] < 1 and sum(attributed) >= 1):
             # The ifb0 rate limit throttles every board->workstation byte, metrics replies included, so a hard
-            # deficit can starve the poller entirely (oct16-interruption-1 deficit-0.5-1: 0 of 96 samples). The
-            # board's own counters on the listener's departure line, attributed by attribute_skips, still say
-            # whether it skipped; steadiness is unjudged and recorded as such.
-            attributed = [decoder['skips'] for decoder in decoders if decoder.get('skips') is not None]
+            # deficit can starve the poller entirely (oct16-interruption-1 deficit-0.5-1: 0 of 96 samples) or
+            # leave only samples from before the first skip (oct18-interruption-2 deficit-0.8-1: 54 timeouts,
+            # sampled increase 0, board counters 3). The board's own counters on the listener's departure line,
+            # attributed by attribute_skips, still say whether it skipped; steadiness is unjudged and recorded.
             if not attributed:
                 return fail('no metrics sample or attributed departure reports skip counters during the deficit',
                             decoders=records, **detail)
@@ -1121,7 +1137,9 @@ class Driver:
         failure = None
         try:
             # A lapsed sudo timestamp fails here in a second, before the serial reset.
-            self.sh(['true'])
+            # Probe with a command the operator's sudo rule actually covers: a NOPASSWD entry for tc alone
+            # still refuses `sudo -n true` (oct18-interruption-1 died in 7 ms on exactly that).
+            self.sh(['tc', '-V'])
             self.result['environment'] = self.environment()
             if self.result['environment']['route_interface'] != self.args.interface:
                 raise Failure(f"route to {self.args.host} uses {self.result['environment']['route_interface']}, not {self.args.interface}")

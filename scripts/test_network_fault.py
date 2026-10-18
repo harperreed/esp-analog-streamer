@@ -1237,6 +1237,27 @@ class LivePolicyTests(unittest.TestCase):
                        fresh(f'l-fresh-{index}', 59.3 + index / 10), reset_after(f'f{index}', 59.3 + index / 10, device_us=66_000_000 + index)]
         return trial, events
 
+    def test_board_reset_after_a_complete_decoder_is_the_harness_close_even_when_late(self):
+        # oct18-interruption-2 deficit-0.8-1: the decoder completed every frame at 73.63 s and the board's
+        # ConnectionReset line landed 2.000 s later, because under the rate limit it noticed our close only on
+        # its next write. That reset can only be ours.
+        trial = live_setup(nf.trial_spec('deficit-0.8-1'), RUN4_BEFORE, None, injection('installed', 20.07, 0.02))
+        expected = trial['expected_frames']
+        events = [injection('installed', 20.07, 0.02), injection('removed', 80.13, 0.02), admission('p1', 955_998_561, 0.55),
+                  decoder('d-listener-1', expected, expected, ended='completed', ended_s=73.63),
+                  departure('p1', RESET, 1_030_532_702, 75.63, skips=3, frames_skipped=502), close('p1', 1_030_533_290, 75.63)]
+        # attribute_skips pairs the decoder with admission p1 and that peer's counters-bearing departure.
+        verdict = nf.trial_verdict(trial, nf.attribute_skips(events) + deficit_samples(20.07, 80.13, 20.0))
+        self.assertTrue(verdict['passed'], verdict)
+        self.assertEqual(verdict['harness_closes'], 1, verdict)
+        self.assertEqual(verdict['departed'], 0)
+        # A late reset after a decoder the board cut is still the product's departure.
+        cut = [dict(event, frames=expected // 2, exit_code=251, ended='cut') if event['kind'] == 'decoder' else event for event in events]
+        cut = [dict(event, at_s=78.63) if event['kind'] == 'departure' else event for event in cut]
+        verdict = nf.trial_verdict(trial, cut + deficit_samples(20.07, 80.13, 20.0))
+        self.assertEqual(verdict['harness_closes'], 0)
+        self.assertFalse(verdict['passed'])
+
     def test_live_deficit_falls_back_to_attributed_skips_when_metrics_are_starved(self):
         # oct16-interruption-1 deficit-0.5-1: the ifb0 rate limit starved every metrics poll (0 of 96 samples), the
         # listener kept its socket, and its departure line carried skips=7 frames_skipped=1261, attributed to the decoder.
@@ -1252,6 +1273,13 @@ class LivePolicyTests(unittest.TestCase):
         verdict = nf.trial_verdict(trial, none)
         self.assertFalse(verdict['passed'])
         self.assertIn('no skip', verdict['reason'])
+        # oct18-interruption-2 deficit-0.8-1: the few samples that beat the rate limit all predate the first skip,
+        # so the sampled increase is 0 while the departure line and the attributed decoder say 3.
+        sparse = [dict(item, skips=0, frames_skipped=0) for item in deficit_samples(20, 80.05, 8.0)[:3]]
+        verdict = nf.trial_verdict(trial, [event for event in starved if event['kind'] != 'metrics'] + sparse)
+        self.assertTrue(verdict['passed'], verdict)
+        self.assertTrue(verdict['metrics_starved'])
+        self.assertIn('7 attributed skips', verdict['reason'])
         unattributed = [dict(event, skips=None, frames_skipped=None) if event['kind'] == 'decoder' else event for event in starved]
         verdict = nf.trial_verdict(trial, unattributed)
         self.assertFalse(verdict['passed'])
@@ -1366,10 +1394,16 @@ class LivePolicyTests(unittest.TestCase):
         self.assertIn('departed', verdict['reason'])
         cut = [dict(event, frames=1_000_000, exit_code=251, ended_s=60.0, ended='cut') if event['kind'] == 'decoder' else event for event in self.deficit_events()]
         self.assertFalse(nf.trial_verdict(trial, cut)['passed'])
-        early_end = self.deficit_events(listener_end_s=70.0)
-        verdict = nf.trial_verdict(trial, early_end)
+        # A complete decoder may finish before the deficit is lifted (ffmpeg -t counts audio seconds and skips
+        # shorten the wall time); only a cut decoder ending early is a failure.
+        early_complete = self.deficit_events(listener_end_s=70.0)
+        self.assertTrue(nf.trial_verdict(trial, early_complete)['passed'])
+        early_cut = [dict(event, frames=1_000_000, exit_code=251, ended='cut') if event['kind'] == 'decoder' else event
+                     for event in self.deficit_events(listener_end_s=70.0)]
+        verdict = nf.trial_verdict(trial, early_cut)
         self.assertFalse(verdict['passed'])
-        self.assertIn('before the injection was removed', verdict['reason'])
+        # The cut decoder fails on its own exit code first; the early-end rule is the backstop.
+        self.assertTrue('exit code 251' in verdict['reason'] or 'before the injection was removed' in verdict['reason'], verdict)
         none = [event for event in self.deficit_events() if event['kind'] != 'metrics'] + [dict(item, skips=0, frames_skipped=0) for item in deficit_samples(20, 80.05, 8.0)]
         verdict = nf.trial_verdict(trial, none)
         self.assertFalse(verdict['passed'])
