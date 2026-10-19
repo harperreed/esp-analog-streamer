@@ -1,25 +1,20 @@
 # Close reaper and the six-hour soak (wmsy: new reaper ticket, bf85)
 
 ## Now
-- Step: reaper proven on hardware; A/B done. Image `2ed701de…` (firmware
-  `f5f0bb6`): null-1, freeze-1 and freeze-2 pass the reaper acceptance
-  (`freeze-N` trial: SIGSTOP one reader, the board departs it 53–66 s
-  later, replacement started at the departure line, join 1.06–1.93 s
-  after `released_us` and 0.46–1.37 s before the checked close,
-  `reaper_stack_free_bytes` 2272–2280; three passing runs plus one
-  re-verdicted). On the pre-reaper image `613e7621…` the same trial gets
-  503 for the replacement and no `released_us`, as expected. Finding
-  b814 (survivor skips, `/api/metrics` failures, long write blocks with a
-  frozen peer) appears on both images: pre-reaper run b had 44 metrics
-  failures of 127 and a 3.05 s write block; null-2 on the reaper image was
-  clean. Not a reaper regression. Now: reflash the reaper image from HEAD,
-  attest, `scripts/check`, commit the harness (`freeze-N`, 120 s,
-  frozen-decoder pairing, help text), evidence record, close ttms and 7fe1.
-- Next: client zoo on the reaper image; a 120 s live check of
-  `stream-soak --stall-every 50 --stall-seconds 4 --interface enp5s0
-  --path /stream.mp3`; then bf85's six hours with a 4 s stall every 300 s
-  overnight; evidence pair; close ttms and 7fe1 (superseded), bf85
-  close-or-record.
+- Step: #1 landed and closed. ttms closed (f5f0bb6, ea39416, 44bf721;
+  evidence `docs/audit-evidence/2026-10-19/close-reaper.{md,json}`), 7fe1
+  closed as superseded, b814 filed for the frozen-peer degradation seen on
+  both images. Reaper image `2ed701de…` reflashed from HEAD and attested
+  22:3x UTC. Zoo on MP3 unchanged from 2026-10-18. Now: the 120 s
+  stall-soak live check (`oct19-stallsoak-check`, 4 s stall every 50 s),
+  then bf85's six hours overnight.
+- Next: `ESPFLASH_PORT=/dev/ttyUSB0 scripts/stream-soak 192.168.23.217
+  --seconds 21600 --listeners 2 --path /stream.mp3 --require-clean-startup
+  --stall-every 300 --stall-seconds 4 --interface enp5s0 --out
+  target/kata-hardening/oct19-soak-2`; pass bounds as #2 run 2 (zero
+  departures, one skip per stall per listener, counters flat, heap bounds
+  as run 1); evidence `2026-10-20/stall-soak.{md,json}`; bf85
+  close-or-record. Later: ek5b (needs tcpdump), n4jb, ee3q, b814.
 - Open: whether `tcpdump` joins the sudoers rule (only ek5b needs it; not
   this plan)
 - Approved: "ok. let's do it. let's do #1, and then #2 (starting now? )"
