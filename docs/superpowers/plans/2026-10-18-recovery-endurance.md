@@ -1,14 +1,11 @@
 # Close reaper and the six-hour soak (wmsy: new reaper ticket, bf85)
 
 ## Now
-- Step: soak 1 rerun, `target/kata-hardening/oct19-soak-1`, launched 13:0x
-  UTC 2026-10-19 on image `613e7621…`. The first attempt
-  (`oct18-soak-1`, 23:15 UTC) was clean for 74 minutes (both listeners
-  exact, zero discontinuities, counters flat) and then the harness killed
-  it: one `/api/state` poll passed its 3 s timeout and `state()` treated
-  that as fatal. Fixed in `scripts/stream_soak.py` (`StatePoll`: misses
-  recorded, 25 s silence limit, startup and pre-reset gate kept) with
-  `scripts/test_stream_soak_state_poll.py`; `scripts/check` pending.
+- Step: soak 1 passed (`oct19-soak-1`, 2026-10-19 12:58 to 18:58 UTC, image
+  `613e7621…`): every pre-set bound held, evidence in
+  `docs/audit-evidence/2026-10-19/endurance-soak.{md,json}` (`63b7270`).
+  The first attempt died at 74 min on a harness rule, fixed in `7963a91`.
+  Now flashing the reaper image (HEAD firmware = `f5f0bb6`).
 - Next: when the rerun ends (~19:10 UTC): evaluate against the bounds in #2
   run 1; flash the reaper image; attest; one manual null trial to capture
   real reaper UART lines (departure, Closed with `released_us`); then change
