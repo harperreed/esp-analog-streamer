@@ -57,11 +57,18 @@ NULL_SECONDS = 60.0
 DEFICIT_SECONDS = 60.0
 DELAYED_READER_SECONDS = 40.0
 FRESH_LISTENER_SECONDS = 10.0
+# freeze-*: one reader is stopped (SIGSTOP) at STEADY_SECONDS and departs at the live deadline; the survivor must
+# outlive that departure, its lingering close and the fresh listener started at the departure line. The receiver's
+# kernel keeps taking data after the stop (oct19-reaper-freeze runs 1-4: 29-35 s of it), so the deadline fires
+# 53-59 s after the freeze and a 75 s trial missed it twice.
+FREEZE_SECONDS = 120.0
+RELEASE_STAMP = re.compile(r'released_us=(\d+)')
+REAPER_STACK_STAMP = re.compile(r'reaper_stack_free_bytes=(\d+)')
 STREAM_PORT = 8000
 TRIALS = ['null-1', 'null-2', 'stall-0.5-1', 'stall-0.5-2', 'stall-1-1', 'stall-1-2', 'stall-2.5-1', 'stall-2.5-2',
           'stall-4-1', 'stall-4-2', 'stall-8-1', 'stall-8-2', 'stall-15-1', 'stall-15-2', 'stall-30-1', 'stall-30-2',
           'deficit-0.8-1', 'deficit-0.5-1',
-          'delayed-reader-1']
+          'delayed-reader-1', 'freeze-1', 'freeze-2']
 # Band 4 of a four-band prio: the default priomap only names bands 0-2, so nothing but the u32 filter lands there.
 EGRESS_NETEM_PARENT = '1:4'
 IFB_NETEM_PARENT = 'root'
@@ -227,6 +234,8 @@ def trial_spec(name):
     listeners = int(parts[-1])
     if parts[0] == 'null':
         return dict(name=name, kind='null', listeners=listeners, seconds=NULL_SECONDS, profile=None)
+    if parts[0] == 'freeze':
+        return dict(name=name, kind='freeze', listeners=listeners, seconds=FREEZE_SECONDS, profile=None)
     if parts[0] == 'stall':
         seconds = float(parts[1])
         return dict(name=name, kind='stall', listeners=listeners, seconds=STEADY_SECONDS + seconds + STEADY_SECONDS,
@@ -366,7 +375,11 @@ def uart_events(lines, at_s):
             events.append(dict(kind='departure', peer=left.group(1), end=without_skip_tokens(left.group(2)), device_us=int(left.group(3)),
                                at_s=at, **skip_fields(line)))
     for index, close in checked_listener_closes(lines):
-        events.append(dict(kind='close', peer=close.group(1), device_us=listener_event_us(lines[index]), at_s=at_s[index]))
+        released = RELEASE_STAMP.search(lines[index])
+        reaper_stack = REAPER_STACK_STAMP.search(lines[index])
+        events.append(dict(kind='close', peer=close.group(1), device_us=listener_event_us(lines[index]), at_s=at_s[index],
+                           released_us=int(released.group(1)) if released else None,
+                           reaper_stack_free_bytes=int(reaper_stack.group(1)) if reaper_stack else None))
     return events
 
 
@@ -401,9 +414,21 @@ def attribute_skips(events):
     decoders = sorted((event for event in events if event['kind'] == 'decoder'), key=lambda item: item['label'])
     admissions = sorted((event for event in events if event['kind'] == 'admission'), key=lambda item: item['device_us'])
     departures = [event for event in events if event['kind'] == 'departure']
+    # Two decoders join within milliseconds, in either order (oct19-reaper-freeze-3 paired them backwards). A frozen
+    # decoder is the one peer that stopped reading, so it takes that peer and the survivors take the rest in order.
+    frozen = [decoder for decoder in decoders if decoder.get('ended') == 'frozen']
+    stopped = [item for item in departures if listener_end_category(item['end']) == 'frame_timeout']
+    pairs = list(zip(decoders, admissions))
+    repaired = False  # a retained result.json paired by join order is re-paired, since that order is what was wrong
+    if len(frozen) == 1 and len(stopped) == 1:
+        frozen_admission = next((item for item in admissions if item['peer'] == stopped[0]['peer'] and item['device_us'] <= stopped[0]['device_us']), None)
+        if frozen_admission is not None:
+            others = [item for item in admissions if item is not frozen_admission]
+            pairs = [(frozen[0], frozen_admission)] + list(zip([decoder for decoder in decoders if decoder is not frozen[0]], others))
+            repaired = True
     counters = {}
-    for decoder, admission in zip(decoders, admissions):
-        if decoder.get('skips') is not None:
+    for decoder, admission in pairs:
+        if decoder.get('skips') is not None and not repaired:
             continue
         departure = next((item for item in departures if item['peer'] == admission['peer'] and item['device_us'] >= admission['device_us']), None)
         if departure is not None and departure.get('skips') is not None:
@@ -475,6 +500,50 @@ def merge_tolerances(current, measured):
     return dict(age_bound_us=max(current['age_bound_us'], measured['age_bound_us']),
                 largest_tolerance_bytes={key: max(current['largest_tolerance_bytes'][key], measured['largest_tolerance_bytes'][key])
                                          for key in current['largest_tolerance_bytes']})
+
+
+def freeze_verdict(trial, by_kind, departures, decoders, closes, admissions, fail, continuous, close_of, checked_departure):
+    """The frozen reader departs once (frame_timeout) with a checked close that carries the reaper's release stamp, and the
+    replacement started at its departure line joins after the release and before the close; the survivor is continuous."""
+    freezes = by_kind.get('freeze', [])
+    fresh = by_kind.get('fresh', [])
+    if len(freezes) != 1:
+        return fail(f'{len(freezes)} freeze events recorded; expected 1')
+    frozen = [event for event in departures if listener_end_category(event['end']) == 'frame_timeout' and event['at_s'] >= freezes[0]['at_s']]
+    others = [event for event in departures if event not in frozen]
+    if others:
+        return fail('unexpected departure', departures=others)
+    if len(frozen) != 1:
+        return fail(f'{len(frozen)} frame_timeout departure(s) after the freeze; expected 1', departures=departures)
+    departure = frozen[0]
+    problem = checked_departure(departure, 'frame_timeout')
+    if problem:
+        return fail(problem, departures=departures)
+    close = close_of(departure)
+    if close.get('released_us') is None:
+        return fail('close line carries no released_us; the close reaper image is required', departures=departures)
+    joins = sorted((item for item in admissions if item['device_us'] > departure['device_us']), key=lambda item: item['device_us'])
+    refusals = [str(event['refused_status']) for event in fresh if event.get('refused_status') is not None]
+    timing = dict(freeze_to_departure_s=round(departure['at_s'] - freezes[0]['at_s'], 3),
+                  departure_to_release_us=close['released_us'] - departure['device_us'],
+                  release_to_close_us=close['device_us'] - close['released_us'],
+                  reaper_stack_free_bytes=close.get('reaper_stack_free_bytes'))
+    if not joins:
+        return fail('no fresh join after the frozen reader departed' + (f"; fresh listener refused: {', '.join(refusals)}" if refusals else ''), **timing)
+    join = joins[0]
+    timing.update(release_to_join_us=join['device_us'] - close['released_us'], join_to_close_us=close['device_us'] - join['device_us'])
+    if not close['released_us'] <= join['device_us'] < close['device_us']:
+        return fail('fresh join landed outside the release-to-close window', **timing)
+    if len(fresh) != 1 or fresh[0]['ended'] != 'completed' or refusals:
+        return fail('fresh listener did not complete' + (f"; refused: {', '.join(refusals)}" if refusals else ''), fresh=fresh, **timing)
+    survivors = [decoder for decoder in decoders if decoder['ended'] != 'frozen']
+    if len(survivors) != len(decoders) - 1 or not all(continuous(decoder) for decoder in survivors):
+        return fail('survivor not continuous', decoders=survivors, **timing)
+    # A survivor's skip is an audible gap, reported from its departure-line counters, not a verdict rule (yet).
+    timing.update(survivor_skips=sum(decoder.get('skips') or 0 for decoder in survivors),
+                  survivor_frames_skipped=sum(decoder.get('frames_skipped') or 0 for decoder in survivors))
+    return dict(passed=True, reason=f"fresh join {timing['release_to_join_us']} us after the slot release and {timing['join_to_close_us']} us "
+                                    f"before the checked close; survivor exact with {timing['survivor_skips']} skip(s)", **timing)
 
 
 def trial_verdict(trial, events):
@@ -684,6 +753,8 @@ def trial_verdict(trial, events):
             if not counters_flat():
                 return fail('capture loss counters changed or missing')
             return dict(passed=True, reason='exact frames, no departures, counters flat')
+        if kind == 'freeze':
+            return freeze_verdict(trial, by_kind, departures, decoders, closes, admissions, fail, continuous, close_of, checked_departure)
         if kind == 'stall':
             if trial['age_bound_us'] is None:
                 return fail('no media age bound; run null-* first')
@@ -970,6 +1041,23 @@ class Driver:
         return dict(kind='fresh', label=job['label'], ended=job['ended'], ended_s=job.get('ended_s'), trigger=job['trigger'],
                     close_device_us=job['close_device_us'], refused_status=job.get('refused_status'))
 
+    def freeze(self, job):
+        """Stop a reader's decoder in place (SIGSTOP): its socket stays open and unread, so the board's live write
+        deadline departs it and the socket's checked close lingers while the slot is already released."""
+        os.killpg(job['process'].pid, signal.SIGSTOP)
+        job['frozen'] = True
+        job['ended'] = 'frozen'
+        job['ended_s'] = self.elapsed()
+        event = dict(kind='freeze', label=job['label'], at_s=job['ended_s'])
+        self.record('freeze', label=job['label'], at_s=job['ended_s'])
+        return event
+
+    def thaw(self, job):
+        try:
+            os.killpg(job['process'].pid, signal.SIGCONT)
+        except ProcessLookupError:
+            pass
+
     def stop_job(self, job):
         if job['ended'] is None:
             job['ended'] = 'stopped'
@@ -1042,6 +1130,7 @@ class Driver:
         installed = removed = None
         unavailable_before = self.poller.unavailable
         departed = []  # product departures awaiting a replacement: dict(peer, index, at_s, replaced)
+        freezes = []
         scanned = uart_start
         try:
             while True:
@@ -1061,6 +1150,8 @@ class Driver:
                 if install and installed is None and since_start >= STEADY_SECONDS:
                     installed = self.apply('installed', install)
                     injections.append(installed)
+                if spec['kind'] == 'freeze' and not freezes and since_start >= STEADY_SECONDS:
+                    freezes.append(self.freeze(jobs[0]))
                 if installed is not None and removed is None:
                     held = self.elapsed() - installed['at_s'] - installed['apply_seconds']
                     stall_over = spec['kind'] == 'stall' and held >= spec['profile']['seconds']
@@ -1079,10 +1170,22 @@ class Driver:
                         job['trigger'], job['close_device_us'] = trigger, close_device_us
                         self.record('fresh_listener', label=job['label'], trigger=trigger, close_device_us=close_device_us, replaces=pending['peer'])
                         fresh.append(job)
+                # A frozen reader's replacement starts at its departure line: the reaper releases the slot at hand-off,
+                # so the join should land before the lingering close completes. Admission or refusal is the verdict's.
+                if spec['kind'] == 'freeze':
+                    for pending in departed:
+                        if not pending['replaced'] and len(fresh) < len(jobs):
+                            pending['replaced'] = True
+                            job = self.start_decoder(f'{name}-fresh-{len(fresh) + 1}', FRESH_LISTENER_SECONDS, spec)
+                            job['trigger'], job['close_device_us'] = 'uart_departure', None
+                            self.record('fresh_listener', label=job['label'], trigger=job['trigger'], close_device_us=None, replaces=pending['peer'])
+                            fresh.append(job)
                 # Pending departures hold the loop until their close lines (or the timeout) so a replacement can start.
-                replacing = departed if spec['kind'] in ('stall', 'deficit') else []
-                if may_exit([job['ended'] for job in jobs], [job['ended'] for job in fresh], replacing, self.uart_lines, self.elapsed(),
-                            injection_done=not install or removed is not None):
+                replacing = departed if spec['kind'] in ('stall', 'deficit', 'freeze') else []
+                # The frozen reader has ended as a job, so hold the loop for its departure and replacement, bounded.
+                awaiting_freeze = spec['kind'] == 'freeze' and not fresh and since_start < spec['seconds'] + CLOSE_TIMEOUT_S
+                if not awaiting_freeze and may_exit([job['ended'] for job in jobs], [job['ended'] for job in fresh], replacing,
+                                                    self.uart_lines, self.elapsed(), injection_done=not install or removed is not None):
                     break
                 # Hold a stall for its requested seconds, not the poll interval rounded up.
                 sleep_for = 0.5
@@ -1102,12 +1205,14 @@ class Driver:
             if wav_thread is not None:
                 wav_thread.join(3)
             for job in jobs + fresh:
+                if job.get('frozen'):
+                    self.thaw(job)
                 self.stop_job(job)
         trial['after'] = self.snapshot()
         trial.update(trial_setup(spec, before, self.tolerances, installed, self.args.policy))
         samples = [sample for sample in self.poller.since(trial['started_s'])]
         window = self.uart_lines[uart_start:]
-        events = [self.decoder_event(job) for job in jobs] + [self.fresh_event(job) for job in fresh] + injections + samples
+        events = [self.decoder_event(job) for job in jobs] + [self.fresh_event(job) for job in fresh] + injections + freezes + samples
         if wav_thread is not None:
             events.append(dict(kind='wav', closed_s=wav.get('closed_s'), connected_s=wav.get('connected_s'), phase=wav.get('phase'),
                                error=wav.get('error'), error_s=wav.get('error_s')))
@@ -1293,7 +1398,9 @@ def argument_parser():
                              'board-reported skips; exact keeps the MediaAge-departure-plus-fresh-admission verdicts')
     parser.add_argument('--interface', type=interface_name, help='receiver interface that carries board traffic (live run)')
     parser.add_argument('--ifb', default='ifb0', type=interface_name, help='ifb device for ingress shaping (default: ifb0)')
-    parser.add_argument('--trials', type=trial_names, help='comma-separated trial names (default: all)')
+    parser.add_argument('--trials', type=trial_names,
+                        help='comma-separated trial names (default: all): null-N, stall-S-N, deficit-R-N, delayed-reader-1, and freeze-N, '
+                             'which stops one reader in place so its slot is released before its lingering close and a fresh listener joins in that window')
     parser.add_argument('--serial', help='UART device for scripts/serial-log (live run)')
     parser.add_argument('--out', type=Path, help='new output directory; must not exist (live run)')
     parser.add_argument('--dry-run', action='store_true', help='print every privileged argv and create nothing')

@@ -1,22 +1,25 @@
 # Close reaper and the six-hour soak (wmsy: new reaper ticket, bf85)
 
 ## Now
-- Step: soak 1 passed (`oct19-soak-1`, 2026-10-19 12:58 to 18:58 UTC, image
-  `613e7621…`): every pre-set bound held, evidence in
-  `docs/audit-evidence/2026-10-19/endurance-soak.{md,json}` (`63b7270`).
-  The first attempt died at 74 min on a harness rule, fixed in `7963a91`.
-  Now flashing the reaper image (HEAD firmware = `f5f0bb6`).
-- Next: when the rerun ends (~19:10 UTC): evaluate against the bounds in #2
-  run 1; flash the reaper image; attest; one manual null trial to capture
-  real reaper UART lines (departure, Closed with `released_us`); then change
-  `network_fault.replacement_trigger` to start the replacement at the
-  departure line instead of the Closed line (today it waits for Closed or
-  3 s, so it cannot show early admission), with fixtures from those lines;
-  reaper trial (`network-fault --policy live --trials null-1,null-2,stall-30-2`:
-  replacement admitted before the departed socket's close line,
-  `released_us` < Joined < Closed, `reaper_stack_free_bytes` read); client
-  zoo; a 120 s stall-soak live check; then bf85's six hours with a 4 s
-  stall every 300 s overnight.
+- Step: reaper proven on hardware; A/B done. Image `2ed701de…` (firmware
+  `f5f0bb6`): null-1, freeze-1 and freeze-2 pass the reaper acceptance
+  (`freeze-N` trial: SIGSTOP one reader, the board departs it 53–66 s
+  later, replacement started at the departure line, join 1.06–1.93 s
+  after `released_us` and 0.46–1.37 s before the checked close,
+  `reaper_stack_free_bytes` 2272–2280; three passing runs plus one
+  re-verdicted). On the pre-reaper image `613e7621…` the same trial gets
+  503 for the replacement and no `released_us`, as expected. Finding
+  b814 (survivor skips, `/api/metrics` failures, long write blocks with a
+  frozen peer) appears on both images: pre-reaper run b had 44 metrics
+  failures of 127 and a 3.05 s write block; null-2 on the reaper image was
+  clean. Not a reaper regression. Now: reflash the reaper image from HEAD,
+  attest, `scripts/check`, commit the harness (`freeze-N`, 120 s,
+  frozen-decoder pairing, help text), evidence record, close ttms and 7fe1.
+- Next: client zoo on the reaper image; a 120 s live check of
+  `stream-soak --stall-every 50 --stall-seconds 4 --interface enp5s0
+  --path /stream.mp3`; then bf85's six hours with a 4 s stall every 300 s
+  overnight; evidence pair; close ttms and 7fe1 (superseded), bf85
+  close-or-record.
 - Open: whether `tcpdump` joins the sudoers rule (only ek5b needs it; not
   this plan)
 - Approved: "ok. let's do it. let's do #1, and then #2 (starting now? )"

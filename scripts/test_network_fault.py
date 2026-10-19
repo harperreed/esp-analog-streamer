@@ -61,8 +61,8 @@ def live_setup(spec, before, tolerances, installed):
     return nf.trial_setup(spec, before, tolerances, installed, nf.LIVE)
 
 
-def close(peer, device_us, at_s):
-    return dict(kind='close', peer=peer, device_us=device_us, at_s=at_s)
+def close(peer, device_us, at_s, released_us=None, reaper_stack_free_bytes=None):
+    return dict(kind='close', peer=peer, device_us=device_us, at_s=at_s, released_us=released_us, reaper_stack_free_bytes=reaper_stack_free_bytes)
 
 
 def admission(peer, device_us, at_s):
@@ -109,6 +109,27 @@ class CloseLineTests(unittest.TestCase):
         self.assertEqual(nf.CLOSED.search(line).group(1), '192.168.23.153:60800')
         self.assertEqual(nf.CLOSED.search(line + ' released_us=32363100').group(1), '192.168.23.153:60800')
         self.assertEqual(nf.listener_event_us(line + ' released_us=32363100'), 32605374)
+
+    def test_close_events_carry_the_reaper_release_stamp_when_present(self):
+        # Real lines from oct19-reaper-capture null-1 (image 2ed701de…, the close reaper), peer masked.
+        lines = ['I (22959) esp_shazam_firmware::stream: stream: 192.0.2.1:49452 joined /stream.mp3 (1 of 2) event_us=21704612 owner_id=1 sonos_intent=0 role=diagnostic',
+                 'I (84519) esp_shazam_firmware::stream: stream: 192.0.2.1:49452 left after 61.2 s: socket error kind=ConnectionReset raw_os_error=Some(104) '
+                 'skips=0 frames_skipped=0 last_skip_us=0 listener_stack_free_bytes=1016 event_us=82951350',
+                 'I (84559) esp_shazam_firmware::stream: stream: 192.0.2.1:49452 socket closed in 0 ms; releasing slot (1 held) event_us=82952492 owner_id=1 '
+                 'sonos_intent=0 released_us=82951564 reaper_stack_free_bytes=2272',
+                 'I (84609) esp_shazam_firmware::stream: listener-telemetry: dropped=0 loss_occurred=false observed_event_range_valid=true '
+                 'observed_event_min_us=82951350 observed_event_max_us=82952492 record_bytes=368 queue_bytes=2984 metrics_stack_free_bytes=360 export_us=83359689']
+        events = nf.uart_events(lines, [22.9, 84.5, 84.6, 84.6])
+        close = [event for event in events if event['kind'] == 'close']
+        self.assertEqual(close, [dict(kind='close', peer='192.0.2.1:49452', device_us=82952492, at_s=84.6, released_us=82951564, reaper_stack_free_bytes=2272)])
+        # Departure, release and close are ordered by construction: the slot is handed off before the checked close.
+        departure = [event for event in events if event['kind'] == 'departure'][0]
+        self.assertLess(departure['device_us'], close[0]['released_us'])
+        self.assertLess(close[0]['released_us'], close[0]['device_us'])
+        # Lines from the image before the reaper carry neither stamp.
+        old = lines[2].split(' released_us=')[0]
+        close = [event for event in nf.uart_events([lines[1], old, lines[3]], [84.5, 84.6, 84.6]) if event['kind'] == 'close']
+        self.assertEqual((close[0]['released_us'], close[0]['reaper_stack_free_bytes']), (None, None))
 
 
 class QdiscPlanTests(unittest.TestCase):
@@ -252,9 +273,12 @@ class TrialSpecTests(unittest.TestCase):
         self.assertEqual(nf.TRIALS, ['null-1', 'null-2', 'stall-0.5-1', 'stall-0.5-2', 'stall-1-1', 'stall-1-2',
                                      'stall-2.5-1', 'stall-2.5-2', 'stall-4-1', 'stall-4-2', 'stall-8-1', 'stall-8-2',
                                      'stall-15-1', 'stall-15-2', 'stall-30-1', 'stall-30-2', 'deficit-0.8-1', 'deficit-0.5-1',
-                                     'delayed-reader-1'])
+                                     'delayed-reader-1', 'freeze-1', 'freeze-2'])
         self.assertEqual(nf.trial_spec('stall-15-2'), dict(name='stall-15-2', kind='stall', listeners=2, seconds=20 + 15 + 20,
                                                            profile=nf.stall_profile(15.0)))
+        # A frozen reader departs at the live deadline; the survivor outlives the departure, the close and the fresh listener.
+        self.assertEqual(nf.trial_spec('freeze-2'), dict(name='freeze-2', kind='freeze', listeners=2, seconds=nf.FREEZE_SECONDS, profile=None))
+        self.assertGreater(nf.FREEZE_SECONDS, nf.STEADY_SECONDS + nf.LIVE_WRITE_DEADLINE_S + nf.CLOSE_TIMEOUT_S + nf.FRESH_LISTENER_SECONDS)
 
     def test_trial_spec_parses_kind_listeners_and_profile(self):
         self.assertEqual(nf.trial_spec('null-2'), dict(name='null-2', kind='null', listeners=2, seconds=60.0, profile=None))
@@ -690,6 +714,120 @@ def installed_of(events):
     return next(event for event in events if event['kind'] == 'injection' and event['phase'] == 'installed')
 
 
+# Retained freeze-2 from oct19-reaper-freeze (image 2ed701de…, the close reaper; peers masked): the frozen reader departed
+# 53.1 s after SIGSTOP (receive buffers absorb ~29 s before the 24 s live deadline), the reaper released its slot 179 us later,
+# the fresh listener joined 1.28 s after the release and 1.0 s before the lingering close completed.
+FREEZE_2_EVENTS = [
+    dict(kind='decoder', label='freeze-2-listener-1', frames=903168, expected_frames=3600000, discontinuities=0, exit_code=255, ended='frozen',
+         ended_s=133.47590858698823, skips=0, frames_skipped=0, skip_peer='192.0.2.1:33812'),
+    dict(kind='decoder', label='freeze-2-listener-2', frames=3600000, expected_frames=3600000, discontinuities=0, exit_code=0, ended='completed',
+         ended_s=193.59056590299588, skips=1, frames_skipped=180, skip_peer='192.0.2.1:33806'),
+    dict(kind='fresh', label='freeze-2-fresh-1', ended='completed', ended_s=197.59651977196336, trigger='uart_departure', close_device_us=None, refused_status=None),
+    dict(kind='freeze', label='freeze-2-listener-1', at_s=133.47590858698823),
+    dict(kind='admission', peer='192.0.2.1:33812', device_us=112365708, at_s=114.42719076399226),
+    dict(kind='admission', peer='192.0.2.1:33806', device_us=112371296, at_s=114.42719389603008),
+    dict(kind='departure', peer='192.0.2.1:33812', end='stopped reading', device_us=184218350, at_s=186.57376874098554, skips=0, frames_skipped=0, last_skip_us=0),
+    dict(kind='admission', peer='192.0.2.1:38914', device_us=185502930, at_s=187.57582773594186),
+    dict(kind='departure', peer='192.0.2.1:33806', end='socket error kind=ConnectionReset raw_os_error=Some(104)', device_us=192267042, at_s=194.59208966896404,
+         skips=1, frames_skipped=180, last_skip_us=184365491),
+    dict(kind='departure', peer='192.0.2.1:38914', end='socket error kind=ConnectionReset raw_os_error=Some(104)', device_us=196270020, at_s=198.19714081799611,
+         skips=0, frames_skipped=0, last_skip_us=0),
+    dict(kind='close', peer='192.0.2.1:33812', device_us=186500778, at_s=188.57722347893286, released_us=184218529, reaper_stack_free_bytes=2280),
+    dict(kind='close', peer='192.0.2.1:33806', device_us=192268452, at_s=194.59213046298828, released_us=192267241, reaper_stack_free_bytes=2280),
+    dict(kind='close', peer='192.0.2.1:38914', device_us=196271488, at_s=198.19714471395127, released_us=196270325, reaper_stack_free_bytes=2280),
+]
+
+
+# oct19-reaper-freeze-3 (peers masked): both readers joined 40 ms apart and the frozen decoder's peer was the second join;
+# by join order the harness had paired the survivor's skip with the frozen decoder and the survivor's own reset with
+# a stranger, turning a passing trial into 'unexpected departure'.
+FREEZE_3_EVENTS = [
+    dict(kind='decoder', label='freeze-2-listener-1', frames=911232, expected_frames=3600000, discontinuities=0, exit_code=255, ended='frozen', ended_s=42.756872572004795),
+    dict(kind='decoder', label='freeze-2-listener-2', frames=3600000, expected_frames=3600000, discontinuities=0, exit_code=0, ended='completed', ended_s=103.33415767305996),
+    dict(kind='fresh', label='freeze-2-fresh-1', ended='completed', ended_s=107.84054669504985, trigger='uart_departure', close_device_us=None, refused_status=None),
+    dict(kind='freeze', label='freeze-2-listener-1', at_s=42.756872572004795),
+    dict(kind='admission', peer='192.0.2.1:44916', device_us=22112626, at_s=23.72488906106446),
+    dict(kind='admission', peer='192.0.2.1:44914', device_us=22152685, at_s=24.226102603017353),
+    dict(kind='departure', peer='192.0.2.1:44914', end='stopped reading', device_us=94658507, at_s=96.81931339995936, skips=0, frames_skipped=0, last_skip_us=0),
+    dict(kind='admission', peer='192.0.2.1:49092', device_us=95717549, at_s=97.82339795306325),
+    dict(kind='departure', peer='192.0.2.1:44916', end='socket error kind=ConnectionReset raw_os_error=Some(104)', device_us=102640893, at_s=105.33685614005663,
+         skips=1, frames_skipped=175, last_skip_us=41144489),
+    dict(kind='departure', peer='192.0.2.1:49092', end='socket error kind=ConnectionReset raw_os_error=Some(104)', device_us=106273952, at_s=108.24150650203228,
+         skips=0, frames_skipped=0, last_skip_us=0),
+    dict(kind='close', peer='192.0.2.1:44914', device_us=97055241, at_s=98.8245550020365, released_us=94658681, reaper_stack_free_bytes=2272),
+    dict(kind='close', peer='192.0.2.1:44916', device_us=102641955, at_s=105.33686378004495, released_us=102641096, reaper_stack_free_bytes=2272),
+    dict(kind='close', peer='192.0.2.1:49092', device_us=106275829, at_s=108.24151081498712, released_us=106274152, reaper_stack_free_bytes=2272),
+]
+
+
+class FreezeVerdictTests(unittest.TestCase):
+    def test_the_frozen_decoder_pairs_with_the_peer_that_stopped_reading(self):
+        attributed = {event['label']: event.get('skip_peer') for event in nf.attribute_skips(FREEZE_3_EVENTS) if event['kind'] == 'decoder'}
+        self.assertEqual(attributed, {'freeze-2-listener-1': '192.0.2.1:44914', 'freeze-2-listener-2': '192.0.2.1:44916'})
+        verdict = nf.trial_verdict(live_setup(nf.trial_spec('freeze-2'), RUN4_BEFORE, RUN4_TOLERANCES, None), FREEZE_3_EVENTS)
+        self.assertTrue(verdict['passed'], verdict)
+        # The survivor's reset 2.004 s after its decoder completed is the harness close, matched through its own peer.
+        self.assertEqual(verdict['harness_closes'], 2)
+        self.assertEqual((verdict['survivor_skips'], verdict['survivor_frames_skipped']), (1, 175))
+        # A retained run paired by join order (skips already on the decoders) is re-paired the same way.
+        retained = [dict(event, skips=1, frames_skipped=175, skip_peer='192.0.2.1:44916') if event.get('label') == 'freeze-2-listener-1'
+                    else dict(event, skips=0, frames_skipped=0, skip_peer='192.0.2.1:44914') if event.get('label') == 'freeze-2-listener-2' else event
+                    for event in FREEZE_3_EVENTS]
+        self.assertEqual({event['label']: (event['skip_peer'], event['skips']) for event in nf.attribute_skips(retained) if event['kind'] == 'decoder'},
+                         {'freeze-2-listener-1': ('192.0.2.1:44914', 0), 'freeze-2-listener-2': ('192.0.2.1:44916', 1)})
+        # Join order still pairs trials without a freeze.
+        plain = [event for event in FREEZE_3_EVENTS if event['kind'] != 'freeze']
+        plain = [dict(event, ended='stopped') if event.get('ended') == 'frozen' else event for event in plain]
+        self.assertEqual({event['label']: event.get('skip_peer') for event in nf.attribute_skips(plain) if event['kind'] == 'decoder'},
+                         {'freeze-2-listener-1': '192.0.2.1:44916', 'freeze-2-listener-2': '192.0.2.1:44914'})
+
+    def trial(self):
+        return live_setup(nf.trial_spec('freeze-2'), RUN4_BEFORE, RUN4_TOLERANCES, None)
+
+    def test_retained_freeze_2_passes_with_the_join_inside_the_release_to_close_window(self):
+        verdict = nf.trial_verdict(self.trial(), FREEZE_2_EVENTS)
+        self.assertTrue(verdict['passed'], verdict)
+        self.assertEqual({key: verdict[key] for key in ('departure_to_release_us', 'release_to_join_us', 'join_to_close_us', 'release_to_close_us',
+                                                       'reaper_stack_free_bytes', 'survivor_skips', 'survivor_frames_skipped', 'harness_closes')},
+                         dict(departure_to_release_us=179, release_to_join_us=1284401, join_to_close_us=997848, release_to_close_us=2282249,
+                              reaper_stack_free_bytes=2280, survivor_skips=1, survivor_frames_skipped=180, harness_closes=2))
+        self.assertAlmostEqual(verdict['freeze_to_departure_s'], 53.098, places=3)
+        self.assertIn('1 skip(s)', verdict['reason'])
+
+    def test_a_close_without_the_release_stamp_is_the_old_image(self):
+        events = [dict(event, released_us=None, reaper_stack_free_bytes=None) if event['kind'] == 'close' else event for event in FREEZE_2_EVENTS]
+        verdict = nf.trial_verdict(self.trial(), events)
+        self.assertFalse(verdict['passed'])
+        self.assertIn('released_us', verdict['reason'])
+
+    def test_a_join_after_the_close_is_outside_the_window(self):
+        events = [dict(event, device_us=186500779) if event['kind'] == 'admission' and event['peer'] == '192.0.2.1:38914' else event
+                  for event in FREEZE_2_EVENTS]
+        verdict = nf.trial_verdict(self.trial(), events)
+        self.assertFalse(verdict['passed'])
+        self.assertEqual(verdict['reason'], 'fresh join landed outside the release-to-close window')
+        self.assertEqual(verdict['join_to_close_us'], -1)
+
+    def test_a_refused_fresh_listener_names_its_status(self):
+        events = [dict(event, ended='stopped', refused_status=503) if event['kind'] == 'fresh' else event for event in FREEZE_2_EVENTS
+                  if not (event['kind'] in ('admission', 'departure', 'close') and event['peer'] == '192.0.2.1:38914')]
+        verdict = nf.trial_verdict(self.trial(), events)
+        self.assertFalse(verdict['passed'])
+        self.assertIn('503', verdict['reason'])
+
+    def test_a_short_survivor_fails(self):
+        events = [dict(event, frames=1800000, ended='cut', exit_code=251) if event.get('label') == 'freeze-2-listener-2' else event for event in FREEZE_2_EVENTS]
+        verdict = nf.trial_verdict(self.trial(), events)
+        self.assertFalse(verdict['passed'])
+        self.assertEqual(verdict['reason'], 'survivor not continuous')
+
+    def test_a_second_product_departure_fails(self):
+        extra = dict(kind='departure', peer='192.0.2.1:33806', end='media age exceeded', device_us=190000000, at_s=192.3, skips=0, frames_skipped=0, last_skip_us=0)
+        verdict = nf.trial_verdict(self.trial(), FREEZE_2_EVENTS + [extra])
+        self.assertFalse(verdict['passed'])
+        self.assertEqual(verdict['reason'], 'unexpected departure')
+
+
 class RetainedRunTests(unittest.TestCase):
     def test_run4_stall_4_1_survives_judged_on_last_active_age(self):
         trial = exact_setup(nf.trial_spec('stall-4-1'), RUN4_BEFORE, RUN4_TOLERANCES, installed_of(RUN4_STALL_4_1_EVENTS))
@@ -891,11 +1029,15 @@ class ReplacementTriggerTests(unittest.TestCase):
         self.assertEqual(nf.replacement_decisions(departed, [self.LEFT, self.OTHER_CLOSE, self.CLOSE], 505.0, fresh_count=1, limit=1), [])
         self.assertEqual(len(nf.replacement_decisions(departed, [self.LEFT, self.OTHER_CLOSE, self.CLOSE], 505.0, fresh_count=0, limit=1)), 1)
 
-    def test_driver_uses_the_trigger_function_and_never_the_departure_line(self):
+    def test_driver_uses_the_trigger_function_except_for_a_frozen_reader(self):
+        # Stall and deficit replacements wait for the close line or its timeout (the path was black-holed anyway);
+        # only the freeze trial starts its replacement at the departure line, to land the join inside the
+        # release-to-close window the reaper opens.
         source = inspect.getsource(nf.Driver.run_trial)
         self.assertIn('replacement_decisions(', source)
-        self.assertNotIn("'uart_departure'", source)
         self.assertNotIn("'decoder_eof'", source)
+        self.assertIn("spec['kind'] == 'freeze'", source)
+        self.assertEqual(source.count("'uart_departure'"), 1)
 
 
 class RefusedStatusTests(unittest.TestCase):

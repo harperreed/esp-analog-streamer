@@ -1366,3 +1366,14 @@ exchange passed the 3 s timeout with both streams and the UART healthy
 fails only after 25 s of silence (the UART rule's bound); only the
 pre-reset gate fails on a first miss. The repeated `mqtt: disconnected`
 lines on the UART are the unconfigured broker retrying, not a network event.
+
+Proving the close reaper on hardware needs a lingering close: a peer that
+resets its socket closes in 0 ms (no window to join in), and a `tc` stall's
+departures finish closing before the path returns. The `freeze-N` trial in
+`scripts/network-fault` SIGSTOPs one reader instead: the board departs it
+at the 24 s live deadline, but only after the receiver's kernel has soaked
+up 29–35 s of data first (53–59 s after the freeze), so the trial is 120 s.
+Two decoders join within 40 ms in either order, so the harness pairs the
+frozen decoder with the peer that `stopped reading` and the rest by join
+order; a retained run is re-paired on `--reverdict`. A frozen peer also
+made the surviving listener skip once in 2 of 4 runs (ticket b814).
