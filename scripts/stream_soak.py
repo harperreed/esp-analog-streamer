@@ -1,6 +1,7 @@
 # ABOUTME: Implements the public stream-soak hardware harness.
 # ABOUTME: Exposes host-testable helpers while keeping runtime work behind main.
 import argparse
+import http.client
 import json
 import math
 import os
@@ -253,21 +254,50 @@ def decoders_completed(jobs, args):
     return True
 
 
+class Silence:
+    """Tolerance for a secondary poll: each miss is recorded under `event`, and the run fails only once the board has
+    not answered for `limit_seconds` (the UART telemetry rule's bound). `required=True` fails on the first miss;
+    `starting=True` never fails on silence (startup has its own deadline)."""
+
+    def __init__(self, path, event, record, clock=time.monotonic, limit_seconds=STATE_UNANSWERED_LIMIT_S):
+        self.path = path
+        self.event = event
+        self.record = record
+        self.clock = clock
+        self.limit_seconds = limit_seconds
+        self.answered_at = clock()
+        self.misses = 0
+
+    def miss(self, error, began, required=False, starting=False):
+        now = self.clock()
+        unanswered = round(now - self.answered_at, 3)
+        self.misses += 1
+        self.record(self.event, error=str(error), seconds=round(now - began, 3), unanswered_seconds=unanswered)
+        if required:
+            raise Failure(f'{self.path} did not answer: {error}') from error
+        if unanswered > self.limit_seconds and not starting:
+            raise Failure(f'{self.path} unanswered for {unanswered} s (limit {self.limit_seconds} s): {error}') from error
+
+    def answered(self):
+        self.answered_at = self.clock()
+        return self.answered_at
+
+
 class StatePoll:
-    """One /api/state request per call. Any OSError (timeout, refusal, reset) is recorded as `state_unanswered` and
-    tolerated until STATE_UNANSWERED_LIMIT_S has passed since the last answer; `required=True` (the pre-reset gate)
-    fails on the first miss; `starting=True` (post-reset startup, bounded by its own deadline) never fails on silence.
-    An answer with recognition enabled always fails. Returns True when the board answered."""
+    """One /api/state request per call. Any OSError (timeout, refusal, reset) is a recorded, tolerated miss (see
+    Silence). An answer with recognition enabled always fails. Returns True when the board answered."""
 
     def __init__(self, url, record, timeout=3, clock=time.monotonic, limit_seconds=STATE_UNANSWERED_LIMIT_S):
         self.url = url
         self.record = record
         self.timeout = timeout
         self.clock = clock
-        self.limit_seconds = limit_seconds
-        self.answered_at = clock()
+        self.silence = Silence('/api/state', 'state_unanswered', record, clock, limit_seconds)
         self.polls = 0
-        self.unanswered = 0
+
+    @property
+    def unanswered(self):
+        return self.silence.misses
 
     def __call__(self, required=False, starting=False):
         began = self.clock()
@@ -276,21 +306,43 @@ class StatePoll:
             with opener.open(self.url, timeout=self.timeout) as response:
                 value = json.load(response)
         except OSError as error:  # urllib.error.URLError is an OSError too
-            now = self.clock()
-            unanswered = round(now - self.answered_at, 3)
-            self.unanswered += 1
-            self.record('state_unanswered', error=str(error), seconds=round(now - began, 3), unanswered_seconds=unanswered)
-            if required:
-                raise Failure(f'/api/state did not answer: {error}') from error
-            if unanswered > self.limit_seconds and not starting:
-                raise Failure(f'/api/state unanswered for {unanswered} s (limit {self.limit_seconds} s): {error}') from error
+            self.silence.miss(error, began, required=required, starting=starting)
             return False
         if value.get('shazam_enabled') is not False:
             raise Failure('/api/state must report shazam_enabled=false')
         self.polls += 1
-        self.answered_at = self.clock()
-        self.record('state', shazam_enabled=False, level_dbfs=value.get('level_dbfs'), seconds=round(self.answered_at - began, 3))
+        answered_at = self.silence.answered()
+        self.record('state', shazam_enabled=False, level_dbfs=value.get('level_dbfs'), seconds=round(answered_at - began, 3))
         return True
+
+
+class MetricsPoll:
+    """One validated /api/metrics fetch per call, or None on a recorded, tolerated miss (see Silence): a dropped or
+    slow answer from the board's HTTP server is evidence, not a reason to end a six-hour soak. A malformed body is
+    still a product fault and raises."""
+
+    def __init__(self, url, record, timeout=3, clock=time.monotonic, limit_seconds=STATE_UNANSWERED_LIMIT_S):
+        self.url = url
+        self.record = record
+        self.timeout = timeout
+        self.clock = clock
+        self.silence = Silence('/api/metrics', 'metrics_unavailable', record, clock, limit_seconds)
+        self.polls = 0
+
+    @property
+    def unavailable(self):
+        return self.silence.misses
+
+    def __call__(self):
+        began = self.clock()
+        try:
+            value = fetch(self.url, self.timeout)
+        except (OSError, http.client.HTTPException) as error:  # timeouts, resets, RemoteDisconnected, IncompleteRead
+            self.silence.miss(error, began)
+            return None
+        self.polls += 1
+        self.silence.answered()
+        return value
 
 
 def state_url(ip, args):
@@ -388,6 +440,7 @@ def main(argv=None):
     runtime_invalid_windows = 0
     minimums = {}
     state = None
+    metrics_poll = None
     ip = None
     loss_keys = LOSS_KEYS
     capture_gate = 'clean_startup_and_steady_state' if args.require_clean_startup else 'steady_state_only'
@@ -445,7 +498,9 @@ def main(argv=None):
     def metrics():
         """Read the board's skip counters and last departure; a departure while every decoder still runs fails the soak."""
         nonlocal skip_totals, departure_seen, departures, metrics_polls
-        value = fetch(f'http://{ip}:{args.state_port}/api/metrics', 3)
+        value = metrics_poll()
+        if value is None:
+            return
         sample = fault_tools().metrics_sample(value, round(time.monotonic() - started, 3))
         active = sum(1 for item in value['listeners'] if item['state'] in ('writing', 'ready'))
         departure = value.get('last_listener_departure')
@@ -503,6 +558,7 @@ def main(argv=None):
     try:
         ip = socket.getaddrinfo(args.host, args.stream_port, socket.AF_INET, socket.SOCK_STREAM)[0][4][0]
         state = StatePoll(state_url(ip, args), record)
+        metrics_poll = MetricsPoll(f'http://{ip}:{args.state_port}/api/metrics', record)
         # Refuse a reset of firmware running with recognition enabled, or of a board that does not answer.
         state(required=True)
         if stalls_on:
@@ -709,6 +765,7 @@ def main(argv=None):
                                    cleanup_errors=cleanup_errors) if stalls_on else None,
                        restore_verified=restore_verified, skips=skip_totals if stalls_on else None,
                        departures_while_running=departures if stalls_on else None, metrics_polls=metrics_polls if stalls_on else None,
+                       metrics_unavailable=metrics_poll.unavailable if stalls_on and metrics_poll else None,
                        capture_samples=samples, minimums=minimums, runtime_invalid_windows=runtime_invalid_windows,
                        output_bytes_before_summary=output_bytes(out), output_budget_bytes=OUTPUT_BUDGET_BYTES,
                        counter_deltas={key: ((latest[key] - baseline[key]) & 0xffffffff) for key in loss_keys} if baseline and latest else None,

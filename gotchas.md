@@ -1364,7 +1364,9 @@ serving two streams, yet oct18-soak-1 died at 74 of 360 minutes when one
 exchange passed the 3 s timeout with both streams and the UART healthy
 (a single lost exchange; expected over six hours). `StatePoll` now records a miss as `state_unanswered` and
 fails only after 25 s of silence (the UART rule's bound); only the
-pre-reset gate fails on a first miss. The repeated `mqtt: disconnected`
+pre-reset gate fails on a first miss. The stall soak's `/api/metrics` poll
+got the same rule (`MetricsPoll`, `metrics_unavailable`) after
+oct19-soak-2 died at 100 s on one closed connection. The repeated `mqtt: disconnected`
 lines on the UART are the unconfigured broker retrying, not a network event.
 
 Proving the close reaper on hardware needs a lingering close: a peer that

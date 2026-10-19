@@ -133,5 +133,88 @@ class StatePollTests(unittest.TestCase):
             poll()
 
 
+class MetricsPollTests(unittest.TestCase):
+    """The stall soak's /api/metrics poll gets the same tolerance: oct19-soak-2 died at 100 s of 21,600 on one
+    'Remote end closed connection without response' while both streams ran."""
+
+    def serve(self, behaviour):
+        tests = self
+
+        class Handler(BaseHTTPRequestHandler):
+            def log_message(self, *_):
+                pass
+
+            def do_GET(self):
+                if behaviour['mode'] == 'close':
+                    self.close_connection = True
+                    self.wfile.close()
+                    return
+                if behaviour['mode'] == 'slow':
+                    time.sleep(behaviour['sleep'])
+                body = json.dumps(GOOD_METRICS).encode()
+                self.send_response(200)
+                self.send_header('Content-Type', 'application/json')
+                self.send_header('Content-Length', str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+
+        server = ThreadingHTTPServer(('127.0.0.1', 0), Handler)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        tests.addCleanup(server.server_close)
+        tests.addCleanup(server.shutdown)
+        return server
+
+    def poller(self, server, clock, timeout=0.2):
+        events = []
+        poll = soak.MetricsPoll(f'http://127.0.0.1:{server.server_port}/api/metrics',
+                                lambda kind, **fields: events.append(dict(kind=kind, **fields)), timeout=timeout, clock=clock)
+        return poll, events
+
+    def test_an_answer_is_returned_validated(self):
+        poll, events = self.poller(self.serve(dict(mode='answer')), Clock())
+        value = poll()
+        self.assertEqual(value['schema_version'], 1)
+        self.assertEqual(poll.polls, 1)
+        self.assertEqual(events, [])
+
+    def test_a_closed_connection_is_recorded_and_tolerated(self):
+        clock = Clock()
+        poll, events = self.poller(self.serve(dict(mode='close')), clock)
+        clock.now += soak.STATE_UNANSWERED_LIMIT_S
+        self.assertIsNone(poll())
+        self.assertEqual(events[-1]['kind'], 'metrics_unavailable')
+        self.assertEqual(events[-1]['unanswered_seconds'], soak.STATE_UNANSWERED_LIMIT_S)
+        self.assertEqual(poll.unavailable, 1)
+
+    def test_silence_past_the_limit_fails_the_run(self):
+        clock = Clock()
+        poll, _ = self.poller(self.serve(dict(mode='slow', sleep=0.6)), clock)
+        clock.now += soak.STATE_UNANSWERED_LIMIT_S + 0.5
+        with self.assertRaises(soak.Failure) as caught:
+            poll()
+        self.assertIn('/api/metrics unanswered', str(caught.exception))
+
+    def test_an_answer_resets_the_silence(self):
+        clock = Clock()
+        behaviour = dict(mode='close')
+        poll, events = self.poller(self.serve(behaviour), clock)
+        clock.now += 20
+        self.assertIsNone(poll())
+        behaviour['mode'] = 'answer'
+        clock.now += 1
+        self.assertIsNotNone(poll())
+        behaviour['mode'] = 'close'
+        clock.now += 20
+        self.assertIsNone(poll())
+        self.assertEqual([event['kind'] for event in events], ['metrics_unavailable', 'metrics_unavailable'])
+
+
+GOOD_METRICS = dict(schema_version=1, served_device_us=20_000_000, boot_token=None, build_attestation=None, capture=None, encoder=None,
+                    listeners=[dict(generation=0, state='unavailable', sample_us=0, media_age_us=None, write_us=None,
+                                    skips=None, frames_skipped=None, last_skip_us=None) for _ in range(2)],
+                    listener_loss=dict(observed_device_us=20_000_000, dropped=0, loss_occurred=False, metrics_stack_free_bytes=None), encoder_loss=None)
+
+
 if __name__ == '__main__':
     unittest.main()
