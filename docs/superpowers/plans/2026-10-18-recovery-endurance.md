@@ -10,8 +10,12 @@
   recorded, 25 s silence limit, startup and pre-reset gate kept) with
   `scripts/test_stream_soak_state_poll.py`; `scripts/check` pending.
 - Next: when the rerun ends (~19:10 UTC): evaluate against the bounds in #2
-  run 1; flash the reaper image; attest; reaper trial
-  (`network-fault --policy live --trials null-1,null-2,stall-30-2`:
+  run 1; flash the reaper image; attest; one manual null trial to capture
+  real reaper UART lines (departure, Closed with `released_us`); then change
+  `network_fault.replacement_trigger` to start the replacement at the
+  departure line instead of the Closed line (today it waits for Closed or
+  3 s, so it cannot show early admission), with fixtures from those lines;
+  reaper trial (`network-fault --policy live --trials null-1,null-2,stall-30-2`:
   replacement admitted before the departed socket's close line,
   `released_us` < Joined < Closed, `reaper_stack_free_bytes` read); client
   zoo; a 120 s stall-soak live check; then bf85's six hours with a 4 s
