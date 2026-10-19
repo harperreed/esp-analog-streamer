@@ -1,13 +1,21 @@
 # Close reaper and the six-hour soak (wmsy: new reaper ticket, bf85)
 
 ## Now
-- Step: #1 landed and closed. ttms closed (f5f0bb6, ea39416, 44bf721;
-  evidence `docs/audit-evidence/2026-10-19/close-reaper.{md,json}`), 7fe1
-  closed as superseded, b814 filed for the frozen-peer degradation seen on
-  both images. Reaper image `2ed701de…` reflashed from HEAD and attested
-  22:3x UTC. Zoo on MP3 unchanged from 2026-10-18. Now: the 120 s
-  stall-soak live check (`oct19-stallsoak-check`, 4 s stall every 50 s),
-  then bf85's six hours overnight.
+- Step: bf85 run 2 gated on a diagnosis, per the ticket's own rule. The
+  120 s stall-soak check passed its rules (zero departures, exact frames,
+  counters flat) but counted 7 skips for 2 stalls × 2 listeners, three of
+  them with no stall in progress, and the first six-hour launch died at
+  100 s on a dropped `/api/metrics` answer (fixed: `MetricsPoll`,
+  `4c83082`, check green). A/B of the same 120 s check on the pre-reaper
+  image `613e7621…`: 7 skips / 2114 frames, the same. Both images skip
+  this evening; the soak image had 0 skips over six hours this afternoon
+  and 0 on stall-4-2 on 2026-10-18. The image is not the variable; the
+  evening network or the stall-soak's own shape is. Now: reflash the
+  reaper image from HEAD, attest, launch the six hours anyway as the
+  measurement (72 stalls; bounds: zero departures, exact frames, counters
+  flat, heap as run 1; the one-skip-per-stall expectation is recorded as
+  unmet on both images in the 120 s checks, so the six hours report the
+  skip pattern rather than gate on it).
 - Next: `ESPFLASH_PORT=/dev/ttyUSB0 scripts/stream-soak 192.168.23.217
   --seconds 21600 --listeners 2 --path /stream.mp3 --require-clean-startup
   --stall-every 300 --stall-seconds 4 --interface enp5s0 --out
