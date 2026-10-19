@@ -1,28 +1,24 @@
 # Close reaper and the six-hour soak (wmsy: new reaper ticket, bf85)
 
 ## Now
-- Step: bf85 run 2 gated on a diagnosis, per the ticket's own rule. The
-  120 s stall-soak check passed its rules (zero departures, exact frames,
-  counters flat) but counted 7 skips for 2 stalls × 2 listeners, three of
-  them with no stall in progress, and the first six-hour launch died at
-  100 s on a dropped `/api/metrics` answer (fixed: `MetricsPoll`,
-  `4c83082`, check green). A/B of the same 120 s check on the pre-reaper
-  image `613e7621…`: 7 skips / 2114 frames, the same. Both images skip
-  this evening; the soak image had 0 skips over six hours this afternoon
-  and 0 on stall-4-2 on 2026-10-18. The image is not the variable; the
-  evening network or the stall-soak's own shape is. Now: reflash the
-  reaper image from HEAD, attest, launch the six hours anyway as the
-  measurement (72 stalls; bounds: zero departures, exact frames, counters
-  flat, heap as run 1; the one-skip-per-stall expectation is recorded as
-  unmet on both images in the 120 s checks, so the six hours report the
-  skip pattern rather than gate on it).
-- Next: `ESPFLASH_PORT=/dev/ttyUSB0 scripts/stream-soak 192.168.23.217
-  --seconds 21600 --listeners 2 --path /stream.mp3 --require-clean-startup
-  --stall-every 300 --stall-seconds 4 --interface enp5s0 --out
-  target/kata-hardening/oct19-soak-2`; pass bounds as #2 run 2 (zero
-  departures, one skip per stall per listener, counters flat, heap bounds
-  as run 1); evidence `2026-10-20/stall-soak.{md,json}`; bf85
-  close-or-record. Later: ek5b (needs tcpdump), n4jb, ee3q, b814.
+- Step: bf85 run 2 running: `target/kata-hardening/oct19-soak-3`,
+  launched 2026-10-19 23:5x UTC on the reaper image `2ed701de…`
+  (reflashed from HEAD and attested), two MP3 listeners, 4 s stall every
+  300 s, six hours, ends about 06:00 UTC 2026-10-20. Launch command and
+  bounds in Next. #1 is landed and closed (ttms, 7fe1).
+- Next: evaluate soak 3 against: zero departures, exact frames, counters
+  flat, internal largest within 2 KiB of its start, PSRAM largest
+  unchanged, no reboot; report the skip pattern (per stall and between
+  stalls) rather than gate on one-skip-per-stall, which both images
+  missed in the 120 s checks this evening; write
+  `docs/audit-evidence/2026-10-20/stall-soak.{md,json}`; bf85
+  close-or-record. Relaunch if needed with `ESPFLASH_PORT=/dev/ttyUSB0
+  scripts/stream-soak 192.168.23.217 --seconds 21600 --listeners 2 --path
+  /stream.mp3 --require-clean-startup --stall-every 300 --stall-seconds 4
+  --interface enp5s0 --out target/kata-hardening/<new dir>`. Never
+  `pgrep`/`pkill -f` a name that is in your own command line (it matches
+  itself; use `stream_soa[k]`). Later: b814 (evening skips on both
+  images), ek5b (needs tcpdump), n4jb, ee3q.
 - Open: whether `tcpdump` joins the sudoers rule (only ek5b needs it; not
   this plan)
 - Approved: "ok. let's do it. let's do #1, and then #2 (starting now? )"
