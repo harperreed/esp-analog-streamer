@@ -1357,3 +1357,11 @@ close's `event_us`. Departure ≤ released < close, by construction.
 scripts/stream_soak and scripts/network_fault import each other, so
 stream_soak imports network_fault lazily inside a function; a top-level
 import is a cycle.
+
+The soak's `/api/state` poll is secondary evidence: the board answers it
+in 1–2 s while serving two streams, and oct18-soak-1 died at 74 of 360
+minutes when one answer passed the 3 s timeout with both streams and the
+UART healthy. `StatePoll` now records a miss as `state_unanswered` and
+fails only after 25 s of silence (the UART rule's bound); only the
+pre-reset gate fails on a first miss. The repeated `mqtt: disconnected`
+lines on the UART are the unconfigured broker retrying, not a network event.

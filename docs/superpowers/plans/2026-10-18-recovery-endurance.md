@@ -1,13 +1,15 @@
 # Close reaper and the six-hour soak (wmsy: new reaper ticket, bf85)
 
 ## Now
-- Step: soak 1 running since 23:15 UTC on image `613e7621…`
-  (`target/kata-hardening/oct18-soak-1`, clean at 34 min: both listeners
-  exact, zero discontinuities, capture flat). Close reaper implemented,
-  reviewed (no blockers; four fixes applied) and committed with the
-  stall-soak option (`--stall-every/--stall-seconds/--interface`), the
-  zoo's fd leak fix and gotchas; all 27 stages `run.BgV4hg8E`.
-- Next: when soak 1 ends (~05:15 UTC): evaluate against the bounds in #2
+- Step: soak 1 rerun, `target/kata-hardening/oct19-soak-1`, launched 13:0x
+  UTC 2026-10-19 on image `613e7621…`. The first attempt
+  (`oct18-soak-1`, 23:15 UTC) was clean for 74 minutes (both listeners
+  exact, zero discontinuities, counters flat) and then the harness killed
+  it: one `/api/state` poll passed its 3 s timeout and `state()` treated
+  that as fatal. Fixed in `scripts/stream_soak.py` (`StatePoll`: misses
+  recorded, 25 s silence limit, startup and pre-reset gate kept) with
+  `scripts/test_stream_soak_state_poll.py`; `scripts/check` pending.
+- Next: when the rerun ends (~19:10 UTC): evaluate against the bounds in #2
   run 1; flash the reaper image; attest; reaper trial
   (`network-fault --policy live --trials null-1,null-2,stall-30-2`:
   replacement admitted before the departed socket's close line,
@@ -19,7 +21,7 @@
 - Approved: "ok. let's do it. let's do #1, and then #2 (starting now? )"
   (2026-10-18); earlier "Yes, push and open the draft PR" (2026-10-15)
   covers pushes of this branch
-- Compactions: 0
+- Compactions: 1
 
 ## #1 Close reaper (early slot release)
 

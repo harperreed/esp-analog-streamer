@@ -42,6 +42,10 @@ IFB = 'ifb0'
 OUTPUT_BUDGET_BYTES = 384 * 1024 * 1024
 # ffmpeg's socket read timeout and the no-progress watchdog; a harness may stretch both on its decoder args.
 DECODER_RW_TIMEOUT_S = 10
+# A slow or dropped /api/state answer is evidence, not a failure, until the board has been silent this long: the same
+# bound as the UART telemetry rule. oct18-soak-1 died at 74 of 360 minutes on a single poll past the 3 s timeout while
+# both streams and the UART stayed healthy.
+STATE_UNANSWERED_LIMIT_S = 25
 DECODER_PROGRESS_TIMEOUT_S = 20
 LOSS_KEYS = ['queue_overflows', 'software_dropped_frames', 'read_errors', 'restarts', 'discontinuities']
 CLEAN_STARTUP_KEYS = ['software_dropped_frames', 'read_errors', 'restarts',
@@ -249,6 +253,46 @@ def decoders_completed(jobs, args):
     return True
 
 
+class StatePoll:
+    """One /api/state request per call. Any OSError (timeout, refusal, reset) is recorded as `state_unanswered` and
+    tolerated until STATE_UNANSWERED_LIMIT_S has passed since the last answer; `required=True` (the pre-reset gate)
+    fails on the first miss; `starting=True` (post-reset startup, bounded by its own deadline) never fails on silence.
+    An answer with recognition enabled always fails. Returns True when the board answered."""
+
+    def __init__(self, url, record, timeout=3, clock=time.monotonic, limit_seconds=STATE_UNANSWERED_LIMIT_S):
+        self.url = url
+        self.record = record
+        self.timeout = timeout
+        self.clock = clock
+        self.limit_seconds = limit_seconds
+        self.answered_at = clock()
+        self.polls = 0
+        self.unanswered = 0
+
+    def __call__(self, required=False, starting=False):
+        began = self.clock()
+        opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+        try:
+            with opener.open(self.url, timeout=self.timeout) as response:
+                value = json.load(response)
+        except OSError as error:  # urllib.error.URLError is an OSError too
+            now = self.clock()
+            unanswered = round(now - self.answered_at, 3)
+            self.unanswered += 1
+            self.record('state_unanswered', error=str(error), seconds=round(now - began, 3), unanswered_seconds=unanswered)
+            if required:
+                raise Failure(f'/api/state did not answer: {error}') from error
+            if unanswered > self.limit_seconds and not starting:
+                raise Failure(f'/api/state unanswered for {unanswered} s (limit {self.limit_seconds} s): {error}') from error
+            return False
+        if value.get('shazam_enabled') is not False:
+            raise Failure('/api/state must report shazam_enabled=false')
+        self.polls += 1
+        self.answered_at = self.clock()
+        self.record('state', shazam_enabled=False, level_dbfs=value.get('level_dbfs'), seconds=round(self.answered_at - began, 3))
+        return True
+
+
 def state_url(ip, args):
     return f'http://{ip}:{args.state_port}/api/state'
 
@@ -343,7 +387,7 @@ def main(argv=None):
     boots = 0
     runtime_invalid_windows = 0
     minimums = {}
-    state_polls = 0
+    state = None
     ip = None
     loss_keys = LOSS_KEYS
     capture_gate = 'clean_startup_and_steady_state' if args.require_clean_startup else 'steady_state_only'
@@ -372,16 +416,6 @@ def main(argv=None):
         events.write(json.dumps(value) + '\n')
         events.flush()
         print(json.dumps(value), flush=True)
-
-    def state():
-        nonlocal state_polls
-        opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
-        with opener.open(state_url(ip, args), timeout=3) as response:
-            value = json.load(response)
-        if value.get('shazam_enabled') is not False:
-            raise Failure('/api/state must report shazam_enabled=false')
-        state_polls += 1
-        record('state', shazam_enabled=False, level_dbfs=value.get('level_dbfs'))
 
     def sh(argv, timeout=15):
         # Same privileged runner and command record as network_fault's driver.
@@ -468,8 +502,9 @@ def main(argv=None):
 
     try:
         ip = socket.getaddrinfo(args.host, args.stream_port, socket.AF_INET, socket.SOCK_STREAM)[0][4][0]
-        # Refuse a reset of firmware running with recognition enabled.
-        state()
+        state = StatePoll(state_url(ip, args), record)
+        # Refuse a reset of firmware running with recognition enabled, or of a board that does not answer.
+        state(required=True)
         if stalls_on:
             # Fail here, before the serial reset, on a lapsed sudo timestamp or a tree that is not the default one.
             # Probe with a command the operator's sudo rule covers: a NOPASSWD entry for tc alone refuses `sudo -n true`.
@@ -508,13 +543,8 @@ def main(argv=None):
                 raise Failure('UART collector exited during startup; see serial.log')
             uart_updates()
             if time.monotonic() >= next_state:
-                try:
-                    state()
-                    state_seen = True
-                except Failure:
-                    raise
-                except Exception:
-                    pass  # Startup may still be connecting Wi-Fi; the deadline remains bounded.
+                # Startup may still be connecting Wi-Fi; the 60 s deadline bounds the silence, not the poll's limit.
+                state_seen = state(starting=True) or state_seen
                 next_state = time.monotonic() + 3
             if state_seen and boots == 1 and latest is not None:
                 if previous_sample is not None and latest is not previous_sample:
@@ -664,7 +694,7 @@ def main(argv=None):
             failure = failure or str(error)
         summary = dict(passed=failure is None, error=failure, host=args.host, path=args.path, stream_port=args.stream_port, state_port=args.state_port, ip=ip,
                        requested_seconds=args.seconds, listeners=args.listeners, elapsed_seconds=round(time.monotonic() - started, 3),
-                       decoded_seconds=[job['decoded_seconds'] for job in jobs], state_polls=state_polls,
+                       decoded_seconds=[job['decoded_seconds'] for job in jobs], state_polls=state.polls if state else 0, state_unanswered=state.unanswered if state else 0,
                        decoder_accounting=[dict(timeline_seconds=job['timeline_seconds'], **job['accounting'].summary()) for job in jobs],
                        capture_gate=capture_gate, require_clean_startup=args.require_clean_startup,
                        baseline=baseline, last_capture=latest, captured_frames_observed=captured,
