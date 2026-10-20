@@ -11,8 +11,11 @@
   ~275 frames each, the 4 s stall plus TCP backoff), the rest were
   absorbed. It ended on a corrupt UART line (`discontnuities=0`, a
   dropped byte) that the parser treated as fatal; fixed
-  (`CorruptCaptureLine`, recorded and skipped), tests green, check and
-  commit pending while the soak runs.
+  (`CorruptCaptureLine`, recorded and skipped), committed `dcad09d`, check
+  green. Stragglers knocked out by agents 2026-10-20 morning: cv5a closed
+  (done; Sonos bullets unobtainable by rule), qm2a closed (keep
+  truncation, memo `e37d51f`), audits posted on e8hd and n4jb (open).
+- Approved: "Keep truncation, close qm2a (Recommended)" (2026-10-20)
 - Next: evaluate soak 3 against: zero departures, exact frames, counters
   flat, internal largest within 2 KiB of its start, PSRAM largest
   unchanged, no reboot; report the skip pattern (per stall and between
