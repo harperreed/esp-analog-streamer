@@ -1420,3 +1420,10 @@ steps with the rail, and only a connected source gives the ADC an
 external ground to measure that step against. Check the supply before
 suspecting the codec, the stream or the player; `/api/state` peaks near
 0.6 with `digital_rail_samples` 0 and a quiet `>200 Hz` band is the tell.
+
+Consumer headphone outputs are far below line level on this input: an
+iPod at full volume read -47 dBFS and a phone -41 dBFS at 0 dB PGA, while
+a turntable's LINE output sits around -15 to -25 dBFS. Since f723af0 the
+input gain is a runtime setting (settings page, `/api/input`, 0 to +24 dB
+in 3 dB steps, persisted in NVS namespace `input`); `/api/metrics`'
+`settings.pga_gain` is the live register, 0x88 at +24 dB.

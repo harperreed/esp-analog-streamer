@@ -1,10 +1,11 @@
 # Runtime input gain (settings page)
 
 ## Now
-- Step: implemented (core tests green, firmware builds with no warnings);
-  `scripts/check` running, then commit and build the home-credentials image
-  for the second board with a flash package (ELF, bootloader, partition
-  table, one `espflash` command; hold BOOT, tap RST first on that board).
+- Step: landed in `f723af0` (check green, 27 stages). Home-credentials image
+  built (ELF `008bc545…`) and packaged at
+  `target/kata-hardening/home-image.tgz` with a README (espflash command;
+  hold BOOT, tap RST first on that board). Waiting for Doctor Biz to flash
+  it at home; the office config is back in `firmware/cfg.toml`.
 - Next: build the home-credentials image for the second board and hand it
   to Doctor Biz to flash (no toolchain at home known); verify on a board:
   set +12 dB, see `/api/state` RMS rise 12 dB with a steady source, reboot
