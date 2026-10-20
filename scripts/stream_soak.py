@@ -148,12 +148,16 @@ def stall_schedule(run_seconds, every, stall_seconds):
 
 
 def decoder_arguments(args):
-    """The decoder's args: unchanged without stalls, else with both timeouts stretched by the stall like network_fault's trials."""
+    """The decoder's args: unchanged without stalls, else with the read allowance set to the board's live write budget
+    plus the stall (the board keeps a live listener that long after a blackhole; TCP retransmit backoff can hold the
+    first retransmit for 12 s) and the progress watchdog keeping its usual margin above it. The harness must not end
+    a run the board did not: oct20-soak-1 ended on a 14 s allowance at a stall the board rode out."""
     if args.stall_seconds is None:
         return args
     tools = fault_tools()
-    spec = dict(kind='stall', profile=tools.stall_profile(args.stall_seconds))
-    return SimpleNamespace(**vars(args), **tools.decoder_timeouts(spec), frames_short_allowed=0)
+    rw_timeout_s = tools.LIVE_WRITE_DEADLINE_S + args.stall_seconds
+    progress_timeout_s = rw_timeout_s + (DECODER_PROGRESS_TIMEOUT_S - DECODER_RW_TIMEOUT_S)
+    return SimpleNamespace(**vars(args), rw_timeout_s=rw_timeout_s, progress_timeout_s=progress_timeout_s, frames_short_allowed=0)
 
 
 def continuity_problem(decoder, expected_frames, skips, frames_skipped):

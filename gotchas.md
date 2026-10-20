@@ -1393,3 +1393,11 @@ and show up as an untracked directory, so a `scripts/check` running at the
 time fails its boundary comparison with every stage green. `.claude/` is in
 `.git/info/exclude` on the workstation (local, not committed); add it on a
 new machine before running agents and the check together.
+
+Under a receiver-side stall the soak's decoders now allow the board's
+live write budget plus the stall (28 s for a 4 s stall) before calling a
+read dead, with the progress watchdog 10 s above that: the board keeps a
+live listener for 24 s after a blackhole and TCP retransmit backoff can
+hold its first retransmit for 12 s, so a 14 s allowance ended
+oct20-soak-1 at 9,337 s on a stall the board rode out (ticket 2rjh). The
+gap is still reported from media_age and the decoder timeline.

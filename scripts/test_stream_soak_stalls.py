@@ -58,10 +58,14 @@ class StallOptionTests(unittest.TestCase):
         self.assertEqual(soak.decoder_command(plain, '192.0.2.1', Path('p'), Path('h')), PLAIN_MP3_ARGV)
         self.assertFalse(hasattr(plain, 'rw_timeout_s'))
         stalled = soak.decoder_arguments(parse(['--path', '/stream.mp3', '--seconds', '4', *STALL_FLAGS]))
-        self.assertEqual((stalled.rw_timeout_s, stalled.progress_timeout_s), (14.0, 24.0))
+        # The board keeps a live listener for its 24 s write budget after a blackhole (TCP retransmit backoff can
+        # delay the first retransmit by 12 s); the soak's decoders allow that budget plus the stall, so the harness
+        # never ends a run the board did not (oct20-soak-1 ended at a 14 s allowance while the board held on).
+        self.assertEqual((stalled.rw_timeout_s, stalled.progress_timeout_s), (28.0, 38.0))
+        self.assertEqual(stalled.rw_timeout_s, soak.fault_tools().LIVE_WRITE_DEADLINE_S + 4)
         command = soak.decoder_command(stalled, '192.0.2.1', Path('p'), Path('h'))
-        self.assertEqual(command[command.index('-rw_timeout') + 1], '14000000')
-        self.assertEqual([item for item in command if item != '14000000'], [item for item in PLAIN_MP3_ARGV if item != '10000000'])
+        self.assertEqual(command[command.index('-rw_timeout') + 1], '28000000')
+        self.assertEqual([item for item in command if item != '28000000'], [item for item in PLAIN_MP3_ARGV if item != '10000000'])
 
     def test_continuity_tolerates_discontinuities_and_short_frames_up_to_the_board_skips(self):
         expected = 4 * 48000

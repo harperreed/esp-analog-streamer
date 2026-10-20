@@ -1,28 +1,20 @@
 # Close reaper and the six-hour soak (wmsy: new reaper ticket, bf85)
 
 ## Now
-- Step: bf85 run 2, second launch: `target/kata-hardening/oct20-soak-1`,
-  launched 2026-10-20 04:1x UTC on the reaper image `2ed701de…`, ends
-  about 10:15 UTC. The first launch (`oct19-soak-3`, 23:5x UTC) ran
-  14,617 s clean: 48 stalls, zero departures, exact frames, counters
-  flat, `/api/metrics` never unavailable, PSRAM largest unchanged,
-  internal largest 40,960 B at start and end (one transient dip to
-  34,816 B); only 2 of 48 stalls produced a skip (one per listener,
-  ~275 frames each, the 4 s stall plus TCP backoff), the rest were
-  absorbed. It ended on a corrupt UART line (`discontnuities=0`, a
-  dropped byte) that the parser treated as fatal; fixed
-  (`CorruptCaptureLine`, recorded and skipped), committed `dcad09d`, check
-  green. Stragglers knocked out by agents 2026-10-20 morning: cv5a closed
-  (done; Sonos bullets unobtainable by rule), qm2a closed (keep
-  truncation, memo `e37d51f`), audits posted on e8hd and n4jb (open);
-  Sonos options doc for pqqq/7vhq (`d367385`, both kept open with it as
-  their plan; a Sonos reservation already exists in `Capacity::reserve`);
-  b814 diagnosis from the retained runs (`4a3ac1f`): the frozen peer is
-  a bystander, the variable is bursty loss on the Wi-Fi hop stretched by
-  lwIP's RTO; next board step is exporting lwIP link/tcp error counters
-  and RSSI in `/api/metrics`, then alternating null-2/freeze-2 in one
-  window. Check green at `4a3ac1f`.
-- Approved: "Keep truncation, close qm2a (Recommended)" (2026-10-20)
+- Step: bf85 run 2, third launch: `target/kata-hardening/oct20-soak-2`,
+  launched 2026-10-20 06:48 UTC on the reaper image `2ed701de…`, ends
+  about 12:50 UTC, decoders allowed 28 s (live budget + stall). Second
+  launch (`oct20-soak-1`) ran 9,337 s: 31 stalls, zero departures, exact
+  frames, counters flat, 7 tolerated metrics misses, heap bounds held,
+  83 skips / 20,218 frames (about 2.7 per stall); it ended when the 31st
+  stall left one listener without data for more than the decoders' 14 s
+  allowance while the board held the socket (media age 9.7 s at +6.6 s):
+  ticket 2rjh (TCP retransmit backoff after a blackhole). Together the
+  stall soaks now cover 6 h 38 min and 79 stalls without a board-side
+  departure. First launch (`oct19-soak-3`, 14,617 s, 48 stalls) ended on
+  a corrupt UART line, fixed in `dcad09d`. Memos from the morning's
+  agents are on the branch (`d367385`, `4a3ac1f`); check and commit of the
+  allowance change pending.
 - Next: evaluate soak 3 against: zero departures, exact frames, counters
   flat, internal largest within 2 KiB of its start, PSRAM largest
   unchanged, no reboot; report the skip pattern (per stall and between
