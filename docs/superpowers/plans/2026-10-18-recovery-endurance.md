@@ -14,7 +14,14 @@
   (`CorruptCaptureLine`, recorded and skipped), committed `dcad09d`, check
   green. Stragglers knocked out by agents 2026-10-20 morning: cv5a closed
   (done; Sonos bullets unobtainable by rule), qm2a closed (keep
-  truncation, memo `e37d51f`), audits posted on e8hd and n4jb (open).
+  truncation, memo `e37d51f`), audits posted on e8hd and n4jb (open);
+  Sonos options doc for pqqq/7vhq (`d367385`, both kept open with it as
+  their plan; a Sonos reservation already exists in `Capacity::reserve`);
+  b814 diagnosis from the retained runs (`4a3ac1f`): the frozen peer is
+  a bystander, the variable is bursty loss on the Wi-Fi hop stretched by
+  lwIP's RTO; next board step is exporting lwIP link/tcp error counters
+  and RSSI in `/api/metrics`, then alternating null-2/freeze-2 in one
+  window. Check green at `4a3ac1f`.
 - Approved: "Keep truncation, close qm2a (Recommended)" (2026-10-20)
 - Next: evaluate soak 3 against: zero departures, exact frames, counters
   flat, internal largest within 2 KiB of its start, PSRAM largest
