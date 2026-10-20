@@ -28,6 +28,11 @@ class Failure(Exception):
     pass
 
 
+class CorruptCaptureLine(Failure):
+    """A capture line the serial link mangled (a counter missing, doubled or not a number). oct19-soak-3 lost one byte
+    of 'discontinuities' after 14,617 s; the run records and skips such a line and the 25 s telemetry rule bounds the gap."""
+
+
 def fault_tools():
     """network_fault imports this module's decoder helpers, so its qdisc helpers load on demand to avoid the cycle."""
     import network_fault
@@ -60,13 +65,13 @@ def parse_capture_sample(line, require_clean_startup=False):
         for key in CLEAN_STARTUP_KEYS:
             values = re.findall(r'\b' + key + r'=(\S+)', line)
             if len(values) != 1 or re.fullmatch(r'[0-9]+', values[0]) is None:
-                raise Failure(f'clean startup requires one valid capture counter: {key}')
+                raise CorruptCaptureLine(f'clean startup requires one valid capture counter: {key}')
             if int(values[0]) != 0:
                 raise Failure(f'clean startup capture counter is nonzero: {key}={values[0]}')
     sample = {key: int(value) for key, value in re.findall(r'\b([a-z_]+)=(-?\d+)', line)}
     required = ['frames', *LOSS_KEYS, 'internal_min_sum', 'psram_min_sum']
     if any(key not in sample for key in required):
-        raise Failure('capture telemetry lacks required counters/window minima')
+        raise CorruptCaptureLine('capture telemetry lacks required counters/window minima')
     return sample
 
 
@@ -438,6 +443,7 @@ def main(argv=None):
     samples = 0
     boots = 0
     runtime_invalid_windows = 0
+    corrupt_capture_lines = 0
     minimums = {}
     state = None
     metrics_poll = None
@@ -519,7 +525,7 @@ def main(argv=None):
             decoder_args.frames_short_allowed = (sample['frames_skipped'] + 1) * fault_tools().MP3_FRAME_SAMPLES
 
     def uart_updates():
-        nonlocal latest, latest_at, samples, boots, captured, runtime_invalid_windows
+        nonlocal latest, latest_at, samples, boots, captured, runtime_invalid_windows, corrupt_capture_lines
         check_output_budget()
         for line in uart_tail.lines():
             try:
@@ -536,7 +542,12 @@ def main(argv=None):
                 runtime_invalid_windows += 1
             if 'audio: frames=' not in line:
                 continue
-            sample = parse_capture_sample(line, require_clean_startup=args.require_clean_startup)
+            try:
+                sample = parse_capture_sample(line, require_clean_startup=args.require_clean_startup)
+            except CorruptCaptureLine as error:
+                corrupt_capture_lines += 1
+                record('capture_line_corrupt', error=str(error), line_length=len(line))
+                continue
             if baseline is not None:
                 for key in loss_keys:
                     if sample[key] != baseline[key]:
@@ -767,6 +778,7 @@ def main(argv=None):
                        departures_while_running=departures if stalls_on else None, metrics_polls=metrics_polls if stalls_on else None,
                        metrics_unavailable=metrics_poll.unavailable if stalls_on and metrics_poll else None,
                        capture_samples=samples, minimums=minimums, runtime_invalid_windows=runtime_invalid_windows,
+                       corrupt_capture_lines=corrupt_capture_lines,
                        output_bytes_before_summary=output_bytes(out), output_budget_bytes=OUTPUT_BUDGET_BYTES,
                        counter_deltas={key: ((latest[key] - baseline[key]) & 0xffffffff) for key in loss_keys} if baseline and latest else None,
                        log_directory=str(out), uart_log=str(out / 'uart.log'),

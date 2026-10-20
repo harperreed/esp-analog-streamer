@@ -51,6 +51,24 @@ class ModuleTests(unittest.TestCase):
                     soak.parse_capture_sample(line,
                                               require_clean_startup=True)
 
+    def test_soak_corrupt_capture_line_is_its_own_failure(self):
+        # The UART line that ended oct19-soak-3 at 14,617 s: one byte dropped on the serial link
+        # ('discontnuities'). It is a corrupt line, not a clean-startup fault, and the run skips it.
+        import stream_soak as soak
+        corrupt = ('audio: frames=701482560 capture_begin_us=14614370497 capture_end_us=14614370516 callbacks=2922861 '
+                   'queue_overflows=8 software_dropped_frames=0 read_errors=0 restarts=0 supervisor_restarts=0 overflow_restarts=0 '
+                   'settling_discarded_frames=24000 discontnuities=0 health_restart_requests=0 capture_runtime_window_us=10153027 '
+                   'capture_task_runtime_us=1262414 internal_min_sum=36643 psram_min_sum=2605144')
+        for clean in (True, False):
+            with self.subTest(clean=clean), self.assertRaises(soak.CorruptCaptureLine):
+                soak.parse_capture_sample(corrupt, require_clean_startup=clean)
+        self.assertTrue(issubclass(soak.CorruptCaptureLine, soak.Failure))
+        # A real nonzero counter at clean startup is still the plain failure, never mistaken for corruption.
+        nonzero = self.startup_c.replace('restarts=0 supervisor', 'restarts=1 supervisor')
+        with self.assertRaises(soak.Failure) as caught:
+            soak.parse_capture_sample(nonzero, require_clean_startup=True)
+        self.assertNotIsInstance(caught.exception, soak.CorruptCaptureLine)
+
     def test_soak_clean_startup_flag_is_opt_in(self):
         import stream_soak as soak
         self.assertFalse(soak.parse_args([]).require_clean_startup)

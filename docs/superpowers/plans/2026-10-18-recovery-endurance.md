@@ -1,11 +1,18 @@
 # Close reaper and the six-hour soak (wmsy: new reaper ticket, bf85)
 
 ## Now
-- Step: bf85 run 2 running: `target/kata-hardening/oct19-soak-3`,
-  launched 2026-10-19 23:5x UTC on the reaper image `2ed701de…`
-  (reflashed from HEAD and attested), two MP3 listeners, 4 s stall every
-  300 s, six hours, ends about 06:00 UTC 2026-10-20. Launch command and
-  bounds in Next. #1 is landed and closed (ttms, 7fe1).
+- Step: bf85 run 2, second launch: `target/kata-hardening/oct20-soak-1`,
+  launched 2026-10-20 04:1x UTC on the reaper image `2ed701de…`, ends
+  about 10:15 UTC. The first launch (`oct19-soak-3`, 23:5x UTC) ran
+  14,617 s clean: 48 stalls, zero departures, exact frames, counters
+  flat, `/api/metrics` never unavailable, PSRAM largest unchanged,
+  internal largest 40,960 B at start and end (one transient dip to
+  34,816 B); only 2 of 48 stalls produced a skip (one per listener,
+  ~275 frames each, the 4 s stall plus TCP backoff), the rest were
+  absorbed. It ended on a corrupt UART line (`discontnuities=0`, a
+  dropped byte) that the parser treated as fatal; fixed
+  (`CorruptCaptureLine`, recorded and skipped), tests green, check and
+  commit pending while the soak runs.
 - Next: evaluate soak 3 against: zero departures, exact frames, counters
   flat, internal largest within 2 KiB of its start, PSRAM largest
   unchanged, no reboot; report the skip pattern (per stall and between

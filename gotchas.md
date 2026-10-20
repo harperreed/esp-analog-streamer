@@ -1379,3 +1379,11 @@ Two decoders join within 40 ms in either order, so the harness pairs the
 frozen decoder with the peer that `stopped reading` and the rest by join
 order; a retained run is re-paired on `--reverdict`. A frozen peer also
 made the surviving listener skip once in 2 of 4 runs (ticket b814).
+
+The serial link drops a byte now and then: oct19-soak-3 ended at 14,617 s
+on `discontnuities=0`, one character short, after four hours of a clean
+run. A capture line with a missing, doubled or non-numeric counter is a
+`CorruptCaptureLine`, recorded as `capture_line_corrupt` and skipped; the
+25 s telemetry rule bounds the gap. A nonzero counter at clean startup is
+still the plain failure. When you lift UART fixtures, keep the corrupt
+ones too.
