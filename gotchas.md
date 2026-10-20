@@ -1387,3 +1387,9 @@ run. A capture line with a missing, doubled or non-numeric counter is a
 25 s telemetry rule bounds the gap. A nonzero counter at clean startup is
 still the plain failure. When you lift UART fixtures, keep the corrupt
 ones too.
+
+Agent worktrees are created inside the repo at `.claude/worktrees/<agent>`
+and show up as an untracked directory, so a `scripts/check` running at the
+time fails its boundary comparison with every stage green. `.claude/` is in
+`.git/info/exclude` on the workstation (local, not committed); add it on a
+new machine before running agents and the check together.
