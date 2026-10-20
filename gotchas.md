@@ -1403,3 +1403,10 @@ live listener for 24 s after a blackhole and TCP retransmit backoff can
 hold its first retransmit for 12 s, so a 14 s allowance ended
 oct20-soak-1 at 9,337 s on a stall the board rode out (ticket 2rjh). The
 gap is still reported from media_age and the decoder timeline.
+
+Under live semantics a stalled listener loses audio to skips, so its
+decoder's `-t` audio target takes longer than wall time: over six hours
+with a 4 s stall every 300 s each listener skipped about ten minutes of
+audio, and the soak's wall deadline (seconds + 60 + stall wall) ended
+oct20-soak-3 five minutes short with the board clean. The deadline now
+grows by the board's skipped frames as the metrics report them.

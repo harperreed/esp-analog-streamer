@@ -159,6 +159,14 @@ def stall_schedule(run_seconds, every, stall_seconds):
     return [start for start in starts if start + stall_seconds <= run_seconds]
 
 
+def decode_deadline(decode_started, seconds, stall_wall_seconds, frames_skipped):
+    """When the decoders must have finished: the requested audio, a minute of slack, the stall wall time, and the audio
+    the board has skipped so far (a live listener loses that audio and reads longer to reach its -t target;
+    oct20-soak-3 skipped about ten minutes per listener over six hours)."""
+    skipped_seconds = (frames_skipped or 0) * fault_tools().MP3_FRAME_SAMPLES / 48000
+    return decode_started + seconds + 60 + stall_wall_seconds + skipped_seconds
+
+
 def decoder_arguments(args):
     """The decoder's args: unchanged without stalls, else with the read allowance set to the board's live write budget
     plus the stall (the board keeps a live listener that long after a blackhole; TCP retransmit backoff can hold the
@@ -674,7 +682,7 @@ def main(argv=None):
                              accounting=FrameHash(hashes, tolerate_discontinuities=stalls_on), decoded_audio_frames=0,
                              decoded_seconds=0, timeline_seconds=0, advanced_at=time.monotonic()))
         decode_started = time.monotonic()
-        deadline = decode_started + args.seconds + 60 + stall_wall_seconds
+        deadline = decode_deadline(decode_started, args.seconds, stall_wall_seconds, 0)
         next_state = 0
         next_progress = 0
         sleep_for = 0.5
@@ -713,8 +721,10 @@ def main(argv=None):
                 next_progress = time.monotonic() + 60
             if decoders_completed(jobs, decoder_args):
                 break
+            if stalls_on and skip_totals:
+                deadline = decode_deadline(decode_started, args.seconds, stall_wall_seconds, skip_totals.get('frames_skipped'))
             if time.monotonic() >= deadline:
-                raise Failure('decoders exceeded requested duration plus 60 seconds of wall time')
+                raise Failure('decoders exceeded requested duration plus 60 seconds of wall time, the stalls and the skipped audio')
             time.sleep(sleep_for)
         finished_at = time.monotonic()
         # Require a UART sample after all decoders finish, covering their final capture window.

@@ -67,6 +67,13 @@ class StallOptionTests(unittest.TestCase):
         self.assertEqual(command[command.index('-rw_timeout') + 1], '28000000')
         self.assertEqual([item for item in command if item != '28000000'], [item for item in PLAIN_MP3_ARGV if item != '10000000'])
 
+    def test_decode_deadline_grows_with_the_audio_the_board_skipped(self):
+        # oct20-soak-3: 71 stalls, 49,914 frames skipped across both listeners (about ten minutes of audio each), the
+        # decoders five minutes short of their 21,600 s target when the wall deadline (seconds + 60 + stall wall) fired.
+        self.assertEqual(soak.decode_deadline(1000.0, 21600.0, 284.0, 0), 1000.0 + 21600.0 + 60 + 284.0)
+        self.assertAlmostEqual(soak.decode_deadline(1000.0, 21600.0, 284.0, 49914), 1000.0 + 21600.0 + 60 + 284.0 + 49914 * 1152 / 48000)
+        self.assertEqual(soak.decode_deadline(1000.0, 4.0, 0.0, None), 1000.0 + 4.0 + 60)
+
     def test_continuity_tolerates_discontinuities_and_short_frames_up_to_the_board_skips(self):
         expected = 4 * 48000
         decoder = dict(decoded_audio_frames=expected, decoded_discontinuities=0)

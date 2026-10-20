@@ -1,0 +1,349 @@
+{
+  "schema": "1",
+  "plan": "docs/superpowers/plans/2026-10-18-recovery-endurance.md",
+  "tickets": [
+    "bf85",
+    "2rjh",
+    "b814"
+  ],
+  "board": {
+    "host": "192.168.23.217",
+    "image_build_elf_sha256_prefix": "2ed701de",
+    "image_commit": "f5f0bb6",
+    "path": "/stream.mp3",
+    "listeners": 2
+  },
+  "workload": {
+    "stall_every_s": 300,
+    "stall_seconds": 4,
+    "interface": "enp5s0",
+    "injection": "receiver-side tc blackhole on the workstation; the office Wi-Fi is never touched"
+  },
+  "harness_commits": [
+    "7963a91",
+    "4c83082",
+    "dcad09d",
+    "fbba366",
+    "93a71d5"
+  ],
+  "harness_sha256": {
+    "scripts/stream_soak.py": "af1925ad7a764667d04ff415fe4c6100a3660919236377915bfccce3771493fb"
+  },
+  "bounds": [
+    "zero departures",
+    "exact frames modulo the board's skips",
+    "loss counters flat from the post-startup baseline",
+    "internal largest free block within 2 KiB of its start",
+    "PSRAM largest unchanged",
+    "no reboot"
+  ],
+  "launches": [
+    {
+      "name": "oct19-soak-3",
+      "directory": "target/kata-hardening/oct19-soak-3/20261019T201328.154358Z",
+      "started_utc": "20261019T201328.154358Z",
+      "elapsed_seconds": 14619.372,
+      "decoded_seconds": [
+        14580.72,
+        14580.696
+      ],
+      "stalls": 48,
+      "stalls_scheduled": 71,
+      "departures": 0,
+      "counter_deltas": {
+        "queue_overflows": 0,
+        "software_dropped_frames": 0,
+        "read_errors": 0,
+        "restarts": 0,
+        "discontinuities": 0
+      },
+      "decoder_accounting": [
+        {
+          "frames": 699874560,
+          "discontinuities": 0,
+          "skipped_source": 0
+        },
+        {
+          "frames": 699873408,
+          "discontinuities": 0,
+          "skipped_source": 0
+        }
+      ],
+      "skips": {
+        "skips": 4,
+        "frames_skipped": 1094,
+        "source": "metrics"
+      },
+      "metrics_unavailable": 0,
+      "state_unanswered": 1,
+      "corrupt_lines": {
+        "capture": null,
+        "telemetry": null
+      },
+      "heap": {
+        "internal_largest": {
+          "first": 40960,
+          "min": 34816,
+          "last": 40960
+        },
+        "internal_free": {
+          "first": 42815,
+          "min": 36643,
+          "last": 41643
+        },
+        "psram_largest": {
+          "first": 2359296,
+          "last": 2359296
+        }
+      },
+      "media_age": {
+        "max_s": 3.414,
+        "samples_over_4s": 0,
+        "samples_over_10s": 0,
+        "samples_over_14s": 0
+      },
+      "boots": 0,
+      "ended": "clean startup requires one valid capture counter: discontinuities",
+      "harness_note": "ended on a corrupt capture line (dropped UART byte); fixed dcad09d",
+      "restore_verified": true,
+      "artifact_sha256": {
+        "summary.json": "a5ca9fcfba75ca25358b1c724e3bc4675be3099edb2d6d5cc124b2f166295c09",
+        "events.jsonl": "f98066a7cac4e66b418082d3ad5a21b56149e629bf2722f97d43faa85d876af9",
+        "uart.log": "59a0457b5dc2752c388d03f974306e00e71ecc50bc79a283e1b7ffa0150c5add"
+      }
+    },
+    {
+      "name": "oct20-soak-1",
+      "directory": "target/kata-hardening/oct20-soak-1/20261020T040940.122048Z",
+      "started_utc": "20261020T040940.122048Z",
+      "elapsed_seconds": 9337.495,
+      "decoded_seconds": [
+        9082.512,
+        9045.576
+      ],
+      "stalls": 31,
+      "stalls_scheduled": 71,
+      "departures": 0,
+      "counter_deltas": {
+        "queue_overflows": 0,
+        "software_dropped_frames": 0,
+        "read_errors": 0,
+        "restarts": 0,
+        "discontinuities": 0
+      },
+      "decoder_accounting": [
+        {
+          "frames": 435960576,
+          "discontinuities": 0,
+          "skipped_source": 0
+        },
+        {
+          "frames": 434187648,
+          "discontinuities": 0,
+          "skipped_source": 0
+        }
+      ],
+      "skips": {
+        "skips": 83,
+        "frames_skipped": 20218,
+        "source": "metrics"
+      },
+      "metrics_unavailable": 7,
+      "state_unanswered": 1,
+      "corrupt_lines": {
+        "capture": 0,
+        "telemetry": null
+      },
+      "heap": {
+        "internal_largest": {
+          "first": 40960,
+          "min": 34816,
+          "last": 40960
+        },
+        "internal_free": {
+          "first": 42815,
+          "min": 41247,
+          "last": 41775
+        },
+        "psram_largest": {
+          "first": 2359296,
+          "last": 2359296
+        }
+      },
+      "media_age": {
+        "max_s": 9.712,
+        "samples_over_4s": 23,
+        "samples_over_10s": 0,
+        "samples_over_14s": 0
+      },
+      "boots": 0,
+      "ended": "ffmpeg integrity failure: [in#0/mp3 @ 0x648e201cc080] [error] Error during demuxing: Connection timed out",
+      "harness_note": "ended on the decoders' 14 s read allowance at a stall the board rode out; fixed fbba366, ticket 2rjh",
+      "restore_verified": true,
+      "artifact_sha256": {
+        "summary.json": "2a83d04193a5f58a28e69168feac9260f338525e7d62462e7a40f437b417759b",
+        "events.jsonl": "4c87d914c0b9eb12c27e1729512a4e9cd23268861962f7ffadcd838b2c5ac31d",
+        "uart.log": "3d9de069e4a75233b20f9c1833129361222e75bbf919757e8a518a6c458a31ed"
+      }
+    },
+    {
+      "name": "oct20-soak-2",
+      "directory": "target/kata-hardening/oct20-soak-2/20261020T064815.882603Z",
+      "started_utc": "20261020T064815.882603Z",
+      "elapsed_seconds": 10952.684,
+      "decoded_seconds": [
+        10676.04,
+        10654.296
+      ],
+      "stalls": 36,
+      "stalls_scheduled": 71,
+      "departures": 0,
+      "counter_deltas": {
+        "queue_overflows": 0,
+        "software_dropped_frames": 0,
+        "read_errors": 0,
+        "restarts": 0,
+        "discontinuities": 0
+      },
+      "decoder_accounting": [
+        {
+          "frames": 512449920,
+          "discontinuities": 0,
+          "skipped_source": 0
+        },
+        {
+          "frames": 511406208,
+          "discontinuities": 0,
+          "skipped_source": 0
+        }
+      ],
+      "skips": {
+        "skips": 80,
+        "frames_skipped": 21863,
+        "source": "metrics"
+      },
+      "metrics_unavailable": 4,
+      "state_unanswered": 5,
+      "corrupt_lines": {
+        "capture": 0,
+        "telemetry": null
+      },
+      "heap": {
+        "internal_largest": {
+          "first": 40960,
+          "min": 34816,
+          "last": 40960
+        },
+        "internal_free": {
+          "first": 42835,
+          "min": 36799,
+          "last": 41791
+        },
+        "psram_largest": {
+          "first": 2359296,
+          "last": 2359296
+        }
+      },
+      "media_age": {
+        "max_s": 17.599,
+        "samples_over_4s": 25,
+        "samples_over_10s": 4,
+        "samples_over_14s": 1
+      },
+      "boots": 0,
+      "ended": "encoder telemetry invalid bounded number: dropped_full",
+      "harness_note": "ended on a corrupt encoder-telemetry line (dropped UART byte); fixed 93a71d5",
+      "restore_verified": true,
+      "artifact_sha256": {
+        "summary.json": "8e0e672bbe608c86088b669c8c089daa59be9800ccaece451eaa56bb2d57f2d6",
+        "events.jsonl": "66db037c7fd5d0ac3f07e85933ba639e1255b422861ed6be14a7848d3911928b",
+        "uart.log": "324dc70c641555c0936fac37c5ff3e428c360c2ab2d4ee47855df871b6900409"
+      }
+    },
+    {
+      "name": "oct20-soak-3",
+      "directory": "target/kata-hardening/oct20-soak-3/20261020T095251.964757Z",
+      "started_utc": "20261020T095251.964757Z",
+      "elapsed_seconds": 21968.672,
+      "decoded_seconds": [
+        21365.064,
+        21324.336
+      ],
+      "stalls": 71,
+      "stalls_scheduled": 71,
+      "departures": 0,
+      "counter_deltas": {
+        "queue_overflows": 0,
+        "software_dropped_frames": 0,
+        "read_errors": 0,
+        "restarts": 0,
+        "discontinuities": 0
+      },
+      "decoder_accounting": [
+        {
+          "frames": 1025523072,
+          "discontinuities": 0,
+          "skipped_source": 0
+        },
+        {
+          "frames": 1023568128,
+          "discontinuities": 0,
+          "skipped_source": 0
+        }
+      ],
+      "skips": {
+        "skips": 205,
+        "frames_skipped": 49914,
+        "source": "metrics"
+      },
+      "metrics_unavailable": 12,
+      "state_unanswered": 4,
+      "corrupt_lines": {
+        "capture": 0,
+        "telemetry": 0
+      },
+      "heap": {
+        "internal_largest": {
+          "first": 40960,
+          "min": 34816,
+          "last": 40960
+        },
+        "internal_free": {
+          "first": 42811,
+          "min": 36543,
+          "last": 41643
+        },
+        "psram_largest": {
+          "first": 2359296,
+          "last": 2359296
+        }
+      },
+      "media_age": {
+        "max_s": 9.009,
+        "samples_over_4s": 31,
+        "samples_over_10s": 0,
+        "samples_over_14s": 0
+      },
+      "boots": 0,
+      "ended": "decoders exceeded requested duration plus 60 seconds of wall time",
+      "harness_note": "full run; ended on the harness wall deadline, which did not allow for the audio the board skipped at stalls; fixed with this record",
+      "restore_verified": true,
+      "artifact_sha256": {
+        "summary.json": "9c7791ec71637b413fe2c840b125f570fa11b21d43a629e31c2ead82218933ea",
+        "events.jsonl": "2ef952af06852e571c18af66f16425a81c0b0936a7afef071cedd0539b7012c4",
+        "uart.log": "479c006c2fff74cd65c69af20439247ed09296a6bd0213221759c4643c2f904e"
+      }
+    }
+  ],
+  "totals": {
+    "wall_seconds": 56878.223,
+    "stalls": 186,
+    "departures": 0
+  },
+  "limits": [
+    "receiver-side stalls stand in for Wi-Fi reconnects by rule",
+    "MP3 only, quiet LINE IN, one board, one workstation receiver",
+    "no Sonos",
+    "the one-skip-per-stall expectation from the plan was not met by either image: skips are 1 to 3 per listener per stall and also occur between stalls (b814)"
+  ]
+}
