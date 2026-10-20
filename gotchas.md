@@ -1410,3 +1410,13 @@ with a 4 s stall every 300 s each listener skipped about ten minutes of
 audio, and the soak's wall deadline (seconds + 60 + stall wall) ended
 oct20-soak-3 five minutes short with the board clean. The deadline now
 grows by the board's skipped frames as the metrics report them.
+
+A weak USB supply makes the A1S capture garbage that sounds like
+clipping: on the second board at home (2026-10-20), any connected source
+captured as 4 Hz DC steps with an exponential recovery, 99% of the
+energy below 200 Hz and no music, while an open input sat at the noise
+floor. A better power adapter fixed it outright. The ES8388's reference
+steps with the rail, and only a connected source gives the ADC an
+external ground to measure that step against. Check the supply before
+suspecting the codec, the stream or the player; `/api/state` peaks near
+0.6 with `digital_rail_samples` 0 and a quiet `>200 Hz` band is the tell.
