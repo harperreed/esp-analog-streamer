@@ -914,7 +914,8 @@ mod device {
                 buffer_available,
                 autoplay,
                 recognition_enabled: crate::config::CONFIG.shazam_enabled,
-                pga_gain: crate::config::CONFIG.pga_gain,
+                pga_gain: crate::input_gain::LIVE_REGISTER
+                    .load(std::sync::atomic::Ordering::Relaxed),
             })
         }
 

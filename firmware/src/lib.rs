@@ -9,6 +9,7 @@ mod close_reaper;
 mod codec;
 mod config;
 mod i2s_capture;
+mod input_gain;
 mod listener_telemetry;
 mod mqtt_out;
 mod net;
@@ -79,10 +80,12 @@ fn run_inner() -> Result<()> {
     )?;
     #[cfg(feature = "startup-capture-trace")]
     startup_capture_trace::phase(3, 0);
-    let setup = codec::setup_line_in(&mut i2c, CONFIG.pga_gain);
+    let (gain_nvs, gain) = input_gain::load(nvs.clone(), CONFIG.pga_gain)?;
+    let setup = codec::setup_line_in(&mut i2c, gain.register());
     #[cfg(feature = "startup-capture-trace")]
     startup_capture_trace::phase(4, if setup.is_ok() { 0 } else { -1 });
     setup?;
+    let input = Arc::new(input_gain::Handle::new(i2c, gain_nvs, gain));
     let store: recognizer::SharedStore =
         Arc::new(Mutex::new(SongStore::new(20, CONFIG.shazam_enabled)));
     // ESP-IDF's first std mutex access allocates. Complete telemetry setup before either
@@ -115,7 +118,7 @@ fn run_inner() -> Result<()> {
     let network = wifi.network();
     stream::start(stream_ring, &mut mdns, network.clone())?;
     let sonos = sonos::start(store.clone(), nvs, network)?;
-    let _server = web::start(store.clone(), sonos)?;
+    let _server = web::start(store.clone(), sonos, input)?;
     let publisher = mqtt_out::start(CONFIG.mqtt_url, store.clone())?;
     // Capture only supplies a recognition ring when Shazam is enabled.
     if let Some(ring) = ring {

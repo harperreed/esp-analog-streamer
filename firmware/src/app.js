@@ -124,6 +124,45 @@ $('sonos-stop')?.addEventListener('click', () => sendSonos({ action: 'stop' }));
 $('sonos-format')?.addEventListener('change', () => sendSonos({ action: 'format', format: $('sonos-format').value }));
 $('sonos-buffer')?.addEventListener('change', () => sendSonos({ action: 'buffer', preset: $('sonos-buffer').value }));
 $('sonos-autoplay')?.addEventListener('change', () => sendSonos({ action: 'autoplay', enabled: $('sonos-autoplay').checked }));
+// Input gain: one request, confirmed by reading the status back; the select is disabled meanwhile.
+let inputBusy = false;
+async function refreshInput() {
+  const select = $('input-gain');
+  if (!select || inputBusy) return;
+  try {
+    const response = await fetch('/api/input', { cache: 'no-store', signal: AbortSignal.timeout(2500) });
+    if (!response.ok) throw new Error('Input gain unavailable');
+    const status = await response.json();
+    if (!inputBusy && document.activeElement !== select) select.value = String(status.gain_db);
+    select.disabled = false;
+  } catch (error) {
+    select.disabled = true;
+  }
+}
+async function sendInput(gainDb) {
+  const select = $('input-gain');
+  if (!select || inputBusy) return;
+  inputBusy = true;
+  select.disabled = true;
+  set('input-gain-note', 'textContent', 'Applying…');
+  try {
+    const response = await fetch('/api/input', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ gain_db: gainDb }), signal: AbortSignal.timeout(5000),
+    });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || 'Input gain request failed.');
+    select.value = String(result.gain_db);
+    set('input-gain-note', 'textContent', `Input gain ${result.gain_db} dB applied and saved. Check the level on the Playback page.`);
+  } catch (error) {
+    set('input-gain-note', 'textContent', error.message || 'Input gain request failed.');
+  } finally {
+    inputBusy = false;
+    select.disabled = false;
+  }
+}
+$('input-gain')?.addEventListener('change', () => sendInput(Number($('input-gain').value)));
+if ($('input-gain')) { refreshInput(); setInterval(refreshInput, 5000); }
 // The URLs come from Shazam's response: only https ones reach src or href, so no javascript: links.
 const https = (u) => typeof u === 'string' && /^https:\/\//.test(u);
 async function refresh() {

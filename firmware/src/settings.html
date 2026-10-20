@@ -30,6 +30,19 @@
       <option value="high">High — 8 s</option>
     </select>
     <p class="muted" id="sonos-buffer-note">Applies on next Play.</p>
+    <label for="input-gain">Input gain</label>
+    <select id="input-gain" disabled>
+      <option value="0">0 dB — line level (turntable LINE out)</option>
+      <option value="3">+3 dB</option>
+      <option value="6">+6 dB</option>
+      <option value="9">+9 dB</option>
+      <option value="12">+12 dB</option>
+      <option value="15">+15 dB</option>
+      <option value="18">+18 dB</option>
+      <option value="21">+21 dB</option>
+      <option value="24">+24 dB — quiet sources (phone, iPod)</option>
+    </select>
+    <p class="muted" id="input-gain-note">Applies immediately and stays after a restart. Raise it until the loudest passages peak a few dB under full scale on the Playback page; too far and loud passages clip.</p>
     <p>Status: <span id="sonos-status" role="status">connecting…</span></p>
     <p class="error" id="sonos-error" role="status"></p>
     <p class="muted" id="sonos-action-status" role="status"></p>
