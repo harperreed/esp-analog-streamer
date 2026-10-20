@@ -1385,8 +1385,10 @@ on `discontnuities=0`, one character short, after four hours of a clean
 run. A capture line with a missing, doubled or non-numeric counter is a
 `CorruptCaptureLine`, recorded as `capture_line_corrupt` and skipped; the
 25 s telemetry rule bounds the gap. A nonzero counter at clean startup is
-still the plain failure. When you lift UART fixtures, keep the corrupt
-ones too.
+still the plain failure. The same happened to an `encoder-telemetry`
+line (`dropped_full=droppe`, oct20-soak-2 at 10,952 s): any export line
+that fails its validator is `uart_line_corrupt`, and only three in a row
+fail the run. When you lift UART fixtures, keep the corrupt ones too.
 
 Agent worktrees are created inside the repo at `.claude/worktrees/<agent>`
 and show up as an untracked directory, so a `scripts/check` running at the

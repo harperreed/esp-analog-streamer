@@ -69,6 +69,19 @@ class ModuleTests(unittest.TestCase):
             soak.parse_capture_sample(nonzero, require_clean_startup=True)
         self.assertNotIsInstance(caught.exception, soak.CorruptCaptureLine)
 
+    def test_soak_corrupt_telemetry_line_is_counted_not_fatal(self):
+        # The encoder-telemetry line that ended oct20-soak-2 at 10,952 s: the serial link mangled the tail
+        # ('dropped_full=droppe'). One such line is corruption; three in a row is a product fault.
+        import stream_soak as soak
+        corrupt = ('I (10950249) esp_shazam_firmware::stream: encoder-telemetry: dropped=0 loss_occurred=false observed_event_range_valid=true '
+                   'observed_event_min_us=10948231163 observed_event_max_us=10948231163 record_bytes=200 queue_bytes=440 '
+                   'metrics_stack_free_bytes=568 export_us=10949000103 dropped_full=droppe')
+        good = corrupt.replace('dropped_full=droppe', 'dropped_full=0 dropped_contended=0 dropped_poisoned=0')
+        self.assertIsNone(soak.telemetry_line_problem(good))
+        self.assertIn('dropped_full', soak.telemetry_line_problem(corrupt))
+        self.assertIsNone(soak.telemetry_line_problem('I (1) wifi: unrelated line'))
+        self.assertEqual(soak.CORRUPT_LINE_RUN_LIMIT, 3)
+
     def test_soak_clean_startup_flag_is_opt_in(self):
         import stream_soak as soak
         self.assertFalse(soak.parse_args([]).require_clean_startup)

@@ -1,20 +1,20 @@
 # Close reaper and the six-hour soak (wmsy: new reaper ticket, bf85)
 
 ## Now
-- Step: bf85 run 2, third launch: `target/kata-hardening/oct20-soak-2`,
-  launched 2026-10-20 06:48 UTC on the reaper image `2ed701de…`, ends
-  about 12:50 UTC, decoders allowed 28 s (live budget + stall). Second
-  launch (`oct20-soak-1`) ran 9,337 s: 31 stalls, zero departures, exact
-  frames, counters flat, 7 tolerated metrics misses, heap bounds held,
-  83 skips / 20,218 frames (about 2.7 per stall); it ended when the 31st
-  stall left one listener without data for more than the decoders' 14 s
-  allowance while the board held the socket (media age 9.7 s at +6.6 s):
-  ticket 2rjh (TCP retransmit backoff after a blackhole). Together the
-  stall soaks now cover 6 h 38 min and 79 stalls without a board-side
-  departure. First launch (`oct19-soak-3`, 14,617 s, 48 stalls) ended on
-  a corrupt UART line, fixed in `dcad09d`. Memos from the morning's
-  agents are on the branch (`d367385`, `4a3ac1f`); check and commit of the
-  allowance change pending.
+- Step: bf85 run 2, fourth launch: `target/kata-hardening/oct20-soak-3`,
+  launched 2026-10-20 09:53 UTC on the reaper image `2ed701de…`, ends
+  about 15:55 UTC. Third launch (`oct20-soak-2`, 06:48 UTC) ran 10,952 s:
+  36 stalls, zero departures, exact frames, counters flat, 4 tolerated
+  metrics misses, heap bounds held, max media age 17.6 s (the 28 s
+  allowance held), 80 skips / 21,863 frames (39 of 57 increments within
+  30 s of a stall, 18 elsewhere); it ended on a mangled
+  `encoder-telemetry` line (`dropped_full=droppe`), now tolerated (one
+  line counted, three in a row fail). Second launch ran 9,337 s / 31
+  stalls (ended on the 14 s decoder allowance, ticket 2rjh, fixed
+  `fbba366`); first ran 14,617 s / 48 stalls (corrupt capture line,
+  fixed `dcad09d`). Stall soaks so far: 9 h 42 min, 115 stalls, no
+  board-side departure. Check and commit of the telemetry tolerance
+  pending.
 - Next: evaluate soak 3 against: zero departures, exact frames, counters
   flat, internal largest within 2 KiB of its start, PSRAM largest
   unchanged, no reboot; report the skip pattern (per stall and between

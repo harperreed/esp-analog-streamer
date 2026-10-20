@@ -52,11 +52,23 @@ DECODER_RW_TIMEOUT_S = 10
 # bound as the UART telemetry rule. oct18-soak-1 died at 74 of 360 minutes on a single poll past the 3 s timeout while
 # both streams and the UART stayed healthy.
 STATE_UNANSWERED_LIMIT_S = 25
+# The serial link drops a byte now and then (oct19-soak-3 at 14,617 s, oct20-soak-2 at 10,952 s). One mangled
+# telemetry line is recorded and skipped; this many in a row is a product fault, not the link.
+CORRUPT_LINE_RUN_LIMIT = 3
 DECODER_PROGRESS_TIMEOUT_S = 20
 LOSS_KEYS = ['queue_overflows', 'software_dropped_frames', 'read_errors', 'restarts', 'discontinuities']
 CLEAN_STARTUP_KEYS = ['software_dropped_frames', 'read_errors', 'restarts',
                       'supervisor_restarts', 'overflow_restarts', 'discontinuities',
                       'health_restart_requests']
+
+
+def telemetry_line_problem(line):
+    """Why a UART telemetry export line fails its field validator, or None (also None for lines that are not exports)."""
+    try:
+        validate_encoder_export([line])
+    except RuntimeError as error:
+        return str(error)
+    return None
 
 
 def parse_capture_sample(line, require_clean_startup=False):
@@ -448,6 +460,8 @@ def main(argv=None):
     boots = 0
     runtime_invalid_windows = 0
     corrupt_capture_lines = 0
+    corrupt_telemetry_lines = 0
+    corrupt_run = 0
     minimums = {}
     state = None
     metrics_poll = None
@@ -529,13 +543,19 @@ def main(argv=None):
             decoder_args.frames_short_allowed = (sample['frames_skipped'] + 1) * fault_tools().MP3_FRAME_SAMPLES
 
     def uart_updates():
-        nonlocal latest, latest_at, samples, boots, captured, runtime_invalid_windows, corrupt_capture_lines
+        nonlocal latest, latest_at, samples, boots, captured, runtime_invalid_windows, corrupt_capture_lines, corrupt_telemetry_lines, corrupt_run
         check_output_budget()
         for line in uart_tail.lines():
-            try:
-                validate_encoder_export([line])
-            except RuntimeError as error:
-                raise Failure(str(error)) from error
+            problem = telemetry_line_problem(line)
+            if problem is not None:
+                corrupt_telemetry_lines += 1
+                corrupt_run += 1
+                record('uart_line_corrupt', error=problem, line_length=len(line))
+                if corrupt_run >= CORRUPT_LINE_RUN_LIMIT:
+                    raise Failure(f'{corrupt_run} corrupt telemetry lines in a row: {problem}')
+                continue
+            if 'telemetry:' in line:
+                corrupt_run = 0
             if 'rst:0x' in line:
                 boots += 1
                 if boots > 1:
@@ -782,7 +802,7 @@ def main(argv=None):
                        departures_while_running=departures if stalls_on else None, metrics_polls=metrics_polls if stalls_on else None,
                        metrics_unavailable=metrics_poll.unavailable if stalls_on and metrics_poll else None,
                        capture_samples=samples, minimums=minimums, runtime_invalid_windows=runtime_invalid_windows,
-                       corrupt_capture_lines=corrupt_capture_lines,
+                       corrupt_capture_lines=corrupt_capture_lines, corrupt_telemetry_lines=corrupt_telemetry_lines,
                        output_bytes_before_summary=output_bytes(out), output_budget_bytes=OUTPUT_BUDGET_BYTES,
                        counter_deltas={key: ((latest[key] - baseline[key]) & 0xffffffff) for key in loss_keys} if baseline and latest else None,
                        log_directory=str(out), uart_log=str(out / 'uart.log'),
