@@ -30,12 +30,24 @@ pub struct DiscoveryGroup {
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SonosConfig {
+    /// Sonos control is opt-in: off until the settings page turns it on. A saved config without the field is off.
+    #[serde(default)]
+    pub enabled: bool,
     pub player_id: Option<String>,
     pub autoplay: bool,
     #[serde(default)]
     pub buffer_preset: crate::stream_buffer::BufferPreset,
     #[serde(default)]
     pub output_format: crate::stream_buffer::OutputFormat,
+}
+
+/// The config as the controller must act on it: automatic playback cannot run while Sonos control is off, however
+/// the saved flag reads (a config saved before the opt-in may carry `autoplay: true`).
+pub fn effective(config: SonosConfig) -> SonosConfig {
+    SonosConfig {
+        autoplay: config.autoplay && config.enabled,
+        ..config
+    }
 }
 
 /// Parse one SSDP response, retaining followers for stable player-to-group resolution.
@@ -767,9 +779,25 @@ mod tests {
 
     #[test]
     fn settings_default_to_no_destination_or_autoplay() {
+        let saved_before_opt_in = SonosConfig {
+            autoplay: true,
+            ..SonosConfig::default()
+        };
+        assert!(
+            !effective(saved_before_opt_in.clone()).autoplay,
+            "autoplay is inert while Sonos is off"
+        );
+        assert!(
+            effective(SonosConfig {
+                enabled: true,
+                ..saved_before_opt_in
+            })
+            .autoplay
+        );
         assert_eq!(
             SonosConfig::default(),
             SonosConfig {
+                enabled: false,
                 player_id: None,
                 autoplay: false,
                 buffer_preset: crate::stream_buffer::BufferPreset::Medium,

@@ -15,6 +15,10 @@ pub enum Action {
     Autoplay {
         enabled: bool,
     },
+    /// Turns Sonos control on or off; every other action except Stop is refused while it is off.
+    Enable {
+        enabled: bool,
+    },
     Format {
         format: crate::stream_buffer::OutputFormat,
     },
@@ -69,6 +73,12 @@ mod tests {
             parse(br#"{"action":"autoplay","enabled":true}"#),
             Ok(Action::Autoplay { enabled: true })
         );
+        assert_eq!(
+            parse(br#"{"action":"enable","enabled":false}"#),
+            Ok(Action::Enable { enabled: false })
+        );
+        assert!(parse(br#"{"action":"enable"}"#).is_err());
+        assert!(parse(br#"{"action":"enable","enabled":"yes"}"#).is_err());
         assert_eq!(
             parse(br#"{"action":"select","player_id":"RINCON_TEST01400"}"#),
             Ok(Action::Select {

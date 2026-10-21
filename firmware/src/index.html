@@ -23,7 +23,13 @@
     </div>
   </section>
   <p class="muted" id="idle">Nothing playing.</p>
-  <section class="sonos" aria-labelledby="sonos-heading">
+  <section class="listen" aria-labelledby="listen-heading">
+    <h2 id="listen-heading">Listen</h2>
+    <audio id="player" controls preload="none"></audio>
+    <p>Stream: <a id="stream-link" rel="noopener"></a></p>
+    <p class="muted">Any player that takes a URL works: VLC, mpv, a browser, a radio app. Add <code>?exact=1</code> for a recorder that must get every byte.</p>
+  </section>
+  <section class="sonos" id="sonos-section" aria-labelledby="sonos-heading" hidden>
     <h2 id="sonos-heading">Sonos</h2>
     <label for="sonos-destination">Destination</label>
     <select id="sonos-destination" disabled><option value="">Choose a destination</option></select>
@@ -38,8 +44,10 @@
     <p class="error" id="sonos-error" role="status"></p>
     <p class="muted" id="sonos-action-status" role="status"></p>
   </section>
-  <h2 class="muted">History</h2>
-  <ol id="history"></ol>
+  <section id="history-section">
+    <h2 class="muted">History</h2>
+    <ol id="history"></ol>
+  </section>
 </main>
 <script src="/app.js" defer></script>
 </body>

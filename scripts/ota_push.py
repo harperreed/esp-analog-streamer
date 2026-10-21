@@ -52,20 +52,26 @@ def push(host, image, token, timeout):
     return response.status, body.decode('utf-8', 'replace')
 
 
-def wait_for_board(host, expected_sha, deadline_s, now=time.monotonic, sleep=time.sleep, fetch=None):
-    """Polls /api/metrics until the board reports `expected_sha` or the deadline passes; returns (seen_sha, seconds)."""
+def identity(host):
+    """The board's (elf sha, boot token) from /api/metrics."""
+    with urllib.request.urlopen(f'http://{host}/api/metrics', timeout=3) as response:
+        value = json.load(response)
+        return value.get('build_elf_sha256'), value.get('boot_token')
+
+
+def wait_for_board(host, expected_sha, deadline_s, boot_before=None, now=time.monotonic, sleep=time.sleep, fetch=None):
+    """Polls until the board reports `expected_sha` from a boot other than `boot_before` (pushing the image it already
+    runs must still prove a restart), or the deadline passes; returns ((sha, boot_token), seconds)."""
     if fetch is None:
-        def fetch():
-            with urllib.request.urlopen(f'http://{host}/api/metrics', timeout=3) as response:
-                return json.load(response).get('build_elf_sha256')
+        fetch = lambda: identity(host)
     started = now()
-    seen = None
+    seen = (None, None)
     while now() - started < deadline_s:
         try:
             seen = fetch()
         except Exception:
-            seen = None
-        if seen == expected_sha:
+            seen = (None, None)
+        if seen[0] == expected_sha and seen[1] != boot_before:
             return seen, round(now() - started, 1)
         sleep(2)
     return seen, round(now() - started, 1)
@@ -91,16 +97,24 @@ def main(argv=None):
     if not token:
         print('FAIL  no token: pass --token, set OTA_TOKEN, or set ota_token in cfg.toml', file=sys.stderr)
         return 2
+    try:
+        _, boot_before = identity(args.host)
+    except Exception:
+        boot_before = None
     print(f"pushing {len(image)} bytes, version {description['version']}, elf {description['elf_sha256'][:16]}… to {args.host}")
-    status, body = push(args.host, image, token, args.timeout)
+    try:
+        status, body = push(args.host, image, token, args.timeout)
+    except OSError as error:
+        print(f'FAIL  board unreachable during the upload: {error}', file=sys.stderr)
+        return 1
     print(f'board answered {status}: {body.strip()}')
     if status != 202:
         return 1
-    seen, seconds = wait_for_board(args.host, description['elf_sha256'], args.wait)
-    if seen == description['elf_sha256']:
-        print(f'OK    board is running elf {seen[:16]}… after {seconds} s')
+    (seen_sha, seen_boot), seconds = wait_for_board(args.host, description['elf_sha256'], args.wait, boot_before)
+    if seen_sha == description['elf_sha256'] and seen_boot != boot_before:
+        print(f'OK    board restarted into elf {seen_sha[:16]}… (boot {str(seen_boot)[:8]}) after {seconds} s')
         return 0
-    print(f'FAIL  after {seconds} s the board reports elf {str(seen)[:16]}…, not the pushed image (rollback or still booting)', file=sys.stderr)
+    print(f'FAIL  after {seconds} s the board reports elf {str(seen_sha)[:16]}… boot {str(seen_boot)[:8]}; expected the pushed image from a new boot (rollback or still booting)', file=sys.stderr)
     return 1
 
 

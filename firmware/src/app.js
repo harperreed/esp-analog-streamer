@@ -13,6 +13,8 @@ function renderSonos(s, observed = true) {
   if (sonosPending && observed) {
     const confirmed = sonosPending.action === 'select'
       ? s.config.player_id === sonosPending.player_id
+      : sonosPending.action === 'enable'
+        ? s.config.enabled === sonosPending.enabled
       : sonosPending.action === 'buffer'
         ? s.config.buffer_preset === sonosPending.preset
         : sonosPending.action === 'format'
@@ -47,8 +49,20 @@ function renderSonos(s, observed = true) {
   set('sonos-format-note', 'textContent', !s.buffer_available
     ? `Active: ${activeFormat}. MP3 unavailable while recognition is enabled; select FLAC to play.`
     : s.config.output_format && s.config.output_format !== s.active_format
-      ? `Active: ${activeFormat}. Selected format applies on next Play.`
-      : `Active: ${activeFormat}. Changes during playback apply on next Play.`);
+      ? `Active: ${activeFormat}. The selected format applies once nothing is listening, or on the next Play.`
+      : `Active: ${activeFormat}. A change applies once nothing is listening, or on the next Play.`);
+  set('sonos-enabled', 'checked', sonosPending?.action === 'enable' ? sonosPending.enabled : Boolean(s.config.enabled));
+  set('sonos-enabled', 'disabled', sonosBusy || Boolean(sonosPending));
+  const section = $('sonos-section');
+  if (section) section.hidden = !s.config.enabled;
+  // The stream URL follows the active format; the player's src only changes when the URL does, so playback is not reset.
+  if (typeof location !== 'undefined') {
+    const streamUrl = `${location.protocol}//${location.hostname}:8000/stream.${s.active_format || 'mp3'}`;
+    const link = $('stream-link');
+    if (link && link.href !== streamUrl) { link.href = streamUrl; link.textContent = streamUrl; }
+    const player = $('player');
+    if (player && player.getAttribute('src') !== streamUrl) player.setAttribute('src', streamUrl);
+  }
   set('sonos-autoplay', 'checked', s.config.autoplay);
   set('sonos-buffer', 'value', sonosPending?.preset || s.config.buffer_preset);
   set('sonos-buffer', 'disabled', sonosBusy || Boolean(sonosPending) || !s.buffer_available);
@@ -80,7 +94,7 @@ async function sendSonos(action) {
     });
     const result = await response.json();
     if (!response.ok) throw new Error(result.error || 'Sonos request failed.');
-    if (action.action === 'select' || action.action === 'autoplay' || action.action === 'buffer' || action.action === 'format') {
+    if (action.action === 'select' || action.action === 'autoplay' || action.action === 'buffer' || action.action === 'format' || action.action === 'enable') {
       sonosPending = { ...action, previousError: sonosSnapshot?.last_error, until: Date.now() + 10000 };
     }
     set('sonos-action-status', 'textContent', 'Request queued; waiting for the controller.');
@@ -124,6 +138,7 @@ $('sonos-stop')?.addEventListener('click', () => sendSonos({ action: 'stop' }));
 $('sonos-format')?.addEventListener('change', () => sendSonos({ action: 'format', format: $('sonos-format').value }));
 $('sonos-buffer')?.addEventListener('change', () => sendSonos({ action: 'buffer', preset: $('sonos-buffer').value }));
 $('sonos-autoplay')?.addEventListener('change', () => sendSonos({ action: 'autoplay', enabled: $('sonos-autoplay').checked }));
+$('sonos-enabled')?.addEventListener('change', () => sendSonos({ action: 'enable', enabled: $('sonos-enabled').checked }));
 // Input gain: one request, confirmed by reading the status back; the select is disabled meanwhile.
 let inputBusy = false;
 async function refreshInput() {
@@ -171,11 +186,15 @@ async function refresh() {
     const paused = s.rate_limited_until ? ` · paused until ${s.rate_limited_until}` : '';
     // A board built without Shazam runs no listen policy: its state and "Nothing playing." would mislead.
     const off = s.shazam_enabled === false;
-    const label = off ? 'Shazam is off' : s.state.replace('_', ' ');
+    // The meter speaks for itself: audio against the quiet threshold, whether or not recognition runs.
+    const audio = s.audio_present ? 'audio playing' : 'quiet';
+    const label = off ? `${audio} · recognition off` : `${audio} · ${s.state.replace('_', ' ')}`;
     $('status').textContent = `${label} · ${s.level_dbfs.toFixed(1)} dBFS${paused}`;
     const n = s.now;
     $('now').hidden = !n;
     $('idle').hidden = Boolean(n) || off;
+    const history = $('history-section');
+    if (history) history.hidden = off;
     if (n) {
       $('title').textContent = n.title;
       $('artist').textContent = n.artist;

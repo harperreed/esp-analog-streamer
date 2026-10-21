@@ -31,6 +31,8 @@ debug = true
 opt-level = "z"
 
 [features]
+# Panics right after the codec is set up: an image that must never mark itself healthy, to prove OTA rollback.
+ota-rollback-probe = []
 # Bounded startup capture observation; absent from normal firmware.
 startup-capture-trace = []
 # Low-rate permanent admission worker resource diagnostic; absent by default.

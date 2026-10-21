@@ -1,19 +1,16 @@
 # Over-the-air firmware updates
 
 ## Now
-- Step: landed in `5fd28f5` (check green, 27 stages; pushed). Home image on
-  the two-slot layout built with the home credentials and the shared token
-  (ELF `6af9d246…`, app.bin 1,682,112 B) and packaged at
-  `target/kata-hardening/home-image.tgz` with the one-time USB step and the
-  `scripts/ota-push` command in its README; the token lives only in the
-  three private cfg files (office, home, working copy).
-- Next: hardware proof on the office board once it is back on a USB port:
-  USB-flash the new layout, `scripts/ota-push` the same image onto the
-  other slot (running slot swaps, `build_elf_sha256` matches), then push
-  an image that panics at boot and confirm the bootloader returns to the
-  previous slot; evidence `docs/audit-evidence/<date>/ota.md`. Then the
-  home board: one USB flash by Doctor Biz, every update after that over
-  the tailnet.
+- Step: proven on the home board 2026-10-21 (`docs/audit-evidence/2026-10-21/ota.{md,json}`):
+  round trip 12 s upload, restart into `ota_1`, health mark at 60 s;
+  rollback from a panicking probe image back to `ota_1` in 10 s. The
+  first OTA-layout image crashed every boot (fat LTO left `audio-metrics`
+  56 B of stack); fixed by raising it to 6 KiB, output workers to 5 KiB,
+  the health thread to 6 KiB; the push script now requires a new boot
+  token. `scripts/check` and commit pending (tree carries the stack fix,
+  the Sonos opt-in and browser player, the probe feature, the script).
+- Next: read stack headroom from a UART after the change; test rollback
+  on a hang; office board onto the OTA layout when it is back on USB.
 - Open: none
 - Approved: "can we add OTA firmware updates" and "Shared token in cfg.toml
   (Recommended)" (2026-10-20)

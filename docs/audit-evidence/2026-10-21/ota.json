@@ -1,0 +1,63 @@
+{
+  "schema": "1",
+  "plan": "docs/superpowers/plans/2026-10-20-ota-updates.md",
+  "tickets": [],
+  "board": {
+    "host": "192.168.200.233",
+    "network": "reedazawa-internal",
+    "chip": "esp32 rev 3.1",
+    "mac": "70:4b:ca:86:bd:c4",
+    "layout": "nvs 0x9000, phy 0xF000, otadata 0x10000, ota_0 0x20000, ota_1 0x210000, 0x1F0000 each"
+  },
+  "images": {
+    "first_ota_layout": {
+      "elf": "6af9d2462863063b",
+      "outcome": "stack overflow in audio-metrics 15.6 s after every boot (metrics_stack_free_bytes 56)"
+    },
+    "fixed": {
+      "elf": "034ea8cf550be636",
+      "app_bin_bytes": 1687440,
+      "stacks": {
+        "audio_metrics": 6144,
+        "output_workers": 5120,
+        "ota_health": 6144
+      }
+    },
+    "probe": {
+      "elf": "f310a406238dafc7",
+      "app_bin_bytes": 429968,
+      "feature": "ota-rollback-probe"
+    }
+  },
+  "round_trip": {
+    "pushed_utc": "2026-10-21T02:23:48Z",
+    "accepted_utc": "2026-10-21T02:24:00Z",
+    "upload_seconds": 12,
+    "running_slot_after": "ota_1",
+    "boot_before": "a575159e",
+    "boot_after": "88da1ef7",
+    "validated_utc": "2026-10-21T02:25:16Z"
+  },
+  "rollback": {
+    "pushed_utc": "2026-10-21T02:27:18Z",
+    "back_on": "ota_1",
+    "boot_after": "71e7963c",
+    "seconds_until_back": 10,
+    "running_state": "valid"
+  },
+  "input_gain": {
+    "register_at_0db": "0x00",
+    "register_at_24db": "0x88",
+    "quiet_input_rms_dbfs": {
+      "0": -75.2,
+      "24": -53.0
+    },
+    "persisted_across_usb_flash_and_ota": true
+  },
+  "limits": [
+    "hang-based rollback untested",
+    "interrupted upload untested",
+    "office board unplugged",
+    "post-change stack headroom unread"
+  ]
+}

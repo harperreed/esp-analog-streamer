@@ -234,3 +234,43 @@ test('actual HTTP abort reports unknown outcome and polling can confirm later st
     assert.equal(p.get('sonos-stop').disabled, true);
   });
 });
+
+test('Sonos is opt-in: the playback page hides its section until enabled and shows the stream for any player', () => {
+  const p = page();
+  p.sandbox.location = { protocol: 'http:', hostname: 'analog-streamer.local' };
+  const player = p.get('player');
+  let src = null; player.setAttribute = (k, v) => { if (k === 'src') src = v; }; player.getAttribute = (k) => (k === 'src' ? src : null);
+  p.sandbox.renderSonos(snapshot({ config: { player_id: 'player-1', autoplay: false, enabled: false }, active_format: 'mp3' }));
+  assert.equal(p.get('sonos-section').hidden, true);
+  assert.equal(p.get('stream-link').textContent, 'http://analog-streamer.local:8000/stream.mp3');
+  assert.equal(src, 'http://analog-streamer.local:8000/stream.mp3');
+  p.sandbox.renderSonos(snapshot({ config: { player_id: 'player-1', autoplay: false, enabled: true }, active_format: 'flac' }));
+  assert.equal(p.get('sonos-section').hidden, false);
+  assert.equal(src, 'http://analog-streamer.local:8000/stream.flac');
+  assert.equal(p.get('stream-link').textContent, 'http://analog-streamer.local:8000/stream.flac');
+});
+
+test('the settings page renders the Sonos switch from the saved flag and confirms an enable request', async () => {
+  const p = page('settings');
+  p.sandbox.renderSonos(snapshot({ config: { player_id: null, autoplay: false, enabled: false, buffer_preset: 'med', output_format: 'mp3' } }));
+  assert.equal(p.get('sonos-enabled').checked, false);
+  p.sandbox.fetch = async () => ({ ok: true, json: async () => ({ accepted: true }) });
+  assert.equal(await p.sandbox.sendSonos({ action: 'enable', enabled: true }), true);
+  assert.equal(p.get('sonos-enabled').checked, true, 'pending request shows as on');
+  p.sandbox.renderSonos(snapshot({ config: { player_id: null, autoplay: false, enabled: true, buffer_preset: 'med', output_format: 'mp3' } }));
+  assert.equal(p.get('sonos-action-status').textContent, 'Setting saved.');
+});
+
+test('the status line reports audio from the meter and hides history while recognition is off', async () => {
+  const p = page();
+  const state = { state: 'quiet', shazam_enabled: false, level_dbfs: -23.4, audio_present: true, rate_limited_until: null, now: null, history: [] };
+  p.sandbox.fetch = async () => ({ json: async () => state });
+  await p.sandbox.refresh();
+  assert.equal(p.get('status').textContent, 'audio playing · recognition off · -23.4 dBFS');
+  assert.equal(p.get('history-section').hidden, true);
+  assert.equal(p.get('idle').hidden, true);
+  state.audio_present = false; state.level_dbfs = -75; state.shazam_enabled = true;
+  await p.sandbox.refresh();
+  assert.equal(p.get('status').textContent, 'quiet · quiet · -75.0 dBFS');
+  assert.equal(p.get('history-section').hidden, false);
+});

@@ -87,8 +87,17 @@ fn run_inner() -> Result<()> {
     startup_capture_trace::phase(4, if setup.is_ok() { 0 } else { -1 });
     setup?;
     let input = Arc::new(input_gain::Handle::new(i2c, gain_nvs, gain));
+    #[cfg(feature = "ota-rollback-probe")]
+    {
+        log::error!("ota-rollback-probe: panicking on purpose so the bootloader must roll back");
+        panic!("ota-rollback-probe");
+    }
     let store: recognizer::SharedStore =
         Arc::new(Mutex::new(SongStore::new(20, CONFIG.shazam_enabled)));
+    store
+        .lock()
+        .unwrap()
+        .set_quiet_threshold(CONFIG.quiet_threshold_dbfs);
     // ESP-IDF's first std mutex access allocates. Complete telemetry setup before either
     // producers or the metrics exporter can become the first queue accessor.
     listener_telemetry::EVENTS.initialize();

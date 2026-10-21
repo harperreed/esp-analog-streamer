@@ -1438,3 +1438,11 @@ disables them. A new image stays pending until 60 s of continuous Wi-Fi,
 then marks itself valid; a crash before that rolls back to the previous
 slot. The release profile uses fat LTO so the image (1.67 MB) fits a slot
 with 17 percent headroom; watch that headroom when adding code.
+
+Fat LTO grows stack frames: the first LTO image overflowed `audio-metrics`
+(4 KiB, 56 B of headroom on the telemetry line before it) at the first
+ten-second `stream-encode` export, every boot, 15.6 s in. After any
+codegen change, read `metrics_stack_free_bytes`, `listener_stack_free_bytes`
+and `reaper_stack_free_bytes` on a UART before shipping; keep several
+hundred bytes. A crash loop faster than an upload cannot be fixed over the
+air: that is what the USB cable is still for.

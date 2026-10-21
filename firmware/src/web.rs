@@ -338,6 +338,15 @@ mod device {
                 },
             );
             let (code, body) = match action {
+                Ok(action)
+                    if !sonos.snapshot().config.enabled
+                        && !matches!(action, Action::Enable { .. } | Action::Stop {}) =>
+                {
+                    (
+                        409,
+                        r#"{"error":"Sonos control is off; turn it on in Settings"}"#,
+                    )
+                }
                 Ok(Action::Format {
                     format: esp_shazam_core::stream_buffer::OutputFormat::Mp3,
                 }) if !sonos.snapshot().buffer_available => (
@@ -355,6 +364,7 @@ mod device {
                         Action::Play {} => Command::Play,
                         Action::Stop {} => Command::Stop,
                         Action::Autoplay { enabled } => Command::SetAutoplay(enabled),
+                        Action::Enable { enabled } => Command::SetEnabled(enabled),
                         Action::Format { format } => Command::SetFormat(format),
                         Action::Buffer { preset } => Command::SetBufferPreset(preset),
                     };

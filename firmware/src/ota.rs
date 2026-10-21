@@ -73,7 +73,7 @@ pub fn status(token_configured: bool) -> Result<Status> {
         running: running.label.to_string(),
         boot: boot.label.to_string(),
         running_state: state_name(&running.state),
-        validated: VALIDATED.load(Ordering::Relaxed),
+        validated: VALIDATED.load(Ordering::Relaxed) || matches!(running.state, SlotState::Valid),
         enabled: token_configured && update.label != running.label,
         update_slot_bytes: slot_bytes(&update.label),
         update_slot: update.label.to_string(),
@@ -84,7 +84,7 @@ pub fn status(token_configured: bool) -> Result<Status> {
 pub fn mark_valid_when_healthy(network: Network) {
     let _ = std::thread::Builder::new()
         .name("ota-health".into())
-        .stack_size(4096)
+        .stack_size(6144)
         .spawn(move || {
             let mut up_since: Option<Instant> = None;
             loop {

@@ -43,21 +43,35 @@ class TokenTests(unittest.TestCase):
         self.assertEqual(ota_push.token_from(None, {}, None), '')
 
 
+class MainTests(unittest.TestCase):
+    def test_an_unreachable_board_is_one_line_not_a_traceback(self):
+        import contextlib, io, tempfile, os
+        with tempfile.NamedTemporaryFile(suffix='.bin', delete=False) as f:
+            f.write(HEAD); name = f.name
+        err = io.StringIO()
+        with contextlib.redirect_stderr(err), contextlib.redirect_stdout(io.StringIO()):
+            code = ota_push.main([ '127.0.0.1:1', name, '--token', 't', '--cfg', '/nonexistent', '--timeout', '1', '--wait', '0'])
+        os.unlink(name)
+        self.assertEqual(code, 1)
+        self.assertIn('unreachable', err.getvalue())
+
+
 class WaitTests(unittest.TestCase):
-    def test_wait_returns_when_the_board_reports_the_pushed_sha(self):
+    def test_wait_returns_when_the_board_reports_the_pushed_sha_from_a_new_boot(self):
         clock = [0.0]
-        answers = iter([Exception('down'), None, 'old', 'new'])
+        # Pushing the image the board already runs: the same sha from the old boot token is not success.
+        answers = iter([Exception('down'), (None, None), ('new', 'boot-old'), ('new', 'boot-new')])
         def fetch():
             value = next(answers)
             if isinstance(value, Exception): raise value
             return value
-        seen, seconds = ota_push.wait_for_board('h', 'new', 60, now=lambda: clock[0], sleep=lambda s: clock.__setitem__(0, clock[0] + s), fetch=fetch)
-        self.assertEqual((seen, seconds), ('new', 6.0))
+        seen, seconds = ota_push.wait_for_board('h', 'new', 60, 'boot-old', now=lambda: clock[0], sleep=lambda s: clock.__setitem__(0, clock[0] + s), fetch=fetch)
+        self.assertEqual((seen, seconds), (('new', 'boot-new'), 6.0))
 
-    def test_wait_gives_up_at_the_deadline_with_the_last_sha_seen(self):
+    def test_wait_gives_up_at_the_deadline_with_the_last_identity_seen(self):
         clock = [0.0]
-        seen, seconds = ota_push.wait_for_board('h', 'new', 10, now=lambda: clock[0], sleep=lambda s: clock.__setitem__(0, clock[0] + s), fetch=lambda: 'old')
-        self.assertEqual(seen, 'old')
+        seen, seconds = ota_push.wait_for_board('h', 'new', 10, 'boot-old', now=lambda: clock[0], sleep=lambda s: clock.__setitem__(0, clock[0] + s), fetch=lambda: ('old', 'boot-old'))
+        self.assertEqual(seen, ('old', 'boot-old'))
         self.assertGreaterEqual(seconds, 10)
 
 

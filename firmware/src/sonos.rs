@@ -13,6 +13,7 @@ pub enum Command {
     Play,
     Stop,
     SetAutoplay(bool),
+    SetEnabled(bool),
     SetFormat(esp_shazam_core::stream_buffer::OutputFormat),
     SetBufferPreset(esp_shazam_core::stream_buffer::BufferPreset),
 }
@@ -66,7 +67,10 @@ impl Commands {
         let mut sender = self.sender.lock().unwrap();
         let cancels = matches!(
             command,
-            Command::Stop | Command::Select(_) | Command::SetAutoplay(false)
+            Command::Stop
+                | Command::Select(_)
+                | Command::SetAutoplay(false)
+                | Command::SetEnabled(false)
         );
         let generation = if cancels {
             sender
@@ -1009,6 +1013,7 @@ mod device {
                 Some(format!("Cannot read saved Sonos configuration: {error}")),
             ),
         };
+        let config = esp_shazam_core::sonos::effective(config);
         let mut last_error = last_error;
         if let Err(error) =
             crate::stream::select_format(config.output_format, false, Arc::new(Mutex::new(true)))
@@ -1869,6 +1874,19 @@ mod device {
                     self.policy
                         .update(self.now(), protocol::AutoplayEvent::Enabled(enabled));
                 }
+                Command::SetEnabled(enabled) => {
+                    // Turning Sonos off also turns autoplay off, so nothing starts by itself while it is off.
+                    let mut config = self.status.lock().unwrap().config.clone();
+                    config.enabled = enabled;
+                    if !enabled {
+                        config.autoplay = false;
+                    }
+                    self.save(config)?;
+                    if !enabled {
+                        self.policy
+                            .update(self.now(), protocol::AutoplayEvent::Enabled(false));
+                    }
+                }
                 Command::SetFormat(format) => {
                     format
                         .validate(crate::config::CONFIG.shazam_enabled)
@@ -2261,6 +2279,7 @@ mod tests {
     fn saved_buffer_updates_only_future_queue_and_failed_save_keeps_settings() {
         let status = std::sync::Mutex::new(Snapshot {
             config: SonosConfig {
+                enabled: true,
                 player_id: Some("selected".into()),
                 autoplay: true,
                 ..Default::default()
@@ -2550,6 +2569,7 @@ mod tests {
             active_format: esp_shazam_core::stream_buffer::OutputFormat::Flac,
             buffer_available: true,
             config: SonosConfig {
+                enabled: true,
                 player_id: Some("selected".into()),
                 autoplay: true,
                 ..Default::default()
@@ -2930,6 +2950,10 @@ mod tests {
             assert_eq!(config, SonosConfig::default());
             assert!(error.unwrap().contains("Invalid saved Sonos configuration"));
         }
+        // A config saved before Sonos became opt-in has no `enabled` field and comes up off.
+        let (older, error) = decode_config(Some(r#"{"player_id":"player","autoplay":true}"#));
+        assert!(!older.enabled);
+        assert!(error.is_none());
         let (config, error) = decode_config(Some(r#"{"player_id":"player","autoplay":true}"#));
         assert_eq!(config.player_id.as_deref(), Some("player"));
         assert!(config.autoplay);

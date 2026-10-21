@@ -145,11 +145,13 @@ pub fn spawn_capture(
     .spawn(move || supervise(supervisor_raw))?;
     let metrics_raw = stream.clone();
     // Keep ordinary UART and heap work below the shared encoder's priority.
+    // 6 KiB: fat LTO (2026-10-20) grew this task's frames until a /api/metrics export overflowed a 4 KiB stack
+    // (56 bytes of headroom on the UART line that preceded it; 568 before LTO).
     ThreadSpec {
         name: c"audio-metrics",
         core: Core::Core1,
         priority: 3,
-        stack_bytes: 4 * 1024,
+        stack_bytes: 6 * 1024,
     }
     .spawn(move || metrics(metrics_raw))?;
     // Keep the DMA consumer above Wi-Fi setup work; it blocks while awaiting input.

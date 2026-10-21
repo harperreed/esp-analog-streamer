@@ -15,6 +15,8 @@
   <nav><a href="/">Playback</a></nav>
   <h1>Settings</h1>
   <section class="sonos" aria-label="Audio settings">
+    <label><input id="sonos-enabled" type="checkbox" disabled> Sonos control</label>
+    <p class="muted" id="sonos-enabled-note">Off by default. The stream works for any player without it; turn it on to pick a Sonos destination from the Playback page. Turning it off also turns automatic playback off.</p>
     <label for="sonos-format">Format</label>
     <select id="sonos-format" disabled>
       <option id="sonos-format-mp3" value="mp3">MP3</option>

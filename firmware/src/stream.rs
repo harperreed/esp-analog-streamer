@@ -247,11 +247,12 @@ static ADMISSION_READY: AtomicBool = AtomicBool::new(false);
 /// The server threads share core 1 with the encoder. Their priority, 7, is
 /// above the recognizer's (5), so a fingerprint can't starve a listener, and below the audio thread
 /// (10), lwIP (18) and Wi-Fi (23).
+// 5 KiB: the listener pipeline ran with about 700 bytes of headroom in 4 KiB before fat LTO grew its frames.
 const ACCEPT_THREAD: ThreadSpec = ThreadSpec {
     name: ADMISSION_WORKERS[0],
     core: Core::Core1,
     priority: 7,
-    stack_bytes: 4 * 1024,
+    stack_bytes: 5 * 1024,
 };
 const ENCODER_THREAD: ThreadSpec = ThreadSpec {
     name: c"stream-encode",
@@ -354,7 +355,7 @@ pub fn start(ring: SharedStreamRing, mdns: &mut EspMdns, network: Network) -> Re
     // SAFETY: same startup-only read-only allocator query as above.
     let internal_after =
         unsafe { sys::heap_caps_get_free_size(sys::MALLOC_CAP_INTERNAL | sys::MALLOC_CAP_8BIT) };
-    log::info!("stream-output-startup: workers=2 reaper=1 stack_bytes_each=4096 internal_free_before={} internal_free_after={} scope=output_mailbox_and_reaper_and_output_and_admission_startup", internal_before, internal_after);
+    log::info!("stream-output-startup: workers=2 reaper=1 stack_bytes_each=5120 internal_free_before={} internal_free_after={} scope=output_mailbox_and_reaper_and_output_and_admission_startup", internal_before, internal_after);
     outputs.run();
     gate.run();
     #[cfg(feature = "admission-resources")]

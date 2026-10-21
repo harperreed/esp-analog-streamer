@@ -26,6 +26,7 @@ pub struct SongStore {
     measurement: Option<StampedMeasurement>,
     rate_limited_until: Option<String>,
     shazam_enabled: bool,
+    quiet_threshold_dbfs: f32,
 }
 
 #[derive(Debug)]
@@ -52,6 +53,9 @@ struct StateView<'a> {
     state: State,
     shazam_enabled: bool,
     level_dbfs: f32,
+    /// Level at or above the quiet threshold on a measurement under five seconds old: audio is arriving, music or not.
+    audio_present: bool,
+    quiet_threshold_dbfs: f32,
     last_measurement: Option<MeasurementView<'a>>,
     rate_limited_until: Option<&'a str>,
     now: Option<&'a NowPlaying>,
@@ -70,7 +74,21 @@ impl SongStore {
             measurement: None,
             rate_limited_until: None,
             shazam_enabled,
+            quiet_threshold_dbfs: -50.0,
         }
+    }
+
+    /// The firmware's configured quiet threshold, the line between `quiet` and `audio_present`.
+    pub fn set_quiet_threshold(&mut self, dbfs: f32) {
+        self.quiet_threshold_dbfs = dbfs;
+    }
+
+    fn audio_present_at(&self, now: std::time::Instant) -> bool {
+        self.measurement.as_ref().is_some_and(|m| {
+            now.checked_duration_since(m.measured_at)
+                .is_some_and(|age| age.as_secs() < 5)
+                && m.reading.level_dbfs >= self.quiet_threshold_dbfs
+        })
     }
     pub fn now_key(&self) -> Option<&str> {
         self.now.as_ref().map(|n| n.song.key.as_str())
@@ -145,6 +163,8 @@ impl SongStore {
             state: self.state,
             shazam_enabled: self.shazam_enabled,
             level_dbfs: self.level_dbfs(),
+            audio_present: self.audio_present_at(now),
+            quiet_threshold_dbfs: self.quiet_threshold_dbfs,
             last_measurement,
             rate_limited_until: self.rate_limited_until.as_deref(),
             now: self.now.as_ref(),
@@ -162,6 +182,37 @@ impl SongStore {
 mod tests {
     use super::*;
     use serde_json::{json, Value};
+
+    #[test]
+    fn audio_present_follows_the_threshold_and_measurement_age() {
+        let mut store = SongStore::new(2, false);
+        store.set_quiet_threshold(-60.0);
+        let t0 = std::time::Instant::now();
+        let view = |store: &SongStore, at| {
+            serde_json::from_str::<Value>(&store.state_json_at(at)).unwrap()
+        };
+        assert_eq!(
+            view(&store, t0)["audio_present"],
+            false,
+            "no measurement yet"
+        );
+        store.set_measurement(reading(-23.4), t0);
+        assert_eq!(view(&store, t0)["audio_present"], true);
+        assert_eq!(view(&store, t0)["quiet_threshold_dbfs"], -60.0);
+        assert_eq!(
+            view(&store, t0 + std::time::Duration::from_secs(6))["audio_present"],
+            false,
+            "a stale meter is not audio"
+        );
+        store.set_measurement(reading(-75.0), t0);
+        assert_eq!(view(&store, t0)["audio_present"], false);
+        store.set_measurement(reading(-60.0), t0);
+        assert_eq!(
+            view(&store, t0)["audio_present"],
+            true,
+            "at the threshold counts"
+        );
+    }
 
     fn reading(level_dbfs: f32) -> StereoReading {
         StereoReading {
@@ -196,7 +247,7 @@ mod tests {
         let store = SongStore::new(20, true);
         assert_eq!(
             parse(&store.state_json()),
-            json!({"state": "quiet", "shazam_enabled": true, "level_dbfs": -120.0, "last_measurement": null, "rate_limited_until": null, "now": null, "history": []})
+            json!({"state": "quiet", "shazam_enabled": true, "level_dbfs": -120.0, "audio_present": false, "quiet_threshold_dbfs": -50.0, "last_measurement": null, "rate_limited_until": null, "now": null, "history": []})
         );
         assert_eq!(store.now_json(), "null");
     }
@@ -383,6 +434,7 @@ mod tests {
         assert_eq!(
             parse(&store.state_json_at(at + std::time::Duration::from_millis(2500))),
             json!({"state": "quiet", "shazam_enabled": false, "level_dbfs": -23.5,
+                "audio_present": true, "quiet_threshold_dbfs": -50.0,
                 "last_measurement": {"age_ms": 2500, "window_frames": 12000,
                     "channels": {"left": {"rms_dbfs": -23.46, "peak_normalized": 0.1, "digital_rail_samples": 0, "dc_offset_normalized": 0.0},
                         "right": {"rms_dbfs": -23.46, "peak_normalized": 0.1, "digital_rail_samples": 0, "dc_offset_normalized": 0.0}}},
