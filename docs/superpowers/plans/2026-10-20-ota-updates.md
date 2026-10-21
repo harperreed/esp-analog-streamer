@@ -1,16 +1,19 @@
 # Over-the-air firmware updates
 
 ## Now
-- Step: proven on the home board 2026-10-21 (`docs/audit-evidence/2026-10-21/ota.{md,json}`):
-  round trip 12 s upload, restart into `ota_1`, health mark at 60 s;
-  rollback from a panicking probe image back to `ota_1` in 10 s. The
-  first OTA-layout image crashed every boot (fat LTO left `audio-metrics`
-  56 B of stack); fixed by raising it to 6 KiB, output workers to 5 KiB,
-  the health thread to 6 KiB; the push script now requires a new boot
-  token. `scripts/check` and commit pending (tree carries the stack fix,
-  the Sonos opt-in and browser player, the probe feature, the script).
-- Next: read stack headroom from a UART after the change; test rollback
-  on a hang; office board onto the OTA layout when it is back on USB.
+- Step: landed and in use. Home board on `bb1a7945…` via OTA (7 s push),
+  the third over-the-air update of the night after the round trip and the
+  rollback proof (`docs/audit-evidence/2026-10-21/ota.{md,json}`). Memory
+  finding on the way: Sonos playback died at 6.6 KB internal free; MQTT
+  (about 30 KB with a broker URL) is now off by config on both boards and
+  the OTA health thread exists only for a pending slot; Sonos now plays
+  with 24.5 KB free (ticket g5x6 carries the budget). Sonos is opt-in,
+  the page leads with the stream and a browser player, format and buffer
+  changes are allowed while Sonos is off, history hides and the status
+  line reports audio presence when recognition is off.
+- Next: g5x6 (stack table on a UART, PSRAM stacks for flash-free tasks,
+  a 24 KB floor flagged on the telemetry line); the office board onto the
+  OTA layout when it is back on USB; rollback on a hang.
 - Open: none
 - Approved: "can we add OTA firmware updates" and "Shared token in cfg.toml
   (Recommended)" (2026-10-20)
