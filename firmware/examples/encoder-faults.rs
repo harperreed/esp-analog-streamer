@@ -68,7 +68,9 @@ fn suspend_case(encoder: sys::TaskHandle_t, case: &str, hold_ms: u64) -> anyhow:
     drop(suspended);
     // Logging can block on a FILE/UART lock owned by the target. Never log while it
     // is suspended: these saved event times intentionally arrive after resumption.
-    log::info!("encoder-faults: marker=SUSPEND case={case} ms={at} hold_ms={hold_ms} deferred=true");
+    log::info!(
+        "encoder-faults: marker=SUSPEND case={case} ms={at} hold_ms={hold_ms} deferred=true"
+    );
     log::info!("encoder-faults: marker=RESUME case={case} ms={resumed} deferred=true");
     Ok(())
 }
