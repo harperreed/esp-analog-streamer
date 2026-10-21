@@ -16,6 +16,9 @@ pub struct Config {
     // ES8388 PGA register value: 0 is 0 dB, right for line level (see codec::setup_line_in).
     #[default(0)]
     pga_gain: u8,
+    // Shared secret for POST /api/ota (header X-Ota-Token). Empty disables over-the-air updates.
+    #[default("")]
+    ota_token: &'static str,
     // false skips the recognizer thread: no fingerprinting, no Shazam or TLS traffic. Everything else runs.
     #[default(true)]
     shazam_enabled: bool,

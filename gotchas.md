@@ -1427,3 +1427,14 @@ a turntable's LINE output sits around -15 to -25 dBFS. Since f723af0 the
 input gain is a runtime setting (settings page, `/api/input`, 0 to +24 dB
 in 3 dB steps, persisted in NVS namespace `input`); `/api/metrics`'
 `settings.pga_gain` is the live register, 0x88 at +24 dB.
+
+Over-the-air updates (2026-10-20): the flash layout is two 2,031,616 B
+app slots (`ota_0` at 0x20000, `ota_1` at 0x210000) with `otadata` at
+0x10000, so every board needs one last USB flash with the new
+`partitions.csv`; after that `scripts/ota-push HOST app.bin` does it over
+HTTP. The body is the `espflash save-image` output, never the ELF. Uploads
+need `ota_token` in `cfg.toml` (header `X-Ota-Token`); an empty token
+disables them. A new image stays pending until 60 s of continuous Wi-Fi,
+then marks itself valid; a crash before that rolls back to the previous
+slot. The release profile uses fat LTO so the image (1.67 MB) fits a slot
+with 17 percent headroom; watch that headroom when adding code.

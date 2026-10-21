@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+# ABOUTME: Pushes an app image to a board over the air and confirms the board reports its ELF sha afterwards.
+# ABOUTME: Usage: scripts/ota-push HOST IMAGE.bin [--token T | OTA_TOKEN=… | ota_token in firmware/cfg.toml] [--wait S]
+set -euo pipefail
+repo="$(cd "$(dirname "$0")/.." && pwd)"
+exec uv run --quiet --project "$repo" --locked python3 "$repo/scripts/ota_push.py" "$@"

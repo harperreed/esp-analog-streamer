@@ -27,4 +27,5 @@ uv run --quiet --project "$repo" --locked python3 -m unittest discover -s script
 uv run --quiet --project "$repo" --locked python3 -m unittest discover -s scripts -p test_client_zoo.py
 uv run --quiet --project "$repo" --locked python3 -m unittest discover -s scripts -p test_stream_soak_stalls.py
 uv run --quiet --project "$repo" --locked python3 -m unittest discover -s scripts -p test_stream_soak_state_poll.py
+uv run --quiet --project "$repo" --locked python3 -m unittest discover -s scripts -p test_ota_push.py
 exec uv run --quiet --project "$repo" --locked python3 -m unittest discover -s scripts -p test_harness_modules.py

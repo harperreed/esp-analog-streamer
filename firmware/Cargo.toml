@@ -14,6 +14,10 @@ harness = false # no test harness on the device
 
 [profile.release]
 opt-level = "s"
+# Fat LTO with one codegen unit takes the app image from 1.96 MB to 1.67 MB (2026-10-20), which is what makes two
+# OTA slots fit in 4 MB with 17 percent headroom; builds take longer.
+lto = "fat"
+codegen-units = 1
 
 # The fingerprint is the hot path: optimize it for speed, everything else for size.
 [profile.release.package.esp-shazam-core]

@@ -13,6 +13,7 @@ mod input_gain;
 mod listener_telemetry;
 mod mqtt_out;
 mod net;
+mod ota;
 mod psram;
 mod recognizer;
 mod shazam_http;
@@ -116,6 +117,7 @@ fn run_inner() -> Result<()> {
     let mut mdns = net::start_mdns(CONFIG.hostname)?;
 
     let network = wifi.network();
+    ota::mark_valid_when_healthy(network.clone());
     stream::start(stream_ring, &mut mdns, network.clone())?;
     let sonos = sonos::start(store.clone(), nvs, network)?;
     let _server = web::start(store.clone(), sonos, input)?;

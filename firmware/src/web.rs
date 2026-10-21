@@ -145,6 +145,81 @@ mod device {
             Ok(())
         })?;
         register_queue(&mut server, sonos.clone())?;
+        server.fn_handler::<anyhow::Error, _>("/api/ota", Method::Get, move |request| {
+            let (code, body) = match crate::ota::status(!crate::config::CONFIG.ota_token.is_empty())
+            {
+                Ok(status) => (200, serde_json::to_string(&status)?),
+                Err(error) => (
+                    500,
+                    format!("{{\"error\":\"{}\"}}", error.to_string().replace('"', "'")),
+                ),
+            };
+            request
+                .into_response(
+                    code,
+                    None,
+                    &[
+                        ("Content-Type", "application/json; charset=utf-8"),
+                        ("Cache-Control", "no-store"),
+                    ],
+                )?
+                .write_all(body.as_bytes())?;
+            Ok(())
+        })?;
+        server.fn_handler::<anyhow::Error, _>("/api/ota", Method::Post, move |mut request| {
+            // The body is the raw app image, streamed straight into the other slot; one upload at a time.
+            let raw = request.connection().handle();
+            let fd = unsafe { sys::httpd_req_to_sockfd(raw) };
+            if fd < 0 {
+                return Err(anyhow!("HTTP request has no socket"));
+            }
+            let socket = RequestSocket(fd);
+            let token = request.header("X-Ota-Token").map(str::to_owned);
+            let declared = request
+                .header("Content-Length")
+                .and_then(|value| value.trim().parse::<usize>().ok());
+            socket.set_read_timeout(Duration::from_secs(20))?;
+            let outcome = crate::ota::upload(crate::config::CONFIG.ota_token, token.as_deref(), declared, |out| {
+                request
+                    .connection()
+                    .read(out)
+                    .map_err(|_| std::io::Error::other("HTTP body read failed"))
+            });
+            let (code, body) = match outcome {
+                Ok(Ok(description)) => (
+                    202,
+                    format!(
+                        "{{\"accepted\":true,\"version\":\"{}\",\"elf_sha256\":\"{}\",\"restarting_in_s\":1}}",
+                        description.version.replace('"', "'"),
+                        esp_shazam_core::ota_image::hex(&description.elf_sha256)
+                    ),
+                ),
+                Ok(Err(crate::ota::Refusal::Disabled)) => (403, r#"{"error":"over-the-air updates are disabled: no ota_token in cfg.toml"}"#.to_owned()),
+                Ok(Err(crate::ota::Refusal::Token)) => (401, r#"{"error":"missing or wrong X-Ota-Token"}"#.to_owned()),
+                Ok(Err(crate::ota::Refusal::Length)) => (411, r#"{"error":"Content-Length required"}"#.to_owned()),
+                Ok(Err(crate::ota::Refusal::Busy)) => (409, r#"{"error":"another upload is in progress"}"#.to_owned()),
+                Ok(Err(crate::ota::Refusal::Image(error))) => {
+                    let code = if matches!(error, esp_shazam_core::ota_image::ImageError::TooLarge { .. }) { 413 } else { 400 };
+                    (code, format!("{{\"error\":\"{error}\"}}"))
+                }
+                Err(error) => {
+                    log::warn!("ota: upload failed: {error:#}");
+                    (500, r#"{"error":"upload failed; the running image is untouched"}"#.to_owned())
+                }
+            };
+            request
+                .into_response(
+                    code,
+                    None,
+                    &[
+                        ("Content-Type", "application/json; charset=utf-8"),
+                        ("Cache-Control", "no-store"),
+                        ("Connection", "close"),
+                    ],
+                )?
+                .write_all(body.as_bytes())?;
+            Ok(())
+        })?;
         let gain_status = input.clone();
         server.fn_handler::<anyhow::Error, _>("/api/input", Method::Get, move |request| {
             let body = esp_shazam_core::input_gain::status_json(gain_status.gain());
