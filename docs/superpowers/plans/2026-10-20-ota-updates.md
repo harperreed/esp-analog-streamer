@@ -1,17 +1,19 @@
 # Over-the-air firmware updates
 
 ## Now
-- Step: implementing. Sizing settled: fat LTO + one codegen unit gives
-  1,673,200 B against 2,031,616 B slots (`ota_0`/`ota_1` at 0x20000 and
-  0x210000, otadata at 0x10000). Core `ota_image` and the push script are
-  written and tested; firmware `ota` module, `/api/ota` routes, rollback
-  flag and the partition table are written; compiling next, then
-  `scripts/check` and commit.
-- Next: write the partition table with two app slots and otadata; the
-  firmware OTA endpoint, rollback marking and status; the push script;
-  host tests; `scripts/check`; one USB flash of each board onto the new
-  layout; then an OTA round trip on the office board with a deliberately
-  broken image to prove rollback.
+- Step: landed in `5fd28f5` (check green, 27 stages; pushed). Home image on
+  the two-slot layout built with the home credentials and the shared token
+  (ELF `6af9d246…`, app.bin 1,682,112 B) and packaged at
+  `target/kata-hardening/home-image.tgz` with the one-time USB step and the
+  `scripts/ota-push` command in its README; the token lives only in the
+  three private cfg files (office, home, working copy).
+- Next: hardware proof on the office board once it is back on a USB port:
+  USB-flash the new layout, `scripts/ota-push` the same image onto the
+  other slot (running slot swaps, `build_elf_sha256` matches), then push
+  an image that panics at boot and confirm the bootloader returns to the
+  previous slot; evidence `docs/audit-evidence/<date>/ota.md`. Then the
+  home board: one USB flash by Doctor Biz, every update after that over
+  the tailnet.
 - Open: none
 - Approved: "can we add OTA firmware updates" and "Shared token in cfg.toml
   (Recommended)" (2026-10-20)
