@@ -3,7 +3,6 @@
 [esp-shazam-firmware]
 wifi_ssid = "your-network"
 wifi_pass = "your-password"
-mqtt_url = "mqtt://192.168.200.8:1883"
 hostname = "esp-shazam"
 # Shared secret for over-the-air updates (POST /api/ota, header X-Ota-Token). Empty disables them.
 ota_token = ""

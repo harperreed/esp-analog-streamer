@@ -1,5 +1,5 @@
 // ABOUTME: Firmware entry point: LINE IN capture, Wi-Fi, clock, mDNS, the recognizer (unless cfg turns Shazam off), the web server,
-// ABOUTME: MQTT and the LINE IN stream on port 8000. The main thread ends up supervising Wi-Fi; everything else runs on its own thread.
+// ABOUTME: and the LINE IN stream on port 8000. The main thread ends up supervising Wi-Fi; everything else runs on its own thread.
 
 mod audio_in;
 mod capture_failure_telemetry;
@@ -11,7 +11,6 @@ mod config;
 mod i2s_capture;
 mod input_gain;
 mod listener_telemetry;
-mod mqtt_out;
 mod net;
 mod ota;
 mod psram;
@@ -130,12 +129,9 @@ fn run_inner() -> Result<()> {
     stream::start(stream_ring, &mut mdns, network.clone())?;
     let sonos = sonos::start(store.clone(), nvs, network)?;
     let _server = web::start(store.clone(), sonos, input)?;
-    let publisher = mqtt_out::start(CONFIG.mqtt_url, store.clone())?;
     // Capture only supplies a recognition ring when Shazam is enabled.
     if let Some(ring) = ring {
-        recognizer::spawn(ring, store, config::policy_config(), move || {
-            publisher.publish_now()
-        })?;
+        recognizer::spawn(ring, store, config::policy_config())?;
     } else {
         log::info!("shazam: disabled by cfg");
     }

@@ -1,5 +1,5 @@
 // ABOUTME: The single source of truth for what the board reports: state, loudness, now playing, history.
-// ABOUTME: Serializes the /api/state body and the MQTT now_playing payload.
+// ABOUTME: Serializes the /api/state body and the now-playing payload.
 
 use std::collections::VecDeque;
 

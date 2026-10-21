@@ -24,13 +24,7 @@ pub type SharedStore = Arc<Mutex<SongStore>>;
 const TICK: Duration = Duration::from_millis(250);
 
 /// Runs on core 1, leaving core 0 to Wi-Fi and audio while a fingerprint takes seconds.
-/// `on_change` runs after every change to "now" (a new song or a clear).
-pub fn spawn(
-    ring: SharedRing,
-    store: SharedStore,
-    config: PolicyConfig,
-    on_change: impl Fn() + Send + 'static,
-) -> Result<()> {
+pub fn spawn(ring: SharedRing, store: SharedStore, config: PolicyConfig) -> Result<()> {
     ThreadSpec {
         name: c"recognizer",
         core: Core::Core1,
@@ -38,10 +32,10 @@ pub fn spawn(
         // Fingerprint, JSON and the TLS handshake all run on this stack.
         stack_bytes: 32 * 1024,
     }
-    .spawn(move || run(ring, store, config, on_change))
+    .spawn(move || run(ring, store, config))
 }
 
-fn run(ring: SharedRing, store: SharedStore, config: PolicyConfig, on_change: impl Fn()) {
+fn run(ring: SharedRing, store: SharedStore, config: PolicyConfig) {
     let boot = Instant::now();
     let now_ms = || boot.elapsed().as_millis() as u64;
     let mut policy = Policy::new(config);
@@ -65,7 +59,6 @@ fn run(ring: SharedRing, store: SharedStore, config: PolicyConfig, on_change: im
             Decision::ClearNow => {
                 if store.lock().expect("store lock").clear_now() {
                     log::info!("now playing: cleared after quiet");
-                    on_change();
                 }
             }
             Decision::Ask => {
@@ -90,13 +83,11 @@ fn run(ring: SharedRing, store: SharedStore, config: PolicyConfig, on_change: im
                                 .set_now(song, identified_at)
                             {
                                 log::info!("now playing: {playing}");
-                                on_change();
                             }
                         }
                         (Change::ClearNow, _) => {
                             if store.lock().expect("store lock").clear_now() {
                                 log::info!("now playing: cleared after misses");
-                                on_change();
                             }
                         }
                         _ => {}

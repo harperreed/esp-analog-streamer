@@ -9,8 +9,8 @@ Items marked **(verify)** come from reading docs and source, not from running an
 ## Success criteria
 
 1. A song plays into LINE IN (Harper's turntable or continuous source). Within 45 s of the music starting, `GET http://esp-shazam.local/api/state` shows the right title and artist. At 240 MHz, with flash and PSRAM at 80 MHz, that leaves room for two tries: 8 s of audio, a ~10 s fingerprint and the request, then 8 s more and another fingerprint.
-2. The same song arrives as a retained message on topic `esp-shazam/now_playing` at `mqtt://192.168.200.8:1883`.
-3. When the song changes, both outputs update within 60 s. A 30 s re-check can land while the 12 s window still holds the old song, so the next re-check catches it.
+2. (MQTT output removed 2026-10-21; see the MQTT section.)
+3. When the song changes, the page and JSON update within 60 s. A 30 s re-check can land while the 12 s window still holds the old song, so the next re-check catches it.
 4. When the music stops, "now playing" clears within 75 s, and the board sends no Shazam requests while the input stays quiet.
 5. `scripts/check` passes, and both E2E scripts pass against the real Shazam API and the real broker.
 
@@ -22,7 +22,7 @@ Harper's answers, 2026-10-03, quoted:
 |---|---|
 | Where the fingerprint is computed | "On the board (Recommended)" |
 | When to listen | "Always listening" |
-| Where results show up | "Web page on the board", "MQTT, and json endpoint" |
+| Where results show up | "Web page on the board", "MQTT, and json endpoint" (MQTT removed 2026-10-21) |
 | Design section 1 | "Yes, but use Rust" |
 | Which board | "ESP32-Audio-Kit Audio Development Board, ESP32-A1S Audio Development Board Module ... that is the board." |
 | Revised design | "Yes, write the spec (Recommended)" |
@@ -126,7 +126,7 @@ LINE IN ─► ES8388 ─I2S 48 kHz─► audio_in ─► decimator + loudness
                                                   ▼
                                     song_store (one source of truth)
                                      │                         │
-                     web: / and /api/state          mqtt_out: retained publish
+                     web: / and /api/state
 ```
 
 ### `core`: Rust library, no ESP dependencies
@@ -177,11 +177,9 @@ Its own cargo project on the Xtensa toolchain. It path-depends on `core`.
   4. feeds the outcome back to the policy and updates `song_store`.
 - **`song_store`**: the one source of truth. It holds the policy state, loudness, the current song, the last 20 songs (newest first), and the rate-limit end time.
   - A mutex guards it.
-  - It notifies `mqtt_out` when the current song changes.
 - **`web`**: an `EspHttpServer` that serves two routes:
   - `GET /`: one embedded HTML file with no external scripts. It polls `/api/state` every 3 s.
   - `GET /api/state`: the JSON endpoint.
-- **`mqtt_out`**: an `EspMqttClient` connected to the broker in `cfg.toml`. When the current song changes, it publishes retained to `esp-shazam/now_playing`. A blank broker URL disables MQTT.
 - **`stream`**: the LINE IN stream on port 8000, with its own `TcpListener`. One shared encoder, the accept thread and at most two listener threads run on core 1 at priority 7. The encoder reads at most 240 raw frames per lock and publishes whole FLAC frames to a fixed-capacity ring. Each listener has an independent cursor and only copies and sends encoded bytes. No ring lock spans encoding or socket calls. Capture stages samples rather than waiting for readers.
   - Raw or encoded overrun ends an affected listener. If the encoder overruns raw input, it discards its partial block, resets the encoder and changes encoded generation, invalidating old listeners.
   - [stream.rs](../../../firmware/src/stream.rs), [flac_ring.rs](../../../core/src/flac_ring.rs) and [stream_wait.rs](../../../core/src/stream_wait.rs) implement this policy. [Outputs](#line-in-stream-port-8000) describes deadlines and close handling.
@@ -328,11 +326,11 @@ One self-contained HTML page. It shows:
 
 ### MQTT
 
-- Topic `esp-shazam/now_playing`, retained, QoS 1.
-- The payload is the `now` object above, or `null` when it clears.
-- It publishes when `now` changes and again on every broker (re)connect, so the retained value can't go stale after a broker restart.
-- With `shazam_enabled = false` it publishes `null` on every connect and nothing else.
-- The broker is `mqtt://192.168.200.8:1883` with no auth; port 1883 answered on 2026-10-03.
+Removed on 2026-10-21. The esp-mqtt client cost about 30 KB of internal RAM
+with a broker configured (its task, transport and outbox), which starved the
+home board once Sonos ran, and nothing consumed `esp-shazam/now_playing`.
+The page and `/api/state` are the outputs; anything that wants a push can
+poll the JSON. Bringing it back means budgeting that RAM first (ticket g5x6).
 
 ### LINE IN stream (port 8000)
 
@@ -354,7 +352,6 @@ One self-contained HTML page. It shows:
 
 - `firmware/cfg.toml` holds the settings and is gitignored. A committed `cfg.toml.example` lists them:
   - `wifi_ssid`, `wifi_pass`
-  - `mqtt_url`
   - `hostname`
   - `pga_gain`, the ES8388 PGA register value (0 is 0 dB)
   - `shazam_enabled` (default `true`): `false` starts no recognizer and sends no Shazam traffic (SDD Ruling R21)
@@ -501,7 +498,6 @@ There are no mocks anywhere. The E2E tests use the real Shazam API and the real 
 - Wi-Fi provisioning
 - persistent history
 - web UI auth
-- MQTT over TLS
 
 ## Licensing
 
