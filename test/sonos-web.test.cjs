@@ -274,3 +274,39 @@ test('the status line reports audio from the meter and hides history while recog
   assert.equal(p.get('status').textContent, 'quiet · quiet · -75.0 dBFS');
   assert.equal(p.get('history-section').hidden, false);
 });
+
+test('the system page renders firmware, slots, memory, capture, listeners and network as text with units', () => {
+  const p = page('system');
+  const metrics = {
+    build_elf_sha256: '9f0c4899a33fa045' + 'a'.repeat(48), boot_token: '8dabe006' + 'b'.repeat(24), served_device_us: 3_725_000_000,
+    settings: { active_format: 'mp3', recognition_enabled: false }, http_stack_free_bytes: 5120,
+    capture: { read_frames: 12345678, queue_overflows: 8, software_dropped_frames: 0, read_errors: 0, restarts: 0, discontinuities: 0,
+      internal_free: 24231, internal_largest: 22528, internal_min_sum: 20000, psram_free: 2728872, psram_largest: 2359296 },
+    encoder: { encoded_frames: 416, resets: 0, encode_max_us: 30805 },
+    listeners: [{ state: 'writing', media_age_us: 52445, skips: 1, frames_skipped: 180 }, { state: 'idle' }],
+    listener_loss: { metrics_stack_free_bytes: 1832 },
+    last_listener_departure: { listener_stack_free_bytes: 1964, stats: { elapsed_us: 569617, frames_sent: 52, skips: 0 } },
+    network: { generation: 2, connected: true, disconnects: 0 },
+  };
+  const ota = { running: 'ota_1', boot: 'ota_1', running_state: 'pending_verify', validated: false, enabled: true, update_slot: 'ota_0', update_slot_bytes: 2031616 };
+  p.sandbox.renderSystem(metrics, ota, { gain_db: 24, max_db: 24, step_db: 3 });
+  assert.equal(p.get('system-image').textContent, '9f0c4899a33fa045…');
+  assert.equal(p.get('system-uptime').textContent, '1 h 2 min');
+  assert.match(p.get('system-slot').textContent, /^ota_1 \(pending verify\); next update goes to ota_0, 1984\.0 KB$/);
+  assert.match(p.get('system-ota').textContent, /^enabled/);
+  assert.equal(p.get('system-gain').textContent, '24 dB (0 to 24 in 3 dB steps)');
+  assert.equal(p.get('system-format').textContent, 'MP3, recognition off');
+  assert.equal(p.get('system-internal').textContent, '23.7 KB free, largest block 22.0 KB, window low 19.5 KB');
+  assert.equal(p.get('system-stacks').textContent, 'http 5120 B · metrics 1832 B · listener 1964 B');
+  assert.equal(p.get('system-faults').textContent, '8 queue overflows · 0 dropped · 0 read errors · 0 restarts · 0 discontinuities');
+  assert.equal(p.get('system-encoder').textContent, '416 frames this window · 0 resets · worst block 30.8 ms');
+  assert.equal(p.get('system-listeners').children.length, 2);
+  assert.equal(p.get('system-listeners').children[0].textContent, 'slot 1: writing · 52 ms behind live · 1 skips (180 frames)');
+  assert.equal(p.get('system-listeners').children[1].textContent, 'slot 2: idle');
+  assert.equal(p.get('system-departure').textContent, 'last departure: 0.6 s connected, 52 frames sent, 0 skips');
+  assert.equal(p.get('system-network').textContent, 'connected · generation 2 · 0 disconnects since boot');
+  // Missing endpoints degrade to question marks, never throw.
+  p.sandbox.renderSystem({}, null, null);
+  assert.equal(p.get('system-slot').textContent, '?');
+  assert.equal(p.get('system-stacks').textContent, 'not reported yet');
+});

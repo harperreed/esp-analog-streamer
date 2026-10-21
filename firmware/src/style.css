@@ -20,3 +20,6 @@
   select { width: 100%; }
   button:disabled { opacity: .55; }
   .error { color: #c34436; }
+.facts { display: grid; grid-template-columns: max-content 1fr; gap: 0.25rem 1rem; }
+.facts dt { color: #666; }
+.facts dd { margin: 0; }

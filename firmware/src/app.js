@@ -178,6 +178,66 @@ async function sendInput(gainDb) {
 }
 $('input-gain')?.addEventListener('change', () => sendInput(Number($('input-gain').value)));
 if ($('input-gain')) { refreshInput(); setInterval(refreshInput, 5000); }
+// System page: facts from three read-only endpoints, rendered as text. Numbers get units; nothing is interpreted.
+const kb = (bytes) => (bytes == null ? '?' : `${(bytes / 1024).toFixed(1)} KB`);
+const seconds = (us) => {
+  const s = Math.floor(us / 1e6);
+  return s >= 3600 ? `${Math.floor(s / 3600)} h ${Math.floor((s % 3600) / 60)} min` : s >= 60 ? `${Math.floor(s / 60)} min ${s % 60} s` : `${s} s`;
+};
+function renderSystem(metrics, ota, input) {
+  const m = metrics || {};
+  const c = m.capture || {};
+  const e = m.encoder || {};
+  const settings = m.settings || {};
+  set('system-image', 'textContent', m.build_elf_sha256 ? `${m.build_elf_sha256.slice(0, 16)}…` : '?');
+  set('system-boot', 'textContent', m.boot_token ? `${m.boot_token.slice(0, 8)}…` : '?');
+  set('system-uptime', 'textContent', m.served_device_us != null ? seconds(m.served_device_us) : '?');
+  set('system-slot', 'textContent', ota ? `${ota.running} (${ota.running_state.replaceAll('_', ' ')}${ota.validated ? ', validated' : ''}); next update goes to ${ota.update_slot}, ${kb(ota.update_slot_bytes)}` : '?');
+  set('system-ota', 'textContent', ota ? (ota.enabled ? 'enabled (POST /api/ota with the token)' : 'disabled: no ota_token in cfg.toml') : '?');
+  set('system-gain', 'textContent', input ? `${input.gain_db} dB (0 to ${input.max_db} in ${input.step_db} dB steps)` : '?');
+  set('system-format', 'textContent', settings.active_format ? `${settings.active_format.toUpperCase()}${settings.recognition_enabled ? ', recognition on' : ', recognition off'}` : '?');
+  set('system-internal', 'textContent', c.internal_free != null ? `${kb(c.internal_free)} free, largest block ${kb(c.internal_largest)}, window low ${kb(c.internal_min_sum)}` : '?');
+  set('system-psram', 'textContent', c.psram_free != null ? `${kb(c.psram_free)} free, largest block ${kb(c.psram_largest)}` : '?');
+  const stacks = [];
+  if (m.http_stack_free_bytes != null) stacks.push(`http ${m.http_stack_free_bytes} B`);
+  if (m.listener_loss?.metrics_stack_free_bytes != null) stacks.push(`metrics ${m.listener_loss.metrics_stack_free_bytes} B`);
+  if (m.last_listener_departure?.listener_stack_free_bytes != null) stacks.push(`listener ${m.last_listener_departure.listener_stack_free_bytes} B`);
+  set('system-stacks', 'textContent', stacks.length ? stacks.join(' · ') : 'not reported yet');
+  set('system-frames', 'textContent', c.read_frames != null ? `${c.read_frames.toLocaleString()} read` : '?');
+  set('system-faults', 'textContent', c.queue_overflows != null
+    ? `${c.queue_overflows} queue overflows · ${c.software_dropped_frames} dropped · ${c.read_errors} read errors · ${c.restarts} restarts · ${c.discontinuities} discontinuities`
+    : '?');
+  set('system-encoder', 'textContent', e.encoded_frames != null ? `${e.encoded_frames} frames this window · ${e.resets} resets · worst block ${(e.encode_max_us / 1000).toFixed(1)} ms` : '?');
+  const listeners = $('system-listeners');
+  if (listeners) {
+    listeners.replaceChildren(...(m.listeners || []).map((l, i) => {
+      const li = document.createElement('li');
+      li.textContent = l.state === 'idle' || l.state === 'unavailable'
+        ? `slot ${i + 1}: ${l.state}`
+        : `slot ${i + 1}: ${l.state} · ${l.media_age_us != null ? (l.media_age_us / 1000).toFixed(0) : '?'} ms behind live · ${l.skips ?? 0} skips (${l.frames_skipped ?? 0} frames)`;
+      return li;
+    }));
+  }
+  const d = m.last_listener_departure;
+  set('system-departure', 'textContent', d?.stats ? `last departure: ${(d.stats.elapsed_us / 1e6).toFixed(1)} s connected, ${d.stats.frames_sent} frames sent, ${d.stats.skips} skips` : '');
+  const n = m.network;
+  set('system-network', 'textContent', n ? `${n.connected ? 'connected' : 'disconnected'} · generation ${n.generation} · ${n.disconnects} disconnects since boot` : '?');
+}
+async function refreshSystem() {
+  const get = async (url) => {
+    const response = await fetch(url, { cache: 'no-store', signal: AbortSignal.timeout(4000) });
+    if (!response.ok) throw new Error(url);
+    return response.json();
+  };
+  try {
+    const [metrics, ota, input] = await Promise.all([get('/api/metrics'), get('/api/ota').catch(() => null), get('/api/input').catch(() => null)]);
+    renderSystem(metrics, ota, input);
+    set('system-status', 'textContent', `updated ${new Date().toLocaleTimeString()}`);
+  } catch (error) {
+    set('system-status', 'textContent', 'board unreachable, retrying…');
+  }
+}
+if ($('system-image')) { refreshSystem(); setInterval(refreshSystem, 5000); }
 // The URLs come from Shazam's response: only https ones reach src or href, so no javascript: links.
 const https = (u) => typeof u === 'string' && /^https:\/\//.test(u);
 async function refresh() {

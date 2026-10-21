@@ -49,6 +49,11 @@ mod device {
                 include_str!("settings.html"),
             ),
             (
+                "/system",
+                "text/html; charset=utf-8",
+                include_str!("system.html"),
+            ),
+            (
                 "/app.js",
                 "text/javascript; charset=utf-8",
                 include_str!("app.js"),
