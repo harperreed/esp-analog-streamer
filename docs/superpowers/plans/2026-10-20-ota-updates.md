@@ -1,7 +1,9 @@
 # Over-the-air firmware updates
 
 ## Now
-- Step: landed and in use. Home board on `bb1a7945…` via OTA (7 s push),
+- Step: landed and in use. Home board on `e68d1f7e…` (System page at
+  `/system`, MQTT removed in `3b99cb3`) after five over-the-air updates
+  tonight, each validated. Earlier: `bb1a7945…` via OTA (7 s push),
   the third over-the-air update of the night after the round trip and the
   rollback proof (`docs/audit-evidence/2026-10-21/ota.{md,json}`). Memory
   finding on the way: Sonos playback died at 6.6 KB internal free; MQTT
