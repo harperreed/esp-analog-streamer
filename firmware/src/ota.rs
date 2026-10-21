@@ -80,8 +80,28 @@ pub fn status(token_configured: bool) -> Result<Status> {
     })
 }
 
-/// Marks this boot's image valid after HEALTHY_AFTER of continuous Wi-Fi; runs on its own small thread.
+/// Marks this boot's image valid after HEALTHY_AFTER of continuous Wi-Fi. The thread (and its internal-RAM stack)
+/// exists only while the running slot is still pending verification: an image flashed over USB or already marked
+/// valid has nothing to prove, and internal RAM is the scarcest thing on this board.
 pub fn mark_valid_when_healthy(network: Network) {
+    match EspOta::new().and_then(|ota| ota.get_running_slot()) {
+        Ok(slot) if matches!(slot.state, SlotState::Unverified) => {}
+        Ok(slot) => {
+            if matches!(slot.state, SlotState::Valid) {
+                VALIDATED.store(true, Ordering::Relaxed);
+            }
+            log::info!(
+                "ota: running slot {} is {}; nothing to verify",
+                slot.label,
+                state_name(&slot.state)
+            );
+            return;
+        }
+        Err(error) => {
+            log::warn!("ota: cannot read the running slot ({error}); not watching for validity");
+            return;
+        }
+    }
     let _ = std::thread::Builder::new()
         .name("ota-health".into())
         .stack_size(6144)

@@ -1446,3 +1446,11 @@ codegen change, read `metrics_stack_free_bytes`, `listener_stack_free_bytes`
 and `reaper_stack_free_bytes` on a UART before shipping; keep several
 hundred bytes. A crash loop faster than an upload cannot be fixed over the
 air: that is what the USB cable is still for.
+
+MQTT costs about 30 KB of internal RAM when a broker URL is set (the
+esp-mqtt task, its transport and outbox): with it on, the home board sat at
+9.7 KB free and Sonos playback died in `mdns_networking: Cannot allocate
+memory`; with `mqtt_url = ""` the same image boots with 41.7 KB free. Leave
+it empty unless something reads `esp-shazam/now_playing`. The OTA health
+thread now exists only while a slot is pending verification. Ticket g5x6
+holds the full memory budget.
