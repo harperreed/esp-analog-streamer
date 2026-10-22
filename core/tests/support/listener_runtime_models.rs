@@ -66,7 +66,7 @@ fn admission_commit(force: bool) {
         let outcome = pending.outcome.clone();
         let admit = thread::spawn({
             let runtime = runtime.clone();
-            move || runtime.admit("GET /stream.flac HTTP/1.1").1.unwrap()
+            move || runtime.admit_line("GET /stream.flac HTTP/1.1").1.unwrap()
         });
         let commit = thread::spawn({
             let runtime = runtime.clone();

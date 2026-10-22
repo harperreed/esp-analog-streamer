@@ -462,7 +462,7 @@ pub fn run(fixture: &Fixture) -> Replay {
                 exact,
             } => {
                 if let Some(slot) = Slot::take(&slots, 2) {
-                    let (_, lease) = runtime.admit("GET /stream.flac HTTP/1.1");
+                    let (_, lease) = runtime.admit_line("GET /stream.flac HTTP/1.1");
                     let epoch = lease.as_ref().unwrap().epoch.clone();
                     actors.insert(
                         *actor,

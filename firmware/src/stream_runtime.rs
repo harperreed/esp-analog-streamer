@@ -7,7 +7,7 @@ pub(crate) mod health;
 use esp_shazam_core::{
     flac_ring::FlacRing,
     stream_buffer::OutputFormat,
-    stream_http::{self, Route},
+    stream_http::{self, Route, StreamRequest},
 };
 use health::HealthGate;
 #[cfg(feature = "listener-loom")]
@@ -158,9 +158,9 @@ impl Runtime {
             .expect("active_code is only ever stored from OutputFormat::code")
     }
     /// Admission and the idle commit predicate share this lock. The lease survives socket close.
-    pub fn admit(&self, line: &str) -> (Route, Option<Lease>) {
+    pub fn admit(&self, request: &StreamRequest) -> (Route, Option<Lease>) {
         if !self.health.healthy() {
-            let route = stream_http::route_for(line, self.active_format_unlocked());
+            let route = request.route(self.active_format_unlocked());
             if matches!(
                 route,
                 Route::Buffered(_)
@@ -170,8 +170,9 @@ impl Runtime {
             }
         }
         let active = self.active.lock().unwrap();
-        let route =
-            stream_http::route_for(line, active.format).with_buffer_availability(!self.recognition);
+        let route = request
+            .route(active.format)
+            .with_buffer_availability(!self.recognition);
         let compressed = matches!(
             route,
             Route::Buffered(_)
@@ -185,6 +186,11 @@ impl Runtime {
             }
         });
         (route, lease)
+    }
+    /// Test convenience: parses a well-formed request line and admits it.
+    #[cfg(test)]
+    pub fn admit_line(&self, line: &str) -> (Route, Option<Lease>) {
+        self.admit(&StreamRequest::parse(line).expect("well-formed request line"))
     }
     pub fn switch(
         &self,
@@ -417,7 +423,7 @@ mod tests {
                 .transition(runtime.health.token(), health::State::Terminal));
             let caller = runtime.clone();
             let (sent, received) = mpsc::channel();
-            let client = std::thread::spawn(move || sent.send(caller.admit(line).0).unwrap());
+            let client = std::thread::spawn(move || sent.send(caller.admit_line(line).0).unwrap());
             assert_eq!(
                 received.recv_timeout(Duration::from_secs(1)).unwrap(),
                 Route::Refuse(stream_http::Status::ServiceUnavailable),
@@ -450,7 +456,7 @@ mod tests {
             )
         });
         prepared.recv_timeout(Duration::from_secs(1)).unwrap();
-        let (_, listener) = runtime.admit("GET /stream.flac HTTP/1.1");
+        let (_, listener) = runtime.admit_line("GET /stream.flac HTTP/1.1");
         resume.send(()).unwrap();
         assert!(!worker.wait_and_service(&runtime, Duration::from_secs(1)));
         assert!(!join.join().unwrap().unwrap());

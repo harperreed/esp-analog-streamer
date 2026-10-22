@@ -529,25 +529,22 @@ impl Capacity {
             && registry.owners.iter().any(|owner| owner.id == 0)
     }
     /// Classifies the canonical tagged media route before any reconnect wait or allocation.
+    /// A malformed tag never reaches here: `StreamRequest::parse` refuses it 400 first.
     pub fn admit_request(
         capacity: &Arc<Self>,
-        line: &str,
+        request: &crate::stream_http::StreamRequest,
         peer: std::net::IpAddr,
         generation: u32,
     ) -> Result<Option<Slot>, crate::stream_http::Status> {
-        use crate::stream_http::{self, Route, Status};
+        use crate::stream_http::{Route, Status};
         capacity.refresh();
-        let id = stream_http::request_sonos_intent(line)
-            .map_err(|_| Status::BadRequest)?
-            .ok_or(Status::ServiceUnavailable)?;
-        let requested_generation =
-            stream_http::request_network_generation(line).map_err(|_| Status::BadRequest)?;
+        let id = request.sonos_intent.ok_or(Status::ServiceUnavailable)?;
         let (format, buffer) = {
             let registry = capacity.0.lock().unwrap();
             let intent = registry.intent.as_ref().ok_or(Status::ServiceUnavailable)?;
             if intent.id != id
                 || intent.peer != peer
-                || requested_generation != Some(generation)
+                || request.generation != Some(generation)
                 || intent.lease.generation != generation
             {
                 return Err(Status::ServiceUnavailable);
@@ -555,7 +552,7 @@ impl Capacity {
             (intent.format, intent.buffer)
         };
         let expected = buffer.map_or(Route::Stream(format.format()), Route::Buffered);
-        let route = stream_http::route_for(line, format);
+        let route = request.route(format);
         if route == Route::Refuse(Status::BadRequest) {
             return Err(Status::BadRequest);
         }
@@ -1029,6 +1026,9 @@ mod tests {
 mod capacity_tests {
     use super::*;
     use std::net::{IpAddr, Ipv4Addr};
+    fn parse(line: &str) -> crate::stream_http::StreamRequest<'_> {
+        crate::stream_http::StreamRequest::parse(line).unwrap()
+    }
     fn setup() -> (
         Arc<Capacity>,
         crate::network_lifecycle::Network,
@@ -1281,7 +1281,7 @@ mod capacity_tests {
             assert!(matches!(
                 Capacity::admit_request(
                     &capacity,
-                    &format!("GET {query} HTTP/1.1"),
+                    &parse(&format!("GET {query} HTTP/1.1")),
                     peer,
                     lease.generation
                 ),
@@ -1295,17 +1295,65 @@ mod capacity_tests {
         assert!(matches!(
             Capacity::admit_request(
                 &capacity,
-                &line,
+                &parse(&line),
                 Ipv4Addr::LOCALHOST.into(),
                 lease.generation
             ),
             Err(crate::stream_http::Status::ServiceUnavailable)
         ));
         assert!(
-            Capacity::admit_request(&capacity, &line, peer, lease.generation)
+            Capacity::admit_request(&capacity, &parse(&line), peer, lease.generation)
                 .unwrap()
                 .is_some()
         );
+    }
+    #[test]
+    fn malformed_tags_are_bad_requests_before_the_registry_is_consulted() {
+        use crate::stream_http::{Status, StreamRequest};
+        let (capacity, network, lease, token) = setup();
+        let peer = Ipv4Addr::new(192, 0, 2, 2).into();
+        let id = capacity
+            .reserve(
+                peer,
+                network,
+                lease,
+                token,
+                crate::stream_buffer::OutputFormat::Flac,
+                Some(crate::stream_buffer::BufferPreset::Medium),
+                Instant::now(),
+            )
+            .unwrap();
+        let generation = lease.generation;
+        // The composition `answer` runs: parse once, then admit the parsed request.
+        let admit = |line: &str| {
+            StreamRequest::parse(line)
+                .and_then(|request| Capacity::admit_request(&capacity, &request, peer, generation))
+        };
+        for query in [
+            format!("buffer=med&sonos_intent=x&network_generation={generation}"),
+            format!(
+                "buffer=med&sonos_intent={id}&sonos_intent={id}&network_generation={generation}"
+            ),
+            format!("buffer=med&sonos_intent={id}&network_generation="),
+            format!("buffer=med&sonos_intent={id}&network_generation={generation}&exact=2"),
+            format!("buffer=huge&sonos_intent={id}&network_generation={generation}"),
+            format!("buffer=med&sonos_intent={id}&network_generation={generation}&cache=1"),
+        ] {
+            assert!(
+                matches!(
+                    admit(&format!("GET /stream.flac?{query} HTTP/1.1")),
+                    Err(Status::BadRequest)
+                ),
+                "{query}"
+            );
+            assert!(capacity.valid(id), "{query}");
+            assert_eq!(capacity.held(), 0, "{query}");
+        }
+        assert!(admit(&format!(
+            "GET /stream.flac?buffer=med&sonos_intent={id}&network_generation={generation} HTTP/1.1"
+        ))
+        .unwrap()
+        .is_some());
     }
     #[test]
     fn identity_expiry_cancel_and_old_cleanup_cannot_grant_priority() {

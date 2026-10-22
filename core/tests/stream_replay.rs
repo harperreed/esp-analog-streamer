@@ -133,7 +133,7 @@ fn runtime_requests_obey_tokens_expiry_block_boundaries_and_draining_leases() {
     worker.service(&runtime);
     assert_eq!(runtime.active_format(), OutputFormat::Flac);
     let slots = Arc::new(esp_shazam_core::stream_wait::Capacity::default());
-    let (_, lease) = runtime.admit("GET /stream.flac HTTP/1.1");
+    let (_, lease) = runtime.admit_line("GET /stream.flac HTTP/1.1");
     let draining = ConnectionResources::new(1, Slot::take(&slots, 2).unwrap(), lease);
     let SwitchStart::Pending(idle) = runtime.begin_switch(
         OutputFormat::Mp3,
@@ -179,7 +179,7 @@ fn runtime_requests_obey_tokens_expiry_block_boundaries_and_draining_leases() {
     ));
     assert!(matches!(force.poll(), SwitchPoll::Finished(Ok(true))));
     assert!(old.retired());
-    let (_, lease) = runtime.admit("GET /stream.mp3 HTTP/1.1");
+    let (_, lease) = runtime.admit_line("GET /stream.mp3 HTTP/1.1");
     assert_eq!(lease.unwrap().epoch.format, OutputFormat::Mp3);
     assert_eq!(slots.held(), 0);
 }
@@ -202,7 +202,7 @@ fn atomic_copy_reset_rejects_scratch_and_new_generation_reconnect_is_exact() {
         &mut || Duration::ZERO,
         &mut |_| {},
     );
-    let (_, old_lease) = runtime.admit("GET /stream.flac HTTP/1.1");
+    let (_, old_lease) = runtime.admit_line("GET /stream.flac HTTP/1.1");
     let mut old_listener = CompressedListener::new(
         &old_lease.as_ref().unwrap().epoch,
         None,
@@ -254,7 +254,7 @@ fn atomic_copy_reset_rejects_scratch_and_new_generation_reconnect_is_exact() {
         ),
         ListenerStep::End(End::EncodedReset)
     ));
-    let (_, new_lease) = runtime.admit("GET /stream.flac HTTP/1.1");
+    let (_, new_lease) = runtime.admit_line("GET /stream.flac HTTP/1.1");
     let epoch = &new_lease.as_ref().unwrap().epoch;
     let mut new_listener =
         CompressedListener::new(epoch, None, false, ListenerPolicy::Live, &mut || {
@@ -332,7 +332,7 @@ fn absent_capture_before_buffered_admission_expires_without_any_pcm() {
     use std::time::Duration;
     use stream_pipeline::{CompressedListener, End, ListenerStep};
     let (runtime, worker) = stream_runtime::Runtime::new(OutputFormat::Flac, false).unwrap();
-    let (_, lease) = runtime.admit("GET /stream.flac HTTP/1.1");
+    let (_, lease) = runtime.admit_line("GET /stream.flac HTTP/1.1");
     let epoch = &lease.as_ref().unwrap().epoch;
     let mut listener = CompressedListener::new(
         epoch,

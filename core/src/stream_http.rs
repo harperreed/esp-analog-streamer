@@ -459,13 +459,6 @@ pub enum ListenerPolicy {
     Exact,
 }
 
-/// Reads the optional `exact=1` flag from a stream request; any other `exact` field is malformed.
-pub fn request_listener_policy(request_line: &str) -> io::Result<ListenerPolicy> {
-    StreamRequest::parse(request_line)
-        .map(|request| request.policy)
-        .map_err(|_| io::Error::new(io::ErrorKind::InvalidData, "invalid exact flag"))
-}
-
 /// The statuses the server refuses a request with.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Status {
@@ -556,20 +549,6 @@ pub fn read_request_line(reader: impl BufRead, max_bytes: u64) -> io::Result<Str
             (false, false) => {}
         }
     }
-}
-
-/// Reads the optional boot-local network generation from a stream request.
-pub fn request_network_generation(request_line: &str) -> io::Result<Option<u32>> {
-    StreamRequest::parse(request_line)
-        .map(|request| request.generation)
-        .map_err(|_| io::Error::new(io::ErrorKind::InvalidData, "invalid network generation"))
-}
-
-/// Parses a bounded boot-local reservation identity, rejecting duplicates and signs.
-pub fn request_sonos_intent(request_line: &str) -> io::Result<Option<u64>> {
-    StreamRequest::parse(request_line)
-        .map(|request| request.sonos_intent)
-        .map_err(|_| io::Error::new(io::ErrorKind::InvalidData, "invalid Sonos intent"))
 }
 
 /// The methods a stream request may use; anything else is refused 405 when parsed.

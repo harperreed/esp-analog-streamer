@@ -45,7 +45,7 @@ fn close_failure_after_release_retains_only_the_socket() {
     use std::sync::Arc;
     use stream_pipeline::ConnectionResources;
     let (runtime, mut worker) = Runtime::new(OutputFormat::Flac, false).unwrap();
-    let (_, lease) = runtime.admit("GET /stream.flac HTTP/1.1");
+    let (_, lease) = runtime.admit_line("GET /stream.flac HTTP/1.1");
     let slots = Arc::new(esp_shazam_core::stream_wait::Capacity::default());
     let resources = ConnectionResources::new((), Slot::take(&slots, 1).unwrap(), lease);
     let draining = resources.release(|| 7);
@@ -175,7 +175,7 @@ fn close_callback_runs_once_after_slot_and_lease_release() {
     use std::sync::{Arc, Mutex};
     use stream_pipeline::ConnectionResources;
     let (runtime, mut worker) = Runtime::new(OutputFormat::Flac, false).unwrap();
-    let (_, lease) = runtime.admit("GET /stream.flac HTTP/1.1");
+    let (_, lease) = runtime.admit_line("GET /stream.flac HTTP/1.1");
     let slots = Arc::new(esp_shazam_core::stream_wait::Capacity::default());
     let resources = ConnectionResources::new((), Slot::take(&slots, 1).unwrap(), lease);
     let mut calls = 0;
@@ -846,7 +846,7 @@ fn supervisor_requests_encoder_owned_reset_and_gate_survives_ring_reset() {
     publisher.publish(&vec![0; 480], 3, || 3).unwrap();
     supervisor.observe(&runtime, &raw, 2_000_001);
     assert_eq!(runtime.health.state(), State::ResetRequested);
-    assert!(runtime.admit("GET /stream.mp3 HTTP/1.1").1.is_none());
+    assert!(runtime.admit_line("GET /stream.mp3 HTTP/1.1").1.is_none());
     worker.epoch.ring.lock().unwrap().reset().unwrap();
     supervisor.observe(&runtime, &raw, 4_000_001);
     assert_eq!(runtime.health.state(), State::Terminal);

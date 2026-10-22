@@ -221,7 +221,7 @@ proptest! {
             match operation {
                 0 => {
                     if let Some(slot) = Slot::take(&taken, 2) {
-                        let (_, lease) = runtime.admit("GET /stream.flac HTTP/1.1");
+                        let (_, lease) = runtime.admit_line("GET /stream.flac HTTP/1.1");
                         listeners.push((lease.unwrap(), slot));
                     }
                 }

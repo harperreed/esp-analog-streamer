@@ -124,7 +124,7 @@ fn queued_leases_and_rejected_owners_close_outside_mailbox_lock() {
         peer.set_read_timeout(Some(Duration::from_secs(1))).unwrap();
         peers.push(peer);
         let (socket, _) = listener.accept().unwrap();
-        let (_, lease) = runtime.admit("GET /stream.flac HTTP/1.1");
+        let (_, lease) = runtime.admit_line("GET /stream.flac HTTP/1.1");
         let job = SocketJob {
             resources: Some(stream_pipeline::ConnectionResources::new(
                 socket,

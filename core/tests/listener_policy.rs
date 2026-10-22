@@ -2,8 +2,7 @@
 // ABOUTME: Keeps every live route unchanged and rejects malformed flags like other bad queries.
 use esp_shazam_core::stream_buffer::{BufferPreset, OutputFormat};
 use esp_shazam_core::stream_http::{
-    request_listener_policy, request_network_generation, request_sonos_intent, route_for, Format,
-    ListenerPolicy, Method, Route, Status, StreamRequest,
+    route_for, Format, ListenerPolicy, Method, Route, Status, StreamRequest,
 };
 
 #[test]
@@ -84,8 +83,9 @@ fn exact_flag_combines_with_buffer_and_tags_without_changing_the_route() {
                     };
                     let line = format!("GET {path}{query} HTTP/1.1");
                     assert_eq!(route_for(&line, format), expected, "{line}");
+                    let request = StreamRequest::parse(&line).unwrap();
                     assert_eq!(
-                        request_listener_policy(&line).unwrap(),
+                        request.policy,
                         if exact {
                             ListenerPolicy::Exact
                         } else {
@@ -93,13 +93,10 @@ fn exact_flag_combines_with_buffer_and_tags_without_changing_the_route() {
                         },
                         "{line}"
                     );
-                    // The flag must not disturb the tag parsers the Sonos route check relies on.
+                    // The flag must not disturb the tags the Sonos route check relies on.
+                    assert_eq!(request.generation, (!tag.is_empty()).then_some(7));
                     assert_eq!(
-                        request_network_generation(&line).unwrap(),
-                        (!tag.is_empty()).then_some(7)
-                    );
-                    assert_eq!(
-                        request_sonos_intent(&line).unwrap(),
+                        request.sonos_intent,
                         tag.starts_with("sonos_intent").then_some(41)
                     );
                     assert_eq!(
@@ -128,7 +125,11 @@ fn malformed_exact_flags_are_refused_like_other_bad_queries() {
     ] {
         for buffer in ["", "&buffer=med"] {
             let line = format!("GET /stream.mp3?{query}{buffer} HTTP/1.1");
-            assert!(request_listener_policy(&line).is_err(), "{line}");
+            assert_eq!(
+                StreamRequest::parse(&line),
+                Err(Status::BadRequest),
+                "{line}"
+            );
             assert_eq!(
                 route_for(&line, OutputFormat::Mp3),
                 Route::Refuse(Status::BadRequest),
@@ -146,7 +147,10 @@ fn wav_and_untagged_requests_default_to_live_and_cache_busters_stay_live() {
         "GET /stream.mp3?nocache=1 HTTP/1.1",
         "GET /stream.mp3 HTTP/1.1",
     ] {
-        assert_eq!(request_listener_policy(line).unwrap(), ListenerPolicy::Live);
+        assert_eq!(
+            StreamRequest::parse(line).unwrap().policy,
+            ListenerPolicy::Live
+        );
     }
     assert_eq!(
         route_for("GET /stream.wav?nocache=1 HTTP/1.1", OutputFormat::Mp3),

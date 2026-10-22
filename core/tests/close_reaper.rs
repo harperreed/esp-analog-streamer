@@ -75,7 +75,7 @@ fn hand_off_releases_slot_and_lease_before_the_checked_close() {
     let (socket, mut peer, address) = accepted(&listener);
     let slots = Arc::new(Capacity::default());
     let (runtime, mut worker) = Runtime::new(OutputFormat::Flac, false).unwrap();
-    let (_, lease) = runtime.admit("GET /stream.flac HTTP/1.1");
+    let (_, lease) = runtime.admit_line("GET /stream.flac HTTP/1.1");
     let slot = Slot::take(&slots, 2).unwrap();
     let owner = slot.owner_id();
     let resources = ConnectionResources::new(socket, slot, lease);
@@ -205,7 +205,7 @@ fn dropped_permit_frees_its_place_and_a_closed_reaper_refuses_hand_off() {
 fn failed_close_retains_the_socket_without_a_false_closed_event() {
     let slots = Arc::new(Capacity::default());
     let (runtime, mut worker) = Runtime::new(OutputFormat::Flac, false).unwrap();
-    let (_, lease) = runtime.admit("GET /stream.flac HTTP/1.1");
+    let (_, lease) = runtime.admit_line("GET /stream.flac HTTP/1.1");
     let socket = socket2::Socket::new(
         socket2::Domain::IPV4,
         socket2::Type::STREAM,
@@ -303,7 +303,7 @@ fn hand_off_makes_no_heap_allocation() {
     let (socket, _peer, address) = accepted(&listener);
     let slots = Arc::new(Capacity::default());
     let (runtime, _worker) = Runtime::new(OutputFormat::Flac, false).unwrap();
-    let (_, lease) = runtime.admit("GET /stream.flac HTTP/1.1");
+    let (_, lease) = runtime.admit_line("GET /stream.flac HTTP/1.1");
     let resources = ConnectionResources::new(socket, Slot::take(&slots, 2).unwrap(), lease);
     let reaper = Reaper::<(DrainingSocket<TcpStream>, Option<SocketAddr>)>::new();
     let ((), allocations) = alloc_count::allocations_during(|| {

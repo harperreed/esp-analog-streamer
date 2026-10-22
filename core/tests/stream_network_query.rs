@@ -1,7 +1,7 @@
 // ABOUTME: Checks network generation query validation and buffered stream routing.
 // ABOUTME: Keeps direct diagnostic URLs valid while rejecting ambiguous generation tags.
 use esp_shazam_core::stream_buffer::{BufferPreset, OutputFormat};
-use esp_shazam_core::stream_http::{request_network_generation, route_for, Route, Status};
+use esp_shazam_core::stream_http::{route_for, Route, Status, StreamRequest};
 #[test]
 fn generation_and_buffer_share_a_strict_query() {
     for query in [
@@ -9,14 +9,16 @@ fn generation_and_buffer_share_a_strict_query() {
         "network_generation=42&buffer=med",
     ] {
         let line = format!("GET /stream.mp3?{query} HTTP/1.1");
-        assert_eq!(request_network_generation(&line).unwrap(), Some(42));
+        assert_eq!(StreamRequest::parse(&line).unwrap().generation, Some(42));
         assert_eq!(
             route_for(&line, OutputFormat::Mp3),
             Route::Buffered(BufferPreset::Medium)
         );
     }
     assert_eq!(
-        request_network_generation("GET /stream.wav HTTP/1.1").unwrap(),
+        StreamRequest::parse("GET /stream.wav HTTP/1.1")
+            .unwrap()
+            .generation,
         None
     );
 }
@@ -30,7 +32,11 @@ fn malformed_generation_and_extra_buffer_fields_are_rejected() {
         "network_generation=1&network_generation=2",
     ] {
         let line = format!("GET /stream.mp3?{query} HTTP/1.1");
-        assert!(request_network_generation(&line).is_err(), "{query}");
+        assert_eq!(
+            StreamRequest::parse(&line),
+            Err(Status::BadRequest),
+            "{query}"
+        );
         assert_eq!(
             route_for(&line, OutputFormat::Mp3),
             Route::Refuse(Status::BadRequest)

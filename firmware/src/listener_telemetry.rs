@@ -535,7 +535,7 @@ mod tests {
                 false,
             )
             .unwrap();
-            let (_, lease) = runtime.admit("GET /stream.flac HTTP/1.1");
+            let (_, lease) = runtime.admit_line("GET /stream.flac HTTP/1.1");
             let resources = ConnectionResources::new(socket, Slot::take(&slots, 2).unwrap(), lease);
             assert!(close_and_report(
                 resources.release(|| 11),

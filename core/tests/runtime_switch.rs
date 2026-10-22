@@ -15,7 +15,7 @@ use stream_runtime::Runtime;
 #[test]
 fn switching_retires_old_ring_and_never_reuses_its_bytes() {
     let (runtime, mut worker) = Runtime::new(OutputFormat::Mp3, false).unwrap();
-    let (_, old) = runtime.admit("GET /stream.mp3 HTTP/1.1");
+    let (_, old) = runtime.admit_line("GET /stream.mp3 HTTP/1.1");
     let old = old.unwrap();
     old.epoch
         .ring
@@ -63,7 +63,7 @@ fn timeout_revokes_commit_and_idle_admission_defers() {
         .is_err());
     assert!(!worker.wait_and_service(&runtime, Duration::from_secs(1)));
     assert_eq!(runtime.active_format(), OutputFormat::Flac);
-    let (_, listener) = runtime.admit("GET /stream.flac HTTP/1.1");
+    let (_, listener) = runtime.admit_line("GET /stream.flac HTTP/1.1");
     let caller = runtime.clone();
     let join = std::thread::spawn(move || {
         caller.switch(
@@ -104,7 +104,7 @@ fn cancelled_play_and_recognition_leave_active_unchanged() {
 #[test]
 fn draining_retired_listener_also_defers_idle_switch() {
     let (runtime, mut worker) = Runtime::new(OutputFormat::Mp3, false).unwrap();
-    let (_, listener) = runtime.admit("GET /stream.mp3 HTTP/1.1");
+    let (_, listener) = runtime.admit_line("GET /stream.mp3 HTTP/1.1");
     let caller = runtime.clone();
     let join = std::thread::spawn(move || {
         caller.switch(
@@ -247,7 +247,7 @@ fn repeated_switches_decode_independently_and_release_unheld_epochs() {
 #[test]
 fn healthy_same_format_play_preserves_compatible_diagnostic_epoch() {
     let (runtime, worker) = Runtime::new(OutputFormat::Flac, false).unwrap();
-    let (_, diagnostic) = runtime.admit("GET /stream.flac HTTP/1.1");
+    let (_, diagnostic) = runtime.admit_line("GET /stream.flac HTTP/1.1");
     let epoch = diagnostic.unwrap().epoch.clone();
     assert!(runtime
         .play_format(OutputFormat::Flac, Arc::new(Mutex::new(true)))
@@ -325,7 +325,7 @@ fn committed_switch_result_wins_when_finalized_after_expiry() {
         Arc::new(move || Duration::from_millis(clock.load(Ordering::Acquire) as u64)),
     )
     .unwrap();
-    let (_, old) = runtime.admit("GET /stream.flac HTTP/1.1");
+    let (_, old) = runtime.admit_line("GET /stream.flac HTTP/1.1");
     let SwitchStart::Pending(pending) = runtime.begin_switch(
         OutputFormat::Mp3,
         true,

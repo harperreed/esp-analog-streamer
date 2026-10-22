@@ -23,7 +23,7 @@ use esp_idf_svc::mdns::EspMdns;
 use esp_idf_svc::sys;
 use esp_shazam_core::stream_buffer::{BufferPreset, OutputFormat};
 use esp_shazam_core::stream_http::{
-    self, DeadlineWriter, Format, ListenerPolicy, Route, Status, WriterDiagnostics,
+    self, DeadlineWriter, Format, ListenerPolicy, Route, Status, StreamRequest, WriterDiagnostics,
 };
 use esp_shazam_core::stream_ring::{Cursor, ReadError};
 use esp_shazam_core::stream_wait::{
@@ -474,34 +474,23 @@ fn answer(
     if !network.is_current(network_lease) {
         return;
     }
-    match stream_http::request_network_generation(&request_line) {
-        Ok(Some(generation)) if generation != network_lease.generation => {
-            refuse(sock, &peer, &request_line, Status::ServiceUnavailable);
+    let request = match StreamRequest::parse(&request_line) {
+        Ok(request) => request,
+        Err(status) => {
+            refuse(sock, &peer, &request_line, status);
             return;
         }
-        Err(_) => {
-            refuse(sock, &peer, &request_line, Status::BadRequest);
-            return;
-        }
-        _ => {}
+    };
+    // A generation tag from another boot's network names a stream this boot never served.
+    if request
+        .generation
+        .is_some_and(|generation| generation != network_lease.generation)
+    {
+        refuse(sock, &peer, &request_line, Status::ServiceUnavailable);
+        return;
     }
-    let sonos_intent = match stream_http::request_sonos_intent(&request_line) {
-        Ok(intent) => intent,
-        Err(_) => {
-            refuse(sock, &peer, &request_line, Status::BadRequest);
-            return;
-        }
-    };
-    // `?exact=1` keeps lag terminal for archive readers; everyone else skips forward and stays.
-    let policy = match stream_http::request_listener_policy(&request_line) {
-        Ok(policy) => policy,
-        Err(_) => {
-            refuse(sock, &peer, &request_line, Status::BadRequest);
-            return;
-        }
-    };
-    let (route, lease) = runtime.admit(&request_line);
-    match route {
+    let (route, lease) = runtime.admit(&request);
+    let (format, preset) = match route {
         // Before any slot, reservation or buffer: a HEAD describes the stream and leaves.
         Route::Head(format) => {
             let head = format.response_head();
@@ -512,122 +501,123 @@ fn answer(
             if let Err(e) = crate::stream_admission::answer_head(&sock, format, HEAD_TIMEOUT) {
                 log::info!("stream: {peer}: response not sent ({e})");
             }
+            return;
         }
-        Route::Stream(_) | Route::Buffered(_) => {
-            let (format, preset) = match route {
-                Route::Stream(format) => (format, None),
-                Route::Buffered(preset) => (
-                    lease
-                        .as_ref()
-                        .expect("compressed lease")
-                        .epoch
-                        .format
-                        .format(),
-                    Some(preset),
-                ),
-                Route::Head(_) | Route::Refuse(_) => unreachable!(),
+        Route::Refuse(status) => {
+            refuse(
+                sock,
+                &peer,
+                &request_line,
+                stream_http::reservation_refusal(status, request.sonos_intent.is_some()),
+            );
+            return;
+        }
+        Route::Stream(format) => (format, None),
+        Route::Buffered(preset) => (
+            lease
+                .as_ref()
+                .expect("compressed lease")
+                .epoch
+                .format
+                .format(),
+            Some(preset),
+        ),
+    };
+    // Reject unsupported close configuration before taking a slot or allocating audio.
+    if let Err(error) = socket_close::configure(&sock) {
+        log::warn!("stream: {peer}: close policy unavailable ({error})");
+        refuse(sock, &peer, &request_line, Status::ServiceUnavailable);
+        return;
+    }
+    // Reconnect waits at most 12 seconds for the prior owner's checked close.
+    // The two admission workers may each spend this finite budget on replacement.
+    let deadline = Instant::now() + Duration::from_secs(12);
+    let slot = if let Some(intent) = request.sonos_intent {
+        loop {
+            let candidate = match peer_address {
+                Some(peer) => match Capacity::admit_request(
+                    listeners,
+                    &request,
+                    peer.ip(),
+                    network_lease.generation,
+                ) {
+                    Ok(candidate) => candidate,
+                    Err(status) => {
+                        refuse(sock, &peer.to_string(), &request_line, status);
+                        return;
+                    }
+                },
+                None => {
+                    refuse(sock, &peer, &request_line, Status::ServiceUnavailable);
+                    return;
+                }
             };
-            // Reject unsupported close configuration before taking a slot or allocating audio.
-            if let Err(error) = socket_close::configure(&sock) {
-                log::warn!("stream: {peer}: close policy unavailable ({error})");
-                refuse(sock, &peer, &request_line, Status::ServiceUnavailable);
+            if candidate.is_some()
+                || !listeners.valid(intent)
+                || Instant::now() >= deadline
+                || !network.is_current(network_lease)
+            {
+                break candidate;
+            }
+            std::thread::sleep(Duration::from_millis(10));
+        }
+    } else {
+        Slot::take(listeners, MAX_LISTENERS)
+    };
+    match slot {
+        Some(slot) => {
+            let connection = ListenerConnection {
+                resources: Some(ConnectionResources::new(sock, slot, lease)),
+                peer: peer_address,
+                reaper: reaper.clone(),
+            };
+            // Required frame storage is admitted before dispatching or sending HTTP 200.
+            // A failed allocation cannot fall back to memory needed by DMA or stacks.
+            if !network.is_current(network_lease) {
                 return;
             }
-            // Reconnect waits at most 12 seconds for the prior owner's checked close.
-            // The two admission workers may each spend this finite budget on replacement.
-            let deadline = Instant::now() + Duration::from_secs(12);
-            let slot = if let Some(intent) = sonos_intent {
-                loop {
-                    let candidate = match peer_address {
-                        Some(peer) => match Capacity::admit_request(
-                            listeners,
-                            &request_line,
-                            peer.ip(),
-                            network_lease.generation,
-                        ) {
-                            Ok(candidate) => candidate,
-                            Err(status) => {
-                                refuse(sock, &peer.to_string(), &request_line, status);
-                                return;
-                            }
-                        },
-                        None => {
-                            refuse(sock, &peer, &request_line, Status::ServiceUnavailable);
-                            return;
-                        }
-                    };
-                    if candidate.is_some()
-                        || !listeners.valid(intent)
-                        || Instant::now() >= deadline
-                        || !network.is_current(network_lease)
-                    {
-                        break candidate;
-                    }
-                    std::thread::sleep(Duration::from_millis(10));
+            let buffer = match ListenerBuffer::try_new(format) {
+                Ok(buffer) => buffer,
+                Err(error) => {
+                    listener_telemetry::send_admitted_refusal(
+                        connection.socket(),
+                        &EVENTS,
+                        connection.peer,
+                        RefusalReason::BufferAllocation(ErrorCode::from(&error)),
+                        HEAD_TIMEOUT,
+                        &Status::ServiceUnavailable.response(),
+                        event_us,
+                    );
+                    return;
                 }
-            } else {
-                Slot::take(listeners, MAX_LISTENERS)
             };
-            match slot {
-                Some(slot) => {
-                    let connection = ListenerConnection {
-                        resources: Some(ConnectionResources::new(sock, slot, lease)),
-                        peer: peer_address,
-                        reaper: reaper.clone(),
-                    };
-                    // Required frame storage is admitted before dispatching or sending HTTP 200.
-                    // A failed allocation cannot fall back to memory needed by DMA or stacks.
-                    if !network.is_current(network_lease) {
-                        return;
-                    }
-                    let buffer = match ListenerBuffer::try_new(format) {
-                        Ok(buffer) => buffer,
-                        Err(error) => {
-                            listener_telemetry::send_admitted_refusal(
-                                connection.socket(),
-                                &EVENTS,
-                                connection.peer,
-                                RefusalReason::BufferAllocation(ErrorCode::from(&error)),
-                                HEAD_TIMEOUT,
-                                &Status::ServiceUnavailable.response(),
-                                event_us,
-                            );
-                            return;
-                        }
-                    };
-                    if !network.is_current(network_lease) {
-                        return;
-                    }
-                    let job = ListenerJob {
-                        connection,
-                        ring: ring.clone(),
-                        buffer,
-                        preset,
-                        policy,
-                        network: network.clone(),
-                        network_lease,
-                    };
-                    if let Err(job) = outputs.try_submit(job) {
-                        send_refusal(
-                            job.connection.socket(),
-                            &peer,
-                            &request_line,
-                            Status::ServiceUnavailable,
-                        );
-                        // Rejection returns ownership; the hand-off runs outside the mailbox lock.
-                        drop(job);
-                        log::error!("stream: output mailbox rejected admitted listener");
-                    }
-                }
-                None => refuse(sock, &peer, &request_line, Status::ServiceUnavailable),
+            if !network.is_current(network_lease) {
+                return;
+            }
+            let job = ListenerJob {
+                connection,
+                ring: ring.clone(),
+                buffer,
+                preset,
+                // `?exact=1` keeps lag terminal for archive readers; everyone else skips
+                // forward and stays.
+                policy: request.policy,
+                network: network.clone(),
+                network_lease,
+            };
+            if let Err(job) = outputs.try_submit(job) {
+                send_refusal(
+                    job.connection.socket(),
+                    &peer,
+                    &request_line,
+                    Status::ServiceUnavailable,
+                );
+                // Rejection returns ownership; the hand-off runs outside the mailbox lock.
+                drop(job);
+                log::error!("stream: output mailbox rejected admitted listener");
             }
         }
-        Route::Refuse(status) => refuse(
-            sock,
-            &peer,
-            &request_line,
-            stream_http::reservation_refusal(status, sonos_intent.is_some()),
-        ),
+        None => refuse(sock, &peer, &request_line, Status::ServiceUnavailable),
     }
 }
 

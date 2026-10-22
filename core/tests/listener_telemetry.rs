@@ -102,7 +102,7 @@ fn blocked_exporter_cannot_delay_real_close_slot_or_format_lease_release() {
     let (socket, _) = listener.accept().unwrap();
     let slots = Arc::new(esp_shazam_core::stream_wait::Capacity::default());
     let (runtime, mut worker) = Runtime::new(OutputFormat::Flac, false).unwrap();
-    let (_, lease) = runtime.admit("GET /stream.flac HTTP/1.1");
+    let (_, lease) = runtime.admit_line("GET /stream.flac HTTP/1.1");
     let resources = ConnectionResources::new(socket, Slot::take(&slots, 2).unwrap(), lease);
     // A full queue is deliberately not drained while actual cleanup runs.
     for n in 2..10 {
@@ -249,7 +249,7 @@ fn real_failed_close_retains_socket_without_false_success_event_after_release() 
     let q = Queue::new();
     let slots = Arc::new(esp_shazam_core::stream_wait::Capacity::default());
     let (runtime, mut worker) = Runtime::new(OutputFormat::Flac, false).unwrap();
-    let (_, lease) = runtime.admit("GET /stream.flac HTTP/1.1");
+    let (_, lease) = runtime.admit_line("GET /stream.flac HTTP/1.1");
     let socket = socket2::Socket::new(
         socket2::Domain::IPV4,
         socket2::Type::STREAM,
@@ -326,7 +326,7 @@ fn real_socket_timeout_and_refusal_reach_close_with_full_queue_and_blocked_expor
         let (socket, address) = listener.accept().unwrap();
         let slots = Arc::new(esp_shazam_core::stream_wait::Capacity::default());
         let (runtime, _worker) = Runtime::new(OutputFormat::Flac, false).unwrap();
-        let (_, lease) = runtime.admit("GET /stream.flac HTTP/1.1");
+        let (_, lease) = runtime.admit_line("GET /stream.flac HTTP/1.1");
         let resources = ConnectionResources::new(socket, Slot::take(&slots, 2).unwrap(), lease);
         if refusal {
             let epoch = &resources.lease.as_ref().unwrap().epoch;
@@ -515,7 +515,7 @@ fn delayed_actual_close_holds_neither_slot_nor_lease_after_hand_off() {
     let (socket, address) = listener.accept().unwrap();
     let slots = Arc::new(esp_shazam_core::stream_wait::Capacity::default());
     let (runtime, mut worker) = Runtime::new(OutputFormat::Flac, false).unwrap();
-    let (_, lease) = runtime.admit("GET /stream.flac HTTP/1.1");
+    let (_, lease) = runtime.admit_line("GET /stream.flac HTTP/1.1");
     let resources = ConnectionResources::new(socket, Slot::take(&slots, 2).unwrap(), lease);
     let (started_tx, started_rx) = std::sync::mpsc::channel();
     let (finish_tx, finish_rx) = std::sync::mpsc::channel();
@@ -834,7 +834,7 @@ fn actual_listener_launch_failure_closes_captured_resources() {
     let slots = Arc::new(esp_shazam_core::stream_wait::Capacity::default());
     let queue = Arc::new(Queue::new());
     let (runtime, mut worker) = Runtime::new(OutputFormat::Flac, false).unwrap();
-    let (_, lease) = runtime.admit("GET /stream.flac HTTP/1.1");
+    let (_, lease) = runtime.admit_line("GET /stream.flac HTTP/1.1");
     let owner = ClosingOwner {
         resources: Some(ConnectionResources::new(
             socket,
@@ -931,10 +931,11 @@ fn sonos_replacement_sends_success_while_the_old_socket_still_drains() {
             .set_read_timeout(Some(Duration::from_secs(1)))
             .unwrap();
         let (replacement_socket, peer) = listener.accept().unwrap();
-        let request = format!(
+        let line = format!(
             "GET /stream.flac?network_generation={}&sonos_intent={intent} HTTP/1.1",
             lease.generation
         );
+        let request = esp_shazam_core::stream_http::StreamRequest::parse(&line).unwrap();
         // First attempt revokes only the owned Sonos connection on reconnect.
         assert!(
             Capacity::admit_request(&slots, &request, peer.ip(), lease.generation)
@@ -970,7 +971,10 @@ fn sonos_replacement_sends_success_while_the_old_socket_still_drains() {
         });
         entered.recv_timeout(Duration::from_secs(1)).unwrap();
         let capacity = slots.clone();
+        let replacement_line = line.clone();
         let replacement = std::thread::spawn(move || {
+            let request =
+                esp_shazam_core::stream_http::StreamRequest::parse(&replacement_line).unwrap();
             let deadline = Instant::now() + Duration::from_secs(1);
             let slot = loop {
                 if let Some(slot) =
