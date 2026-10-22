@@ -151,6 +151,15 @@ class MetricsPollTests(unittest.TestCase):
                     return
                 if behaviour['mode'] == 'slow':
                     time.sleep(behaviour['sleep'])
+                if behaviour['mode'] in ('busy', 'error'):
+                    # The board's own transient (firmware/src/web.rs, /api/metrics) versus a real fault.
+                    body = b'{"error":"metrics_unavailable"}' if behaviour['mode'] == 'busy' else b'{"error":"boom"}'
+                    self.send_response(503 if behaviour['mode'] == 'busy' else 500)
+                    self.send_header('Content-Type', 'application/json')
+                    self.send_header('Content-Length', str(len(body)))
+                    self.end_headers()
+                    self.wfile.write(body)
+                    return
                 body = json.dumps(GOOD_METRICS).encode()
                 self.send_response(200)
                 self.send_header('Content-Type', 'application/json')
@@ -177,6 +186,23 @@ class MetricsPollTests(unittest.TestCase):
         self.assertEqual(value['schema_version'], 1)
         self.assertEqual(poll.polls, 1)
         self.assertEqual(events, [])
+
+    def test_the_boards_503_metrics_unavailable_is_recorded_and_tolerated(self):
+        """sift-cd soak, 2026-10-22, 648 s of 900: one 503 {"error":"metrics_unavailable"} (the metrics cache
+        held by a publisher for a moment) ended the run; it is a dropped answer by another name."""
+        server = self.serve({'mode': 'busy'})
+        clock = Clock()
+        poll, events = self.poller(server, clock)
+        self.assertIsNone(poll())
+        self.assertEqual(events[-1]['kind'], 'metrics_unavailable')
+        self.assertIn('503', events[-1]['error'])
+        self.assertEqual(poll.unavailable, 1)
+
+    def test_any_other_non_200_is_still_a_product_fault(self):
+        server = self.serve({'mode': 'error'})
+        poll, _ = self.poller(server, Clock())
+        with self.assertRaises(ValueError):
+            poll()
 
     def test_a_closed_connection_is_recorded_and_tolerated(self):
         clock = Clock()

@@ -372,7 +372,9 @@ class Transport(unittest.TestCase):
                 if mode == 'maximum': body += b' ' * (dm.MAX_BODY_BYTES - len(body))
                 if mode == 'oversize': body = b' ' * (dm.MAX_BODY_BYTES + 1)
                 if mode == 'malformed': body = b'no'
-                self.send_response(302 if mode == 'redirect' else 200)
+                if mode == 'busy': body = b'{"error":"metrics_unavailable"}'
+                if mode == 'busy-other': body = b'{"error":"something else"}'
+                self.send_response(302 if mode == 'redirect' else 503 if mode.startswith('busy') else 200)
                 self.send_header('Location', '/api/metrics')
                 self.end_headers()
                 try:
@@ -395,6 +397,13 @@ class Transport(unittest.TestCase):
             value = dm.fetch(self.serve(mode), .5)
             self.assertEqual(value['schema_version'], 1)
             if mode == 'measured': self.assertEqual(value['listeners'][1]['skips'], (1 << 64) - 1)
+
+    def test_the_boards_503_is_unavailable_not_a_fault(self):
+        # firmware/src/web.rs answers 503 {"error":"metrics_unavailable"} while a publisher holds the cache.
+        with self.assertRaises(dm.Unavailable):
+            dm.fetch(self.serve('busy'), .5)
+        with self.assertRaises(ValueError):
+            dm.fetch(self.serve('busy-other'), .5)
 
     def test_rejects_wire_failures(self):
         for mode in ['oversize', 'malformed', 'redirect', 'slow']:

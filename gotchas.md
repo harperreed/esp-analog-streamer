@@ -1455,3 +1455,13 @@ Sonos playback died in `mdns_networking: Cannot allocate memory`; without it
 the same image boots with 41.7 KB free. Nothing consumed the topic. The OTA
 health thread exists only while a slot is pending verification. Ticket g5x6
 holds the full memory budget.
+
+## The metrics 503 is a transient, not a fault — 2026-10-22
+
+`GET /api/metrics` answers `503 {"error":"metrics_unavailable"}` when a publisher holds
+the cache's try-lock for the moment of the request (firmware/src/web.rs). The sift-cd
+stall soak died at 648 s of 900 on one such answer because `device_metrics.fetch` raised
+`ValueError` for any non-200. It now raises `device_metrics.Unavailable` (an
+`HTTPException`) for exactly that status and body, which `MetricsPoll` tolerates inside
+its 25 s silence budget like a reset; any other non-200 still fails the run. The real
+answer is the test fixture (`test_stream_soak_state_poll.py`, mode `busy`).

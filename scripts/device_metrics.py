@@ -25,6 +25,13 @@ DEPARTURE_STATS = ('elapsed_us', 'payload_elapsed_us', 'frames_sent', 'bytes_sen
 LISTENER_SKIPS = ('skips', 'frames_skipped', 'last_skip_us')
 # The firmware's serialized response cap, MAX_BODY_BYTES in firmware/src/device_metrics.rs; the measured maximal body is 4383.
 MAX_BODY_BYTES = 4608
+UNAVAILABLE_BODY = b'{"error":"metrics_unavailable"}'
+
+
+class Unavailable(http.client.HTTPException):
+    """The board's own transient answer: 503 with UNAVAILABLE_BODY while a publisher holds the metrics cache
+    (firmware/src/web.rs). A dropped answer by another name, so pollers tolerate it like a reset; any other
+    non-200 status is a product fault and raises ValueError."""
 NETWORK = ('generation', 'connected', 'disconnects')
 CAPTURE_U32 = ('read_frames callbacks queue_overflows software_dropped_frames read_errors restarts '
                'supervisor_restarts overflow_restarts settling_discarded_frames discontinuities '
@@ -220,8 +227,9 @@ def fetch(url, timeout):
         timer.daemon = True; timer.start()
         connection.request('GET', '/api/metrics', headers={'Accept': 'application/json', 'Connection': 'close'})
         response = connection.getresponse()
-        if response.status != 200: raise ValueError('metrics HTTP status unavailable')
         body = response.read(MAX_BODY_BYTES + 1)
+        if response.status == 503 and body.strip() == UNAVAILABLE_BODY: raise Unavailable('metrics 503 metrics_unavailable')
+        if response.status != 200: raise ValueError(f'metrics HTTP status {response.status}')
         if time.monotonic() >= deadline: raise TimeoutError('metrics deadline exceeded')
         if len(body) > MAX_BODY_BYTES: raise ValueError('metrics body too large')
         try: value = json.loads(body)
