@@ -1386,7 +1386,7 @@ pub(crate) fn export_media_progress(raw: &esp_shazam_core::stream_ring::StreamRi
             raw.generation == source.raw_generation && source.source_end <= raw.committed_frames
         })
         .map(|(raw, source)| raw.committed_frames.saturating_sub(source.source_end));
-    let operator_epoch = runtime.health.token() >> 2;
+    let operator_epoch = runtime.health.token().operator_epoch();
     let health = runtime.health.state();
     crate::device_metrics::CACHE.publish_media_progress(
         crate::device_metrics::project_media_progress(

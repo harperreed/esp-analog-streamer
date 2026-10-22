@@ -15,6 +15,36 @@ pub(crate) enum State {
     Recovering,
     Terminal,
 }
+/// One health word: the state in the low two bits, the operator epoch above them. The layout
+/// lives here alone; the CAS in `transition` compares the whole word so a stale-epoch observer
+/// cannot win against a newer operator.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct Token(u32);
+impl Token {
+    const STATE_BITS: u32 = 2;
+    const MAX_OPERATOR_EPOCH: u32 = u32::MAX >> Self::STATE_BITS;
+    fn pack(operator_epoch: u32, state: State) -> Option<Self> {
+        let state = match state {
+            State::Healthy => 0,
+            State::ResetRequested => 1,
+            State::Recovering => 2,
+            State::Terminal => 3,
+        };
+        (operator_epoch <= Self::MAX_OPERATOR_EPOCH)
+            .then_some(Self((operator_epoch << Self::STATE_BITS) | state))
+    }
+    pub(crate) fn state(self) -> State {
+        match self.0 & ((1 << Self::STATE_BITS) - 1) {
+            0 => State::Healthy,
+            1 => State::ResetRequested,
+            2 => State::Recovering,
+            _ => State::Terminal,
+        }
+    }
+    pub(crate) fn operator_epoch(self) -> u32 {
+        self.0 >> Self::STATE_BITS
+    }
+}
 #[derive(Clone, Copy, Debug)]
 pub(crate) struct OutputProgress {
     pub operator_epoch: u32,
@@ -29,55 +59,41 @@ pub(crate) struct HealthGate {
 impl HealthGate {
     pub(crate) fn new() -> Self {
         Self {
-            token: AtomicU32::new(4),
+            token: AtomicU32::new(Token::pack(1, State::Healthy).unwrap().0),
             stamp: AtomicU32::new(0),
             output: std::array::from_fn(|_| AtomicU32::new(0)),
         }
     }
-    pub(crate) fn token(&self) -> u32 {
-        self.token.load(Ordering::SeqCst)
+    pub(crate) fn token(&self) -> Token {
+        Token(self.token.load(Ordering::SeqCst))
     }
     pub(crate) fn state(&self) -> State {
-        match self.token() & 3 {
-            0 => State::Healthy,
-            1 => State::ResetRequested,
-            2 => State::Recovering,
-            _ => State::Terminal,
-        }
+        self.token().state()
     }
     pub(crate) fn healthy(&self) -> bool {
-        self.token() & 3 == 0
+        self.state() == State::Healthy
     }
-    pub(crate) fn transition(&self, expected: u32, state: State) -> bool {
-        let state = match state {
-            State::Healthy => 0,
-            State::ResetRequested => 1,
-            State::Recovering => 2,
-            State::Terminal => 3,
-        };
+    /// Moves `expected` to `state` only if the whole word, epoch included, is still current.
+    pub(crate) fn transition(&self, expected: Token, state: State) -> bool {
+        let next = Token::pack(expected.operator_epoch(), state).expect("epoch already fits");
         self.token
-            .compare_exchange(
-                expected,
-                (expected & !3) | state,
-                Ordering::SeqCst,
-                Ordering::SeqCst,
-            )
+            .compare_exchange(expected.0, next.0, Ordering::SeqCst, Ordering::SeqCst)
             .is_ok()
     }
     pub(crate) fn replace(&self) -> Result<u32, ()> {
         let mut token = self.token();
         loop {
-            let next = (token >> 2)
+            let next = token
+                .operator_epoch()
                 .checked_add(1)
-                .filter(|epoch| *epoch <= u32::MAX >> 2)
-                .ok_or(())?
-                << 2;
+                .and_then(|epoch| Token::pack(epoch, State::Healthy))
+                .ok_or(())?;
             match self
                 .token
-                .compare_exchange(token, next, Ordering::SeqCst, Ordering::SeqCst)
+                .compare_exchange(token.0, next.0, Ordering::SeqCst, Ordering::SeqCst)
             {
-                Ok(_) => return Ok(next >> 2),
-                Err(current) => token = current,
+                Ok(_) => return Ok(next.operator_epoch()),
+                Err(current) => token = Token(current),
             }
         }
     }
@@ -176,8 +192,8 @@ impl Supervisor {
         now_us: u64,
     ) -> Option<Transition> {
         let token = runtime.health.token();
-        let epoch = token >> 2;
-        if token & 3 == 3 {
+        let epoch = token.operator_epoch();
+        if token.state() == State::Terminal {
             return None;
         }
         if self.operator_epoch != epoch {
@@ -223,7 +239,7 @@ impl Supervisor {
                 output_epoch,
                 output_sequence,
                 output_published_us,
-                reset_ack: u64::from(token & 3 == 2),
+                reset_ack: u64::from(token.state() == State::Recovering),
                 enough_input: raw.committed_frames.saturating_sub(source_end)
                     >= block_frames as u64,
             }
@@ -235,7 +251,9 @@ impl Supervisor {
         let state = match action {
             Action::RequestReset => Some(State::ResetRequested),
             Action::Terminal => Some(State::Terminal),
-            Action::None if token & 3 == 2 && self.policy.is_healthy() => Some(State::Healthy),
+            Action::None if token.state() == State::Recovering && self.policy.is_healthy() => {
+                Some(State::Healthy)
+            }
             _ => None,
         };
         state.and_then(|state| {
@@ -319,11 +337,33 @@ mod tests {
     }
 
     #[test]
+    fn token_round_trips_every_state_with_a_nonzero_epoch() {
+        for epoch in [1, 0x1234_5678, Token::MAX_OPERATOR_EPOCH] {
+            for state in [
+                State::Healthy,
+                State::ResetRequested,
+                State::Recovering,
+                State::Terminal,
+            ] {
+                let token = Token::pack(epoch, state).unwrap();
+                assert_eq!(token.state(), state);
+                assert_eq!(token.operator_epoch(), epoch);
+            }
+        }
+        assert_eq!(
+            Token::pack(Token::MAX_OPERATOR_EPOCH + 1, State::Healthy),
+            None
+        );
+        let gate = HealthGate::new();
+        assert_eq!(gate.token(), Token::pack(1, State::Healthy).unwrap());
+    }
+    #[test]
     fn checked_gate_and_publication_identity_never_wrap() {
         let gate = HealthGate::new();
-        gate.token.store(!3u32, Ordering::SeqCst);
+        let last = Token::pack(Token::MAX_OPERATOR_EPOCH, State::Healthy).unwrap();
+        gate.token.store(last.0, Ordering::SeqCst);
         assert!(gate.replace().is_err());
-        assert_eq!(gate.token(), !3u32);
+        assert_eq!(gate.token(), last);
         gate.stamp.store(u32::MAX - 1, Ordering::SeqCst);
         assert!(!gate.publication_available());
     }

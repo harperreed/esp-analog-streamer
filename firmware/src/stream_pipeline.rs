@@ -1,7 +1,7 @@
 // ABOUTME: Runs the production encoder and compressed listener decisions one operation at a time.
 // ABOUTME: Leaves sleeps, socket writes, platform metrics and task effects to their callers.
 use crate::stream_codec as codec;
-use crate::stream_runtime::{Epoch, Runtime, Worker};
+use crate::stream_runtime::{health::State, Epoch, Runtime, Worker};
 use esp_shazam_core::{
     flac_ring::{self, SourceMetadata},
     media_age::{AgeError, MediaAge},
@@ -133,7 +133,7 @@ impl EncoderPump {
         read: impl FnOnce(&mut Cursor, &mut [i32]) -> Result<RawRead, ReadError>,
     ) -> EncoderStep {
         let health_token = runtime.health.token();
-        if health_token & 3 == 3 {
+        if health_token.state() == State::Terminal {
             if worker.service(runtime) {
                 self.cursor = None;
                 self.cursor_wait = None;
@@ -144,7 +144,7 @@ impl EncoderPump {
             }
             return EncoderStep::SleepUntil(now() + CAUGHT_UP_SLEEP);
         }
-        if health_token & 3 == 1 {
+        if health_token.state() == State::ResetRequested {
             if let Err(error) = worker.encoder.reset() {
                 return EncoderStep::Stopped(error);
             }
@@ -163,12 +163,9 @@ impl EncoderPump {
             self.read_wait = None;
             self.source = None;
             self.block_number = 0;
-            if runtime.health.transition(
-                health_token,
-                crate::stream_runtime::health::State::Recovering,
-            ) {
+            if runtime.health.transition(health_token, State::Recovering) {
                 observe(EncoderObservation::HealthAck {
-                    operator_epoch: health_token >> 2,
+                    operator_epoch: health_token.operator_epoch(),
                 });
             }
             observe(EncoderObservation::Reset);
