@@ -14,8 +14,9 @@ use crate::close_reaper::Reaper;
 use crate::encoder_telemetry::{self, EncoderMetrics, RawReadMetrics, Reason, Sample};
 use crate::stream_codec as codec;
 use crate::stream_pipeline::{
-    CompressedListener, ConnectionResources, DrainingSocket, EncoderObservation, EncoderPump,
-    EncoderStep, End, ListenerStep, CAUGHT_UP_SLEEP, CHUNK_FRAMES, FRESH_AUDIO_TIMEOUT,
+    CompressedListener, ConnectionResources, DepartureGuard, DrainingSocket, EncoderObservation,
+    EncoderPump, EncoderStep, End, ListenerStep, CAUGHT_UP_SLEEP, CHUNK_FRAMES,
+    FRESH_AUDIO_TIMEOUT,
 };
 use anyhow::Result;
 use esp_idf_svc::hal::cpu::Core;
@@ -661,10 +662,15 @@ fn listen(
         .expect("listener owns resources")
         .lease;
     let peer = connection.peer;
+    let guard = DepartureGuard {
+        slot,
+        network: &network,
+        lease: network_lease,
+    };
     let started = Instant::now();
     let mut departure = None;
     let end = match buffer {
-        ListenerBuffer::Wav => stream_wav(sock, &ring, peer, &network, network_lease, slot),
+        ListenerBuffer::Wav => stream_wav(sock, &ring, peer, &guard),
         ListenerBuffer::Compressed(mut bytes) => {
             let mut metrics = ListenerMetrics::new(
                 lease
@@ -684,9 +690,7 @@ fn listen(
                 policy,
                 peer,
                 &mut metrics,
-                &network,
-                network_lease,
-                slot,
+                &guard,
                 #[cfg(feature = "listener-frame-state")]
                 frame_state.as_mut(),
             );
@@ -738,12 +742,13 @@ fn read_some(
     cursor: &mut Cursor,
     out: &mut [i32],
     mut metrics: Option<&mut RawReadMetrics>,
-    slot: &Slot,
+    guard: &DepartureGuard<'_>,
 ) -> Result<esp_shazam_core::stream_ring::RawRead, WaitError<ReadError>> {
     let mut receipt = None;
     let wait_started = metrics.as_ref().map(|_| Instant::now());
     let result = read_atomic_fresh_with(FRESH_AUDIO_TIMEOUT, CAUGHT_UP_SLEEP, || {
-        if slot.revoked() {
+        // A departed listener stops waiting; the loop asks the guard for the reason.
+        if guard.departed().is_some() {
             return Err(ReadError::Overrun);
         }
         // Single-read wall time includes preemption, excludes retry sleeps and socket/encoder work.
@@ -785,30 +790,19 @@ fn stream_wav(
     sock: &TcpStream,
     ring: &SharedStreamRing,
     peer: Option<SocketAddr>,
-    network: &Network,
-    lease: NetworkLease,
-    slot: &Slot,
+    guard: &DepartureGuard<'_>,
 ) -> End {
-    if slot.revoked() {
-        return End::Retired;
-    }
-    if !network.is_current(lease) {
-        return End::NetworkChanged;
+    if let Some(end) = guard.departed() {
+        return end;
     }
     let write_limit = frame_write_limit(ring.capacity());
     let Some(mut cursor) = cursor_before(
         ring,
         Instant::now() + FRESH_AUDIO_TIMEOUT,
         CAUGHT_UP_SLEEP,
-        || slot.revoked() || !network.is_current(lease),
+        || guard.departed().is_some(),
     ) else {
-        return if slot.revoked() {
-            End::Retired
-        } else if network.is_current(lease) {
-            End::CaptureStalled
-        } else {
-            End::NetworkChanged
-        };
+        return guard.departed().unwrap_or(End::CaptureStalled);
     };
     let mut writer = DeadlineWriter::new(sock);
     let mut frames = vec![0i32; 2 * CHUNK_FRAMES];
@@ -818,13 +812,9 @@ fn stream_wav(
     let age = esp_shazam_core::media_age::MediaAge::for_stream(None, OutputFormat::Flac);
     let mut oldest = None;
     let observation = crate::listener_observation::REGISTRY.register(event_us());
+    // Each turn asks the guard after its write and after its read; the read's answer opens the
+    // next turn, and the cursor wait above opened the first.
     loop {
-        if slot.revoked() {
-            return End::Retired;
-        }
-        if !network.is_current(lease) {
-            return End::NetworkChanged;
-        }
         let at = event_us();
         let write_started_us = event_us();
         if let (Some(owner), Some(oldest)) = (&observation, oldest) {
@@ -855,21 +845,16 @@ fn stream_wav(
         if oldest.is_some_and(|oldest| age.check(event_us(), oldest).is_err()) {
             return End::MediaAge;
         }
-        if slot.revoked() {
-            return End::Retired;
-        }
-        if !network.is_current(lease) {
-            return End::NetworkChanged;
+        if let Some(end) = guard.departed() {
+            return end;
         }
         if let Err(e) = result {
             return End::from_write_error(e);
         }
-        let result = read_some(ring, &mut cursor, &mut frames, None, slot);
-        if slot.revoked() {
-            return End::Retired;
-        }
-        if !network.is_current(lease) {
-            return End::NetworkChanged;
+        let result = read_some(ring, &mut cursor, &mut frames, None, guard);
+        // A departure cancels the read with Overrun; the guard names it before FellBehind can.
+        if let Some(end) = guard.departed() {
+            return end;
         }
         let frames_read = match result {
             Ok(read) => {
@@ -1188,9 +1173,7 @@ fn stream_compressed(
     policy: ListenerPolicy,
     peer: Option<SocketAddr>,
     metrics: &mut ListenerMetrics,
-    network: &Network,
-    network_lease: NetworkLease,
-    slot: &Slot,
+    guard: &DepartureGuard<'_>,
     #[cfg(feature = "listener-frame-state")] mut frame_state: Option<
         &mut crate::listener_frame_state::Owner<'_>,
     >,
@@ -1203,19 +1186,12 @@ fn stream_compressed(
     let mut payload_started = None;
     let observation = crate::listener_observation::REGISTRY.register(event_us());
     let end = loop {
-        if slot.revoked() {
-            break End::Retired;
-        }
-        if !network.is_current(network_lease) {
-            break End::NetworkChanged;
-        }
-        let action = listener.step_network(
+        let action = listener.step_guarded(
             epoch,
             bytes,
             &mut || Duration::from_micros(event_us()),
             &mut || stream_http::peer_connected(sock).unwrap_or(false),
-            network,
-            network_lease,
+            guard,
         );
         match action {
             ListenerStep::Progress => {}
@@ -1226,12 +1202,6 @@ fn stream_compressed(
             }
             ListenerStep::End(end) => break end,
             ListenerStep::Write { deadline, header } => {
-                if slot.revoked() {
-                    break End::Retired;
-                }
-                if !network.is_current(network_lease) {
-                    break End::NetworkChanged;
-                }
                 let started = Instant::now();
                 #[cfg(feature = "listener-frame-state")]
                 if !header {
@@ -1275,11 +1245,8 @@ fn stream_compressed(
                     metrics.frame_write_wall_total_us += us;
                     metrics.frame_write_wall_max_us = metrics.frame_write_wall_max_us.max(us);
                 }
-                if slot.revoked() {
-                    break End::Retired;
-                }
-                if !network.is_current(network_lease) {
-                    break End::NetworkChanged;
+                if let Some(end) = guard.departed() {
+                    break end;
                 }
                 let succeeded = result.is_ok();
                 if let ListenerStep::End(end) =
@@ -1294,7 +1261,7 @@ fn stream_compressed(
             }
         }
     };
-    if listener.refuse_buffered && network.is_current(network_lease) {
+    if listener.refuse_buffered && guard.network.is_current(guard.lease) {
         listener_telemetry::send_admitted_refusal(
             sock,
             &EVENTS,

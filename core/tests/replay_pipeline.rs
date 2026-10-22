@@ -699,14 +699,26 @@ fn foreign_cursor_error_maps_to_invalid_cursor_without_poisoning_ring() {
 
 #[test]
 fn network_retirement_precedes_buffered_admission_and_http_header() {
-    use esp_shazam_core::{network_lifecycle::Network, stream_buffer::BufferPreset};
-    use stream_pipeline::{CompressedListener, End, ListenerStep};
+    use esp_shazam_core::{
+        network_lifecycle::Network,
+        stream_buffer::BufferPreset,
+        stream_wait::{Capacity, Slot},
+    };
+    use std::sync::Arc;
+    use stream_pipeline::{CompressedListener, DepartureGuard, End, ListenerStep};
     let network = Network::new();
     network.observe(network.snapshot(), Some("192.168.23.99".parse().unwrap()));
     let (_runtime, worker) = Runtime::new(OutputFormat::Mp3, false).unwrap();
+    let capacity = Arc::new(Capacity::default());
+    let slot = Slot::take(&capacity, 2).unwrap();
     for preset in [None, Some(BufferPreset::Medium)] {
         network.observe(network.snapshot(), Some("192.168.23.99".parse().unwrap()));
         let lease = network.lease().unwrap();
+        let guard = DepartureGuard {
+            slot: &slot,
+            network: &network,
+            lease,
+        };
         let mut actor = CompressedListener::new(
             &worker.epoch,
             preset,
@@ -716,26 +728,24 @@ fn network_retirement_precedes_buffered_admission_and_http_header() {
         );
         if preset.is_none() {
             assert!(matches!(
-                actor.step_network(
+                actor.step_guarded(
                     &worker.epoch,
                     &mut [],
                     &mut || Duration::ZERO,
                     &mut || true,
-                    &network,
-                    lease
+                    &guard
                 ),
                 ListenerStep::Progress
             ));
         }
         network.invalidate();
         assert!(matches!(
-            actor.step_network(
+            actor.step_guarded(
                 &worker.epoch,
                 &mut [],
                 &mut || Duration::ZERO,
                 &mut || true,
-                &network,
-                lease
+                &guard
             ),
             ListenerStep::End(End::NetworkChanged)
         ));

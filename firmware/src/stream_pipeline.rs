@@ -351,6 +351,27 @@ impl EncoderPump {
     }
 }
 
+/// Why a listener's turn ends before its socket does, decided in one place: a revoked slot is
+/// `Retired` and outranks a stale network lease, `NetworkChanged`. The listener loops ask this
+/// at the top of each turn and after each socket write, and their waits cancel on it.
+pub(crate) struct DepartureGuard<'a> {
+    pub(crate) slot: &'a esp_shazam_core::stream_wait::Slot,
+    pub(crate) network: &'a esp_shazam_core::network_lifecycle::Network,
+    pub(crate) lease: esp_shazam_core::network_lifecycle::Lease,
+}
+impl DepartureGuard<'_> {
+    /// `Slot::revoked` refreshes the capacity registry first, as every caller relied on.
+    pub(crate) fn departed(&self) -> Option<End> {
+        if self.slot.revoked() {
+            Some(End::Retired)
+        } else if !self.network.is_current(self.lease) {
+            Some(End::NetworkChanged)
+        } else {
+            None
+        }
+    }
+}
+
 /// Why a listener's stream ended.
 #[derive(Debug)]
 pub(crate) enum End {
@@ -528,17 +549,18 @@ impl CompressedListener {
             }
         }
     }
-    pub(crate) fn step_network(
+    /// One turn of the listener loop: the departure guard first, then `step`. The loop asks the
+    /// guard again after each socket write.
+    pub(crate) fn step_guarded(
         &mut self,
         epoch: &Epoch,
         scratch: &mut [u8],
         now: &mut impl FnMut() -> Duration,
         peer_connected: &mut impl FnMut() -> bool,
-        network: &esp_shazam_core::network_lifecycle::Network,
-        lease: esp_shazam_core::network_lifecycle::Lease,
+        guard: &DepartureGuard<'_>,
     ) -> ListenerStep {
-        if !network.is_current(lease) {
-            return self.end(End::NetworkChanged);
+        if let Some(end) = guard.departed() {
+            return self.end(end);
         }
         self.step(epoch, scratch, now, peer_connected)
     }

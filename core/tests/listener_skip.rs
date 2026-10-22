@@ -25,7 +25,7 @@ use std::{
     sync::{Arc, Mutex},
     time::{Duration, Instant},
 };
-use stream_pipeline::{CompressedListener, End, ListenerStep};
+use stream_pipeline::{CompressedListener, DepartureGuard, End, ListenerStep};
 
 use stream_runtime::{Epoch, Runtime, Worker};
 
@@ -346,18 +346,32 @@ fn reset_during_an_owed_skip_is_terminal_and_records_nothing_more() {
 
 #[test]
 fn retirement_network_change_and_encoder_health_precede_a_pending_skip() {
+    use esp_shazam_core::stream_wait::{Capacity, Slot};
     for case in [
         "retired",
         "network",
         "unhealthy",
+        "revoked",
+        "revoked-network",
         "retired-lapped",
         "retired-dropped",
         "network-dropped",
         "unhealthy-dropped",
+        "revoked-dropped",
+        "revoked-network-dropped",
     ] {
         let network = Network::new();
         network.observe(network.snapshot(), Some("192.0.2.9".parse().unwrap()));
         let lease = network.lease().unwrap();
+        let capacity = Arc::new(Capacity::default());
+        // Two plain owners: a pending reservation revokes the newest, which is the guard's.
+        let _older = Slot::take(&capacity, 2).unwrap();
+        let slot = Slot::take(&capacity, 2).unwrap();
+        let guard = DepartureGuard {
+            slot: &slot,
+            network: &network,
+            lease,
+        };
         let (runtime, mut worker) = Runtime::new(OutputFormat::Flac, false).unwrap();
         let epoch = worker.epoch.clone();
         *epoch.ring.lock().unwrap() =
@@ -415,21 +429,22 @@ fn retirement_network_change_and_encoder_health_precede_a_pending_skip() {
                 runtime.health.token(),
                 stream_runtime::health::State::Terminal
             )),
+            // A pending reservation revokes the newest plain slot; a stale lease on top of it
+            // must still read as Retired.
+            "revoked" | "revoked-network" => {
+                revoke_newest(&capacity, &network, lease);
+                if case.starts_with("revoked-network") {
+                    network.invalidate();
+                }
+            }
             _ => unreachable!(),
         }
-        let end = listener.step_network(
-            &epoch,
-            &mut scratch,
-            &mut || time,
-            &mut || true,
-            &network,
-            lease,
-        );
+        let end = listener.step_guarded(&epoch, &mut scratch, &mut || time, &mut || true, &guard);
         assert!(
             matches!(
                 (case.trim_end_matches("-dropped"), &end),
                 (
-                    "retired" | "retired-lapped",
+                    "retired" | "retired-lapped" | "revoked" | "revoked-network",
                     ListenerStep::End(End::Retired)
                 ) | ("network", ListenerStep::End(End::NetworkChanged))
                     | ("unhealthy", ListenerStep::End(End::EncoderUnhealthy))
@@ -445,6 +460,63 @@ fn retirement_network_change_and_encoder_health_precede_a_pending_skip() {
         assert_eq!((listener.skips, listener.frames_skipped), counted, "{case}");
         drop(request);
     }
+}
+
+/// Installs a pending reservation while two plain slots are held, which revokes the newest.
+fn revoke_newest(
+    capacity: &esp_shazam_core::stream_wait::Capacity,
+    network: &Network,
+    lease: esp_shazam_core::network_lifecycle::Lease,
+) {
+    assert!(capacity
+        .reserve(
+            "192.0.2.2".parse().unwrap(),
+            network.clone(),
+            lease,
+            Arc::new(Mutex::new(true)),
+            OutputFormat::Flac,
+            None,
+            std::time::Instant::now(),
+        )
+        .is_some());
+}
+
+/// The guard decides every departure reason: a revoked slot is Retired whether or not the
+/// network lease is stale, a stale lease alone is NetworkChanged, and neither is no departure.
+#[test]
+fn departure_guard_ranks_a_revoked_slot_over_a_stale_lease() {
+    use esp_shazam_core::stream_wait::{Capacity, Slot};
+    type Lease = esp_shazam_core::network_lifecycle::Lease;
+    /// A current lease and two plain slots; the second is the newest, so a reservation revokes it.
+    fn setup() -> (Network, Lease, Arc<Capacity>, [Slot; 2]) {
+        let network = Network::new();
+        network.observe(network.snapshot(), Some("192.0.2.9".parse().unwrap()));
+        let lease = network.lease().unwrap();
+        let capacity = Arc::new(Capacity::default());
+        let older = Slot::take(&capacity, 2).unwrap();
+        let slot = Slot::take(&capacity, 2).unwrap();
+        (network, lease, capacity, [older, slot])
+    }
+    let (network, lease, _capacity, [_older, slot]) = setup();
+    let guard = DepartureGuard {
+        slot: &slot,
+        network: &network,
+        lease,
+    };
+    assert!(guard.departed().is_none());
+    network.invalidate();
+    assert!(matches!(guard.departed(), Some(End::NetworkChanged)));
+
+    let (network, lease, capacity, [_older, slot]) = setup();
+    let guard = DepartureGuard {
+        slot: &slot,
+        network: &network,
+        lease,
+    };
+    revoke_newest(&capacity, &network, lease);
+    assert!(matches!(guard.departed(), Some(End::Retired)));
+    network.invalidate();
+    assert!(matches!(guard.departed(), Some(End::Retired)));
 }
 
 #[test]
