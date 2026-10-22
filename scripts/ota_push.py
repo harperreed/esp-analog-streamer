@@ -52,6 +52,18 @@ def push(host, image, token, timeout):
     return response.status, body.decode('utf-8', 'replace')
 
 
+def answer_line(status, body):
+    """What to print for the board's answer: a refusal's error field plainly (a pending boot answers 409 with one),
+    otherwise the status and raw body."""
+    try:
+        error = json.loads(body).get('error')
+    except (ValueError, AttributeError):
+        error = None
+    if status == 202 or not error:
+        return f'board answered {status}: {body.strip()}'
+    return f'FAIL  board refused ({status}): {error}'
+
+
 def identity(host):
     """The board's (elf sha, boot token) from /api/metrics."""
     with urllib.request.urlopen(f'http://{host}/api/metrics', timeout=3) as response:
@@ -107,9 +119,10 @@ def main(argv=None):
     except OSError as error:
         print(f'FAIL  board unreachable during the upload: {error}', file=sys.stderr)
         return 1
-    print(f'board answered {status}: {body.strip()}')
     if status != 202:
+        print(answer_line(status, body), file=sys.stderr)
         return 1
+    print(answer_line(status, body))
     (seen_sha, seen_boot), seconds = wait_for_board(args.host, description['elf_sha256'], args.wait, boot_before)
     if seen_sha == description['elf_sha256'] and seen_boot != boot_before:
         print(f'OK    board restarted into elf {seen_sha[:16]}… (boot {str(seen_boot)[:8]}) after {seconds} s')

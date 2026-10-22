@@ -174,6 +174,7 @@ mod device {
                 Ok(Err(crate::ota::Refusal::Token)) => (401, error_json("missing or wrong X-Ota-Token")),
                 Ok(Err(crate::ota::Refusal::Length)) => (411, error_json("Content-Length required")),
                 Ok(Err(crate::ota::Refusal::Busy)) => (409, error_json("another upload is in progress")),
+                Ok(Err(crate::ota::Refusal::Pending)) => (409, error_json("running image not yet validated; retry after the health mark")),
                 Ok(Err(crate::ota::Refusal::Image(error))) => {
                     let code = if matches!(error, esp_shazam_core::ota_image::ImageError::TooLarge { .. }) { 413 } else { 400 };
                     (code, error_json(error))

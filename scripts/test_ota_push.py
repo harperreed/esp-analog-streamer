@@ -56,6 +56,19 @@ class MainTests(unittest.TestCase):
         self.assertIn('unreachable', err.getvalue())
 
 
+class AnswerTests(unittest.TestCase):
+    # The board's 409 while its running image is still pending verification (firmware/src/web.rs, Refusal::Pending).
+    PENDING = '{"error":"running image not yet validated; retry after the health mark"}'
+
+    def test_a_refusal_prints_its_reason_plainly(self):
+        self.assertEqual(ota_push.answer_line(409, self.PENDING), 'FAIL  board refused (409): running image not yet validated; retry after the health mark')
+
+    def test_acceptance_and_bodies_without_a_reason_print_as_is(self):
+        self.assertEqual(ota_push.answer_line(202, '{"accepted":true}\n'), 'board answered 202: {"accepted":true}')
+        self.assertEqual(ota_push.answer_line(500, '<html>oops</html>'), 'board answered 500: <html>oops</html>')
+        self.assertEqual(ota_push.answer_line(404, ''), 'board answered 404: ')
+
+
 class WaitTests(unittest.TestCase):
     def test_wait_returns_when_the_board_reports_the_pushed_sha_from_a_new_boot(self):
         clock = [0.0]

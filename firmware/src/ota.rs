@@ -41,6 +41,8 @@ pub enum Refusal {
     Busy,
     Disabled,
     Length,
+    /// The running image has not marked itself valid yet; `esp_ota_begin` refuses the update slot until it does.
+    Pending,
 }
 
 #[derive(serde::Serialize)]
@@ -201,7 +203,13 @@ pub fn upload(
     let Some(mut guard) = try_claim()? else {
         return Ok(Err(Refusal::Busy));
     };
-    stream(open(&mut guard)?, declared, &mut read)
+    let ota = open(&mut guard)?;
+    // ESP-IDF refuses esp_ota_begin while this boot is still proving itself (ESP_ERR_OTA_ROLLBACK_INVALID_STATE).
+    // Judged here, from otadata, before the body is read: the pusher then gets a status instead of a closed socket.
+    if matches!(ota.get_running_slot()?.state, SlotState::Unverified) {
+        return Ok(Err(Refusal::Pending));
+    }
+    stream(ota, declared, &mut read)
 }
 
 fn fill(
