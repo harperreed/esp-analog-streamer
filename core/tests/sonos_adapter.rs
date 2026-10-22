@@ -1,8 +1,6 @@
 // ABOUTME: Runs the firmware Sonos adapter's host-safe boundary tests in canonical checks.
-// ABOUTME: Exercises real message assembly, scope, freshness and receive-budget logic.
+// ABOUTME: Exercises the HTTP transport-state mapping and the owned-URI check.
 
-// The included firmware module owns the diagnostic-only feature; core does not expose it.
-#[allow(unexpected_cfgs)]
 #[path = "../../firmware/src/sonos.rs"]
 pub mod sonos;
 

@@ -20,8 +20,6 @@ mod socket_close;
 mod sonos;
 #[cfg(feature = "startup-capture-trace")]
 mod startup_capture_trace;
-#[cfg(feature = "sonos-fixture")]
-pub use sonos::check_transport;
 mod stream;
 mod stream_admission;
 mod stream_codec;

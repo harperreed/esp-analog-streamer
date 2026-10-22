@@ -44,8 +44,6 @@ metrics-state-crossover = []
 encoder-probe = ["esp-shazam-core/encoder-probe", "esp-shazam-mp3/encoder-probe"]
 # Declared for shared host runtime models; core rejects this feature on ESP-IDF.
 listener-loom = ["esp-shazam-core/listener-loom"]
-# Explicitly built receive-only TLS adversarial diagnostic; absent from normal firmware.
-sonos-fixture = []
 # Explicit delayed-reader diagnostic; its copy hook is absent from normal firmware.
 capture-fixture = ["esp-shazam-core/capture-fixture"]
 
@@ -68,10 +66,6 @@ embuild = "=0.33.5"
 # esp-idf-sys doesn't watch this file: after changing this entry, touch sdkconfig.defaults (gotchas.md).
 [[package.metadata.esp-idf-sys.extra_components]]
 remote_component = { name = "espressif/mdns", version = "1.8.2" }
-
-# Preserve the pinned IDF and svc versions; 1.8.0 supports IDF >=5.0.
-[[package.metadata.esp-idf-sys.extra_components]]
-remote_component = { name = "espressif/esp_websocket_client", version = "1.8.0" }
 
 # Its own workspace: the host workspace at the repo root excludes firmware/.
 [workspace]
