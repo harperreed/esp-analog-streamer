@@ -85,3 +85,27 @@ Image `f6da5baf…` (6359e6f, office cfg); raw captures `target/kata-hardening/s
 - Not run: a Shazam match on this board (recognition is off by cfg; 3k3g is covered by
   the host tests and leaves the `/api/state` shape untouched), the `flac-cost` example
   (needs a flash; 64yy's bytes are proven identical by the decode tests).
+
+## Batch E (62a5, rmve, 4m9h) and the harness fix, office board, 2026-10-22 18:03 to 18:08 UTC
+
+Image `3fc37e22…` (6e2bc56, office cfg: the WebSocket layer deleted); raw captures
+`target/kata-hardening/sift-e/`.
+
+- Push restarted the board 7.6 s after the 202 and the slot validated at 70 s; the image
+  without the retired transport boots, serves and answers every API as before (4m9h).
+- Admission probe with Sonos control off (62a5): play, discover, select, autoplay,
+  format and buffer each answered 409 "Sonos control is off; turn it on in Settings";
+  stop and enable answered 202; config and state unchanged afterwards. The gate's
+  shape (everything but Enable and Stop refused while off) is the same as at 3b99cb3.
+- Side finding: the admitted stop/enable(false) spawn the 16 KiB Sonos worker through
+  `ensure_started()`, dropping `internal_free` from 47.6 KB to 29.6 KB (largest block
+  23.5 KB) for the rest of the boot. Pre-existing; filed as `k4qv`.
+- `scripts/sonos-http-check` (rmve's hardware proof of the `Session` wiring) could not
+  run: the office coordinator "Altec + 3" (192.168.23.205) reported `PLAYING` and the
+  harness requires it STOPPED; stopping someone's playback is not this session's call.
+  Host coverage: the extracted `Session` transitions and the admission function are
+  unit-tested; `Worker::poll`, `stop`, `fail` and `play_current` compile only on the
+  target and remain to be proven by the harness when the speaker is free. Sonos control
+  on the office board was switched back off afterwards.
+- Harness: the 503 `metrics_unavailable` gap found by the first C+D soak is fixed in
+  43468d9 (`device_metrics.Unavailable`, tolerated by `MetricsPoll`'s silence budget).
