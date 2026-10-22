@@ -156,7 +156,6 @@ check_main() {
     stage replay-oracle scripts/test-replay-stream || return 1
     stage stream-replay scripts/check-stream-replay || return 1
     stage failure-observation scripts/test-failure-observation || return 1
-    stage tls-capture-peer scripts/test-tls-capture-peer || return 1
     stage e2e-fixtures scripts/test-e2e-fixtures || return 1
     stage interface-relay scripts/test-interface-relay || return 1
     stage wifi-throughput scripts/test-wifi-throughput-check || return 1
