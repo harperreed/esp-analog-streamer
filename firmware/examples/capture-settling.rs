@@ -9,18 +9,10 @@ use esp_idf_svc::hal::peripherals::Peripherals;
 use esp_idf_svc::hal::units::FromValueType;
 use esp_idf_svc::sys;
 use esp_shazam_core::audio::samples_from_i2s_slots;
+use esp_shazam_firmware::{codec, config, i2s_capture, threads};
 
-#[path = "../src/codec.rs"]
-mod codec;
-#[allow(dead_code)]
-#[path = "../src/config.rs"]
-mod config;
-#[path = "../src/i2s_capture.rs"]
-mod i2s_capture;
 #[path = "capture-settling/stats.rs"]
 mod stats;
-#[path = "../src/threads.rs"]
-mod threads;
 
 use stats::ChannelStats;
 

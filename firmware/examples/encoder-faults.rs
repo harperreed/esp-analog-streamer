@@ -11,9 +11,8 @@
 // Always restore production after this separate hardware fixture.
 
 use esp_idf_svc::{hal::cpu::Core, sys};
+use esp_shazam_firmware::threads;
 use std::time::{Duration, Instant};
-#[path = "../src/threads.rs"]
-mod threads;
 
 struct Suspended(sys::TaskHandle_t);
 impl Drop for Suspended {

@@ -15,21 +15,7 @@ use esp_idf_svc::hal::peripherals::Peripherals;
 use esp_idf_svc::nvs::EspDefaultNvsPartition;
 use esp_idf_svc::sys;
 use esp_shazam_core::stream_http::DeadlineWriter;
-
-// Reuse the complete production configuration module; policy helpers are unused here.
-#[allow(dead_code)]
-#[path = "../src/config.rs"]
-mod config;
-// Reuse Wi-Fi setup unchanged; clock and mDNS helpers are unused in this fixture.
-#[allow(dead_code)]
-#[path = "../src/net.rs"]
-mod net;
-#[path = "../src/psram.rs"]
-mod psram;
-#[path = "../src/socket_close.rs"]
-mod socket_close;
-#[path = "../src/threads.rs"]
-mod threads;
+use esp_shazam_firmware::{config, net, psram, socket_close, threads};
 
 const PORT: u16 = 8675;
 // Current quiet-input production delivery was approximately 133,480 B/s per peer.

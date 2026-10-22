@@ -11,11 +11,10 @@ use std::time::Duration;
 use esp_idf_svc::hal::cpu::Core;
 use esp_idf_svc::sys;
 use esp_shazam_core::flac::{Encoder, BLOCK_FRAMES, CHANNELS, MAX_FRAME_BYTES};
+use esp_shazam_firmware::threads;
 
 #[path = "flac-cost/contract.rs"]
 mod contract;
-#[path = "../src/threads.rs"]
-mod threads;
 
 const BLOCKS: usize = 128;
 const CHUNK_SAMPLES: usize = 240 * CHANNELS;

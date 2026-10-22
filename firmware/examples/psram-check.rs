@@ -6,9 +6,7 @@ use std::time::Duration;
 
 use esp_idf_svc::sys;
 use esp_shazam_core::flac::MAX_FRAME_BYTES;
-
-#[path = "../src/psram.rs"]
-mod psram;
+use esp_shazam_firmware::psram;
 
 const CHUNK_BYTES: usize = 16 * 1024;
 const MAX_CHUNKS: usize = 320;

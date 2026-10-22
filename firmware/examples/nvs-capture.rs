@@ -11,12 +11,7 @@ use std::time::Duration;
 
 use esp_idf_svc::hal::cpu::Core;
 use esp_idf_svc::sys::{self, esp};
-
-#[allow(dead_code)] // The diagnostic needs only the ordinary build-time recognition flag.
-#[path = "../src/config.rs"]
-mod config;
-#[path = "../src/threads.rs"]
-mod threads;
+use esp_shazam_firmware::{config, threads};
 
 const _: () = assert!(
     !config::CONFIG.shazam_enabled,

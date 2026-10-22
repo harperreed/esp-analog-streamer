@@ -6,17 +6,17 @@ mod capture_failure_telemetry;
 #[cfg(feature = "capture-fixture")]
 mod capture_fixture;
 mod close_reaper;
-mod codec;
-mod config;
-mod i2s_capture;
+pub mod codec;
+pub mod config;
+pub mod i2s_capture;
 mod input_gain;
 mod listener_telemetry;
-mod net;
+pub mod net;
 mod ota;
-mod psram;
+pub mod psram;
 mod recognizer;
 mod shazam_http;
-mod socket_close;
+pub mod socket_close;
 mod sonos;
 #[cfg(feature = "startup-capture-trace")]
 mod startup_capture_trace;
@@ -26,7 +26,7 @@ mod stream_codec;
 mod stream_pipeline;
 mod stream_runtime;
 mod stream_workers;
-mod threads;
+pub mod threads;
 mod web;
 
 use std::sync::{Arc, Mutex};

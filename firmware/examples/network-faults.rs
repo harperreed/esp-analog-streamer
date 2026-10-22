@@ -12,8 +12,7 @@ use std::time::Duration;
 use esp_idf_svc::hal::cpu::Core;
 use esp_idf_svc::sys;
 
-#[path = "../src/threads.rs"]
-mod threads;
+use esp_shazam_firmware::threads;
 
 fn main() -> anyhow::Result<()> {
     threads::ThreadSpec {
