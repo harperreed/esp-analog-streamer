@@ -13,9 +13,11 @@
   the page leads with the stream and a browser player, format and buffer
   changes are allowed while Sonos is off, history hides and the status
   line reports audio presence when recognition is off.
-- Next: g5x6 (stack table on a UART, PSRAM stacks for flash-free tasks,
-  a 24 KB floor flagged on the telemetry line); the office board onto the
-  OTA layout when it is back on USB; rollback on a hang.
+- Next: g5x6 (PSRAM stacks for flash-free tasks, a 24 KB floor flagged
+  on the telemetry line; the stack table is in
+  `docs/audit-evidence/2026-10-22/stack-headroom.md`); rollback on a
+  hang; the S3 port (p6s9) when the parts land. The office board is on
+  the OTA layout since 2026-10-21 and took its first OTA on 2026-10-22.
 - Open: none
 - Approved: "can we add OTA firmware updates" and "Shared token in cfg.toml
   (Recommended)" (2026-10-20)
