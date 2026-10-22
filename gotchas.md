@@ -1144,6 +1144,8 @@ is superseded; do not keep asking for it or resume the failed TLS experiments.
 Preserve standalone board controls, format/buffer settings and intent admission.
 SOAP URI checks are not atomic ownership; Stop policy was asked separately and
 automatic recovery must not reclaim a changed source. See the sonos-http plan.
+The WebSocket session layer, its TLS fixture, both examples and the root bundle
+were deleted on 2026-10-22 with Doctor Biz's permission (ticket 4m9h).
 
 A compressed frame's actual write budget can be shorter than its nominal socket
 allowance because media age clips the deadline. Record both, with their units;
