@@ -2,10 +2,6 @@
 // ABOUTME: Keeps owner baselines and probe progression independent of queue loss.
 use crate::listener_telemetry::ErrorCode;
 use esp_shazam_core::stream_buffer::OutputFormat;
-use std::sync::{
-    atomic::{AtomicBool, AtomicU32, Ordering},
-    Mutex, TryLockError,
-};
 #[derive(Clone, Copy, Debug, Default)]
 pub(crate) struct RawReadMetrics {
     pub calls: u64,
@@ -133,83 +129,9 @@ pub(crate) struct Record {
     pub window: u64,
     pub payload: Payload,
 }
-pub(crate) struct Queue {
-    storage: Mutex<([Option<Record>; 2], usize, usize)>,
-    dropped: AtomicU32,
-    dropped_full: AtomicU32,
-    dropped_contended: AtomicU32,
-    dropped_poisoned: AtomicU32,
-    loss_occurred: AtomicBool,
-}
-impl Queue {
-    pub const fn new() -> Self {
-        Self {
-            storage: Mutex::new(([None; 2], 0, 0)),
-            dropped: AtomicU32::new(0),
-            dropped_full: AtomicU32::new(0),
-            dropped_contended: AtomicU32::new(0),
-            dropped_poisoned: AtomicU32::new(0),
-            loss_occurred: AtomicBool::new(false),
-        }
-    }
-    /// Initialize ESP's lazily allocated pthread mutex before capture, metrics or stream tasks start.
-    /// Allocation and waiting may occur here; owner publication only uses the initialized try_lock.
-    pub fn initialize(&self) {
-        drop(
-            self.storage
-                .lock()
-                .expect("encoder telemetry startup mutex"),
-        );
-    }
-    pub fn publish(&self, record: Record) -> bool {
-        let reason = match self.storage.try_lock() {
-            Ok(mut storage) => {
-                if storage.2 < 2 {
-                    let tail = (storage.1 + storage.2) % 2;
-                    storage.0[tail] = Some(record);
-                    storage.2 += 1;
-                    return true;
-                }
-                &self.dropped_full
-            }
-            Err(TryLockError::WouldBlock) => &self.dropped_contended,
-            Err(TryLockError::Poisoned(_)) => &self.dropped_poisoned,
-        };
-        reason.fetch_add(1, Ordering::Relaxed);
-        self.invalidate();
-        self.dropped.fetch_add(1, Ordering::Relaxed);
-        false
-    }
-    pub fn invalidate(&self) {
-        self.loss_occurred.store(true, Ordering::Relaxed);
-    }
-    pub fn take(&self) -> Option<Record> {
-        let mut storage = self.storage.try_lock().ok()?;
-        if storage.2 == 0 {
-            return None;
-        }
-        let head = storage.1;
-        let record = storage.0[head].take();
-        storage.1 = (head + 1) % 2;
-        storage.2 -= 1;
-        record
-    }
-    pub fn dropped(&self) -> u32 {
-        self.dropped.load(Ordering::Relaxed)
-    }
-    pub fn dropped_full(&self) -> u32 {
-        self.dropped_full.load(Ordering::Relaxed)
-    }
-    pub fn dropped_contended(&self) -> u32 {
-        self.dropped_contended.load(Ordering::Relaxed)
-    }
-    pub fn dropped_poisoned(&self) -> u32 {
-        self.dropped_poisoned.load(Ordering::Relaxed)
-    }
-    pub fn loss_occurred(&self) -> bool {
-        self.loss_occurred.load(Ordering::Relaxed)
-    }
-}
+/// Encoder receipts: windows, owner boundaries, failures and health transitions. Two deep: the
+/// metrics owner drains two per iteration and the producer publishes at most one per window.
+pub(crate) type Queue = crate::listener_telemetry::EventQueue<Record, 2>;
 pub(crate) static EVENTS: Queue = Queue::new();
 /// Maps actual pump outcomes and its successful reset observation to one owner boundary.
 pub(crate) fn boundary_reason(
@@ -396,53 +318,13 @@ impl EncoderMetrics {
         })
     }
 }
-#[cfg(test)]
+#[cfg(all(test, feature = "encoder-probe"))]
 mod tests {
     use super::*;
-    fn record(n: u64) -> Record {
-        Record {
-            event_us: n,
-            epoch: 0,
-            window: n,
-            payload: Payload::Failure(ErrorCode::from(&std::io::Error::other("terminal"))),
-        }
-    }
-    #[test]
-    fn queue_counts_full_contended_poisoned_and_sticky_wrap_without_waiting() {
-        let q = Queue::new();
-        assert!(q.publish(record(1)));
-        assert!(q.publish(record(2)));
-        assert!(!q.publish(record(3)));
-        assert_eq!(q.take().unwrap().event_us, 1);
-        assert_eq!(q.take().unwrap().event_us, 2);
-        let guard = q.storage.lock().unwrap();
-        assert!(!q.publish(record(4)));
-        assert!(q.take().is_none());
-        drop(guard);
-        assert_eq!(
-            (
-                q.dropped(),
-                q.dropped_full(),
-                q.dropped_contended(),
-                q.dropped_poisoned()
-            ),
-            (2, 1, 1, 0)
-        );
-        let _ = std::panic::catch_unwind(|| {
-            let _guard = q.storage.lock().unwrap();
-            panic!("poison storage");
-        });
-        q.dropped.store(u32::MAX, Ordering::Relaxed);
-        assert!(!q.publish(record(5)));
-        assert_eq!((q.dropped(), q.dropped_poisoned()), (0, 1));
-        assert!(q.loss_occurred());
-        assert!(q.take().is_none());
-    }
-    #[cfg(feature = "encoder-probe")]
     #[test]
     fn contended_publication_still_advances_actual_probe_and_clears_spans() {
         let q = Queue::new();
-        let guard = q.storage.lock().unwrap();
+        let guard = q.hold();
         let mut owner = EncoderMetrics::new(Sample {
             us: 0,
             runtime: 0,

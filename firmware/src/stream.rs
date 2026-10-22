@@ -33,6 +33,7 @@ use esp_shazam_core::wav;
 
 use crate::audio_in::{SharedStreamRing, CAPTURE_RATE_HZ};
 use crate::config::CONFIG;
+use crate::device_metrics::LossReceipt;
 use crate::listener_observation::SkipCounters;
 use crate::listener_telemetry::{
     self, Departure, EndCode, ErrorCode, Payload, Record, RefusalReason, EVENTS,
@@ -1547,26 +1548,36 @@ pub(crate) fn export_listener_events() {
             }
         }
     }
-    // Emit after each nonempty batch or whenever loss changed, including a poisoned queue.
-    static LAST_DROPPED: AtomicU32 = AtomicU32::new(0);
-    let dropped = EVENTS.dropped();
-    let loss_changed = LAST_DROPPED.swap(dropped, Ordering::Relaxed) != dropped;
-    static LOSS_REPORTED: AtomicU32 = AtomicU32::new(0);
-    let first_loss = EVENTS.loss_occurred() && LOSS_REPORTED.swap(1, Ordering::Relaxed) == 0;
-    if first.is_some() || loss_changed || first_loss {
-        // SAFETY: this call runs on the live audio-metrics owner, once per exported batch.
-        let stack_free_bytes = unsafe { sys::uxTaskGetStackHighWaterMark(std::ptr::null_mut()) };
-        let loss_occurred = EVENTS.loss_occurred();
-        let observed_device_us = event_us();
-        crate::device_metrics::CACHE.publish_listener_loss(crate::device_metrics::Loss {
-            observed_device_us,
-            dropped,
-            loss_occurred,
-            metrics_stack_free_bytes: Some(stack_free_bytes),
-        });
-        log::info!("listener-telemetry: dropped={} loss_occurred={} observed_event_range_valid={} observed_event_min_us={} observed_event_max_us={} record_bytes={} queue_bytes={} metrics_stack_free_bytes={} export_us={} dropped_full={} dropped_contended={} dropped_poisoned={}",
-            dropped, loss_occurred, first.is_some(), first.unwrap_or(0), last.unwrap_or(0), std::mem::size_of::<Record>(), std::mem::size_of::<listener_telemetry::Queue>(), stack_free_bytes, observed_device_us, EVENTS.dropped_full(), EVENTS.dropped_contended(), EVENTS.dropped_poisoned());
+    static LISTENER_LOSS: LossReceipt = LossReceipt::new();
+    if let Some(loss) =
+        LISTENER_LOSS.observe(&EVENTS, first.is_some(), event_us, metrics_stack_free_bytes)
+    {
+        crate::device_metrics::CACHE.publish_listener_loss(loss);
+        log_loss_receipt("listener-telemetry", &EVENTS, &loss, first, last);
     }
+}
+
+/// The metrics owner's minimum free stack, sampled once per emitted loss receipt.
+fn metrics_stack_free_bytes() -> u32 {
+    // SAFETY: this runs on the live audio-metrics owner; IDF reports its headroom in bytes.
+    unsafe { sys::uxTaskGetStackHighWaterMark(std::ptr::null_mut()) }
+}
+
+/// The loss receipt line both exporters print; `prefix` names the queue for the harness parsers,
+/// and `record_bytes`/`queue_bytes` are the layout the host tests print for comparison.
+fn log_loss_receipt<T: Copy, const N: usize>(
+    prefix: &str,
+    queue: &listener_telemetry::EventQueue<T, N>,
+    loss: &crate::device_metrics::Loss,
+    first: Option<u64>,
+    last: Option<u64>,
+) {
+    log::info!("{prefix}: dropped={} loss_occurred={} observed_event_range_valid={} observed_event_min_us={} observed_event_max_us={} record_bytes={} queue_bytes={} metrics_stack_free_bytes={} export_us={} dropped_full={} dropped_contended={} dropped_poisoned={}",
+        loss.dropped, loss.loss_occurred, first.is_some(), first.unwrap_or(0), last.unwrap_or(0),
+        std::mem::size_of::<T>(), std::mem::size_of::<listener_telemetry::EventQueue<T, N>>(),
+        // `observe` always samples the stack; the JSON keeps the Option for an unavailable sample.
+        loss.metrics_stack_free_bytes.unwrap_or(0), loss.observed_device_us,
+        queue.dropped_full(), queue.dropped_contended(), queue.dropped_poisoned());
 }
 
 /// Dequeues before rendering; the metrics owner spends at most two records per iteration.
@@ -1597,26 +1608,12 @@ fn export_encoder_records() -> (Option<u64>, Option<u64>) {
 #[inline(never)]
 fn render_encoder_batch(first: &Option<u64>, last: &Option<u64>) {
     use encoder_telemetry::EVENTS;
-    static LAST_DROPPED: AtomicU32 = AtomicU32::new(0);
-    static LOSS_REPORTED: AtomicU32 = AtomicU32::new(0);
-    let dropped = EVENTS.dropped();
-    let changed = LAST_DROPPED.swap(dropped, Ordering::Relaxed) != dropped;
-    let first_loss = EVENTS.loss_occurred() && LOSS_REPORTED.swap(1, Ordering::Relaxed) == 0;
-    if first.is_some() || changed || first_loss {
-        // SAFETY: this is the live metrics owner, and IDF reports its minimum free stack in bytes.
-        let stack_free_bytes = unsafe { sys::uxTaskGetStackHighWaterMark(std::ptr::null_mut()) };
-        let loss_occurred = EVENTS.loss_occurred();
-        let observed_device_us = event_us();
-        crate::device_metrics::CACHE.publish_encoder_loss(crate::device_metrics::Loss {
-            observed_device_us,
-            dropped,
-            loss_occurred,
-            metrics_stack_free_bytes: Some(stack_free_bytes),
-        });
-        log::info!("encoder-telemetry: dropped={} loss_occurred={} observed_event_range_valid={} observed_event_min_us={} observed_event_max_us={} record_bytes={} queue_bytes={} metrics_stack_free_bytes={} export_us={} dropped_full={} dropped_contended={} dropped_poisoned={}",
-            dropped, loss_occurred, first.is_some(), first.unwrap_or(0), last.unwrap_or(0),
-            std::mem::size_of::<encoder_telemetry::Record>(), std::mem::size_of::<encoder_telemetry::Queue>(),
-            stack_free_bytes, observed_device_us, EVENTS.dropped_full(), EVENTS.dropped_contended(), EVENTS.dropped_poisoned());
+    static ENCODER_LOSS: LossReceipt = LossReceipt::new();
+    if let Some(loss) =
+        ENCODER_LOSS.observe(&EVENTS, first.is_some(), event_us, metrics_stack_free_bytes)
+    {
+        crate::device_metrics::CACHE.publish_encoder_loss(loss);
+        log_loss_receipt("encoder-telemetry", &EVENTS, &loss, *first, *last);
     }
 }
 #[inline(never)]

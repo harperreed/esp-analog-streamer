@@ -1,8 +1,10 @@
 // ABOUTME: Copies existing owner observations into a bounded numeric metrics cache.
 // ABOUTME: Serializes snapshots after releasing the cache mutex.
 use crate::device_metrics_identity::{Hex, Identity};
+use crate::listener_telemetry::EventQueue;
 use esp_shazam_core::stream_buffer::{BufferPreset, OutputFormat};
 use std::io::Write;
+use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use std::sync::{Mutex, TryLockError};
 #[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize)]
 pub(crate) struct Capture {
@@ -86,6 +88,45 @@ pub(crate) struct Loss {
     pub dropped: u32,
     pub loss_occurred: bool,
     pub metrics_stack_free_bytes: Option<u32>,
+}
+/// When an exporter owes a loss receipt for one queue: after a nonempty batch, when the dropped
+/// count changed (a poisoned queue included), or on the first sticky loss. The flag can be set
+/// without a drop (the encoder's probe window exhaustion), so the first-loss case does not read
+/// the counter. One receipt per queue: `reported` belongs to that queue's flag.
+pub(crate) struct LossReceipt {
+    last_dropped: AtomicU32,
+    reported: AtomicBool,
+}
+impl LossReceipt {
+    pub const fn new() -> Self {
+        Self {
+            last_dropped: AtomicU32::new(0),
+            reported: AtomicBool::new(false),
+        }
+    }
+    /// `now` and `stack_free` run only when a receipt is due: the stack sample is an IDF call.
+    pub fn observe<T: Copy, const N: usize>(
+        &self,
+        queue: &EventQueue<T, N>,
+        batch_nonempty: bool,
+        now: impl FnOnce() -> u64,
+        stack_free: impl FnOnce() -> u32,
+    ) -> Option<Loss> {
+        let dropped = queue.dropped();
+        let changed = self.last_dropped.swap(dropped, Ordering::Relaxed) != dropped;
+        let loss_occurred = queue.loss_occurred();
+        let first_loss = loss_occurred && !self.reported.swap(true, Ordering::Relaxed);
+        if !(batch_nonempty || changed || first_loss) {
+            return None;
+        }
+        let metrics_stack_free_bytes = Some(stack_free());
+        Some(Loss {
+            observed_device_us: now(),
+            dropped,
+            loss_occurred,
+            metrics_stack_free_bytes,
+        })
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize)]

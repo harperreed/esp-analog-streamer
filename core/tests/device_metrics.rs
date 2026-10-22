@@ -922,3 +922,48 @@ fn listener_slots_carry_skip_counters_while_owned_and_null_when_idle() {
         assert!(idle["listeners"][0][key].is_null(), "{key}");
     }
 }
+
+/// The emit rule both exporters share: a receipt after a nonempty batch, when the dropped count
+/// changed on an empty batch, or on the first sticky loss even with the counter unchanged.
+#[test]
+fn loss_receipt_emits_after_a_batch_a_changed_count_or_the_first_sticky_loss() {
+    let queue = encoder_telemetry::Queue::new();
+    let receipt = LossReceipt::new();
+    assert_eq!(
+        receipt.observe(&queue, true, || 5, || 900),
+        Some(Loss {
+            observed_device_us: 5,
+            dropped: 0,
+            loss_occurred: false,
+            metrics_stack_free_bytes: Some(900),
+        })
+    );
+    assert_eq!(receipt.observe(&queue, false, || 6, || 900), None);
+    for _ in 0..3 {
+        queue.publish(window());
+    }
+    assert_eq!(
+        receipt.observe(&queue, false, || 7, || 800),
+        Some(Loss {
+            observed_device_us: 7,
+            dropped: 1,
+            loss_occurred: true,
+            metrics_stack_free_bytes: Some(800),
+        })
+    );
+    assert_eq!(receipt.observe(&queue, false, || 8, || 800), None);
+    // The encoder's probe window exhaustion sets the flag without a drop.
+    let queue = encoder_telemetry::Queue::new();
+    let receipt = LossReceipt::new();
+    queue.invalidate();
+    assert_eq!(
+        receipt.observe(&queue, false, || 9, || 700),
+        Some(Loss {
+            observed_device_us: 9,
+            dropped: 0,
+            loss_occurred: true,
+            metrics_stack_free_bytes: Some(700),
+        })
+    );
+    assert_eq!(receipt.observe(&queue, false, || 10, || 700), None);
+}

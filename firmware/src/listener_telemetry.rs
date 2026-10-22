@@ -242,24 +242,27 @@ impl From<&std::io::Error> for ErrorCode {
         }
     }
 }
-pub(crate) struct Queue {
-    storage: Mutex<([Option<Record>; 8], usize, usize)>,
+/// A bounded FIFO of `N` receipts. Producers publish with a try-lock and never wait; a record
+/// that finds the storage full, held or poisoned is dropped, counted by reason, and sets the
+/// sticky loss flag. One exporter drains it with `take`.
+pub(crate) struct EventQueue<T: Copy, const N: usize> {
+    storage: Mutex<([Option<T>; N], usize, usize)>,
     dropped: AtomicU32,
     dropped_full: AtomicU32,
     dropped_contended: AtomicU32,
     dropped_poisoned: AtomicU32,
     loss_occurred: AtomicBool,
 }
-impl Queue {
+impl<T: Copy, const N: usize> EventQueue<T, N> {
     /// Initialize the target's lazy pthread allocation before producer/exporter threads start.
     /// Only setup calls this blocking operation; publication remains try-lock-only.
     pub fn initialize(&self) {
-        drop(self.storage.lock().expect("listener telemetry setup mutex"));
+        drop(self.storage.lock().expect("telemetry setup mutex"));
     }
 
     pub const fn new() -> Self {
         Self {
-            storage: Mutex::new(([None; 8], 0, 0)),
+            storage: Mutex::new(([None; N], 0, 0)),
             dropped: AtomicU32::new(0),
             dropped_full: AtomicU32::new(0),
             dropped_contended: AtomicU32::new(0),
@@ -267,11 +270,11 @@ impl Queue {
             loss_occurred: AtomicBool::new(false),
         }
     }
-    pub fn publish(&self, record: Record) -> bool {
+    pub fn publish(&self, record: T) -> bool {
         let reason = match self.storage.try_lock() {
             Ok(mut storage) => {
-                if storage.2 < 8 {
-                    let tail = (storage.1 + storage.2) % 8;
+                if storage.2 < N {
+                    let tail = (storage.1 + storage.2) % N;
                     storage.0[tail] = Some(record);
                     storage.2 += 1;
                     return true;
@@ -282,20 +285,30 @@ impl Queue {
             Err(TryLockError::Poisoned(_)) => &self.dropped_poisoned,
         };
         reason.fetch_add(1, Ordering::Relaxed);
-        self.loss_occurred.store(true, Ordering::Relaxed);
+        self.invalidate();
         self.dropped.fetch_add(1, Ordering::Relaxed);
         false
     }
-    pub fn take(&self) -> Option<Record> {
+    /// Sets the sticky loss flag without dropping a record. The encoder's probe window exhaustion
+    /// uses it, so a set flag does not imply `dropped() > 0`.
+    pub fn invalidate(&self) {
+        self.loss_occurred.store(true, Ordering::Relaxed);
+    }
+    pub fn take(&self) -> Option<T> {
         let mut storage = self.storage.try_lock().ok()?;
         if storage.2 == 0 {
             return None;
         }
         let head = storage.1;
         let record = storage.0[head].take();
-        storage.1 = (head + 1) % 8;
+        storage.1 = (head + 1) % N;
         storage.2 -= 1;
         record
+    }
+    /// Holds the storage so a test can publish against a contended queue.
+    #[cfg(test)]
+    pub(crate) fn hold(&self) -> std::sync::MutexGuard<'_, ([Option<T>; N], usize, usize)> {
+        self.storage.lock().unwrap()
     }
     pub fn dropped_full(&self) -> u32 {
         self.dropped_full.load(Ordering::Relaxed)
@@ -348,6 +361,8 @@ pub(crate) fn close_and_report<S, F>(
     Ok(())
 }
 
+/// Listener receipts: joins, closes, refusals, timeouts and departures.
+pub(crate) type Queue = EventQueue<Record, 8>;
 pub(crate) static EVENTS: Queue = Queue::new();
 
 #[cfg(test)]
@@ -397,112 +412,73 @@ mod tests {
             reaper_stack_free_bytes: 777,
         } if owner_id == expected_owner));
     }
-    fn record() -> Record {
-        Record {
-            event_us: 12,
-            peer: None,
-            payload: Payload::Closed {
-                elapsed_ms: 3,
-                held: 1,
-                owner_id: 1,
-                sonos_intent: 0,
-                released_us: 10,
-                reaper_stack_free_bytes: 0,
-            },
-        }
+    fn counts<const N: usize>(q: &EventQueue<u64, N>) -> (u32, u32, u32, u32) {
+        (
+            q.dropped(),
+            q.dropped_full(),
+            q.dropped_contended(),
+            q.dropped_poisoned(),
+        )
     }
-    #[test]
-    fn publication_counts_exact_reasons_and_wraps_with_sticky_loss() {
-        let q = Queue::new();
-        for _ in 0..8 {
-            assert!(q.publish(record()));
-        }
-        assert_eq!(
-            (
-                q.dropped(),
-                q.dropped_full(),
-                q.dropped_contended(),
-                q.dropped_poisoned()
-            ),
-            (0, 0, 0, 0)
-        );
-        assert!(!q.loss_occurred());
-        assert!(!q.publish(record()));
-        assert_eq!(
-            (
-                q.dropped(),
-                q.dropped_full(),
-                q.dropped_contended(),
-                q.dropped_poisoned()
-            ),
-            (1, 1, 0, 0)
-        );
-        for _ in 0..8 {
-            assert!(q.take().is_some());
-        }
-        assert!(q.publish(record()));
-        assert_eq!(q.dropped_full(), 1);
-        let guard = q.storage.lock().unwrap();
-        q.dropped.store(u32::MAX, Ordering::Relaxed);
-        q.dropped_contended.store(u32::MAX, Ordering::Relaxed);
-        assert!(!q.publish(record()));
-        assert_eq!(
-            (
-                q.dropped(),
-                q.dropped_full(),
-                q.dropped_contended(),
-                q.dropped_poisoned()
-            ),
-            (0, 1, 0, 0)
-        );
-        assert!(q.loss_occurred());
-        drop(guard);
-        let _ = std::panic::catch_unwind(|| {
-            let _guard = q.storage.lock().unwrap();
+    fn poison<const N: usize>(q: &EventQueue<u64, N>) {
+        let result = std::panic::catch_unwind(|| {
+            let _guard = q.hold();
             panic!("poison storage");
         });
-        q.dropped_poisoned.store(u32::MAX, Ordering::Relaxed);
-        assert!(!q.publish(record()));
-        assert_eq!(
-            (
-                q.dropped(),
-                q.dropped_full(),
-                q.dropped_contended(),
-                q.dropped_poisoned()
-            ),
-            (1, 1, 0, 0)
-        );
+        assert!(result.is_err());
+    }
+    /// A full queue drops by reason, keeps FIFO order, and every counter wraps while the loss
+    /// flag stays set; `N` is the only difference between the listener and encoder queues.
+    fn publication_counts_exact_reasons_and_wraps_with_sticky_loss<const N: usize>() {
+        let q = EventQueue::<u64, N>::new();
+        for n in 0..N as u64 {
+            assert!(q.publish(n));
+        }
+        assert_eq!(counts(&q), (0, 0, 0, 0));
+        assert!(!q.loss_occurred());
+        assert!(!q.publish(99));
+        assert_eq!(counts(&q), (1, 1, 0, 0));
         assert!(q.loss_occurred());
-        assert!(!q.publish(record()));
+        for n in 0..N as u64 {
+            assert_eq!(q.take(), Some(n));
+        }
+        assert!(q.take().is_none());
+        assert!(q.publish(1));
+        assert_eq!(q.dropped_full(), 1);
+        let guard = q.hold();
+        q.dropped.store(u32::MAX, Ordering::Relaxed);
+        q.dropped_contended.store(u32::MAX, Ordering::Relaxed);
+        assert!(!q.publish(2));
+        assert_eq!(counts(&q), (0, 1, 0, 0));
+        assert!(q.take().is_none());
+        drop(guard);
+        poison(&q);
+        q.dropped_poisoned.store(u32::MAX, Ordering::Relaxed);
+        assert!(!q.publish(3));
+        assert_eq!(counts(&q), (1, 1, 0, 0));
+        assert!(!q.publish(4));
         assert_eq!(q.dropped_poisoned(), 1);
-        let full = Queue::new();
-        for _ in 0..8 {
-            assert!(full.publish(record()));
+        assert!(q.take().is_none());
+        let full = EventQueue::<u64, N>::new();
+        for n in 0..N as u64 {
+            assert!(full.publish(n));
         }
         full.dropped_full.store(u32::MAX, Ordering::Relaxed);
-        assert!(!full.publish(record()));
+        assert!(!full.publish(99));
         assert_eq!(full.dropped_full(), 0);
         assert!(full.loss_occurred());
     }
     #[test]
-    fn held_and_poisoned_storage_drop_without_waiting_and_loss_wraps() {
-        let q = Queue::new();
-        let guard = q.storage.lock().unwrap();
-        q.dropped.store(u32::MAX, Ordering::Relaxed);
-        assert!(!q.publish(record()));
-        assert_eq!(q.dropped(), 0);
+    fn listener_and_encoder_depths_count_exact_reasons_and_wrap_with_sticky_loss() {
+        publication_counts_exact_reasons_and_wraps_with_sticky_loss::<8>();
+        publication_counts_exact_reasons_and_wraps_with_sticky_loss::<2>();
+    }
+    #[test]
+    fn invalidate_sets_the_loss_flag_without_a_drop() {
+        let q = EventQueue::<u64, 2>::new();
+        q.invalidate();
         assert!(q.loss_occurred());
-        assert!(q.take().is_none());
-        drop(guard);
-        assert!(q.publish(record()));
-        let result = std::panic::catch_unwind(|| {
-            let _guard = q.storage.lock().unwrap();
-            panic!("poison storage");
-        });
-        assert!(result.is_err());
-        assert!(!q.publish(record()));
-        assert_eq!(q.dropped(), 1);
-        assert!(q.take().is_none());
+        assert_eq!(counts(&q), (0, 0, 0, 0));
     }
     #[test]
     fn held_and_poisoned_export_storage_cannot_hold_real_admission_after_close() {
