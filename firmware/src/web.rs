@@ -12,6 +12,7 @@ mod device {
 
     use super::{error_json, read_json_body, RequestError};
     use crate::device_metrics::{ResponseError, Unavailable};
+    use crate::input_gain::ApplyError;
     use crate::recognizer::SharedStore;
     use crate::sonos::{Command, Handle};
     use esp_shazam_core::input_gain;
@@ -201,14 +202,23 @@ mod device {
                 Ok(Err(error)) => (400, error_json(error)),
                 Ok(Ok(gain)) => match gain_apply.apply(gain) {
                     Ok(()) => (200, input_gain::status_json(gain)),
-                    Err(error) if error.to_string() == "input gain busy" => {
-                        (503, error_json("input gain busy; retry shortly"))
-                    }
-                    Err(error) => {
-                        log::warn!("input gain: {error:#}");
+                    Err(ApplyError::Busy) => (503, error_json("input gain busy; retry shortly")),
+                    Err(ApplyError::Codec(error)) => {
+                        log::warn!("input gain: codec write: {error:#}");
                         (
                             500,
                             error_json("codec did not take the gain; previous value kept"),
+                        )
+                    }
+                    // The gain is live (GET /api/input reports it) but not saved: say so, as a failure.
+                    Err(ApplyError::Persist { applied, source }) => {
+                        log::warn!("input gain: {} dB live but not saved: {source:#}", applied.db());
+                        (
+                            500,
+                            error_json(format_args!(
+                                "gain {} dB is live but not saved; the next boot restores the saved value",
+                                applied.db()
+                            )),
                         )
                     }
                 },

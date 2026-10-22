@@ -3,7 +3,7 @@
 use std::sync::atomic::{AtomicU8, Ordering};
 use std::sync::Mutex;
 
-use anyhow::{anyhow, Context, Result};
+use anyhow::{Context, Result};
 use esp_idf_svc::hal::i2c::I2cDriver;
 use esp_idf_svc::nvs::{EspDefaultNvsPartition, EspNvs, NvsDefault};
 use esp_shazam_core::input_gain::InputGain;
@@ -11,8 +11,23 @@ use esp_shazam_core::input_gain::InputGain;
 const NAMESPACE: &str = "input";
 const KEY: &str = "gain_db";
 
-/// Register 0x09 as last written and read back, for `/api/metrics`' `settings.pga_gain`.
+/// Register 0x09 as last written and read back: the one live gain, read by `Handle::gain` and
+/// `/api/metrics`' `settings.pga_gain`.
 pub static LIVE_REGISTER: AtomicU8 = AtomicU8::new(0);
+
+/// Why `Handle::apply` stopped. Only `Persist` leaves a changed gain behind.
+#[derive(Debug)]
+pub enum ApplyError {
+    /// Another apply holds the codec bus; nothing changed.
+    Busy,
+    /// The codec refused the register or read back another value; the previous gain stays live.
+    Codec(anyhow::Error),
+    /// The codec took `applied` and it is live, but NVS did not save it: the next boot restores the saved value.
+    Persist {
+        applied: InputGain,
+        source: anyhow::Error,
+    },
+}
 
 /// The persisted gain, or the build's `pga_gain` register when nothing is saved or the saved value is not a step.
 pub fn load(
@@ -44,7 +59,6 @@ pub fn load(
 pub struct Handle {
     i2c: Mutex<I2cDriver<'static>>,
     nvs: Mutex<EspNvs<NvsDefault>>,
-    gain: Mutex<InputGain>,
 }
 
 impl Handle {
@@ -54,29 +68,28 @@ impl Handle {
         Handle {
             i2c: Mutex::new(i2c),
             nvs: Mutex::new(nvs),
-            gain: Mutex::new(gain),
         }
     }
 
     pub fn gain(&self) -> InputGain {
-        *self.gain.lock().unwrap()
+        InputGain::from_register(LIVE_REGISTER.load(Ordering::Relaxed))
+            .expect("LIVE_REGISTER holds a register an InputGain produced")
     }
 
     /// Writes the codec first and persists only a value the codec read back; a failed write leaves the old gain.
-    pub fn apply(&self, gain: InputGain) -> Result<()> {
-        let mut i2c = self
-            .i2c
-            .try_lock()
-            .map_err(|_| anyhow!("input gain busy"))?;
-        crate::codec::set_pga_gain(&mut i2c, gain.register())?;
+    pub fn apply(&self, gain: InputGain) -> Result<(), ApplyError> {
+        let mut i2c = self.i2c.try_lock().map_err(|_| ApplyError::Busy)?;
+        crate::codec::set_pga_gain(&mut i2c, gain.register()).map_err(ApplyError::Codec)?;
         LIVE_REGISTER.store(gain.register(), Ordering::Relaxed);
-        *self.gain.lock().unwrap() = gain;
         drop(i2c);
         self.nvs
             .lock()
             .unwrap()
             .set_u8(KEY, gain.db())
-            .context("input gain persist")?;
+            .map_err(|source| ApplyError::Persist {
+                applied: gain,
+                source: source.into(),
+            })?;
         log::info!(
             "input gain: {} dB (register 0x{:02x}) applied and saved",
             gain.db(),
