@@ -56,3 +56,32 @@ Image `e06efb5b…` (1e690cf, office cfg); raw capture `target/kata-hardening/si
   that mapping predates batch B (same `TimedOut | WouldBlock` arms at c3384c9).
 - z818's busy path: two concurrent 9 dB / 15 dB POSTs both answered 200; the busy
   window is one I2C write and read-back, as the ticket predicted.
+
+## Batches C and D (s2e1, jmwa, hyvz, hsqv, 3k3g, 6bce, 64yy, r9r6), office board, 2026-10-22 16:26 to 18:01 UTC
+
+Image `f6da5baf…` (6359e6f, office cfg); raw captures `target/kata-hardening/sift-cd/`.
+
+- Port 8000 matrix with MP3 active and generation 2 (hyvz): HEAD `/stream.mp3` 200; GET
+  `/stream.mp3` 200; `/stream.flac` 404; `?buffer=bad` 400 on both paths (the one
+  deliberate precedence change: a malformed query is 400 whatever codec is active; before,
+  the inactive path said 404 while `answer` said 400); `?exact=2` 400;
+  `?network_generation=0` 503; `?sonos_intent=1` with the live generation and no
+  reservation 503; POST 405; WAV 200 with and without `exact=1`; HEAD `?buffer=med` 200.
+- Two-listener MP3 stall soak, 900 s, a 4 s receiver stall every 300 s: the first run
+  ended at 648 s on a harness gap (one `503 {"error":"metrics_unavailable"}` from
+  `/api/metrics` while a publisher held the cache's try-lock; the harness treated any
+  non-200 as fatal; fixed in 43468d9 with the real answer as the fixture). The rerun
+  passed: 900.0 s decoded exactly on both listeners, stalls at 323 s and 623 s (4.05 s
+  and 4.09 s), 4 skips, zero departures, counters flat, `internal_min_sum` 41.5 KB,
+  zero corrupt capture or telemetry lines, one unanswered state poll inside the budget.
+- UART comparisons against the pre-change captures: the `capture:` line is identical in
+  field names and order (36 fields) and the staging maxima reset per window (6bce);
+  `encoder-telemetry` `queue_bytes=440 record_bytes=200` identical, `listener-telemetry`
+  `queue_bytes=2984 record_bytes=368` identical to the 2026-10-20 soak (hsqv); the
+  departure `End` vocabulary unchanged (`socket error kind` for harness-closed sockets,
+  `fell a ring behind` for the exact WAV reader) (r9r6).
+- Stack watermarks: metrics 1,816 B (1,824 the day before), supervisor 2,480 (2,504),
+  listener 1,800 (1,880), reaper 3,548 (3,548); all inside the stacks grown after LTO.
+- Not run: a Shazam match on this board (recognition is off by cfg; 3k3g is covered by
+  the host tests and leaves the `/api/state` shape untouched), the `flac-cost` example
+  (needs a flash; 64yy's bytes are proven identical by the decode tests).
