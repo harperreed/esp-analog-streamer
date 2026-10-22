@@ -339,11 +339,15 @@ pub fn assert_route_contract(
                 ]
                 .into_iter()
                 .find_map(|(query, expected)| {
-                    (target == format!("{path}?{query}")).then_some(if active == format {
-                        expected
-                    } else {
-                        Route::Refuse(Status::NotFound)
-                    })
+                    // A malformed query is 400 whatever codec is active; a well-formed one on
+                    // the inactive path is 404.
+                    (target == format!("{path}?{query}")).then_some(
+                        if active == format || expected == Route::Refuse(Status::BadRequest) {
+                            expected
+                        } else {
+                            Route::Refuse(Status::NotFound)
+                        },
+                    )
                 })
             })
         }

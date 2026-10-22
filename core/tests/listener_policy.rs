@@ -3,8 +3,60 @@
 use esp_shazam_core::stream_buffer::{BufferPreset, OutputFormat};
 use esp_shazam_core::stream_http::{
     request_listener_policy, request_network_generation, request_sonos_intent, route_for, Format,
-    ListenerPolicy, Route, Status,
+    ListenerPolicy, Method, Route, Status, StreamRequest,
 };
+
+#[test]
+fn one_parse_holds_every_recognised_key_and_tolerates_each_beside_buffer() {
+    // The keys the parser knows are the keys that may ride beside `buffer=`: a well-formed value
+    // keeps the buffered route, a malformed value of the same key is refused, and a key the
+    // parser does not know beside `buffer=` is refused too. One list serves both rules.
+    for (key, value) in [
+        ("network_generation", "7"),
+        ("sonos_intent", "41"),
+        ("exact", "1"),
+    ] {
+        let line = format!("GET /stream.flac?buffer=med&{key}={value} HTTP/1.1");
+        let request = StreamRequest::parse(&line).unwrap();
+        assert_eq!(request.method, Method::Get);
+        assert_eq!(request.path, "/stream.flac");
+        assert_eq!(request.buffer, Some(BufferPreset::Medium));
+        assert_eq!(
+            request.route(OutputFormat::Flac),
+            Route::Buffered(BufferPreset::Medium),
+            "{line}"
+        );
+        let line = format!("GET /stream.flac?buffer=med&{key}=x HTTP/1.1");
+        assert_eq!(
+            StreamRequest::parse(&line),
+            Err(Status::BadRequest),
+            "{line}"
+        );
+    }
+    assert_eq!(
+        StreamRequest::parse("GET /stream.flac?buffer=med&cache=1 HTTP/1.1"),
+        Err(Status::BadRequest)
+    );
+    let request = StreamRequest::parse("GET /stream.flac?cache=1&exact=1 HTTP/1.1").unwrap();
+    assert_eq!(request.policy, ListenerPolicy::Exact);
+    assert_eq!(
+        request.route(OutputFormat::Flac),
+        Route::Stream(Format::Flac)
+    );
+    // A malformed query is refused whatever codec is active; the line and method come first.
+    assert_eq!(
+        StreamRequest::parse("GET /stream.mp3?exact=2 HTTP/1.1"),
+        Err(Status::BadRequest)
+    );
+    assert_eq!(
+        StreamRequest::parse("POST /stream.flac?exact=2 HTTP/1.1"),
+        Err(Status::MethodNotAllowed)
+    );
+    assert_eq!(
+        StreamRequest::parse("GET /stream.flac?exact=2 HTTP/2"),
+        Err(Status::BadRequest)
+    );
+}
 
 #[test]
 fn exact_flag_combines_with_buffer_and_tags_without_changing_the_route() {

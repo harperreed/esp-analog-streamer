@@ -461,25 +461,9 @@ pub enum ListenerPolicy {
 
 /// Reads the optional `exact=1` flag from a stream request; any other `exact` field is malformed.
 pub fn request_listener_policy(request_line: &str) -> io::Result<ListenerPolicy> {
-    let target = request_line.split_whitespace().nth(1).unwrap_or("");
-    let Some((_, query)) = target.split_once('?') else {
-        return Ok(ListenerPolicy::Live);
-    };
-    let mut policy = ListenerPolicy::Live;
-    for field in query.split('&') {
-        let (key, value) = field.split_once('=').unwrap_or((field, ""));
-        if key != "exact" {
-            continue;
-        }
-        if policy == ListenerPolicy::Exact || value != "1" {
-            return Err(io::Error::new(
-                io::ErrorKind::InvalidData,
-                "invalid exact flag",
-            ));
-        }
-        policy = ListenerPolicy::Exact;
-    }
-    Ok(policy)
+    StreamRequest::parse(request_line)
+        .map(|request| request.policy)
+        .map_err(|_| io::Error::new(io::ErrorKind::InvalidData, "invalid exact flag"))
 }
 
 /// The statuses the server refuses a request with.
@@ -576,139 +560,156 @@ pub fn read_request_line(reader: impl BufRead, max_bytes: u64) -> io::Result<Str
 
 /// Reads the optional boot-local network generation from a stream request.
 pub fn request_network_generation(request_line: &str) -> io::Result<Option<u32>> {
-    let target = request_line.split_whitespace().nth(1).unwrap_or("");
-    let Some((_, query)) = target.split_once('?') else {
-        return Ok(None);
-    };
-    let mut generation = None;
-    for field in query.split('&') {
-        let (key, value) = field.split_once('=').unwrap_or((field, ""));
-        if key != "network_generation" {
-            continue;
-        }
-        if generation.is_some() || value.is_empty() || !value.bytes().all(|b| b.is_ascii_digit()) {
-            return Err(io::Error::new(
-                io::ErrorKind::InvalidData,
-                "invalid network generation",
-            ));
-        }
-        generation = Some(value.parse().map_err(|_| {
-            io::Error::new(io::ErrorKind::InvalidData, "invalid network generation")
-        })?);
-    }
-    Ok(generation)
+    StreamRequest::parse(request_line)
+        .map(|request| request.generation)
+        .map_err(|_| io::Error::new(io::ErrorKind::InvalidData, "invalid network generation"))
 }
 
 /// Parses a bounded boot-local reservation identity, rejecting duplicates and signs.
 pub fn request_sonos_intent(request_line: &str) -> io::Result<Option<u64>> {
-    let target = request_line.split_whitespace().nth(1).unwrap_or("");
-    let Some((_, query)) = target.split_once('?') else {
-        return Ok(None);
-    };
-    let mut intent = None;
-    for field in query.split('&') {
-        let (key, value) = field.split_once('=').unwrap_or((field, ""));
-        if key != "sonos_intent" {
-            continue;
-        }
-        if intent.is_some() || value.is_empty() || !value.bytes().all(|byte| byte.is_ascii_digit())
-        {
-            return Err(io::Error::new(
-                io::ErrorKind::InvalidData,
-                "invalid Sonos intent",
-            ));
-        }
-        intent = Some(
-            value
-                .parse()
-                .map_err(|_| io::Error::new(io::ErrorKind::InvalidData, "invalid Sonos intent"))?,
-        );
-    }
-    Ok(intent)
+    StreamRequest::parse(request_line)
+        .map(|request| request.sonos_intent)
+        .map_err(|_| io::Error::new(io::ErrorKind::InvalidData, "invalid Sonos intent"))
 }
 
-/// Routes live paths and strict compressed buffer queries. Other cache-busting queries stay live.
-/// The `exact=1` policy flag rides beside the tags; `request_listener_policy` reads it.
-pub fn route_for(request_line: &str, active: crate::stream_buffer::OutputFormat) -> Route {
-    let mut parts = request_line.split_whitespace();
-    let (Some(method), Some(target), Some(version), None) =
-        (parts.next(), parts.next(), parts.next(), parts.next())
-    else {
-        return Route::Refuse(Status::BadRequest);
-    };
-    if !target.starts_with('/') || !version.starts_with("HTTP/1.") {
-        return Route::Refuse(Status::BadRequest);
-    }
-    let route = match method {
-        "GET" | "HEAD" => target_route(target, request_line, active),
-        _ => return Route::Refuse(Status::MethodNotAllowed),
-    };
-    if method != "HEAD" {
-        return route;
-    }
-    // A HEAD resolves exactly as the GET would, then answers with that stream's head alone.
-    match route {
-        Route::Stream(format) => Route::Head(format),
-        Route::Buffered(_) => Route::Head(active.format()),
-        route => route,
-    }
+/// The methods a stream request may use; anything else is refused 405 when parsed.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Method {
+    Get,
+    Head,
 }
 
-/// Resolves a GET target: the stream path, its buffer query and the tags that ride beside it.
-fn target_route(
-    target: &str,
-    request_line: &str,
-    active: crate::stream_buffer::OutputFormat,
-) -> Route {
-    let (path, query) = target
-        .split_once('?')
-        .map_or((target, None), |(path, query)| (path, Some(query)));
-    if [Format::Flac, Format::Mp3]
-        .into_iter()
-        .any(|format| format != active.format() && format.path() == path)
-    {
-        return Route::Refuse(Status::NotFound);
-    }
-    if request_network_generation(request_line).is_err()
-        || request_sonos_intent(request_line).is_err()
-        || request_listener_policy(request_line).is_err()
-    {
-        return Route::Refuse(Status::BadRequest);
-    }
-    if let Some(query) = query {
-        // Any occurrence of the buffer key requests buffering, including malformed combinations.
-        if query
-            .split('&')
-            .any(|part| part.split('=').next() == Some("buffer"))
-        {
-            use crate::stream_buffer::BufferPreset;
-            let mut fields = query.split('&').filter(|field| {
-                !matches!(
-                    field.split('=').next(),
-                    Some("network_generation" | "sonos_intent" | "exact")
-                )
-            });
-            let buffer = fields.next().unwrap_or("");
-            if fields.next().is_some() {
-                return Route::Refuse(Status::BadRequest);
+/// One stream request line, parsed once: the method, the path and every query field the server
+/// recognises. Fields it does not recognise are cache busters and ride along unread, except
+/// beside `buffer=`, where the query may hold nothing but the buffer and the tags.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct StreamRequest<'a> {
+    pub method: Method,
+    pub path: &'a str,
+    pub generation: Option<u32>,
+    pub sonos_intent: Option<u64>,
+    pub policy: ListenerPolicy,
+    pub buffer: Option<crate::stream_buffer::BufferPreset>,
+}
+
+impl<'a> StreamRequest<'a> {
+    /// Parses `METHOD /path[?query] HTTP/1.x`. A malformed line, a malformed or repeated tag,
+    /// a bad buffer value or an unrecognised field beside `buffer=` is 400, whatever codec is
+    /// active; a method other than GET or HEAD is 405.
+    pub fn parse(line: &'a str) -> Result<Self, Status> {
+        use crate::stream_buffer::BufferPreset;
+        let mut parts = line.split_whitespace();
+        let (Some(method), Some(target), Some(version), None) =
+            (parts.next(), parts.next(), parts.next(), parts.next())
+        else {
+            return Err(Status::BadRequest);
+        };
+        if !target.starts_with('/') || !version.starts_with("HTTP/1.") {
+            return Err(Status::BadRequest);
+        }
+        let method = match method {
+            "GET" => Method::Get,
+            "HEAD" => Method::Head,
+            _ => return Err(Status::MethodNotAllowed),
+        };
+        let (path, query) = target
+            .split_once('?')
+            .map_or((target, None), |(path, query)| (path, Some(query)));
+        let mut request = Self {
+            method,
+            path,
+            generation: None,
+            sonos_intent: None,
+            policy: ListenerPolicy::Live,
+            buffer: None,
+        };
+        let Some(query) = query else {
+            return Ok(request);
+        };
+        let mut unrecognised = 0;
+        for field in query.split('&') {
+            let (key, value) = field.split_once('=').unwrap_or((field, ""));
+            // The one list of recognised keys: a key parsed here is a key tolerated beside
+            // `buffer=`; everything else is a cache buster.
+            match key {
+                "network_generation" => tag_once(&mut request.generation, value)?,
+                "sonos_intent" => tag_once(&mut request.sonos_intent, value)?,
+                "exact" => {
+                    if request.policy == ListenerPolicy::Exact || value != "1" {
+                        return Err(Status::BadRequest);
+                    }
+                    request.policy = ListenerPolicy::Exact;
+                }
+                "buffer" => {
+                    let preset = match value {
+                        "low" => BufferPreset::Low,
+                        "med" => BufferPreset::Medium,
+                        "high" => BufferPreset::High,
+                        _ => return Err(Status::BadRequest),
+                    };
+                    if request.buffer.replace(preset).is_some() {
+                        return Err(Status::BadRequest);
+                    }
+                }
+                _ => unrecognised += 1,
             }
-            let preset = match buffer {
-                "buffer=low" => BufferPreset::Low,
-                "buffer=med" => BufferPreset::Medium,
-                "buffer=high" => BufferPreset::High,
-                _ => return Route::Refuse(Status::BadRequest),
-            };
-            return if path == active.format().path() {
+        }
+        if request.buffer.is_some() && unrecognised != 0 {
+            return Err(Status::BadRequest);
+        }
+        Ok(request)
+    }
+
+    /// Routes against the active codec. The inactive compressed path is 404 before the buffer
+    /// query is judged, so a player's stale URL is a plain not-found; a HEAD resolves exactly as
+    /// the GET would, then answers with that stream's head alone.
+    pub fn route(&self, active: crate::stream_buffer::OutputFormat) -> Route {
+        let route = self.get_route(active);
+        match (self.method, route) {
+            (Method::Get, route) => route,
+            (Method::Head, Route::Stream(format)) => Route::Head(format),
+            (Method::Head, Route::Buffered(_)) => Route::Head(active.format()),
+            (Method::Head, route) => route,
+        }
+    }
+
+    fn get_route(&self, active: crate::stream_buffer::OutputFormat) -> Route {
+        if [Format::Flac, Format::Mp3]
+            .into_iter()
+            .any(|format| format != active.format() && format.path() == self.path)
+        {
+            return Route::Refuse(Status::NotFound);
+        }
+        if let Some(preset) = self.buffer {
+            // Buffering exists for the active compressed stream alone.
+            return if self.path == active.format().path() {
                 Route::Buffered(preset)
             } else {
                 Route::Refuse(Status::BadRequest)
             };
         }
+        match Format::ALL
+            .into_iter()
+            .find(|format| format.path() == self.path)
+        {
+            Some(format) => Route::Stream(format),
+            None => Route::Refuse(Status::NotFound),
+        }
     }
-    match Format::ALL.into_iter().find(|format| format.path() == path) {
-        Some(format) => Route::Stream(format),
-        None => Route::Refuse(Status::NotFound),
+}
+
+/// Stores a decimal tag that may appear once; a repeat, a sign, an empty or overlong value is 400.
+fn tag_once<T: std::str::FromStr>(slot: &mut Option<T>, value: &str) -> Result<(), Status> {
+    if slot.is_some() || value.is_empty() || !value.bytes().all(|byte| byte.is_ascii_digit()) {
+        return Err(Status::BadRequest);
     }
+    *slot = Some(value.parse().map_err(|_| Status::BadRequest)?);
+    Ok(())
+}
+
+/// Parses and routes one request line; the fuzz target and the host tests drive the whole path.
+pub fn route_for(request_line: &str, active: crate::stream_buffer::OutputFormat) -> Route {
+    StreamRequest::parse(request_line).map_or_else(Route::Refuse, |request| request.route(active))
 }
 
 #[cfg(test)]
