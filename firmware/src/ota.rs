@@ -11,8 +11,6 @@ use esp_shazam_core::ota_image::{self, AppDescription, ImageError, HEAD_BYTES};
 
 /// One upload at a time; a second is refused, not queued.
 static UPLOADING: AtomicBool = AtomicBool::new(false);
-/// Set once this boot's image was marked valid (or did not need marking).
-static VALIDATED: AtomicBool = AtomicBool::new(false);
 /// A freshly booted image proves itself with this much Wi-Fi uptime; a panic, watchdog or reset before that
 /// returns the bootloader to the previous slot (CONFIG_BOOTLOADER_APP_ROLLBACK_ENABLE).
 const HEALTHY_AFTER: Duration = Duration::from_secs(60);
@@ -73,7 +71,8 @@ pub fn status(token_configured: bool) -> Result<Status> {
         running: running.label.to_string(),
         boot: boot.label.to_string(),
         running_state: state_name(&running.state),
-        validated: VALIDATED.load(Ordering::Relaxed) || matches!(running.state, SlotState::Valid),
+        // otadata is the one authority: the field stays so the page and the pusher keep their contract.
+        validated: matches!(running.state, SlotState::Valid),
         enabled: token_configured && update.label != running.label,
         update_slot_bytes: slot_bytes(&update.label),
         update_slot: update.label.to_string(),
@@ -87,9 +86,6 @@ pub fn mark_valid_when_healthy(network: Network) {
     match EspOta::new().and_then(|ota| ota.get_running_slot()) {
         Ok(slot) if matches!(slot.state, SlotState::Unverified) => {}
         Ok(slot) => {
-            if matches!(slot.state, SlotState::Valid) {
-                VALIDATED.store(true, Ordering::Relaxed);
-            }
             log::info!(
                 "ota: running slot {} is {}; nothing to verify",
                 slot.label,
@@ -102,7 +98,7 @@ pub fn mark_valid_when_healthy(network: Network) {
             return;
         }
     }
-    let _ = std::thread::Builder::new()
+    let spawned = std::thread::Builder::new()
         .name("ota-health".into())
         .stack_size(6144)
         .spawn(move || {
@@ -116,17 +112,24 @@ pub fn mark_valid_when_healthy(network: Network) {
                     (true, since) => since,
                 };
                 if up_since.is_some_and(|since| since.elapsed() >= HEALTHY_AFTER) {
+                    // A failed mark (an upload holding the handle, say) is not success: keep ticking so the
+                    // next tick retries, and keep warning, since a mark that never lands means a rollback.
                     match EspOta::new().and_then(|mut ota| ota.mark_running_slot_valid()) {
-                        Ok(()) => log::info!("ota: running image marked valid"),
+                        Ok(()) => {
+                            log::info!("ota: running image marked valid");
+                            return;
+                        }
                         Err(error) => {
                             log::warn!("ota: cannot mark the running image valid: {error}")
                         }
                     }
-                    VALIDATED.store(true, Ordering::Relaxed);
-                    return;
                 }
             }
         });
+    if let Err(error) = spawned {
+        // Without the thread the image never marks itself valid and the next reset rolls back.
+        log::error!("ota: cannot spawn the health thread: {error}");
+    }
 }
 
 /// Streams `declared` bytes from `read` into the update slot. The token and the image head are judged before a
