@@ -639,6 +639,7 @@ impl Queue {
 }
 
 /// Three read-only retries retain the original delivery, never its own copy of an intent.
+#[derive(Debug, PartialEq, Eq)]
 struct ControlRecovery {
     deadline: std::time::Instant,
     next: std::time::Instant,
@@ -704,6 +705,14 @@ enum Session<C = esp_shazam_core::sonos_upnp::Client> {
         client: C,
         lease: Lease,
     },
+    /// Our queue is on the player at `uri`; `recovery` is the bounded read-only retry after a
+    /// control-read failure, kept with the URI it observes.
+    Owned {
+        client: C,
+        lease: Lease,
+        uri: String,
+        recovery: Option<ControlRecovery>,
+    },
 }
 
 impl<C> Session<C> {
@@ -711,7 +720,7 @@ impl<C> Session<C> {
     /// A failed transport is not permission to take over again: the client goes with it.
     fn lost(self, selected: Option<String>, now: std::time::Instant) -> Self {
         match self {
-            Session::Connected { .. } => match selected {
+            Session::Connected { .. } | Session::Owned { .. } => match selected {
                 Some(player) => Session::Reconnecting(Retry {
                     player,
                     at: now + std::time::Duration::from_secs(1),
@@ -734,12 +743,58 @@ impl<C> Session<C> {
         }
     }
 
-    /// Cancellation drops a stale retry but keeps a live client for the queued checked Stop.
+    /// Cancellation drops a stale retry and the recovery budget, but keeps a live client and the
+    /// URI evidence for the queued checked Stop.
     fn cancelled(self) -> Self {
         match self {
             Session::Reconnecting(_) => Session::Idle,
+            Session::Owned {
+                client,
+                lease,
+                uri,
+                recovery: _,
+            } => Session::Owned {
+                client,
+                lease,
+                uri,
+                recovery: None,
+            },
             other => other,
         }
+    }
+
+    /// The published queue at `uri` is ours; without a live client nothing changes.
+    fn own(self, uri: String) -> Self {
+        match self {
+            Session::Connected { client, lease } | Session::Owned { client, lease, .. } => {
+                Session::Owned {
+                    client,
+                    lease,
+                    uri,
+                    recovery: None,
+                }
+            }
+            other => other,
+        }
+    }
+
+    /// The player stopped our queue: keep the client, forget the URI and any recovery.
+    fn released(self) -> Self {
+        match self {
+            Session::Owned { client, lease, .. } => Session::Connected { client, lease },
+            other => other,
+        }
+    }
+
+    /// Read-only recovery is in flight; autoplay timers and error clearing wait for it.
+    fn recovering(&self) -> bool {
+        matches!(
+            self,
+            Session::Owned {
+                recovery: Some(_),
+                ..
+            }
+        )
     }
 
     /// Takes the retry once it is due; every other phase stays as it is.
@@ -756,7 +811,7 @@ impl<C> Session<C> {
     /// The lease the live client's I/O runs under.
     fn lease(&self) -> Option<Lease> {
         match self {
-            Session::Connected { lease, .. } => Some(*lease),
+            Session::Connected { lease, .. } | Session::Owned { lease, .. } => Some(*lease),
             Session::Idle | Session::Reconnecting(_) => None,
         }
     }
@@ -1074,8 +1129,6 @@ mod device {
                         nvs: launch.nvs,
                         store: launch.store,
                         session: Session::Idle,
-                        owned_uri: None,
-                        recovery: None,
                         queue,
                         poll_at: Instant::now(),
                         sequence: 0,
@@ -1777,8 +1830,6 @@ mod device {
         nvs: EspNvs<NvsDefault>,
         store: recognizer::SharedStore,
         session: Session,
-        owned_uri: Option<String>,
-        recovery: Option<ControlRecovery>,
         queue: Queue,
         poll_at: Instant,
         policy: protocol::Autoplay,
@@ -1826,7 +1877,7 @@ mod device {
                 let sample = self.store.lock().unwrap().level_sample();
                 let level = sample_level(sample, Instant::now());
                 // Keep autoplay ownership and quiet timers intact while control is unavailable.
-                let action = if self.recovery.is_none() {
+                let action = if !self.session.recovering() {
                     self.samples
                         .update(&mut self.policy, self.epoch, sample, Instant::now())
                 } else {
@@ -1848,7 +1899,7 @@ mod device {
                     log::info!("sonos: state={state:?} stack_free_min={stack} level_dbfs={level}");
                 }
                 self.cancel_local_if_stale();
-                if self.owned_uri.is_some()
+                if matches!(self.session, Session::Owned { .. })
                     && self.status.lock().unwrap().state != State::Stopped
                     && Instant::now() >= self.poll_at
                 {
@@ -1897,13 +1948,11 @@ mod device {
         }
 
         fn fail(&mut self, error: anyhow::Error) {
-            self.recovery = None;
             self.queue.clear();
             self.policy
                 .update(self.now(), protocol::AutoplayEvent::OwnershipLost);
             let selected = self.status.lock().unwrap().config.player_id.clone();
             self.poll_at = Instant::now();
-            self.owned_uri = None;
             self.session =
                 std::mem::replace(&mut self.session, Session::Idle).lost(selected, Instant::now());
             let mut status = self.status.lock().unwrap();
@@ -1935,7 +1984,7 @@ mod device {
                     let groups = result?;
                     let mut status = self.status.lock().unwrap();
                     status.groups = groups.into_iter().filter(|g| g.is_leader).collect();
-                    if self.recovery.is_none() {
+                    if !self.session.recovering() {
                         status.last_error = None;
                     }
                 }
@@ -2139,9 +2188,9 @@ mod device {
                     Ok(())
                 })
                 .map_err(|error| anyhow!(error))??;
-            self.owned_uri = Some(uri.clone());
+            self.session = std::mem::replace(&mut self.session, Session::Idle).own(uri.clone());
             self.status.lock().unwrap().active_player_id = Some(player);
-            let Session::Connected { client, .. } = &self.session else {
+            let Session::Owned { client, .. } = &self.session else {
                 return Err(anyhow!("Sonos disconnected"));
             };
             with_network(&self.network, lease, || {
@@ -2188,40 +2237,39 @@ mod device {
         }
 
         fn stop(&mut self) -> Result<()> {
-            self.recovery = None;
             self.queue.clear();
             self.policy
                 .update(self.now(), protocol::AutoplayEvent::ManualStop);
-            // Stop ends every phase: a pending retry, a connected client and the owned URI.
+            // Stop ends every phase: a pending retry, a connected client, the owned URI and its recovery.
             let session = std::mem::replace(&mut self.session, Session::Idle);
             let lease = session.lease();
-            let result = match (&session, self.owned_uri.take()) {
-                (Session::Connected { client, lease }, Some(uri))
-                    if self.network.is_current(*lease) =>
-                {
-                    (|| -> Result<()> {
-                        with_network(&self.network, *lease, || {
-                            client.verify(Instant::now() + TIMEOUT)
+            let result = match session {
+                Session::Owned {
+                    client, lease, uri, ..
+                } if self.network.is_current(lease) => (|| -> Result<()> {
+                    with_network(&self.network, lease, || {
+                        client.verify(Instant::now() + TIMEOUT)
+                    })
+                    .map_err(|error| anyhow!(error))??;
+                    let current = with_network(&self.network, lease, || {
+                        client.media_uri(Instant::now() + TIMEOUT)
+                    })
+                    .map_err(|error| anyhow!(error))??;
+                    if HttpOwnership::new(uri).matches(&current) {
+                        // SOAP has an unavoidable observation-to-write takeover race.
+                        with_network(&self.network, lease, || {
+                            client.stop(Instant::now() + TIMEOUT)
                         })
                         .map_err(|error| anyhow!(error))??;
-                        let current = with_network(&self.network, *lease, || {
-                            client.media_uri(Instant::now() + TIMEOUT)
-                        })
-                        .map_err(|error| anyhow!(error))??;
-                        if HttpOwnership::new(uri).matches(&current) {
-                            // SOAP has an unavoidable observation-to-write takeover race.
-                            with_network(&self.network, *lease, || {
-                                client.stop(Instant::now() + TIMEOUT)
-                            })
-                            .map_err(|error| anyhow!(error))??;
-                        }
-                        Ok(())
-                    })()
-                }
-                // Nothing of ours plays remotely: no client, no owned URI, or the network moved.
-                _ => Ok(()),
+                    }
+                    Ok(())
+                })(),
+                // Nothing of ours plays remotely: no owned URI, or the network moved under it.
+                Session::Owned { .. }
+                | Session::Connected { .. }
+                | Session::Reconnecting(_)
+                | Session::Idle => Ok(()),
             };
-            drop(session);
             self.poll_at = Instant::now();
             let mut status = self.status.lock().unwrap();
             status.active_player_id = None;
@@ -2248,7 +2296,6 @@ mod device {
                 self.policy
                     .update(self.now(), protocol::AutoplayEvent::OwnershipLost);
                 self.session = std::mem::replace(&mut self.session, Session::Idle).cancelled();
-                self.recovery = None;
             }
             cancelled
         }
@@ -2258,7 +2305,17 @@ mod device {
                 return Ok(());
             }
             let now = Instant::now();
-            let deadline = if let Some(recovery) = self.recovery.as_mut() {
+            let Session::Owned {
+                client,
+                lease,
+                uri,
+                recovery,
+            } = &mut self.session
+            else {
+                return Err(anyhow!("Sonos disconnected"));
+            };
+            let lease = *lease;
+            let deadline = if let Some(recovery) = recovery.as_mut() {
                 if now < recovery.next && now < recovery.deadline {
                     self.poll_at = recovery.next.min(recovery.deadline);
                     return Ok(());
@@ -2267,10 +2324,6 @@ mod device {
             } else {
                 now + Duration::from_secs(5)
             };
-            let Session::Connected { client, lease } = &self.session else {
-                return Err(anyhow!("Sonos disconnected"));
-            };
-            let lease = *lease;
             observation_checkpoint(
                 &self.queue,
                 &self.commands,
@@ -2278,7 +2331,7 @@ mod device {
                 &self.network,
                 lease,
             )?;
-            if self.recovery.is_some() {
+            if recovery.is_some() {
                 commit_observation(
                     &self.queue,
                     &self.commands,
@@ -2290,10 +2343,6 @@ mod device {
                     },
                 )?;
             }
-            let uri = self
-                .owned_uri
-                .as_deref()
-                .context("Sonos has no owned URI")?;
             let observed = client.observe(uri, deadline, || {
                 observation_checkpoint(
                     &self.queue,
@@ -2304,9 +2353,7 @@ mod device {
                 )
             });
             let mut seed = 0u32;
-            if self.recovery.is_none()
-                && observed.as_ref().is_err_and(recoverable_observation_error)
-            {
+            if recovery.is_none() && observed.as_ref().is_err_and(recoverable_observation_error) {
                 // SAFETY: the SDK writes exactly the supplied seed's byte length.
                 unsafe {
                     sys::esp_fill_random((&mut seed as *mut u32).cast(), std::mem::size_of::<u32>())
@@ -2319,12 +2366,12 @@ mod device {
                 lease,
                 status: &self.status,
             }
-            .finish(&mut self.recovery, observed, Instant::now(), seed)?;
-            if let Some(recovery) = self.recovery.as_ref() {
+            .finish(recovery, observed, Instant::now(), seed)?;
+            if let Some(recovery) = recovery.as_ref() {
                 self.poll_at = recovery.next.min(recovery.deadline);
             }
             if state == State::Stopped {
-                self.owned_uri = None;
+                self.session = std::mem::replace(&mut self.session, Session::Idle).released();
                 self.policy
                     .update(self.now(), protocol::AutoplayEvent::OwnershipLost);
             }
@@ -3621,6 +3668,15 @@ mod session_tests {
         }
     }
 
+    fn owned(recovery: Option<ControlRecovery>) -> Session<()> {
+        Session::Owned {
+            client: (),
+            lease: lease(),
+            uri: "http://board/stream.mp3?sonos_intent=1".into(),
+            recovery,
+        }
+    }
+
     #[test]
     fn lost_session_retries_the_selected_player_and_rests_otherwise() {
         let now = Instant::now();
@@ -3633,6 +3689,10 @@ mod session_tests {
             })
         );
         assert_eq!(connected().lost(None, now), Session::Idle);
+        assert!(matches!(
+            owned(Some(ControlRecovery::new(now, 1))).lost(Some("player".into()), now),
+            Session::Reconnecting(_)
+        ));
         let pending = Session::<()>::Reconnecting(Retry {
             player: "player".into(),
             at: now,
@@ -3678,6 +3738,52 @@ mod session_tests {
         assert_eq!(pending.cancelled(), Session::Idle);
         assert_eq!(connected().cancelled(), connected());
         assert_eq!(Session::<()>::Idle.cancelled(), Session::Idle);
+        // The owned URI stays for the queued checked Stop; only the read-only retry budget ends.
+        assert_eq!(
+            owned(Some(ControlRecovery::new(now, 1))).cancelled(),
+            owned(None)
+        );
+    }
+
+    #[test]
+    fn owning_needs_a_live_client_and_release_keeps_it() {
+        let now = Instant::now();
+        let uri = String::from("http://board/stream.mp3?sonos_intent=1");
+        assert_eq!(connected().own(uri.clone()), owned(None));
+        // A fresh queue replaces the URI evidence and any recovery of the old one.
+        assert_eq!(
+            owned(Some(ControlRecovery::new(now, 1))).own("http://board/next".into()),
+            Session::Owned {
+                client: (),
+                lease: lease(),
+                uri: "http://board/next".into(),
+                recovery: None,
+            }
+        );
+        assert_eq!(Session::<()>::Idle.own(uri.clone()), Session::Idle);
+        let pending = || {
+            Session::<()>::Reconnecting(Retry {
+                player: "player".into(),
+                at: now,
+                attempt: 0,
+            })
+        };
+        assert_eq!(pending().own(uri), pending());
+        assert_eq!(
+            owned(Some(ControlRecovery::new(now, 1))).released(),
+            connected()
+        );
+        assert_eq!(connected().released(), connected());
+        assert_eq!(Session::<()>::Idle.released(), Session::Idle);
+    }
+
+    #[test]
+    fn recovery_is_in_flight_only_while_an_owned_session_holds_a_budget() {
+        let now = Instant::now();
+        assert!(owned(Some(ControlRecovery::new(now, 1))).recovering());
+        assert!(!owned(None).recovering());
+        assert!(!connected().recovering());
+        assert!(!Session::<()>::Idle.recovering());
     }
 
     #[test]
@@ -3704,6 +3810,7 @@ mod session_tests {
     fn only_a_connected_session_has_a_lease() {
         let now = Instant::now();
         assert_eq!(connected().lease(), Some(lease()));
+        assert_eq!(owned(None).lease(), Some(lease()));
         assert_eq!(Session::<()>::Idle.lease(), None);
         assert_eq!(
             Session::<()>::Reconnecting(Retry {
