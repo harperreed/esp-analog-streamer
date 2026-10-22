@@ -684,6 +684,84 @@ impl ControlRecovery {
     }
 }
 
+/// One reconnect attempt after a lost session, due at `at`.
+#[derive(Debug, PartialEq, Eq)]
+struct Retry {
+    player: String,
+    at: std::time::Instant,
+    attempt: usize,
+}
+
+/// The worker's connection phase. Every teardown consumes the old phase, so a client without
+/// its lease, or a retry beside a live client, cannot exist. `C` is the control client; tests
+/// use `()`.
+#[derive(Debug, PartialEq, Eq)]
+enum Session<C = esp_shazam_core::sonos_upnp::Client> {
+    Idle,
+    /// The last session failed; observe the selected player again at `Retry::at`, never take over.
+    Reconnecting(Retry),
+    Connected {
+        client: C,
+        lease: Lease,
+    },
+}
+
+impl<C> Session<C> {
+    /// A lost session retries the selected player in a second, or rests when none is selected.
+    /// A failed transport is not permission to take over again: the client goes with it.
+    fn lost(self, selected: Option<String>, now: std::time::Instant) -> Self {
+        match self {
+            Session::Connected { .. } => match selected {
+                Some(player) => Session::Reconnecting(Retry {
+                    player,
+                    at: now + std::time::Duration::from_secs(1),
+                    attempt: 0,
+                }),
+                None => Session::Idle,
+            },
+            Session::Idle | Session::Reconnecting(_) => Session::Idle,
+        }
+    }
+
+    /// A failed reconnect waits twice as long each time and gives up after the third.
+    fn retry_later(mut retry: Retry, now: std::time::Instant) -> Self {
+        retry.attempt += 1;
+        if retry.attempt < 3 {
+            retry.at = now + std::time::Duration::from_secs(1 << retry.attempt);
+            Session::Reconnecting(retry)
+        } else {
+            Session::Idle
+        }
+    }
+
+    /// Cancellation drops a stale retry but keeps a live client for the queued checked Stop.
+    fn cancelled(self) -> Self {
+        match self {
+            Session::Reconnecting(_) => Session::Idle,
+            other => other,
+        }
+    }
+
+    /// Takes the retry once it is due; every other phase stays as it is.
+    fn due_retry(&mut self, now: std::time::Instant) -> Option<Retry> {
+        match std::mem::replace(self, Session::Idle) {
+            Session::Reconnecting(retry) if now >= retry.at => Some(retry),
+            other => {
+                *self = other;
+                None
+            }
+        }
+    }
+
+    /// The lease the live client's I/O runs under.
+    fn lease(&self) -> Option<Lease> {
+        match self {
+            Session::Connected { lease, .. } => Some(*lease),
+            Session::Idle | Session::Reconnecting(_) => None,
+        }
+    }
+}
+
 fn recoverable_observation_error(error: &std::io::Error) -> bool {
     use std::io::ErrorKind;
     matches!(
@@ -992,19 +1070,16 @@ mod device {
                         commands,
                         generation: 0,
                         network,
-                        socket_lease: None,
                         status,
                         nvs: launch.nvs,
                         store: launch.store,
-                        socket: None,
-                        group: None,
+                        session: Session::Idle,
                         owned_uri: None,
                         recovery: None,
                         queue,
                         poll_at: Instant::now(),
                         sequence: 0,
                         epoch: Instant::now(),
-                        retry: None,
                         policy,
                         samples: LevelSamples::default(),
                         diagnostic_at: Instant::now(),
@@ -1694,22 +1769,14 @@ mod device {
         with_network(network, lease, || groups).map_err(|error| anyhow!(error))
     }
 
-    struct Retry {
-        player: String,
-        at: Instant,
-        attempt: usize,
-    }
-
     struct Worker {
         commands: Arc<Commands>,
         generation: u64,
         network: Network,
-        socket_lease: Option<Lease>,
         status: Arc<Mutex<Snapshot>>,
         nvs: EspNvs<NvsDefault>,
         store: recognizer::SharedStore,
-        socket: Option<Client>,
-        group: Option<DiscoveryGroup>,
+        session: Session,
         owned_uri: Option<String>,
         recovery: Option<ControlRecovery>,
         queue: Queue,
@@ -1719,7 +1786,6 @@ mod device {
         diagnostic_at: Instant,
         sequence: u64,
         epoch: Instant,
-        retry: Option<Retry>,
     }
 
     impl Worker {
@@ -1795,12 +1861,12 @@ mod device {
                         }
                     }
                 }
-                if let Some(lease) = self
-                    .network
-                    .lease()
-                    .filter(|_| self.retry.as_ref().is_some_and(|r| Instant::now() >= r.at))
-                {
-                    let mut retry = self.retry.take().unwrap();
+                // A due retry waits for a LAN address; taking it leaves the session Idle.
+                if let Some((lease, retry)) = self.network.lease().and_then(|lease| {
+                    self.session
+                        .due_retry(Instant::now())
+                        .map(|retry| (lease, retry))
+                }) {
                     match self
                         .resolve(&retry.player, lease)
                         .and_then(|group| self.connect(group, lease))
@@ -1810,16 +1876,10 @@ mod device {
                             self.status.lock().unwrap().state = State::Stopped;
                         }
                         Err(error) => {
-                            self.socket = None;
-                            self.socket_lease = None;
-                            self.group = None;
+                            // connect() installs a client only on success, so the session is Idle.
                             self.status.lock().unwrap().last_error =
                                 Some(format!("Reconnect: {error}"));
-                            retry.attempt += 1;
-                            if retry.attempt < 3 {
-                                retry.at = Instant::now() + Duration::from_secs(1 << retry.attempt);
-                                self.retry = Some(retry);
-                            }
+                            self.session = Session::retry_later(retry, Instant::now());
                         }
                     }
                 }
@@ -1828,7 +1888,8 @@ mod device {
 
         fn check_network(&mut self) {
             if self
-                .socket_lease
+                .session
+                .lease()
                 .is_some_and(|lease| !self.network.is_current(lease))
             {
                 self.fail(anyhow!("Sonos network changed"));
@@ -1840,25 +1901,15 @@ mod device {
             self.queue.clear();
             self.policy
                 .update(self.now(), protocol::AutoplayEvent::OwnershipLost);
-            let player = self
-                .group
-                .as_ref()
-                .and_then(|_| self.status.lock().unwrap().config.player_id.clone());
-            // A failed transport is not permission to take over again. Forget ownership locally.
-            self.socket = None;
-            self.socket_lease = None;
+            let selected = self.status.lock().unwrap().config.player_id.clone();
             self.poll_at = Instant::now();
             self.owned_uri = None;
-            self.group = None;
+            self.session =
+                std::mem::replace(&mut self.session, Session::Idle).lost(selected, Instant::now());
             let mut status = self.status.lock().unwrap();
             status.active_player_id = None;
             status.state = State::Error;
             status.last_error = Some(error.to_string());
-            self.retry = player.map(|player| Retry {
-                player,
-                at: Instant::now() + Duration::from_secs(1),
-                attempt: 0,
-            });
         }
 
         fn save(&mut self, config: SonosConfig) -> Result<()> {
@@ -1958,14 +2009,11 @@ mod device {
         }
 
         fn connect(&mut self, group: DiscoveryGroup, lease: Lease) -> Result<()> {
-            self.socket = Some(
-                with_network(&self.network, lease, || {
-                    Client::connect(&group, Instant::now() + TIMEOUT)
-                })
-                .map_err(|error| anyhow!(error))??,
-            );
-            self.socket_lease = Some(lease);
-            self.group = Some(group);
+            let client = with_network(&self.network, lease, || {
+                Client::connect(&group, Instant::now() + TIMEOUT)
+            })
+            .map_err(|error| anyhow!(error))??;
+            self.session = Session::Connected { client, lease };
             Ok(())
         }
 
@@ -2093,7 +2141,9 @@ mod device {
                 .map_err(|error| anyhow!(error))??;
             self.owned_uri = Some(uri.clone());
             self.status.lock().unwrap().active_player_id = Some(player);
-            let client = self.socket.as_ref().context("Sonos disconnected")?;
+            let Session::Connected { client, .. } = &self.session else {
+                return Err(anyhow!("Sonos disconnected"));
+            };
             with_network(&self.network, lease, || {
                 client.verify(Instant::now() + TIMEOUT)
             })
@@ -2142,36 +2192,37 @@ mod device {
             self.queue.clear();
             self.policy
                 .update(self.now(), protocol::AutoplayEvent::ManualStop);
-            self.retry = None;
-            let lease = self.socket_lease;
-            let result = (|| -> Result<()> {
-                if let (Some(uri), Some(client), Some(lease)) =
-                    (self.owned_uri.take(), self.socket.as_ref(), lease)
+            // Stop ends every phase: a pending retry, a connected client and the owned URI.
+            let session = std::mem::replace(&mut self.session, Session::Idle);
+            let lease = session.lease();
+            let result = match (&session, self.owned_uri.take()) {
+                (Session::Connected { client, lease }, Some(uri))
+                    if self.network.is_current(*lease) =>
                 {
-                    if self.network.is_current(lease) {
-                        with_network(&self.network, lease, || {
+                    (|| -> Result<()> {
+                        with_network(&self.network, *lease, || {
                             client.verify(Instant::now() + TIMEOUT)
                         })
                         .map_err(|error| anyhow!(error))??;
-                        let current = with_network(&self.network, lease, || {
+                        let current = with_network(&self.network, *lease, || {
                             client.media_uri(Instant::now() + TIMEOUT)
                         })
                         .map_err(|error| anyhow!(error))??;
                         if HttpOwnership::new(uri).matches(&current) {
                             // SOAP has an unavoidable observation-to-write takeover race.
-                            with_network(&self.network, lease, || {
+                            with_network(&self.network, *lease, || {
                                 client.stop(Instant::now() + TIMEOUT)
                             })
                             .map_err(|error| anyhow!(error))??;
                         }
-                    }
+                        Ok(())
+                    })()
                 }
-                Ok(())
-            })();
-            self.socket = None;
-            self.socket_lease = None;
+                // Nothing of ours plays remotely: no client, no owned URI, or the network moved.
+                _ => Ok(()),
+            };
+            drop(session);
             self.poll_at = Instant::now();
-            self.group = None;
             let mut status = self.status.lock().unwrap();
             status.active_player_id = None;
             status.state = State::Stopped;
@@ -2196,7 +2247,7 @@ mod device {
             if cancelled {
                 self.policy
                     .update(self.now(), protocol::AutoplayEvent::OwnershipLost);
-                self.retry = None;
+                self.session = std::mem::replace(&mut self.session, Session::Idle).cancelled();
                 self.recovery = None;
             }
             cancelled
@@ -2216,7 +2267,10 @@ mod device {
             } else {
                 now + Duration::from_secs(5)
             };
-            let lease = self.socket_lease.context("Sonos disconnected")?;
+            let Session::Connected { client, lease } = &self.session else {
+                return Err(anyhow!("Sonos disconnected"));
+            };
+            let lease = *lease;
             observation_checkpoint(
                 &self.queue,
                 &self.commands,
@@ -2236,7 +2290,6 @@ mod device {
                     },
                 )?;
             }
-            let client = self.socket.as_ref().context("Sonos disconnected")?;
             let uri = self
                 .owned_uri
                 .as_deref()
@@ -3549,6 +3602,118 @@ mod network_tests {
             snapshot
         });
         assert_eq!(queue.snapshot().unwrap().item_id, "fresh");
+    }
+}
+
+#[cfg(test)]
+mod session_tests {
+    use super::*;
+    use std::time::{Duration, Instant};
+
+    fn lease() -> Lease {
+        network_tests::ready_network().lease().unwrap()
+    }
+
+    fn connected() -> Session<()> {
+        Session::Connected {
+            client: (),
+            lease: lease(),
+        }
+    }
+
+    #[test]
+    fn lost_session_retries_the_selected_player_and_rests_otherwise() {
+        let now = Instant::now();
+        assert_eq!(
+            connected().lost(Some("player".into()), now),
+            Session::Reconnecting(Retry {
+                player: "player".into(),
+                at: now + Duration::from_secs(1),
+                attempt: 0,
+            })
+        );
+        assert_eq!(connected().lost(None, now), Session::Idle);
+        let pending = Session::<()>::Reconnecting(Retry {
+            player: "player".into(),
+            at: now,
+            attempt: 1,
+        });
+        assert_eq!(pending.lost(Some("player".into()), now), Session::Idle);
+        assert_eq!(
+            Session::<()>::Idle.lost(Some("player".into()), now),
+            Session::Idle
+        );
+    }
+
+    #[test]
+    fn reconnect_backoff_doubles_and_gives_up_after_three_attempts() {
+        let now = Instant::now();
+        let first = Retry {
+            player: "player".into(),
+            at: now,
+            attempt: 0,
+        };
+        let Session::<()>::Reconnecting(second) = Session::retry_later(first, now) else {
+            panic!("second attempt must be armed");
+        };
+        assert_eq!(
+            (second.attempt, second.at),
+            (1, now + Duration::from_secs(2))
+        );
+        let Session::<()>::Reconnecting(third) = Session::retry_later(second, now) else {
+            panic!("third attempt must be armed");
+        };
+        assert_eq!((third.attempt, third.at), (2, now + Duration::from_secs(4)));
+        assert_eq!(Session::<()>::retry_later(third, now), Session::Idle);
+    }
+
+    #[test]
+    fn cancellation_drops_a_stale_retry_but_keeps_the_client() {
+        let now = Instant::now();
+        let pending = Session::<()>::Reconnecting(Retry {
+            player: "player".into(),
+            at: now,
+            attempt: 0,
+        });
+        assert_eq!(pending.cancelled(), Session::Idle);
+        assert_eq!(connected().cancelled(), connected());
+        assert_eq!(Session::<()>::Idle.cancelled(), Session::Idle);
+    }
+
+    #[test]
+    fn a_due_retry_is_taken_once_and_other_phases_stay_put() {
+        let now = Instant::now();
+        let mut session = Session::<()>::Reconnecting(Retry {
+            player: "player".into(),
+            at: now + Duration::from_secs(1),
+            attempt: 0,
+        });
+        assert!(session.due_retry(now).is_none());
+        assert!(matches!(session, Session::Reconnecting(_)));
+        let retry = session
+            .due_retry(now + Duration::from_secs(1))
+            .expect("due retry");
+        assert_eq!(retry.player, "player");
+        assert_eq!(session, Session::Idle);
+        let mut session = connected();
+        assert!(session.due_retry(now).is_none());
+        assert_eq!(session, connected());
+    }
+
+    #[test]
+    fn only_a_connected_session_has_a_lease() {
+        let now = Instant::now();
+        assert_eq!(connected().lease(), Some(lease()));
+        assert_eq!(Session::<()>::Idle.lease(), None);
+        assert_eq!(
+            Session::<()>::Reconnecting(Retry {
+                player: "player".into(),
+                at: now,
+                attempt: 0,
+            })
+            .lease(),
+            None
+        );
     }
 }
 
