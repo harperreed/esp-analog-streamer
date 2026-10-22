@@ -153,7 +153,8 @@ mod device {
         server.fn_handler::<anyhow::Error, _>("/api/ota", Method::Get, move |request| {
             let (code, body) = match crate::ota::status(!crate::config::CONFIG.ota_token.is_empty())
             {
-                Ok(status) => (200, serde_json::to_string(&status)?),
+                Ok(Some(status)) => (200, serde_json::to_string(&status)?),
+                Ok(None) => (503, r#"{"error":"upload in progress"}"#.to_owned()),
                 Err(error) => (
                     500,
                     format!("{{\"error\":\"{}\"}}", error.to_string().replace('"', "'")),

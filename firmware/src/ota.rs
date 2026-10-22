@@ -1,6 +1,6 @@
 // ABOUTME: Over-the-air updates: streams an uploaded app image into the other slot behind a shared token, restarts
 // ABOUTME: into it, and marks a freshly booted image valid once it is healthy so the bootloader can roll back otherwise.
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Mutex, MutexGuard, TryLockError};
 use std::time::{Duration, Instant};
 
 use anyhow::{anyhow, Context, Result};
@@ -9,8 +9,10 @@ use esp_idf_svc::sys;
 use esp_shazam_core::network_lifecycle::Network;
 use esp_shazam_core::ota_image::{self, AppDescription, ImageError, HEAD_BYTES};
 
-/// One upload at a time; a second is refused, not queued.
-static UPLOADING: AtomicBool = AtomicBool::new(false);
+/// esp-idf-svc allows one `EspOta` per process (`EspOta::new` refuses a second while one lives), so this is it,
+/// opened on first use. Holding the guard is the busy signal: an upload holds it for its whole write, and a
+/// second upload is refused, not queued. Everyone else takes it briefly.
+static OTA: Mutex<Option<EspOta>> = Mutex::new(None);
 /// A freshly booted image proves itself with this much Wi-Fi uptime; a panic, watchdog or reset before that
 /// returns the bootloader to the previous slot (CONFIG_BOOTLOADER_APP_ROLLBACK_ENABLE).
 const HEALTHY_AFTER: Duration = Duration::from_secs(60);
@@ -62,12 +64,40 @@ fn slot_bytes(label: &str) -> usize {
     }
 }
 
-pub fn status(token_configured: bool) -> Result<Status> {
-    let ota = EspOta::new().context("OTA handle")?;
+type Guard = MutexGuard<'static, Option<EspOta>>;
+
+/// Takes the handle without waiting; `None` means an upload holds it.
+fn try_claim() -> Result<Option<Guard>> {
+    match OTA.try_lock() {
+        Ok(guard) => Ok(Some(guard)),
+        Err(TryLockError::WouldBlock) => Ok(None),
+        Err(TryLockError::Poisoned(_)) => Err(anyhow!("OTA handle poisoned")),
+    }
+}
+
+/// Waits for the handle; an upload in progress finishes first.
+fn claim() -> Result<Guard> {
+    OTA.lock().map_err(|_| anyhow!("OTA handle poisoned"))
+}
+
+/// The process's one `EspOta`, opened on the first call.
+fn open(slot: &mut Option<EspOta>) -> Result<&mut EspOta> {
+    if slot.is_none() {
+        *slot = Some(EspOta::new().context("OTA handle")?);
+    }
+    Ok(slot.as_mut().expect("opened above"))
+}
+
+/// `None` while an upload holds the handle; an httpd handler must never wait on it.
+pub fn status(token_configured: bool) -> Result<Option<Status>> {
+    let Some(mut guard) = try_claim()? else {
+        return Ok(None);
+    };
+    let ota = open(&mut guard)?;
     let running = ota.get_running_slot()?;
     let boot = ota.get_boot_slot()?;
     let update = ota.get_update_slot()?;
-    Ok(Status {
+    Ok(Some(Status {
         running: running.label.to_string(),
         boot: boot.label.to_string(),
         running_state: state_name(&running.state),
@@ -76,14 +106,16 @@ pub fn status(token_configured: bool) -> Result<Status> {
         enabled: token_configured && update.label != running.label,
         update_slot_bytes: slot_bytes(&update.label),
         update_slot: update.label.to_string(),
-    })
+    }))
 }
 
 /// Marks this boot's image valid after HEALTHY_AFTER of continuous Wi-Fi. The thread (and its internal-RAM stack)
 /// exists only while the running slot is still pending verification: an image flashed over USB or already marked
 /// valid has nothing to prove, and internal RAM is the scarcest thing on this board.
 pub fn mark_valid_when_healthy(network: Network) {
-    match EspOta::new().and_then(|ota| ota.get_running_slot()) {
+    // The first lock of an ESP-IDF std mutex allocates; this one happens here, on the main thread at boot.
+    let running = claim().and_then(|mut guard| Ok(open(&mut guard)?.get_running_slot()?));
+    match running {
         Ok(slot) if matches!(slot.state, SlotState::Unverified) => {}
         Ok(slot) => {
             log::info!(
@@ -112,9 +144,12 @@ pub fn mark_valid_when_healthy(network: Network) {
                     (true, since) => since,
                 };
                 if up_since.is_some_and(|since| since.elapsed() >= HEALTHY_AFTER) {
-                    // A failed mark (an upload holding the handle, say) is not success: keep ticking so the
-                    // next tick retries, and keep warning, since a mark that never lands means a rollback.
-                    match EspOta::new().and_then(|mut ota| ota.mark_running_slot_valid()) {
+                    // A failed mark is not success: keep ticking so the next tick retries, and keep
+                    // warning, since a mark that never lands means a rollback. Waiting on the handle is
+                    // fine here: an upload in progress finishes first, then this slot is marked.
+                    let marked = claim()
+                        .and_then(|mut guard| Ok(open(&mut guard)?.mark_running_slot_valid()?));
+                    match marked {
                         Ok(()) => {
                             log::info!("ota: running image marked valid");
                             return;
@@ -149,12 +184,10 @@ pub fn upload(
     let Some(declared) = declared else {
         return Ok(Err(Refusal::Length));
     };
-    if UPLOADING.swap(true, Ordering::AcqRel) {
+    let Some(mut guard) = try_claim()? else {
         return Ok(Err(Refusal::Busy));
-    }
-    let outcome = stream(declared, &mut read);
-    UPLOADING.store(false, Ordering::Release);
-    outcome
+    };
+    stream(open(&mut guard)?, declared, &mut read)
 }
 
 fn fill(
@@ -173,10 +206,10 @@ fn fill(
 }
 
 fn stream(
+    ota: &mut EspOta,
     declared: usize,
     read: &mut impl FnMut(&mut [u8]) -> std::io::Result<usize>,
 ) -> Result<Result<AppDescription, Refusal>> {
-    let mut ota = EspOta::new().context("OTA handle")?;
     let slot = ota.get_update_slot()?;
     let slot_size = slot_bytes(&slot.label);
     let mut head = vec![0u8; HEAD_BYTES.min(declared)];
