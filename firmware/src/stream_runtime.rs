@@ -95,7 +95,8 @@ struct Request {
 pub struct Runtime {
     active: Mutex<Arc<Epoch>>,
     pub(crate) health: std::sync::Arc<HealthGate>,
-    pub(crate) block_frames: AtomicU32,
+    /// `OutputFormat::code()` of the active epoch, readable without the `active` mutex.
+    active_code: AtomicU32,
     sender: SyncSender<Request>,
     recognition: bool,
     listeners: Arc<AtomicUsize>,
@@ -128,7 +129,7 @@ impl Runtime {
         let runtime = Arc::new(Self {
             active: Mutex::new(prepared.epoch.clone()),
             health,
-            block_frames: AtomicU32::new(format.block_frames() as u32),
+            active_code: AtomicU32::new(format.code()),
             sender,
             recognition,
             clock,
@@ -150,15 +151,16 @@ impl Runtime {
     pub fn active_format(&self) -> OutputFormat {
         self.active.lock().unwrap().format
     }
+    /// The committed format without the `active` mutex, for paths that must not wait on it.
+    pub(crate) fn active_format_unlocked(&self) -> OutputFormat {
+        let code = self.active_code.load(std::sync::atomic::Ordering::Acquire);
+        OutputFormat::from_code(code)
+            .expect("active_code is only ever stored from OutputFormat::code")
+    }
     /// Admission and the idle commit predicate share this lock. The lease survives socket close.
     pub fn admit(&self, line: &str) -> (Route, Option<Lease>) {
         if !self.health.healthy() {
-            let format = if self.block_frames.load(std::sync::atomic::Ordering::Acquire) == 1152 {
-                OutputFormat::Mp3
-            } else {
-                OutputFormat::Flac
-            };
-            let route = stream_http::route_for(line, format);
+            let route = stream_http::route_for(line, self.active_format_unlocked());
             if matches!(
                 route,
                 Route::Buffered(_)
@@ -360,8 +362,8 @@ impl Worker {
                 .epoch
                 .operator_epoch
                 .store(operator_epoch, std::sync::atomic::Ordering::Release);
-            runtime.block_frames.store(
-                request.prepared.epoch.format.block_frames() as u32,
+            runtime.active_code.store(
+                request.prepared.epoch.format.code(),
                 std::sync::atomic::Ordering::Release,
             );
             active.retired.store(true, Ordering::Release);
@@ -404,23 +406,26 @@ mod tests {
     }
     #[test]
     fn unhealthy_compressed_admission_does_not_wait_for_active_mutex() {
-        let (runtime, _worker) = Runtime::new(OutputFormat::Mp3, false).unwrap();
-        let active = runtime.active.lock().unwrap();
-        assert!(runtime
-            .health
-            .transition(runtime.health.token(), health::State::Terminal));
-        let caller = runtime.clone();
-        let (sent, received) = mpsc::channel();
-        let client = std::thread::spawn(move || {
-            sent.send(caller.admit("GET /stream.mp3 HTTP/1.1").0)
-                .unwrap()
-        });
-        assert_eq!(
-            received.recv_timeout(Duration::from_secs(1)).unwrap(),
-            Route::Refuse(stream_http::Status::ServiceUnavailable)
-        );
-        drop(active);
-        client.join().unwrap();
+        for (format, line) in [
+            (OutputFormat::Flac, "GET /stream.flac HTTP/1.1"),
+            (OutputFormat::Mp3, "GET /stream.mp3 HTTP/1.1"),
+        ] {
+            let (runtime, _worker) = Runtime::new(format, false).unwrap();
+            let active = runtime.active.lock().unwrap();
+            assert!(runtime
+                .health
+                .transition(runtime.health.token(), health::State::Terminal));
+            let caller = runtime.clone();
+            let (sent, received) = mpsc::channel();
+            let client = std::thread::spawn(move || sent.send(caller.admit(line).0).unwrap());
+            assert_eq!(
+                received.recv_timeout(Duration::from_secs(1)).unwrap(),
+                Route::Refuse(stream_http::Status::ServiceUnavailable),
+                "{format:?}"
+            );
+            drop(active);
+            client.join().unwrap();
+        }
     }
 
     #[test]

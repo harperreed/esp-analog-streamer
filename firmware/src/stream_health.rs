@@ -104,7 +104,7 @@ impl HealthGate {
             receipt.metadata.encoded_production_us,
         ];
         self.output[0].store(operator_epoch, Ordering::SeqCst);
-        self.output[1].store(u32::from(format == OutputFormat::Mp3), Ordering::SeqCst);
+        self.output[1].store(format.code(), Ordering::SeqCst);
         for (index, value) in values.into_iter().enumerate() {
             self.output[2 + index * 2].store(value as u32, Ordering::SeqCst);
             self.output[3 + index * 2].store((value >> 32) as u32, Ordering::SeqCst);
@@ -129,11 +129,8 @@ impl HealthGate {
         };
         Some(OutputProgress {
             operator_epoch: words[0],
-            format: if words[1] == 1 {
-                OutputFormat::Mp3
-            } else {
-                OutputFormat::Flac
-            },
+            format: OutputFormat::from_code(words[1])
+                .expect("output[1] is only ever stored from OutputFormat::code"),
             receipt: FrameReceipt {
                 generation: value(0),
                 sequence: value(1),
@@ -216,7 +213,7 @@ impl Supervisor {
                         0,
                         0,
                         baseline.1,
-                        runtime.block_frames.load(Ordering::Acquire) as usize,
+                        runtime.active_format_unlocked().block_frames(),
                     ),
                 };
             Observation {
@@ -295,6 +292,17 @@ mod tests {
             gate.progress().unwrap().receipt,
             receipt((9999 << 32) | 9999)
         );
+    }
+    #[test]
+    fn output_receipt_carries_each_format() {
+        let gate = HealthGate::new();
+        for format in [OutputFormat::Flac, OutputFormat::Mp3] {
+            gate.publish(7, format, receipt(3));
+            let output = gate.progress().unwrap();
+            assert_eq!(output.format, format);
+            assert_eq!(output.operator_epoch, 7);
+            assert_eq!(output.receipt, receipt(3));
+        }
     }
     #[test]
     fn unavailable_output_snapshot_never_proves_encoder_stall() {

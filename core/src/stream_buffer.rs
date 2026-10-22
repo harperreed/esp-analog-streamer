@@ -44,6 +44,20 @@ pub enum OutputFormat {
     Mp3,
 }
 impl OutputFormat {
+    /// Lock-free word for the format; the runtime and health gate store this in atomics.
+    pub const fn code(self) -> u32 {
+        match self {
+            Self::Flac => 0,
+            Self::Mp3 => 1,
+        }
+    }
+    pub const fn from_code(code: u32) -> Option<Self> {
+        match code {
+            0 => Some(Self::Flac),
+            1 => Some(Self::Mp3),
+            _ => None,
+        }
+    }
     pub const fn format(self) -> crate::stream_http::Format {
         match self {
             Self::Flac => crate::stream_http::Format::Flac,

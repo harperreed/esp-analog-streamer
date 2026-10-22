@@ -1,6 +1,15 @@
 // ABOUTME: Runtime compressed format settings and frozen queue contracts.
 // ABOUTME: Exercises public serde validation before device-specific ownership tests.
-use esp_shazam_core::{sonos::SonosConfig, sonos_web};
+use esp_shazam_core::{sonos::SonosConfig, sonos_web, stream_buffer::OutputFormat};
+
+#[test]
+fn output_format_code_round_trips_and_rejects_unknown_codes() {
+    for format in [OutputFormat::Flac, OutputFormat::Mp3] {
+        assert_eq!(OutputFormat::from_code(format.code()), Some(format));
+    }
+    assert_ne!(OutputFormat::Flac.code(), OutputFormat::Mp3.code());
+    assert_eq!(OutputFormat::from_code(u32::MAX), None);
+}
 
 #[test]
 fn default_format_is_flac_and_settings_preserve_buffer() {
