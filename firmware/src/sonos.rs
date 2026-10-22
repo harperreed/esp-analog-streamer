@@ -56,6 +56,24 @@ fn admit(command: &Command, status: &Snapshot) -> Result<(), Refusal> {
     }
 }
 
+/// Whether an admitted command needs the worker while none has started. Stop has nothing to stop and
+/// SetEnabled is only a config write the handle makes itself; spawning the 16 KiB worker for either
+/// would hold internal RAM for the rest of the boot (k4qv: 47.6 KB to 29.6 KB on the office board).
+/// Once the worker runs, every command goes through its queue.
+fn needs_worker(command: &Command) -> bool {
+    !matches!(command, Command::Stop | Command::SetEnabled(_))
+}
+
+/// The config after SetEnabled: turning Sonos off also turns autoplay off, so nothing starts by
+/// itself while it is off.
+fn with_enabled(mut config: SonosConfig, enabled: bool) -> SonosConfig {
+    config.enabled = enabled;
+    if !enabled {
+        config.autoplay = false;
+    }
+    config
+}
+
 struct QueuedCommand {
     command: Command,
     generation: u64,
@@ -216,6 +234,15 @@ impl<T> WorkerStart<T> {
             *pending = None;
         }
         Ok(())
+    }
+
+    /// Runs `with` on the resources while no worker has been launched; `None` once one has. The
+    /// creation lock is held throughout, so a launch cannot slip in between the check and `with`.
+    fn with_unstarted<R>(&self, with: impl FnOnce(&mut T) -> R) -> Option<R> {
+        let pending = self.pending.lock().unwrap();
+        let resources = pending.as_ref()?;
+        let mut slot = resources.lock().unwrap();
+        slot.as_mut().map(with)
     }
 }
 
@@ -881,6 +908,12 @@ mod device {
         nvs: EspNvs<NvsDefault>,
     }
 
+    /// The one write of the saved configuration (NVS namespace `sonos`, key `config`).
+    fn persist(nvs: &EspNvs<NvsDefault>, config: &SonosConfig) -> Result<()> {
+        nvs.set_str("config", &serde_json::to_string(config)?)?;
+        Ok(())
+    }
+
     impl Handle {
         pub(crate) fn metrics_network(&self) -> Option<crate::device_metrics::NetworkMetadata> {
             let snapshot = self.network.try_snapshot()?;
@@ -968,10 +1001,29 @@ mod device {
             })
         }
 
+        /// Answers a command that needs no worker while none exists: Stop is a no-op and SetEnabled
+        /// saves the config the way the worker would, a failed save landing in `last_error` as it
+        /// does there. `None` once the worker runs, so the command goes through its queue.
+        fn answer_without_worker(&self, command: &Command) -> Option<()> {
+            self.pending.with_unstarted(|launch| {
+                if let Command::SetEnabled(enabled) = command {
+                    let config = with_enabled(self.status.lock().unwrap().config.clone(), *enabled);
+                    if let Err(error) =
+                        save_config(&self.status, config, |config| persist(&launch.nvs, config))
+                    {
+                        self.status.lock().unwrap().last_error = Some(error.to_string());
+                    }
+                }
+            })
+        }
+
         /// The single admission authority: every gate reads one status snapshot, and a refused
         /// command never launches the worker.
         pub fn submit(&self, command: Command) -> Result<(), Refusal> {
             admit(&command, &self.status.lock().unwrap())?;
+            if !needs_worker(&command) && self.answer_without_worker(&command).is_some() {
+                return Ok(());
+            }
             self.ensure_started().map_err(|error| {
                 log::warn!("sonos: cannot start worker: {error}");
                 Refusal::WorkerUnavailable
@@ -1218,11 +1270,7 @@ mod device {
         }
 
         fn save(&mut self, config: SonosConfig) -> Result<()> {
-            save_config(&self.status, config, |config| {
-                self.nvs
-                    .set_str("config", &serde_json::to_string(config)?)?;
-                Ok(())
-            })
+            save_config(&self.status, config, |config| persist(&self.nvs, config))
         }
 
         fn command(&mut self, command: Command, lease: Option<Lease>) -> Result<()> {
@@ -1258,12 +1306,7 @@ mod device {
                         .update(self.now(), protocol::AutoplayEvent::Enabled(enabled));
                 }
                 Command::SetEnabled(enabled) => {
-                    // Turning Sonos off also turns autoplay off, so nothing starts by itself while it is off.
-                    let mut config = self.status.lock().unwrap().config.clone();
-                    config.enabled = enabled;
-                    if !enabled {
-                        config.autoplay = false;
-                    }
+                    let config = with_enabled(self.status.lock().unwrap().config.clone(), enabled);
                     self.save(config)?;
                     if !enabled {
                         self.policy
@@ -1721,6 +1764,51 @@ mod tests {
                 .buffer_preset,
             None
         );
+    }
+
+    #[test]
+    fn only_stop_and_enable_are_answered_without_the_worker() {
+        use esp_shazam_core::stream_buffer::{BufferPreset, OutputFormat};
+        for command in [
+            Command::Discover,
+            Command::Select("RINCON_TEST01400".into()),
+            Command::Play,
+            Command::SetAutoplay(false),
+            Command::SetFormat(OutputFormat::Flac),
+            Command::SetBufferPreset(BufferPreset::Low),
+        ] {
+            assert!(needs_worker(&command), "{command:?}");
+        }
+        for command in [
+            Command::Stop,
+            Command::SetEnabled(false),
+            Command::SetEnabled(true),
+        ] {
+            assert!(!needs_worker(&command), "{command:?}");
+        }
+    }
+
+    #[test]
+    fn unstarted_resources_are_reachable_only_until_the_launch() {
+        let start = WorkerStart::new(7u8);
+        assert_eq!(start.with_unstarted(|value| *value), Some(7));
+        start.ensure_started(|_| Err(())).unwrap_err();
+        assert_eq!(start.with_unstarted(|value| *value), Some(7));
+        start.ensure_started(|_| Ok::<(), ()>(())).unwrap();
+        assert_eq!(start.with_unstarted(|value| *value), None);
+    }
+
+    #[test]
+    fn enabling_keeps_autoplay_and_disabling_clears_it() {
+        let config = SonosConfig {
+            enabled: true,
+            autoplay: true,
+            ..Default::default()
+        };
+        assert_eq!(with_enabled(config.clone(), true), config);
+        let off = with_enabled(config, false);
+        assert!(!off.enabled);
+        assert!(!off.autoplay);
     }
 
     #[test]
