@@ -772,6 +772,24 @@ fn capture_runtime() -> Option<(u64, u32)> {
     Some((micros(), status.ulRunTimeCounter))
 }
 
+/// One metrics window of the capture path. Filling it loads every counter and performs every
+/// window reset in one pass, so `/api/metrics` and the UART `audio:` line describe the same
+/// window; `metrics` is the JSON's share of it, the rest is on the UART line only.
+struct CaptureWindow {
+    metrics: crate::device_metrics::Capture,
+    runtime_window_us: u64,
+    task_runtime_us: u32,
+    runtime_valid: bool,
+    staged_frames: u32,
+    staged_max_frames: u32,
+    staging_pending_attempts: u32,
+    staging_pending_max_attempts: u32,
+    staging_pending_us: u32,
+    staging_pending_max_us: u32,
+    timing_deficit_estimate_frames: i64,
+    window_start_free: [usize; 2],
+}
+
 // Keep capture formatting's stack frame separate from listener export in metrics.
 #[inline(never)]
 fn log_capture(
@@ -822,53 +840,64 @@ fn log_capture(
     *runtime_sample = current_runtime;
     // Logging overhead belongs to the next window. No stop/start allocation cycle.
     *window_start_free = start_heap_window();
-    let deficit = (elapsed_us * u64::from(CAPTURE_RATE_HZ) / 1_000_000) as i64 - observed as i64;
-    let read_service_delay_estimate_max_us = READ_SERVICE_DELAY_US.swap(0, Ordering::Relaxed);
-    let raw_work_max_us = RAW_WORK_US.swap(0, Ordering::Relaxed);
-    let meter_work_max_us = METER_WORK_US.swap(0, Ordering::Relaxed);
-    let store_work_max_us = STORE_WORK_US.swap(0, Ordering::Relaxed);
-    let raw_read_max_us = crate::stream::take_raw_read_max_us();
-    crate::device_metrics::CACHE.publish_capture(crate::device_metrics::Capture {
-        capture_begin_us,
-        capture_end_us,
-        read_frames: frames,
-        callbacks: counters.callbacks,
-        queue_overflows: counters.queue_overflows,
-        software_dropped_frames: dropped,
-        read_errors,
-        restarts,
-        supervisor_restarts,
-        overflow_restarts,
-        settling_discarded_frames,
-        discontinuities: gaps,
-        health_restart_requests,
-        read_service_delay_estimate_max_us,
-        raw_work_max_us,
-        meter_work_max_us,
-        store_work_max_us,
-        raw_read_max_us,
-        internal_free: free,
-        internal_largest: largest,
-        internal_min_sum,
-        psram_free,
-        psram_largest,
-        psram_min_sum,
-    });
+    let window = CaptureWindow {
+        metrics: crate::device_metrics::Capture {
+            capture_begin_us,
+            capture_end_us,
+            read_frames: frames,
+            callbacks: counters.callbacks,
+            queue_overflows: counters.queue_overflows,
+            software_dropped_frames: dropped,
+            read_errors,
+            restarts,
+            supervisor_restarts,
+            overflow_restarts,
+            settling_discarded_frames,
+            discontinuities: gaps,
+            health_restart_requests,
+            read_service_delay_estimate_max_us: READ_SERVICE_DELAY_US.swap(0, Ordering::Relaxed),
+            raw_work_max_us: RAW_WORK_US.swap(0, Ordering::Relaxed),
+            meter_work_max_us: METER_WORK_US.swap(0, Ordering::Relaxed),
+            store_work_max_us: STORE_WORK_US.swap(0, Ordering::Relaxed),
+            raw_read_max_us: crate::stream::take_raw_read_max_us(),
+            internal_free: free,
+            internal_largest: largest,
+            internal_min_sum,
+            psram_free,
+            psram_largest,
+            psram_min_sum,
+        },
+        runtime_window_us,
+        task_runtime_us,
+        runtime_valid,
+        staged_frames: STAGED_FRAMES.load(Ordering::Relaxed),
+        staged_max_frames: STAGED_MAX_FRAMES.swap(0, Ordering::Relaxed),
+        staging_pending_attempts: STAGING_PENDING_ATTEMPTS.load(Ordering::Relaxed),
+        staging_pending_max_attempts: STAGING_PENDING_MAX_ATTEMPTS.swap(0, Ordering::Relaxed),
+        staging_pending_us: STAGING_PENDING_US.load(Ordering::Relaxed),
+        staging_pending_max_us: STAGING_PENDING_MAX_US.swap(0, Ordering::Relaxed),
+        timing_deficit_estimate_frames: (elapsed_us * u64::from(CAPTURE_RATE_HZ) / 1_000_000)
+            as i64
+            - observed as i64,
+        window_start_free: start_free,
+    };
+    crate::device_metrics::CACHE.publish_capture(window.metrics);
+    let m = &window.metrics;
     log::info!("audio: frames={} capture_begin_us={} capture_end_us={} callbacks={} queue_overflows={} software_dropped_frames={} read_errors={} restarts={} supervisor_restarts={} overflow_restarts={} settling_discarded_frames={} discontinuities={} health_restart_requests={} capture_runtime_window_us={} capture_task_runtime_us={} capture_runtime_valid={} read_service_delay_estimate_max_us={} raw_work_max_us={} meter_work_max_us={} store_work_max_us={} raw_read_max_us={} staged_frames={} staged_max_frames={} staging_pending_attempts={} staging_pending_max_attempts={} staging_pending_us={} staging_pending_max_us={} timing_deficit_estimate_frames={} (clock drift/scheduling; not proof of loss) internal_free={} internal_largest={} psram_free={} psram_largest={} internal_min_sum={} psram_min_sum={} internal_window_start_free={} psram_window_start_free={} (runtime includes charged interrupts and excludes unfinished slice; service delay includes work/preemption; minima sum per-region lows; largest is a snapshot; staging fields measure partial block assembly, sampled at publish/reset)",
-        frames, capture_begin_us, capture_end_us, counters.callbacks, counters.queue_overflows,
-        dropped, read_errors,
-        restarts,
-        supervisor_restarts, overflow_restarts,
-        settling_discarded_frames,
-        gaps,
-        health_restart_requests,
-        runtime_window_us, task_runtime_us, runtime_valid,
-        read_service_delay_estimate_max_us,
-        raw_work_max_us, meter_work_max_us, store_work_max_us,
-        raw_read_max_us, STAGED_FRAMES.load(Ordering::Relaxed),
-        STAGED_MAX_FRAMES.swap(0, Ordering::Relaxed),
-        STAGING_PENDING_ATTEMPTS.load(Ordering::Relaxed), STAGING_PENDING_MAX_ATTEMPTS.swap(0, Ordering::Relaxed),
-        STAGING_PENDING_US.load(Ordering::Relaxed), STAGING_PENDING_MAX_US.swap(0, Ordering::Relaxed),
-        deficit, free, largest, psram_free, psram_largest, internal_min_sum, psram_min_sum,
-        start_free[0], start_free[1]);
+        m.read_frames, m.capture_begin_us, m.capture_end_us, m.callbacks, m.queue_overflows,
+        m.software_dropped_frames, m.read_errors,
+        m.restarts,
+        m.supervisor_restarts, m.overflow_restarts,
+        m.settling_discarded_frames,
+        m.discontinuities,
+        m.health_restart_requests,
+        window.runtime_window_us, window.task_runtime_us, window.runtime_valid,
+        m.read_service_delay_estimate_max_us,
+        m.raw_work_max_us, m.meter_work_max_us, m.store_work_max_us,
+        m.raw_read_max_us, window.staged_frames,
+        window.staged_max_frames,
+        window.staging_pending_attempts, window.staging_pending_max_attempts,
+        window.staging_pending_us, window.staging_pending_max_us,
+        window.timing_deficit_estimate_frames, m.internal_free, m.internal_largest, m.psram_free, m.psram_largest, m.internal_min_sum, m.psram_min_sum,
+        window.window_start_free[0], window.window_start_free[1]);
 }
