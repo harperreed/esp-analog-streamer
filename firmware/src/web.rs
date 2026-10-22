@@ -14,7 +14,7 @@ mod device {
     use crate::device_metrics::{ResponseError, Unavailable};
     use crate::input_gain::ApplyError;
     use crate::recognizer::SharedStore;
-    use crate::sonos::{Command, Handle};
+    use crate::sonos::{Command, Handle, Refusal};
     use esp_shazam_core::input_gain;
     use esp_shazam_core::sonos_queue::{self as queue, Endpoint, QUEUE_PATH};
     use esp_shazam_core::sonos_web::{self, Action};
@@ -234,25 +234,6 @@ mod device {
             let (code, body) = match body.as_deref().map(sonos_web::parse) {
                 Err(error) => (error.status(), error.body(sonos_web::MAX_BODY_BYTES)),
                 Ok(Err(_)) => (400, error_json("Invalid Sonos action")),
-                Ok(Ok(action))
-                    if !sonos.snapshot().config.enabled
-                        && !matches!(action, Action::Enable { .. } | Action::Stop {}) =>
-                {
-                    (
-                        409,
-                        error_json("Sonos control is off; turn it on in Settings"),
-                    )
-                }
-                Ok(Ok(Action::Format {
-                    format: esp_shazam_core::stream_buffer::OutputFormat::Mp3,
-                })) if !sonos.snapshot().buffer_available => (
-                    409,
-                    error_json("MP3 unavailable while recognition is enabled"),
-                ),
-                Ok(Ok(Action::Buffer { .. })) if !sonos.snapshot().buffer_available => (
-                    409,
-                    error_json("Startup buffer unavailable while recognition is enabled"),
-                ),
                 Ok(Ok(action)) => {
                     let command = match action {
                         Action::Discover {} => Command::Discover,
@@ -266,10 +247,7 @@ mod device {
                     };
                     match sonos.submit(command) {
                         Ok(()) => (202, r#"{"accepted":true}"#.to_owned()),
-                        Err(_) => (
-                            503,
-                            error_json("Sonos controller unavailable or busy; retry shortly"),
-                        ),
+                        Err(refusal) => refused(refusal),
                     }
                 }
             };
@@ -280,6 +258,29 @@ mod device {
             Ok(())
         })?;
         Ok(server)
+    }
+
+    /// The controller decides admission; this only names each refusal the way the page expects.
+    fn refused(refusal: Refusal) -> (u16, String) {
+        match refusal {
+            Refusal::Disabled => (
+                409,
+                error_json("Sonos control is off; turn it on in Settings"),
+            ),
+            Refusal::Mp3Unavailable => (
+                409,
+                error_json("MP3 unavailable while recognition is enabled"),
+            ),
+            Refusal::BufferUnavailable => (
+                409,
+                error_json("Startup buffer unavailable while recognition is enabled"),
+            ),
+            Refusal::InvalidPlayer => (400, error_json("Invalid Sonos action")),
+            Refusal::QueueFull | Refusal::WorkerUnavailable | Refusal::GenerationExhausted => (
+                503,
+                error_json("Sonos controller unavailable or busy; retry shortly"),
+            ),
+        }
     }
 
     fn register_queue(server: &mut EspHttpServer<'static>, sonos: Handle) -> Result<()> {

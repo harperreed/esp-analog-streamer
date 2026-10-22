@@ -41,11 +41,18 @@ pub struct SonosConfig {
     pub output_format: crate::stream_buffer::OutputFormat,
 }
 
-/// The config as the controller must act on it: automatic playback cannot run while Sonos control is off, however
-/// the saved flag reads (a config saved before the opt-in may carry `autoplay: true`).
+impl SonosConfig {
+    /// Automatic playback cannot run while Sonos control is off, however the saved flag reads
+    /// (a config saved before the opt-in may carry `autoplay: true`). Every reader of the flag asks here.
+    pub fn autoplay(&self) -> bool {
+        self.autoplay && self.enabled
+    }
+}
+
+/// The loaded config as the controller must act on it, so a stale `autoplay` cannot wake up when control is turned on.
 pub fn effective(config: SonosConfig) -> SonosConfig {
     SonosConfig {
-        autoplay: config.autoplay && config.enabled,
+        autoplay: config.autoplay(),
         ..config
     }
 }
@@ -784,16 +791,19 @@ mod tests {
             ..SonosConfig::default()
         };
         assert!(
-            !effective(saved_before_opt_in.clone()).autoplay,
+            !saved_before_opt_in.autoplay(),
             "autoplay is inert while Sonos is off"
         );
         assert!(
-            effective(SonosConfig {
-                enabled: true,
-                ..saved_before_opt_in
-            })
-            .autoplay
+            !effective(saved_before_opt_in.clone()).autoplay,
+            "the loaded config carries the same rule"
         );
+        let opted_in = SonosConfig {
+            enabled: true,
+            ..saved_before_opt_in
+        };
+        assert!(opted_in.autoplay());
+        assert!(effective(opted_in).autoplay);
         assert_eq!(
             SonosConfig::default(),
             SonosConfig {

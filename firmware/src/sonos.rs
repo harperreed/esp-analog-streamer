@@ -18,11 +18,42 @@ pub enum Command {
     SetBufferPreset(esp_shazam_core::stream_buffer::BufferPreset),
 }
 
-fn validate_buffer_command(command: &Command, available: bool) -> Result<(), &'static str> {
-    if matches!(command, Command::SetBufferPreset(_)) && !available {
-        return Err("Startup buffer unavailable while recognition is enabled");
+/// Why `Handle::submit` refused a command. The HTTP handler maps each to a status and body.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Refusal {
+    /// Sonos control is off. Stop and Enable pass so an off controller can still be cancelled or turned on.
+    Disabled,
+    /// Startup history needs the memory recognition holds.
+    BufferUnavailable,
+    /// MP3 needs the memory recognition holds.
+    Mp3Unavailable,
+    /// The destination identity fails the discovery contract.
+    InvalidPlayer,
+    /// Four commands already wait for the worker.
+    QueueFull,
+    /// The worker could not be launched or has exited.
+    WorkerUnavailable,
+    /// The cancellation generation counter ran out.
+    GenerationExhausted,
+}
+
+/// The one admission rule for every command, read from one status snapshot. `buffer_available`
+/// is the boot-time inverse of recognition, so it also gates MP3.
+fn admit(command: &Command, status: &Snapshot) -> Result<(), Refusal> {
+    use esp_shazam_core::stream_buffer::OutputFormat;
+    if !status.config.enabled && !matches!(command, Command::Stop | Command::SetEnabled(_)) {
+        return Err(Refusal::Disabled);
     }
-    Ok(())
+    match command {
+        Command::SetBufferPreset(_) if !status.buffer_available => Err(Refusal::BufferUnavailable),
+        Command::SetFormat(OutputFormat::Mp3) if !status.buffer_available => {
+            Err(Refusal::Mp3Unavailable)
+        }
+        Command::Select(player) => {
+            protocol::validate_id(player).map_err(|_| Refusal::InvalidPlayer)
+        }
+        _ => Ok(()),
+    }
 }
 
 struct QueuedCommand {
@@ -63,7 +94,7 @@ impl Commands {
         )
     }
 
-    fn submit(&self, command: Command) -> Result<(), &'static str> {
+    fn submit(&self, command: Command) -> Result<(), Refusal> {
         let mut sender = self.sender.lock().unwrap();
         let cancels = matches!(
             command,
@@ -76,7 +107,7 @@ impl Commands {
             sender
                 .1
                 .checked_add(1)
-                .ok_or("Sonos command generation exhausted")?
+                .ok_or(Refusal::GenerationExhausted)?
         } else {
             sender.1
         };
@@ -88,8 +119,8 @@ impl Commands {
                 network: self.network.lease(),
             })
             .map_err(|error| match error {
-                std::sync::mpsc::TrySendError::Full(_) => "Sonos command queue is full",
-                std::sync::mpsc::TrySendError::Disconnected(_) => "Sonos worker has stopped",
+                std::sync::mpsc::TrySendError::Full(_) => Refusal::QueueFull,
+                std::sync::mpsc::TrySendError::Disconnected(_) => Refusal::WorkerUnavailable,
             })?;
         if cancels {
             *sender.2.lock().unwrap() = false;
@@ -262,7 +293,7 @@ fn start_autoplay<E: std::fmt::Display>(
     status: &std::sync::Mutex<Snapshot>,
     start: impl FnOnce() -> Result<(), E>,
 ) {
-    let enabled = status.lock().unwrap().config.autoplay;
+    let enabled = status.lock().unwrap().config.autoplay();
     if enabled {
         if let Err(error) = start() {
             let mut snapshot = status.lock().unwrap();
@@ -908,7 +939,7 @@ mod device {
                     status.config.output_format,
                     status.config.buffer_preset,
                     status.buffer_available,
-                    status.config.autoplay,
+                    status.config.autoplay(),
                 )
             };
             Some(crate::device_metrics::Settings {
@@ -955,7 +986,7 @@ mod device {
                         protocol::Autoplay::new(-50.0, -60.0).expect("Valid Sonos thresholds");
                     policy.update(
                         0,
-                        protocol::AutoplayEvent::Enabled(status.lock().unwrap().config.autoplay),
+                        protocol::AutoplayEvent::Enabled(status.lock().unwrap().config.autoplay()),
                     );
                     Worker {
                         commands,
@@ -983,19 +1014,15 @@ mod device {
             })
         }
 
-        pub fn submit(&self, command: Command) -> Result<()> {
-            validate_buffer_command(&command, self.status.lock().unwrap().buffer_available)
-                .map_err(|error| anyhow!(error))?;
-            if let Command::Select(id) = &command {
-                ensure!(
-                    !id.is_empty() && id.len() <= 256 && !id.chars().any(char::is_control),
-                    "Invalid player identity"
-                );
-            }
-            self.ensure_started()?;
-            self.commands
-                .submit(command)
-                .map_err(|error| anyhow!(error))
+        /// The single admission authority: every gate reads one status snapshot, and a refused
+        /// command never launches the worker.
+        pub fn submit(&self, command: Command) -> Result<(), Refusal> {
+            admit(&command, &self.status.lock().unwrap())?;
+            self.ensure_started().map_err(|error| {
+                log::warn!("sonos: cannot start worker: {error}");
+                Refusal::WorkerUnavailable
+            })?;
+            self.commands.submit(command)
         }
     }
 
@@ -1888,10 +1915,13 @@ mod device {
                     }
                 }
                 Command::SetFormat(format) => {
-                    format
-                        .validate(crate::config::CONFIG.shazam_enabled)
-                        .map_err(|error| anyhow!(error))?;
                     let mut config = self.status.lock().unwrap().config.clone();
+                    // `admit` is the gate; the stream runtime refuses MP3 again when it plays.
+                    debug_assert!(
+                        format != esp_shazam_core::stream_buffer::OutputFormat::Mp3
+                            || self.status.lock().unwrap().buffer_available,
+                        "MP3 admitted without the buffer"
+                    );
                     config.output_format = format;
                     self.save(config)?;
                     if self.status.lock().unwrap().state == State::Stopped {
@@ -1906,11 +1936,10 @@ mod device {
                 }
                 Command::SetBufferPreset(preset) => {
                     let mut config = self.status.lock().unwrap().config.clone();
-                    validate_buffer_command(
-                        &Command::SetBufferPreset(preset),
+                    debug_assert!(
                         self.status.lock().unwrap().buffer_available,
-                    )
-                    .map_err(|error| anyhow!(error))?;
+                        "buffer preset admitted without the buffer"
+                    );
                     config.buffer_preset = preset;
                     self.save(config)?;
                 }
@@ -2339,7 +2368,7 @@ mod tests {
     }
 
     #[test]
-    fn buffer_command_keeps_inflight_play_and_rejects_recognition_profile() {
+    fn buffer_command_keeps_inflight_play_and_stop_cancels_it() {
         let (commands, receiver) = Commands::new(network_tests::ready_network());
         commands.submit(Command::Play).unwrap();
         let play = receiver.recv().unwrap();
@@ -2349,19 +2378,88 @@ mod tests {
             ))
             .unwrap();
         assert!(commands.is_current(play.generation));
-        assert!(validate_buffer_command(
-            &Command::SetBufferPreset(esp_shazam_core::stream_buffer::BufferPreset::Low),
-            false
-        )
-        .is_err());
-        assert!(validate_buffer_command(
-            &Command::SetBufferPreset(esp_shazam_core::stream_buffer::BufferPreset::High),
-            true
-        )
-        .is_ok());
-        assert!(validate_buffer_command(&Command::Stop, false).is_ok());
         commands.submit(Command::Stop).unwrap();
         assert!(!commands.is_current(play.generation));
+    }
+
+    #[test]
+    fn admission_refuses_each_case_and_keeps_stop_and_enable_while_off() {
+        use esp_shazam_core::stream_buffer::{BufferPreset, OutputFormat};
+        let mut status = Snapshot {
+            config: SonosConfig::default(),
+            buffer_available: false,
+            active_format: OutputFormat::Flac,
+            groups: Vec::new(),
+            active_player_id: None,
+            state: State::Stopped,
+            last_error: None,
+        };
+        // Off: only Stop and Enable pass, so an off controller can still be cancelled or turned on.
+        for command in [
+            Command::Discover,
+            Command::Select("RINCON_TEST01400".into()),
+            Command::Play,
+            Command::SetAutoplay(true),
+            Command::SetFormat(OutputFormat::Flac),
+            Command::SetBufferPreset(BufferPreset::Low),
+        ] {
+            assert_eq!(
+                admit(&command, &status),
+                Err(Refusal::Disabled),
+                "{command:?}"
+            );
+        }
+        assert_eq!(admit(&Command::Stop, &status), Ok(()));
+        assert_eq!(admit(&Command::SetEnabled(true), &status), Ok(()));
+        assert_eq!(admit(&Command::SetEnabled(false), &status), Ok(()));
+        status.config.enabled = true;
+        assert_eq!(admit(&Command::Play, &status), Ok(()));
+        assert_eq!(
+            admit(&Command::SetBufferPreset(BufferPreset::High), &status),
+            Err(Refusal::BufferUnavailable)
+        );
+        assert_eq!(
+            admit(&Command::SetFormat(OutputFormat::Mp3), &status),
+            Err(Refusal::Mp3Unavailable)
+        );
+        assert_eq!(
+            admit(&Command::SetFormat(OutputFormat::Flac), &status),
+            Ok(())
+        );
+        status.buffer_available = true;
+        assert_eq!(
+            admit(&Command::SetBufferPreset(BufferPreset::High), &status),
+            Ok(())
+        );
+        assert_eq!(
+            admit(&Command::SetFormat(OutputFormat::Mp3), &status),
+            Ok(())
+        );
+        for player in ["", "bad\nidentity", "RINCON.test+id\u{7f}"] {
+            assert_eq!(
+                admit(&Command::Select(player.into()), &status),
+                Err(Refusal::InvalidPlayer),
+                "{player:?}"
+            );
+        }
+        assert_eq!(
+            admit(&Command::Select("RINCON_TEST01400".into()), &status),
+            Ok(())
+        );
+    }
+
+    #[test]
+    fn command_queue_refuses_overflow_and_a_gone_worker() {
+        let (commands, receiver) = Commands::new(network_tests::ready_network());
+        for _ in 0..4 {
+            commands.submit(Command::Play).unwrap();
+        }
+        assert_eq!(commands.submit(Command::Play), Err(Refusal::QueueFull));
+        drop(receiver);
+        assert_eq!(
+            commands.submit(Command::Stop),
+            Err(Refusal::WorkerUnavailable)
+        );
     }
 
     #[test]
@@ -2483,6 +2581,7 @@ mod tests {
             active_format: esp_shazam_core::stream_buffer::OutputFormat::Flac,
             buffer_available: true,
             config: SonosConfig {
+                enabled: true,
                 autoplay: true,
                 ..Default::default()
             },
@@ -2531,21 +2630,30 @@ mod tests {
 
     #[test]
     fn disabled_autoplay_never_attempts_initial_worker_launch() {
-        let status = std::sync::Mutex::new(Snapshot {
-            active_format: esp_shazam_core::stream_buffer::OutputFormat::Flac,
-            buffer_available: true,
-            config: SonosConfig::default(),
-            groups: Vec::new(),
-            active_player_id: None,
-            state: State::Stopped,
-            last_error: Some("saved config error".into()),
-        });
-        start_autoplay(&status, || -> Result<(), std::io::Error> {
-            panic!("disabled autoplay must stay lazy");
-        });
-        let snapshot = status.lock().unwrap();
-        assert_eq!(snapshot.state, State::Stopped);
-        assert_eq!(snapshot.last_error.as_deref(), Some("saved config error"));
+        // A config saved before the Sonos opt-in may carry autoplay with control off.
+        for config in [
+            SonosConfig::default(),
+            SonosConfig {
+                autoplay: true,
+                ..Default::default()
+            },
+        ] {
+            let status = std::sync::Mutex::new(Snapshot {
+                active_format: esp_shazam_core::stream_buffer::OutputFormat::Flac,
+                buffer_available: true,
+                config,
+                groups: Vec::new(),
+                active_player_id: None,
+                state: State::Stopped,
+                last_error: Some("saved config error".into()),
+            });
+            start_autoplay(&status, || -> Result<(), std::io::Error> {
+                panic!("disabled autoplay must stay lazy");
+            });
+            let snapshot = status.lock().unwrap();
+            assert_eq!(snapshot.state, State::Stopped);
+            assert_eq!(snapshot.last_error.as_deref(), Some("saved config error"));
+        }
     }
 
     #[test]
