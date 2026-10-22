@@ -7,37 +7,32 @@ use anyhow::{bail, Result};
 use esp_idf_svc::http::client::{Configuration, EspHttpConnection};
 use esp_idf_svc::http::Method;
 use esp_shazam_core::policy::Outcome;
-use esp_shazam_core::shazam::{parse_response, Request, Song};
+use esp_shazam_core::shazam::{parse_response, Request};
 
 const MAX_BODY_BYTES: usize = 128 * 1024;
 
-/// What Shazam said, as the policy sees it, plus the song on a match.
-pub fn recognize(request: &Request) -> (Outcome, Option<Song>) {
+/// What Shazam said, as the policy sees it; a match carries the song.
+pub fn recognize(request: &Request) -> Outcome {
     match post(request) {
         Ok((200, body)) => match parse_response(&body) {
-            Ok(Some(song)) => (
-                Outcome::Match {
-                    key: song.key.clone(),
-                },
-                Some(song),
-            ),
-            Ok(None) => (Outcome::Miss, None),
+            Ok(Some(song)) => Outcome::Match(song),
+            Ok(None) => Outcome::Miss,
             Err(e) => {
                 log::warn!("shazam: unusable 200 response ({e}), {} bytes", body.len());
-                (Outcome::Failed, None)
+                Outcome::Failed
             }
         },
         Ok((429, _)) => {
             log::warn!("shazam: rate-limited (HTTP 429)");
-            (Outcome::RateLimited, None)
+            Outcome::RateLimited
         }
         Ok((status, body)) => {
             log::warn!("shazam: HTTP {status}, {} bytes", body.len());
-            (Outcome::Failed, None)
+            Outcome::Failed
         }
         Err(e) => {
             log::warn!("shazam: request failed: {e:#}");
-            (Outcome::Failed, None)
+            Outcome::Failed
         }
     }
 }

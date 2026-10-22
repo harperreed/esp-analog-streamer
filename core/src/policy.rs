@@ -3,6 +3,8 @@
 
 use serde::Serialize;
 
+use crate::shazam::Song;
+
 /// Listen policy settings. `Default` holds the spec's values.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct PolicyConfig {
@@ -41,12 +43,11 @@ pub enum State {
     RateLimited,
 }
 
-/// The answer to one Shazam request.
+/// The answer to one Shazam request. A match carries the song itself, so the policy's key and the
+/// song the store will show cannot disagree.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Outcome {
-    Match {
-        key: String,
-    },
+    Match(Song),
     Miss,
     RateLimited,
     /// Network error, a status other than 200/429, or a body that didn't parse. Not a miss.
@@ -146,10 +147,10 @@ impl Policy {
     ) -> Change {
         self.in_flight = false;
         match outcome {
-            Outcome::Match { key } => {
+            Outcome::Match(song) => {
                 self.misses = 0;
                 self.next_ask_ms = Some(now_ms + self.cfg.recheck_interval_ms);
-                if current_key == Some(key.as_str()) {
+                if current_key == Some(song.key.as_str()) {
                     Change::Keep
                 } else {
                     Change::SetNow
@@ -221,6 +222,17 @@ mod tests {
     const QUIET: f32 = -70.0;
     const TICK_MS: u64 = 250;
 
+    fn song(key: &str) -> Song {
+        Song {
+            key: key.into(),
+            title: "A Title".into(),
+            artist: "An Artist".into(),
+            album: None,
+            cover_url: None,
+            shazam_url: None,
+        }
+    }
+
     /// Drives a Policy the way the firmware's recognizer does, standing in for the song store.
     struct Board {
         policy: Policy,
@@ -261,7 +273,7 @@ mod tests {
                 .policy
                 .on_outcome(self.now_ms, &outcome, self.now_key.as_deref());
             match (change, &outcome) {
-                (Change::SetNow, Outcome::Match { key }) => self.now_key = Some(key.clone()),
+                (Change::SetNow, Outcome::Match(song)) => self.now_key = Some(song.key.clone()),
                 (Change::ClearNow, _) => self.now_key = None,
                 _ => {}
             }
@@ -271,7 +283,7 @@ mod tests {
 
         fn matched(&mut self, key: &str) {
             assert!(self.run_until_ask(LOUD, self.now_ms + 60_000).is_some());
-            self.answer(Outcome::Match { key: key.into() });
+            self.answer(Outcome::Match(song(key)));
         }
     }
 
@@ -311,13 +323,10 @@ mod tests {
     fn a_match_sets_now_then_rechecks_every_30s() {
         let mut b = Board::new();
         assert_eq!(b.run_until_ask(LOUD, 60_000), Some(8_000));
-        assert_eq!(
-            b.answer(Outcome::Match { key: "k1".into() }),
-            Change::SetNow
-        );
+        assert_eq!(b.answer(Outcome::Match(song("k1"))), Change::SetNow);
         assert_eq!(b.policy.state(b.now_ms, true), State::Matched);
         assert_eq!(b.run_until_ask(LOUD, 100_000), Some(38_000));
-        assert_eq!(b.answer(Outcome::Match { key: "k1".into() }), Change::Keep);
+        assert_eq!(b.answer(Outcome::Match(song("k1"))), Change::Keep);
         assert_eq!(b.now_key.as_deref(), Some("k1"));
     }
 
@@ -326,10 +335,7 @@ mod tests {
         let mut b = Board::new();
         b.matched("k1");
         assert_eq!(b.run_until_ask(LOUD, 100_000), Some(38_000));
-        assert_eq!(
-            b.answer(Outcome::Match { key: "k2".into() }),
-            Change::SetNow
-        );
+        assert_eq!(b.answer(Outcome::Match(song("k2"))), Change::SetNow);
         assert_eq!(b.now_key.as_deref(), Some("k2"));
     }
 
@@ -428,7 +434,7 @@ mod tests {
             assert_eq!(b.answer(Outcome::Miss), Change::Keep);
         }
         b.run_until_ask(LOUD, 900_000).expect("expected an ask");
-        assert_eq!(b.answer(Outcome::Match { key: "k1".into() }), Change::Keep);
+        assert_eq!(b.answer(Outcome::Match(song("k1"))), Change::Keep);
         for _ in 0..2 {
             b.run_until_ask(LOUD, 900_000).expect("expected an ask");
             assert_eq!(b.answer(Outcome::Miss), Change::Keep);
