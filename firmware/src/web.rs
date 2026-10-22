@@ -4,20 +4,42 @@
 #[cfg(target_os = "espidf")]
 mod device {
     use anyhow::{anyhow, Result};
-    use esp_idf_svc::http::server::{Configuration, EspHttpServer};
+    use esp_idf_svc::http::server::{Configuration, EspHttpConnection, EspHttpServer, Request};
     use esp_idf_svc::http::Method;
     use esp_idf_svc::io::Write;
     use esp_idf_svc::{handle::RawHandle, sys};
     use std::time::Duration;
 
-    use super::{read_action, read_json_body, RequestError};
+    use super::{error_json, read_json_body, RequestError};
     use crate::device_metrics::{ResponseError, Unavailable};
     use crate::recognizer::SharedStore;
     use crate::sonos::{Command, Handle};
+    use esp_shazam_core::input_gain;
     use esp_shazam_core::sonos_queue::{self as queue, Endpoint, QUEUE_PATH};
-    use esp_shazam_core::sonos_web::Action;
+    use esp_shazam_core::sonos_web::{self, Action};
 
     const INDEX_HTML: &str = include_str!("index.html");
+
+    /// Headers of every JSON answer.
+    const JSON: [(&str, &str); 2] = [
+        ("Content-Type", "application/json; charset=utf-8"),
+        ("Cache-Control", "no-store"),
+    ];
+    /// For handlers that half-close the read side: that connection cannot carry another request.
+    const JSON_CLOSE: [(&str, &str); 3] = [JSON[0], JSON[1], ("Connection", "close")];
+
+    /// Writes `body` with `code` and `headers` (`JSON` or `JSON_CLOSE`).
+    fn json(
+        request: Request<&mut EspHttpConnection<'_>>,
+        code: u16,
+        headers: &[(&str, &str)],
+        body: &[u8],
+    ) -> Result<()> {
+        request
+            .into_response(code, None, headers)?
+            .write_all(body)?;
+        Ok(())
+    }
 
     /// Keep the returned server alive: dropping it stops serving.
     pub fn start(
@@ -76,17 +98,7 @@ mod device {
                 .lock()
                 .map_err(|_| anyhow!("song store lock poisoned"))?
                 .state_json();
-            request
-                .into_response(
-                    200,
-                    Some("OK"),
-                    &[
-                        ("Content-Type", "application/json; charset=utf-8"),
-                        ("Cache-Control", "no-store"),
-                    ],
-                )?
-                .write_all(body.as_bytes())?;
-            Ok(())
+            json(request, 200, &JSON, body.as_bytes())
         })?;
         let metrics = sonos.clone();
         server.fn_handler::<anyhow::Error, _>("/api/metrics", Method::Get, move |request| {
@@ -110,76 +122,34 @@ mod device {
                         .sample(|| unsafe { esp_idf_svc::sys::esp_timer_get_time() } as u64)
                 },
             );
-            let (status, reason, body) = match &prepared {
-                Ok(body) => (200, "OK", body.as_slice()),
+            let (code, body) = match &prepared {
+                Ok(body) => (200, body.as_slice()),
                 Err(
                     ResponseError::Unavailable(Unavailable::Contended | Unavailable::Poisoned)
                     | ResponseError::Allocation
                     | ResponseError::Serialization,
-                ) => (
-                    503,
-                    "Service Unavailable",
-                    b"{\"error\":\"metrics_unavailable\"}".as_slice(),
-                ),
+                ) => (503, b"{\"error\":\"metrics_unavailable\"}".as_slice()),
             };
-            request
-                .into_response(
-                    status,
-                    Some(reason),
-                    &[
-                        ("Content-Type", "application/json; charset=utf-8"),
-                        ("Cache-Control", "no-store"),
-                    ],
-                )?
-                .write_all(body)?;
-            Ok(())
+            json(request, code, &JSON, body)
         })?;
         let status = sonos.clone();
         server.fn_handler::<anyhow::Error, _>("/api/sonos", Method::Get, move |request| {
             let body = serde_json::to_vec(&status.snapshot())?;
-            request
-                .into_response(
-                    200,
-                    Some("OK"),
-                    &[
-                        ("Content-Type", "application/json; charset=utf-8"),
-                        ("Cache-Control", "no-store"),
-                    ],
-                )?
-                .write_all(&body)?;
-            Ok(())
+            json(request, 200, &JSON, &body)
         })?;
         register_queue(&mut server, sonos.clone())?;
         server.fn_handler::<anyhow::Error, _>("/api/ota", Method::Get, move |request| {
             let (code, body) = match crate::ota::status(!crate::config::CONFIG.ota_token.is_empty())
             {
                 Ok(Some(status)) => (200, serde_json::to_string(&status)?),
-                Ok(None) => (503, r#"{"error":"upload in progress"}"#.to_owned()),
-                Err(error) => (
-                    500,
-                    format!("{{\"error\":\"{}\"}}", error.to_string().replace('"', "'")),
-                ),
+                Ok(None) => (503, error_json("upload in progress")),
+                Err(error) => (500, error_json(error.to_string().replace('"', "'"))),
             };
-            request
-                .into_response(
-                    code,
-                    None,
-                    &[
-                        ("Content-Type", "application/json; charset=utf-8"),
-                        ("Cache-Control", "no-store"),
-                    ],
-                )?
-                .write_all(body.as_bytes())?;
-            Ok(())
+            json(request, code, &JSON, body.as_bytes())
         })?;
         server.fn_handler::<anyhow::Error, _>("/api/ota", Method::Post, move |mut request| {
             // The body is the raw app image, streamed straight into the other slot; one upload at a time.
-            let raw = request.connection().handle();
-            let fd = unsafe { sys::httpd_req_to_sockfd(raw) };
-            if fd < 0 {
-                return Err(anyhow!("HTTP request has no socket"));
-            }
-            let socket = RequestSocket(fd);
+            let socket = RequestSocket::of(&mut request)?;
             let token = request.header("X-Ota-Token").map(str::to_owned);
             let declared = request
                 .header("Content-Length")
@@ -187,7 +157,6 @@ mod device {
             socket.set_read_timeout(Duration::from_secs(20))?;
             let outcome = crate::ota::upload(crate::config::CONFIG.ota_token, token.as_deref(), declared, |out| {
                 request
-                    .connection()
                     .read(out)
                     .map_err(|_| std::io::Error::other("HTTP body read failed"))
             });
@@ -200,170 +169,81 @@ mod device {
                         esp_shazam_core::ota_image::hex(&description.elf_sha256)
                     ),
                 ),
-                Ok(Err(crate::ota::Refusal::Disabled)) => (403, r#"{"error":"over-the-air updates are disabled: no ota_token in cfg.toml"}"#.to_owned()),
-                Ok(Err(crate::ota::Refusal::Token)) => (401, r#"{"error":"missing or wrong X-Ota-Token"}"#.to_owned()),
-                Ok(Err(crate::ota::Refusal::Length)) => (411, r#"{"error":"Content-Length required"}"#.to_owned()),
-                Ok(Err(crate::ota::Refusal::Busy)) => (409, r#"{"error":"another upload is in progress"}"#.to_owned()),
+                Ok(Err(crate::ota::Refusal::Disabled)) => (403, error_json("over-the-air updates are disabled: no ota_token in cfg.toml")),
+                Ok(Err(crate::ota::Refusal::Token)) => (401, error_json("missing or wrong X-Ota-Token")),
+                Ok(Err(crate::ota::Refusal::Length)) => (411, error_json("Content-Length required")),
+                Ok(Err(crate::ota::Refusal::Busy)) => (409, error_json("another upload is in progress")),
                 Ok(Err(crate::ota::Refusal::Image(error))) => {
                     let code = if matches!(error, esp_shazam_core::ota_image::ImageError::TooLarge { .. }) { 413 } else { 400 };
-                    (code, format!("{{\"error\":\"{error}\"}}"))
+                    (code, error_json(error))
                 }
                 Err(error) => {
                     log::warn!("ota: upload failed: {error:#}");
-                    (500, r#"{"error":"upload failed; the running image is untouched"}"#.to_owned())
+                    (500, error_json("upload failed; the running image is untouched"))
                 }
             };
-            request
-                .into_response(
-                    code,
-                    None,
-                    &[
-                        ("Content-Type", "application/json; charset=utf-8"),
-                        ("Cache-Control", "no-store"),
-                        ("Connection", "close"),
-                    ],
-                )?
-                .write_all(body.as_bytes())?;
+            json(request, code, &JSON_CLOSE, body.as_bytes())?;
+            drop(socket);
             Ok(())
         })?;
         let gain_status = input.clone();
         server.fn_handler::<anyhow::Error, _>("/api/input", Method::Get, move |request| {
-            let body = esp_shazam_core::input_gain::status_json(gain_status.gain());
-            request
-                .into_response(
-                    200,
-                    Some("OK"),
-                    &[
-                        ("Content-Type", "application/json; charset=utf-8"),
-                        ("Cache-Control", "no-store"),
-                    ],
-                )?
-                .write_all(body.as_bytes())?;
-            Ok(())
+            let body = input_gain::status_json(gain_status.gain());
+            json(request, 200, &JSON, body.as_bytes())
         })?;
         let gain_apply = input.clone();
         server.fn_handler::<anyhow::Error, _>("/api/input", Method::Post, move |mut request| {
-            let raw = request.connection().handle();
-            let fd = unsafe { sys::httpd_req_to_sockfd(raw) };
-            if fd < 0 {
-                return Err(anyhow!("HTTP request has no socket"));
-            }
-            let socket = RequestSocket(fd);
-            let length = request.header("Content-Length").map(str::to_owned);
-            let transfer = transfer_encoding(raw);
-            let content_type = request.header("Content-Type").map(str::to_owned);
-            let body = read_json_body::<{ esp_shazam_core::input_gain::MAX_BODY_BYTES }>(
-                content_type.as_deref(),
-                length.as_deref(),
-                transfer,
-                Duration::from_secs(2),
-                |out, remaining| {
-                    socket.set_read_timeout(remaining)?;
-                    request
-                        .connection()
-                        .read(out)
-                        .map_err(|_| std::io::Error::other("HTTP body read failed"))
-                },
-            );
-            let (code, body) = match body.map_err(Some).and_then(|body| {
-                esp_shazam_core::input_gain::parse_request(&body).map_err(|_| None)
-            }) {
-                Ok(gain) => match gain_apply.apply(gain) {
-                    Ok(()) => (200, esp_shazam_core::input_gain::status_json(gain)),
-                    Err(error) if error.to_string() == "input gain busy" => (
-                        503,
-                        r#"{"error":"input gain busy; retry shortly"}"#.to_owned(),
-                    ),
+            let socket = RequestSocket::of(&mut request)?;
+            let body = socket
+                .json_body::<{ input_gain::MAX_BODY_BYTES }>(&mut request, Duration::from_secs(2));
+            let (code, body) = match body.as_deref().map(input_gain::parse_request) {
+                Err(error) => (error.status(), error.body(input_gain::MAX_BODY_BYTES)),
+                Ok(Err(error)) => (400, error_json(error)),
+                Ok(Ok(gain)) => match gain_apply.apply(gain) {
+                    Ok(()) => (200, input_gain::status_json(gain)),
+                    Err(error) if error.to_string() == "input gain busy" => {
+                        (503, error_json("input gain busy; retry shortly"))
+                    }
                     Err(error) => {
                         log::warn!("input gain: {error:#}");
                         (
                             500,
-                            r#"{"error":"codec did not take the gain; previous value kept"}"#
-                                .to_owned(),
+                            error_json("codec did not take the gain; previous value kept"),
                         )
                     }
                 },
-                Err(None) => (
-                    400,
-                    format!(
-                        "{{\"error\":\"{}\"}}",
-                        esp_shazam_core::input_gain::GainError::Malformed
-                    ),
-                ),
-                Err(Some(RequestError::LengthRequired)) => {
-                    (411, r#"{"error":"Content-Length required"}"#.to_owned())
-                }
-                Err(Some(RequestError::TooLarge)) => {
-                    (413, r#"{"error":"Body exceeds 64 bytes"}"#.to_owned())
-                }
-                Err(Some(RequestError::UnsupportedMediaType)) => (
-                    415,
-                    r#"{"error":"Content-Type must be application/json"}"#.to_owned(),
-                ),
-                Err(Some(RequestError::Timeout)) => {
-                    (408, r#"{"error":"Body read timed out"}"#.to_owned())
-                }
-                Err(Some(RequestError::BadRequest)) => {
-                    (400, r#"{"error":"Malformed body"}"#.to_owned())
-                }
             };
-            request
-                .into_response(
-                    code,
-                    None,
-                    &[
-                        ("Content-Type", "application/json; charset=utf-8"),
-                        ("Cache-Control", "no-store"),
-                    ],
-                )?
-                .write_all(body.as_bytes())?;
+            json(request, code, &JSON_CLOSE, body.as_bytes())?;
+            drop(socket);
             Ok(())
         })?;
         server.fn_handler::<anyhow::Error, _>("/api/sonos", Method::Post, move |mut request| {
-            // RawHandle borrows this live request. httpd owns and closes the descriptor.
-            let raw = request.connection().handle();
-            let fd = unsafe { sys::httpd_req_to_sockfd(raw) };
-            if fd < 0 {
-                return Err(anyhow!("HTTP request has no socket"));
-            }
-            let socket = RequestSocket(fd);
-            let length = request.header("Content-Length").map(str::to_owned);
-            let transfer = transfer_encoding(raw);
-            let content_type = request.header("Content-Type").map(str::to_owned);
-            let action = read_action(
-                content_type.as_deref(),
-                length.as_deref(),
-                transfer,
-                Duration::from_secs(2),
-                |out, remaining| {
-                    socket.set_read_timeout(remaining)?;
-                    request
-                        .connection()
-                        .read(out)
-                        .map_err(|_| std::io::Error::other("HTTP body read failed"))
-                },
-            );
-            let (code, body) = match action {
-                Ok(action)
+            let socket = RequestSocket::of(&mut request)?;
+            let body = socket
+                .json_body::<{ sonos_web::MAX_BODY_BYTES }>(&mut request, Duration::from_secs(2));
+            let (code, body) = match body.as_deref().map(sonos_web::parse) {
+                Err(error) => (error.status(), error.body(sonos_web::MAX_BODY_BYTES)),
+                Ok(Err(_)) => (400, error_json("Invalid Sonos action")),
+                Ok(Ok(action))
                     if !sonos.snapshot().config.enabled
                         && !matches!(action, Action::Enable { .. } | Action::Stop {}) =>
                 {
                     (
                         409,
-                        r#"{"error":"Sonos control is off; turn it on in Settings"}"#,
+                        error_json("Sonos control is off; turn it on in Settings"),
                     )
                 }
-                Ok(Action::Format {
+                Ok(Ok(Action::Format {
                     format: esp_shazam_core::stream_buffer::OutputFormat::Mp3,
-                }) if !sonos.snapshot().buffer_available => (
+                })) if !sonos.snapshot().buffer_available => (
                     409,
-                    r#"{"error":"MP3 unavailable while recognition is enabled"}"#,
+                    error_json("MP3 unavailable while recognition is enabled"),
                 ),
-                Ok(Action::Buffer { .. }) if !sonos.snapshot().buffer_available => (
+                Ok(Ok(Action::Buffer { .. })) if !sonos.snapshot().buffer_available => (
                     409,
-                    r#"{"error":"Startup buffer unavailable while recognition is enabled"}"#,
+                    error_json("Startup buffer unavailable while recognition is enabled"),
                 ),
-                Ok(action) => {
+                Ok(Ok(action)) => {
                     let command = match action {
                         Action::Discover {} => Command::Discover,
                         Action::Select { player_id } => Command::Select(player_id),
@@ -375,36 +255,15 @@ mod device {
                         Action::Buffer { preset } => Command::SetBufferPreset(preset),
                     };
                     match sonos.submit(command) {
-                        Ok(()) => (202, r#"{"accepted":true}"#),
+                        Ok(()) => (202, r#"{"accepted":true}"#.to_owned()),
                         Err(_) => (
                             503,
-                            r#"{"error":"Sonos controller unavailable or busy; retry shortly"}"#,
+                            error_json("Sonos controller unavailable or busy; retry shortly"),
                         ),
                     }
                 }
-                Err(RequestError::LengthRequired) => {
-                    (411, r#"{"error":"Content-Length required"}"#)
-                }
-                Err(RequestError::TooLarge) => (413, r#"{"error":"Body exceeds 512 bytes"}"#),
-                Err(RequestError::Timeout) => (408, r#"{"error":"Body read deadline exceeded"}"#),
-                Err(RequestError::BadRequest) => {
-                    (400, r#"{"error":"Invalid Sonos action or body framing"}"#)
-                }
-                Err(RequestError::UnsupportedMediaType) => {
-                    (415, r#"{"error":"Content-Type must be application/json"}"#)
-                }
             };
-            request
-                .into_response(
-                    code,
-                    None,
-                    &[
-                        ("Content-Type", "application/json; charset=utf-8"),
-                        ("Cache-Control", "no-store"),
-                        ("Connection", "close"),
-                    ],
-                )?
-                .write_all(body.as_bytes())?;
+            json(request, code, &JSON_CLOSE, body.as_bytes())?;
             // socket drops before httpd's completion/purge. Reads end, but the final
             // response chunk can still be written; httpd retains descriptor ownership.
             drop(socket);
@@ -426,26 +285,13 @@ mod device {
                 move |request| {
                     let query = request.uri().split_once('?').map_or("", |(_, query)| query);
                     let (code, body) = match queue_handle.queue_snapshot() {
-                        None => (404, r#"{"error":"No active queue"}"#.to_owned()),
+                        None => (404, error_json("No active queue")),
                         Some(snapshot) => match queue::response(&snapshot, endpoint, query) {
                             Ok(body) => (200, body),
-                            Err(_) => (
-                                400,
-                                r#"{"error":"Invalid or stale queue request"}"#.to_owned(),
-                            ),
+                            Err(_) => (400, error_json("Invalid or stale queue request")),
                         },
                     };
-                    request
-                        .into_response(
-                            code,
-                            None,
-                            &[
-                                ("Content-Type", "application/json; charset=utf-8"),
-                                ("Cache-Control", "no-store"),
-                            ],
-                        )?
-                        .write_all(body.as_bytes())?;
-                    Ok(())
+                    json(request, code, &JSON, body.as_bytes())
                 },
             )?;
         }
@@ -453,60 +299,22 @@ mod device {
             &format!("{QUEUE_PATH}/timePlayed"),
             Method::Post,
             move |mut request| {
-                let raw = request.connection().handle();
-                // SAFETY: raw borrows the live request for this handler only.
-                let fd = unsafe { sys::httpd_req_to_sockfd(raw) };
-                if fd < 0 {
-                    return Err(anyhow!("HTTP request has no socket"));
-                }
-                let socket = RequestSocket(fd);
-                let length = request.header("Content-Length").map(str::to_owned);
-                let content_type = request.header("Content-Type").map(str::to_owned);
-                let body = read_json_body::<{ queue::MAX_REPORT_BYTES }>(
-                    content_type.as_deref(),
-                    length.as_deref(),
-                    transfer_encoding(raw),
-                    Duration::from_secs(2),
-                    |out, remaining| {
-                        socket.set_read_timeout(remaining)?;
-                        request
-                            .connection()
-                            .read(out)
-                            .map_err(|_| std::io::Error::other("HTTP report read failed"))
-                    },
-                );
+                let socket = RequestSocket::of(&mut request)?;
+                let body = socket
+                    .json_body::<{ queue::MAX_REPORT_BYTES }>(&mut request, Duration::from_secs(2));
                 // Take the snapshot after the bounded read, so a report cannot use an
                 // item that was current only before a slow sender began its request.
-                let (code, message) = match body {
+                let (code, body) = match body {
+                    Err(error) => (error.status(), error.body(queue::MAX_REPORT_BYTES)),
                     Ok(body) => match sonos.queue_snapshot() {
-                        None => (404, r#"{"error":"No active queue"}"#),
+                        None => (404, error_json("No active queue")),
                         Some(snapshot) => match queue::validate_time_played(&snapshot, &body) {
-                            Ok(()) => (204, ""),
-                            Err(_) => (400, r#"{"error":"Invalid or stale playback report"}"#),
+                            Ok(()) => (204, String::new()),
+                            Err(_) => (400, error_json("Invalid or stale playback report")),
                         },
                     },
-                    Err(error) => (
-                        match error {
-                            RequestError::UnsupportedMediaType => 415,
-                            RequestError::LengthRequired => 411,
-                            RequestError::TooLarge => 413,
-                            RequestError::Timeout => 408,
-                            RequestError::BadRequest => 400,
-                        },
-                        r#"{"error":"Invalid playback report body"}"#,
-                    ),
                 };
-                request
-                    .into_response(
-                        code,
-                        None,
-                        &[
-                            ("Content-Type", "application/json; charset=utf-8"),
-                            ("Cache-Control", "no-store"),
-                            ("Connection", "close"),
-                        ],
-                    )?
-                    .write_all(message.as_bytes())?;
+                json(request, code, &JSON_CLOSE, body.as_bytes())?;
                 drop(socket);
                 Ok(())
             },
@@ -530,9 +338,48 @@ mod device {
             .then_some("")
     }
 
-    struct RequestSocket(i32);
+    /// A POST handler's socket. Body reads take their deadline through it, and dropping it
+    /// half-closes the read side, so a handler creates it before the body read and drops it
+    /// after the response write.
+    struct RequestSocket {
+        fd: i32,
+        raw: *mut sys::httpd_req_t,
+    }
 
     impl RequestSocket {
+        fn of(request: &mut Request<&mut EspHttpConnection<'_>>) -> Result<Self> {
+            // RawHandle borrows this live request. httpd owns and closes the descriptor.
+            let raw = request.connection().handle();
+            // SAFETY: raw is this handler's live request.
+            let fd = unsafe { sys::httpd_req_to_sockfd(raw) };
+            if fd < 0 {
+                return Err(anyhow!("HTTP request has no socket"));
+            }
+            Ok(RequestSocket { fd, raw })
+        }
+
+        /// The request's JSON body, bounded by `LIMIT` bytes and `budget` of wall time.
+        fn json_body<const LIMIT: usize>(
+            &self,
+            request: &mut Request<&mut EspHttpConnection<'_>>,
+            budget: Duration,
+        ) -> Result<Vec<u8>, RequestError> {
+            let length = request.header("Content-Length").map(str::to_owned);
+            let content_type = request.header("Content-Type").map(str::to_owned);
+            read_json_body::<LIMIT>(
+                content_type.as_deref(),
+                length.as_deref(),
+                transfer_encoding(self.raw),
+                budget,
+                |out, remaining| {
+                    self.set_read_timeout(remaining)?;
+                    request
+                        .read(out)
+                        .map_err(|_| std::io::Error::other("HTTP body read failed"))
+                },
+            )
+        }
+
         fn set_read_timeout(&self, remaining: Duration) -> std::io::Result<()> {
             let timeout = sys::timeval {
                 tv_sec: remaining.as_secs() as _,
@@ -541,7 +388,7 @@ mod device {
             // SAFETY: the HTTP handler owns this live request; timeout is valid for its size.
             let result = unsafe {
                 sys::lwip_setsockopt(
-                    self.0,
+                    self.fd,
                     sys::SOL_SOCKET as _,
                     sys::SO_RCVTIMEO as _,
                     (&timeout as *const sys::timeval).cast(),
@@ -561,7 +408,7 @@ mod device {
             // SAFETY: httpd still owns this FD until the handler returns. Half-close
             // prevents its unread-body purge from waiting on a rejected slow sender.
             // Do not close here: httpd must close its own descriptor exactly once.
-            if unsafe { sys::lwip_shutdown(self.0, sys::SHUT_RD as _) } < 0 {
+            if unsafe { sys::lwip_shutdown(self.fd, sys::SHUT_RD as _) } < 0 {
                 log::warn!("HTTP request read shutdown failed");
             }
         }
@@ -570,6 +417,7 @@ mod device {
 #[cfg(target_os = "espidf")]
 pub use device::start;
 
+/// Why a POST body was refused before any endpoint saw its content.
 #[derive(Debug, PartialEq, Eq)]
 pub enum RequestError {
     UnsupportedMediaType,
@@ -579,24 +427,38 @@ pub enum RequestError {
     Timeout,
 }
 
-pub fn read_action(
-    content_type: Option<&str>,
-    length: Option<&str>,
-    transfer: Option<&str>,
-    budget: std::time::Duration,
-    receive: impl FnMut(&mut [u8], std::time::Duration) -> std::io::Result<usize>,
-) -> Result<esp_shazam_core::sonos_web::Action, RequestError> {
-    let body = read_json_body::<{ esp_shazam_core::sonos_web::MAX_BODY_BYTES }>(
-        content_type,
-        length,
-        transfer,
-        budget,
-        receive,
-    )?;
-    esp_shazam_core::sonos_web::parse(&body).map_err(|_| RequestError::BadRequest)
+impl RequestError {
+    /// The one HTTP status for each refusal, whichever endpoint saw it.
+    pub fn status(&self) -> u16 {
+        match self {
+            RequestError::UnsupportedMediaType => 415,
+            RequestError::LengthRequired => 411,
+            RequestError::TooLarge => 413,
+            RequestError::BadRequest => 400,
+            RequestError::Timeout => 408,
+        }
+    }
+
+    /// The JSON response body; `limit` is the endpoint's body bound in bytes.
+    pub fn body(&self, limit: usize) -> String {
+        match self {
+            RequestError::UnsupportedMediaType => {
+                error_json("Content-Type must be application/json")
+            }
+            RequestError::LengthRequired => error_json("Content-Length required"),
+            RequestError::TooLarge => error_json(format_args!("Body exceeds {limit} bytes")),
+            RequestError::BadRequest => error_json("Malformed body"),
+            RequestError::Timeout => error_json("Body read timed out"),
+        }
+    }
 }
 
-fn read_json_body<const LIMIT: usize>(
+/// `{"error":"<message>"}` for messages that hold no double quote.
+fn error_json(message: impl std::fmt::Display) -> String {
+    format!("{{\"error\":\"{message}\"}}")
+}
+
+pub fn read_json_body<const LIMIT: usize>(
     content_type: Option<&str>,
     length: Option<&str>,
     transfer: Option<&str>,
@@ -665,6 +527,49 @@ fn read_json_body<const LIMIT: usize>(
 }
 
 #[cfg(test)]
+mod request_error_tests {
+    use super::RequestError;
+
+    #[test]
+    fn every_framing_error_has_one_status_and_message() {
+        for (error, status, body) in [
+            (
+                RequestError::UnsupportedMediaType,
+                415,
+                r#"{"error":"Content-Type must be application/json"}"#,
+            ),
+            (
+                RequestError::LengthRequired,
+                411,
+                r#"{"error":"Content-Length required"}"#,
+            ),
+            (
+                RequestError::TooLarge,
+                413,
+                r#"{"error":"Body exceeds 64 bytes"}"#,
+            ),
+            (
+                RequestError::BadRequest,
+                400,
+                r#"{"error":"Malformed body"}"#,
+            ),
+            (
+                RequestError::Timeout,
+                408,
+                r#"{"error":"Body read timed out"}"#,
+            ),
+        ] {
+            assert_eq!(error.status(), status, "{error:?}");
+            assert_eq!(error.body(64), body, "{error:?}");
+        }
+        assert_eq!(
+            RequestError::TooLarge.body(512),
+            r#"{"error":"Body exceeds 512 bytes"}"#
+        );
+    }
+}
+
+#[cfg(test)]
 mod queue_body_tests {
     use super::*;
     use std::{io::Read, time::Duration};
@@ -684,7 +589,7 @@ mod queue_body_tests {
         .unwrap();
         assert_eq!(body, bytes);
         assert_eq!(
-            read_action(
+            read_json_body::<{ esp_shazam_core::sonos_web::MAX_BODY_BYTES }>(
                 Some("application/json"),
                 Some("1024"),
                 None,

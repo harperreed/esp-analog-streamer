@@ -4,11 +4,29 @@
 #[path = "../../firmware/src/web.rs"]
 mod web;
 
-use esp_shazam_core::sonos_web::Action;
+use esp_shazam_core::sonos_web::{self, Action};
 use std::io::{Read, Write};
 use std::net::{TcpListener, TcpStream};
 use std::time::{Duration, Instant};
-use web::{read_action, RequestError};
+use web::{read_json_body, RequestError};
+
+/// The `/api/sonos` handler's read: the bounded body at the Sonos limit, then the action parse.
+fn read_action(
+    content_type: Option<&str>,
+    length: Option<&str>,
+    transfer: Option<&str>,
+    budget: Duration,
+    receive: impl FnMut(&mut [u8], Duration) -> std::io::Result<usize>,
+) -> Result<Action, RequestError> {
+    let body = read_json_body::<{ sonos_web::MAX_BODY_BYTES }>(
+        content_type,
+        length,
+        transfer,
+        budget,
+        receive,
+    )?;
+    sonos_web::parse(&body).map_err(|_| RequestError::BadRequest)
+}
 
 #[test]
 fn rejects_ambiguous_missing_and_oversized_lengths_before_reading() {
