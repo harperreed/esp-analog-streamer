@@ -245,8 +245,8 @@ const _: () = assert!(!ADMISSION_WORKERS.is_empty() && ADMISSION_WORKERS.len() <
 static ADMISSION_READY: AtomicBool = AtomicBool::new(false);
 
 /// The server threads share core 1 with the encoder. Their priority, 7, is
-/// above the recognizer's (5), so a fingerprint can't starve a listener, and below the audio thread
-/// (10), lwIP (18) and Wi-Fi (23).
+/// above the recognizer's (5), so a fingerprint can't starve a listener, and below lwIP (18), Wi-Fi (23)
+/// and the audio thread (24).
 // 5 KiB: the listener pipeline ran with about 700 bytes of headroom in 4 KiB before fat LTO grew its frames.
 const ACCEPT_THREAD: ThreadSpec = ThreadSpec {
     name: ADMISSION_WORKERS[0],

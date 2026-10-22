@@ -4,10 +4,13 @@ use std::sync::{Mutex, MutexGuard, TryLockError};
 use std::time::{Duration, Instant};
 
 use anyhow::{anyhow, Context, Result};
+use esp_idf_svc::hal::cpu::Core;
 use esp_idf_svc::ota::{EspOta, SlotState};
 use esp_idf_svc::sys;
 use esp_shazam_core::network_lifecycle::Network;
 use esp_shazam_core::ota_image::{self, AppDescription, ImageError, HEAD_BYTES};
+
+use crate::threads::ThreadSpec;
 
 /// esp-idf-svc allows one `EspOta` per process (`EspOta::new` refuses a second while one lives), so this is it,
 /// opened on first use. Holding the guard is the busy signal: an upload holds it for its whole write, and a
@@ -17,6 +20,20 @@ static OTA: Mutex<Option<EspOta>> = Mutex::new(None);
 /// returns the bootloader to the previous slot (CONFIG_BOOTLOADER_APP_ROLLBACK_ENABLE).
 const HEALTHY_AFTER: Duration = Duration::from_secs(60);
 const CHUNK_BYTES: usize = 4096;
+/// Both threads sleep for nearly their whole lives, so they run on core 0 at priority 2, the Sonos worker's
+/// level: below the capture thread (24) and ESP-IDF's network tasks there, and off core 1, which the encoder,
+/// listeners and recognizer share. 6 KiB covers the health thread's lock and mark; 2 KiB a sleep and a restart.
+const HEALTH_THREAD: ThreadSpec = ThreadSpec {
+    name: c"ota-health",
+    core: Core::Core0,
+    priority: 2,
+    stack_bytes: 6144,
+};
+const RESTART_THREAD: ThreadSpec = ThreadSpec {
+    name: c"ota-restart",
+    stack_bytes: 2048,
+    ..HEALTH_THREAD
+};
 
 pub enum Refusal {
     Token,
@@ -130,37 +147,34 @@ pub fn mark_valid_when_healthy(network: Network) {
             return;
         }
     }
-    let spawned = std::thread::Builder::new()
-        .name("ota-health".into())
-        .stack_size(6144)
-        .spawn(move || {
-            let mut up_since: Option<Instant> = None;
-            loop {
-                std::thread::sleep(Duration::from_secs(5));
-                let connected = network.snapshot().address.is_some();
-                up_since = match (connected, up_since) {
-                    (false, _) => None,
-                    (true, None) => Some(Instant::now()),
-                    (true, since) => since,
-                };
-                if up_since.is_some_and(|since| since.elapsed() >= HEALTHY_AFTER) {
-                    // A failed mark is not success: keep ticking so the next tick retries, and keep
-                    // warning, since a mark that never lands means a rollback. Waiting on the handle is
-                    // fine here: an upload in progress finishes first, then this slot is marked.
-                    let marked = claim()
-                        .and_then(|mut guard| Ok(open(&mut guard)?.mark_running_slot_valid()?));
-                    match marked {
-                        Ok(()) => {
-                            log::info!("ota: running image marked valid");
-                            return;
-                        }
-                        Err(error) => {
-                            log::warn!("ota: cannot mark the running image valid: {error}")
-                        }
+    let spawned = HEALTH_THREAD.spawn(move || {
+        let mut up_since: Option<Instant> = None;
+        loop {
+            std::thread::sleep(Duration::from_secs(5));
+            let connected = network.snapshot().address.is_some();
+            up_since = match (connected, up_since) {
+                (false, _) => None,
+                (true, None) => Some(Instant::now()),
+                (true, since) => since,
+            };
+            if up_since.is_some_and(|since| since.elapsed() >= HEALTHY_AFTER) {
+                // A failed mark is not success: keep ticking so the next tick retries, and keep
+                // warning, since a mark that never lands means a rollback. Waiting on the handle is
+                // fine here: an upload in progress finishes first, then this slot is marked.
+                let marked =
+                    claim().and_then(|mut guard| Ok(open(&mut guard)?.mark_running_slot_valid()?));
+                match marked {
+                    Ok(()) => {
+                        log::info!("ota: running image marked valid");
+                        return;
+                    }
+                    Err(error) => {
+                        log::warn!("ota: cannot mark the running image valid: {error}")
                     }
                 }
             }
-        });
+        }
+    });
     if let Err(error) = spawned {
         // Without the thread the image never marks itself valid and the next reset rolls back.
         log::error!("ota: cannot spawn the health thread: {error}");
@@ -247,12 +261,12 @@ fn stream(
     }
     update.complete().context("finish update")?;
     log::info!("ota: image complete; restarting into {}", slot.label);
-    let _ = std::thread::Builder::new()
-        .name("ota-restart".into())
-        .stack_size(2048)
-        .spawn(|| {
-            std::thread::sleep(Duration::from_secs(1));
-            unsafe { sys::esp_restart() }
-        });
+    // The boot slot is already set, so after a failed spawn the next reset still boots the new image.
+    if let Err(error) = RESTART_THREAD.spawn(|| {
+        std::thread::sleep(Duration::from_secs(1));
+        unsafe { sys::esp_restart() }
+    }) {
+        log::error!("ota: cannot spawn the restart thread: {error}");
+    }
     Ok(Ok(description))
 }
