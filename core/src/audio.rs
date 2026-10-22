@@ -180,63 +180,6 @@ pub fn samples_from_i2s_slots(bytes: &[u8], out: &mut Vec<i32>) {
     );
 }
 
-/// The loudness of the newest `window` samples of a feed, read each time another `interval` of
-/// samples has arrived. It keeps sums per interval, not samples: a reading adds up a few sums, and
-/// the audio thread meters without touching the 12 s ring or PSRAM.
-pub struct LevelMeter {
-    /// Sums of the newest whole intervals, `window / interval` of them; the oldest is overwritten next.
-    intervals: Vec<Sums>,
-    next: usize,
-    /// Sums of the interval still filling.
-    filling: Sums,
-    interval: usize,
-}
-
-impl LevelMeter {
-    /// Drops completed and partial intervals after a capture gap, retaining storage.
-    pub fn reset(&mut self) {
-        self.intervals.fill(Sums::default());
-        self.next = 0;
-        self.filling = Sums::default();
-    }
-    /// `window` must be a whole number of intervals.
-    pub fn new(window: usize, interval: usize) -> Self {
-        assert!(
-            interval > 0 && window >= interval && window.is_multiple_of(interval),
-            "a level meter's window must be a whole number of intervals of at least one sample"
-        );
-        Self {
-            intervals: vec![Sums::default(); window / interval],
-            next: 0,
-            filling: Sums::default(),
-            interval,
-        }
-    }
-
-    /// Adds `samples`. Each interval that fills makes a reading: the loudness in dBFS of the newest
-    /// `window` samples up to the end of that interval (of all samples so far, before a whole window
-    /// has arrived). Returns the last reading this push made, if any.
-    pub fn push(&mut self, mut samples: &[i16]) -> Option<f32> {
-        let mut reading = None;
-        while !samples.is_empty() {
-            let room = self.interval - self.filling.count as usize;
-            let (now, later) = samples.split_at(room.min(samples.len()));
-            self.filling = self.filling.plus(Sums::of(now));
-            samples = later;
-            if self.filling.count as usize == self.interval {
-                self.intervals[self.next] = std::mem::take(&mut self.filling);
-                self.next = (self.next + 1) % self.intervals.len();
-                let window = self
-                    .intervals
-                    .iter()
-                    .fold(Sums::default(), |a, &b| a.plus(b));
-                reading = Some(window.dbfs());
-            }
-        }
-        reading
-    }
-}
-
 /// AC loudness and raw sample diagnostics for one software channel.
 #[derive(Clone, Copy, Debug, PartialEq, serde::Serialize)]
 pub struct ChannelReading {
@@ -379,16 +322,6 @@ impl StereoLevelMeter {
     }
 }
 
-/// Averages interleaved stereo frames (L, R, L, R, ...) into mono. A trailing odd sample is dropped.
-pub fn stereo_to_mono(interleaved: &[i16], out: &mut Vec<i16>) {
-    out.clear();
-    out.extend(
-        interleaved
-            .chunks_exact(2)
-            .map(|frame| ((i32::from(frame[0]) + i32::from(frame[1])) / 2) as i16),
-    );
-}
-
 /// Frequency of a clean tone estimated from zero crossings. Bring-up plays a 1 kHz tone into
 /// LINE IN; reading ~1000 proves the I2S format and sample rate are right.
 pub fn zero_crossing_hz(samples: &[i16], sample_rate_hz: u32) -> f32 {
@@ -426,20 +359,6 @@ mod tests {
         drop(held);
         recognition.push(&[]);
         assert!(ring.lock().unwrap().is_empty());
-    }
-
-    #[test]
-    fn meter_reset_matches_fresh_meter_without_replacing_storage() {
-        let mut meter = LevelMeter::new(8, 2);
-        meter.push(&[100, -100, 200, -200, 300]);
-        let pointer = meter.intervals.as_ptr();
-        meter.reset();
-        assert_eq!(meter.intervals.as_ptr(), pointer);
-        let mut fresh = LevelMeter::new(8, 2);
-        for samples in [&[10][..], &[-10, 20, -20][..], &[30, -30, 40, -40][..]] {
-            assert_eq!(meter.push(samples), fresh.push(samples));
-        }
-        assert_eq!(meter.intervals.as_ptr(), pointer);
     }
 
     #[test]
@@ -557,13 +476,6 @@ mod tests {
         assert_eq!(loudness_dbfs(&[10_000; 16_000]), SILENCE_DBFS);
         let level = loudness_dbfs(&sine(1_000.0, 0.1, 1.0, 10_000));
         assert!((level - -23.01).abs() < 0.05, "got {level}");
-    }
-
-    #[test]
-    fn stereo_frames_average_to_mono() {
-        let mut out = vec![];
-        stereo_to_mono(&[100, 300, -100, -300, 7], &mut out);
-        assert_eq!(out, vec![200, -200]);
     }
 
     #[test]
@@ -745,73 +657,5 @@ mod tests {
             .unwrap()
             .level_dbfs;
         assert!((level - -6.0206).abs() < 0.001, "got {level}");
-    }
-
-    #[test]
-    fn the_meter_reads_once_every_interval() {
-        let mut meter = LevelMeter::new(16_000, 4_000);
-        let tone = sine(1_000.0, 0.5, 2.0, 0);
-        let mut reading_at = vec![];
-        let mut total = 0;
-        for chunk in tone.chunks(80) {
-            total += chunk.len();
-            if meter.push(chunk).is_some() {
-                reading_at.push(total);
-            }
-        }
-        assert_eq!(reading_at, (1..=8).map(|k| k * 4_000).collect::<Vec<_>>());
-    }
-
-    #[test]
-    fn a_push_longer_than_the_interval_reads_once_and_keeps_the_cadence() {
-        let mut meter = LevelMeter::new(16_000, 4_000);
-        let tone = sine(1_000.0, 0.5, 1.0, 0);
-        assert!(meter.push(&tone[..9_000]).is_some());
-        assert!(meter.push(&tone[9_000..11_999]).is_none());
-        assert!(meter.push(&tone[11_999..12_000]).is_some());
-    }
-
-    #[test]
-    fn a_reading_ends_where_the_last_interval_ended() {
-        // One push of 8,000 samples of tone and 1,000 of silence fills two intervals; the reading
-        // covers those two and none of the silence after them (which would make it 0.5 dB quieter).
-        let mut meter = LevelMeter::new(16_000, 4_000);
-        let tone = sine(1_000.0, 0.5, 0.5, 0);
-        let pushed = [&tone[..], &[0; 1_000]].concat();
-        assert_eq!(meter.push(&pushed), Some(loudness_dbfs(&tone)));
-    }
-
-    #[test]
-    fn early_readings_cover_only_what_has_arrived() {
-        // Before a whole window has arrived, the reading is the level of what has: an empty window
-        // padded with zeros would read a quarter second of this tone 6 dB too quiet.
-        let mut meter = LevelMeter::new(16_000, 4_000);
-        let tone = sine(1_000.0, 0.5, 0.25, 0);
-        let level = meter.push(&tone).expect("a reading after 4,000 samples");
-        assert_eq!(level, loudness_dbfs(&tone));
-        assert!((level - -9.03).abs() < 0.05, "got {level}");
-    }
-
-    #[test]
-    fn a_reading_covers_only_the_newest_window() {
-        let mut meter = LevelMeter::new(16_000, 4_000);
-        let tone = sine(1_000.0, 0.5, 1.0, 0);
-        let silence = vec![0i16; 16_000];
-        for chunk in tone.chunks(80) {
-            meter.push(chunk);
-        }
-        let mut readings = vec![];
-        for chunk in silence.chunks(80) {
-            if let Some(level) = meter.push(chunk) {
-                readings.push(level);
-            }
-        }
-        // A quarter second into the silence, the window holds the last 0.75 s of the tone: 1.25 dB down.
-        let expected = loudness_dbfs(&[&tone[4_000..], &silence[..4_000]].concat());
-        assert_eq!(readings[0], expected);
-        assert!((readings[0] - -10.28).abs() < 0.05, "got {}", readings[0]);
-        // A whole second of silence leaves nothing of the tone in the window.
-        assert_eq!(readings.len(), 4);
-        assert_eq!(readings[3], SILENCE_DBFS);
     }
 }
