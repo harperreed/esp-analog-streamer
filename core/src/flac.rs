@@ -536,8 +536,12 @@ fn write_verbatim(samples: &[i32], sample_bits: u32, bits: &mut BitWriter) {
     }
 }
 
-/// Discards eight low capture bits with sign extension, then saturates to the output rails.
-fn quantize(sample: i32) -> i32 {
+/// The stream's one 24-to-16-bit policy, shared by the FLAC encoder and the MP3 adapter: discards
+/// eight low capture bits with sign extension (floor, no rounding, no dither), then saturates to
+/// the 16-bit rails. The clamp only guards values outside 24 bits. The recognition path
+/// (`decimate.rs`) rounds its 16-bit output instead; that difference is intended, and a change to
+/// this policy belongs here alone.
+pub fn quantize(sample: i32) -> i32 {
     (sample >> 8).clamp(SAMPLE_MIN, SAMPLE_MAX)
 }
 

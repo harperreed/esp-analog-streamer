@@ -98,7 +98,7 @@ impl Mp3Encoder {
             "MP3 block is full"
         );
         for (destination, &source) in self.pcm[self.filled..].iter_mut().zip(pcm) {
-            *destination = (source >> 8).clamp(-32_768, 32_767) as i16;
+            *destination = esp_shazam_core::flac::quantize(source) as i16;
         }
         self.filled += pcm.len();
     }

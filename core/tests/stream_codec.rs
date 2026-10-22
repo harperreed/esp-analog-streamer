@@ -73,8 +73,10 @@ fn mp3_reset_discards_nonzero_filter_history_and_partial_pcm() {
     assert_ne!(silence(&mut continuous), fresh_silence);
 }
 
+/// The adapter feeds the codec exactly what the shared stream quantizer makes of each capture
+/// sample: no gain, no rounding of its own.
 #[test]
-fn mp3_adapter_uses_flac_24_to_16_scaling_without_gain_changes() {
+fn mp3_adapter_feeds_the_shared_stream_quantizer_output_to_the_codec() {
     let mut adapter = Encoder::new(OutputFormat::Mp3).unwrap();
     let source: Vec<i32> = [
         i32::MIN,
@@ -100,7 +102,7 @@ fn mp3_adapter_uses_flac_24_to_16_scaling_without_gain_changes() {
     let mut reference = esp_shazam_mp3::Encoder::new().unwrap();
     let mut pcm = [0; esp_shazam_mp3::PCM_SAMPLES];
     for (sample, raw) in pcm.iter_mut().zip(source) {
-        *sample = (raw >> 8).clamp(-32_768, 32_767) as i16;
+        *sample = esp_shazam_core::flac::quantize(raw) as i16;
     }
     let mut expected = [0; esp_shazam_mp3::FRAME_BYTES];
     reference.encode(&mut pcm, &mut expected).unwrap();
