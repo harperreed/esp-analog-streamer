@@ -109,3 +109,34 @@ Image `3fc37e22…` (6e2bc56, office cfg: the WebSocket layer deleted); raw capt
   on the office board was switched back off afterwards.
 - Harness: the 503 `metrics_unavailable` gap found by the first C+D soak is fixed in
   43468d9 (`device_metrics.Unavailable`, tolerated by `MetricsPoll`'s silence budget).
+
+## Final image and the Sonos run (rmve, tn86, k4qv, q128), office board, 2026-10-23 20:27 to 20:50 UTC
+
+Image `a3164f8e…` (b440b5d, office cfg: every epic commit); raw captures
+`target/kata-hardening/sift-f/`.
+
+- k4qv on a fresh boot with control off: `internal_free` 48,199 B before and 47,827 B
+  after `stop`, `enable=false`, `enable=true`, `enable=false`; zero worker lines in 90 s
+  of UART; `enabled=true` persisted across the next OTA restart. (The first probe had
+  run against the previous image, which is why it showed the spawn.)
+- tn86 at 55 s of a pending boot: a direct small POST got
+  `409 {"error":"running image not yet validated; retry after the health mark"}`; the
+  pusher, which would otherwise see a connection reset while still sending the image,
+  now reads `/api/ota` first and refused with the same words (cdff2f9); the slot read
+  `valid` after the mark.
+- rmve, `scripts/sonos-http-check` with the office coordinator "Altec + 3" STOPPED (it had
+  been stopped by then; Doctor Biz had approved stopping it) and the workstation mixer at
+  0 dB for the run: phase 1 FLAC/Medium passed end to end (discover, Play, `connecting`
+  → `buffering` → `playing`, speaker PLAYING 1 s later, positions 13 to 27 over 15 s,
+  checked Stop, speaker STOPPED within 0.7 s, the listener leaving with `format epoch
+  retired`). Phase 2 MP3/High reached `playing` and speaker PLAYING, then 3 s later the
+  speaker reset the TCP connection itself (`left after 13.9 s: socket error
+  kind=ConnectionReset`, 874 KB sent, no skips, no would-block pressure), played out its
+  8 s buffer and went PAUSED_PLAYBACK; the worker observed the loss and reported
+  `stopped`. That is the open v6vw problem (the Sonos broadcast client and this MP3
+  stream), not the worker: every transition the `Session` enum owns ran in order, and the
+  harness's cleanup "did not settle" because the board, holding no URI evidence after
+  the loss, sends no remote Stop by policy. The speaker was returned to STOPPED and the
+  mixer to its previous values afterwards; Sonos control on the board is off again.
+- Not exercised: a forced control-read timeout (Degraded → Recovering → Playing); it
+  needs the speaker's replies blocked on the speaker's side, which nothing here can do.

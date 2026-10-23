@@ -1465,3 +1465,14 @@ stall soak died at 648 s of 900 on one such answer because `device_metrics.fetch
 `HTTPException`) for exactly that status and body, which `MetricsPoll` tolerates inside
 its 25 s silence budget like a reset; any other non-200 still fails the run. The real
 answer is the test fixture (`test_stream_soak_state_poll.py`, mode `busy`).
+
+## sonos-http-check's MP3/High phase is v6vw, not the worker — 2026-10-23
+
+On the office coordinator the harness's second phase (MP3/High) reaches `playing` and
+PLAYING, then the speaker resets the TCP connection about 3 s later (`socket error
+kind=ConnectionReset`, full-rate delivery, no skips), drains its 8 s buffer and sits
+PAUSED_PLAYBACK; the board reports `stopped` and, holding no URI evidence, sends no
+remote Stop, so the harness's cleanup reports "board status did not settle". Phase 1
+(FLAC/Medium: Play, sustained positions, checked Stop, remote STOPPED) is the worker's
+proof. The harness also requires the workstation's Master and PCM at 0 dB and the
+speaker STOPPED before it starts; set the mixer for the run and restore it after.
