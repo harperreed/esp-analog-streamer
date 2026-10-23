@@ -19,8 +19,7 @@ use esp_idf_svc::hal::cpu::Core;
 use esp_idf_svc::sys;
 use esp_shazam_core::wav;
 
-#[path = "../src/threads.rs"]
-mod threads;
+use esp_shazam_firmware::threads;
 
 enum Event {
     Ready(usize),

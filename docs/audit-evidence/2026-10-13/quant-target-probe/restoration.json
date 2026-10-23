@@ -1,0 +1,19 @@
+{
+  "status": "pass",
+  "ordinary_sha256": "0ff2a7ccb677fb8045f6faa1d040b930f8adaaf38913946c1847e1f3eb14faf2",
+  "diagnostic_sha256": "68791e0ca604919dc5fbd458d222ba2c487f5b486acf64080565ac75b8da80e6",
+  "boot_changed": true,
+  "settings_preserved": true,
+  "listeners_idle": true,
+  "board_state": "stopped",
+  "remote_transport": {
+    "CurrentTransportState": "STOPPED",
+    "CurrentTransportStatus": "OK"
+  },
+  "startup_warnings_also_in_ordinary": [
+    "esp_psram: Virtual address not enough for PSRAM, map as much as we can. 4MB is mapped",
+    "i2c: This driver is an old driver, please migrate your application code to adapt `driver/i2c_master.h`"
+  ],
+  "all_six_acquisition_commands_exit_zero": true,
+  "single_diagnostic_boot_sha_prefix_matches": true
+}

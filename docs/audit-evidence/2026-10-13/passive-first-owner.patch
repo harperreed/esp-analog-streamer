@@ -1,0 +1,136 @@
+--- a/firmware/src/stream.rs
++++ b/firmware/src/stream.rs
+@@ -42,6 +42,9 @@
+ use crate::stream_runtime::{Epoch, Runtime, Worker};
+ static LISTENERS: OnceLock<Arc<Capacity>> = OnceLock::new();
+ static RUNTIME: OnceLock<Arc<Runtime>> = OnceLock::new();
++// Throwaway probe claims only the first valid owned compressed connection per boot.
++static PASSIVE_CLOSE_CLAIMED: std::sync::atomic::AtomicBool =
++    std::sync::atomic::AtomicBool::new(false);
+ 
+ pub(crate) fn try_active_format() -> Option<OutputFormat> {
+     RUNTIME.get()?.try_active_format()
+@@ -1090,6 +1093,34 @@
+     });
+     let mut writer = DeadlineWriter::new(sock);
+     let mut payload_started = None;
++    let probe_owner_id = slot.owner_id();
++    let probe_sonos_intent = slot.intent_id();
++    let probe_target = probe_sonos_intent != 0
++        && !slot.revoked()
++        && network.is_current(network_lease)
++        && PASSIVE_CLOSE_CLAIMED
++            .compare_exchange(false, true, Ordering::Relaxed, Ordering::Relaxed)
++            .is_ok();
++    let mut probe_first_payload_us = None;
++    let publish_probe = |phase, first_payload_us, frames_sent, bytes_sent, at| {
++        EVENTS.publish(Record {
++            event_us: at,
++            peer,
++            payload: Payload::PassiveClose {
++                phase,
++                owner_id: probe_owner_id,
++                sonos_intent: probe_sonos_intent,
++                network_generation: network_lease.generation,
++                operator_epoch: epoch.operator_epoch.load(Ordering::Acquire),
++                first_payload_us,
++                frames_sent,
++                bytes_sent,
++            },
++        });
++    };
++    if probe_target {
++        publish_probe(0, 0, 0, 0, event_us());
++    }
+     let observation = crate::listener_observation::REGISTRY.register(event_us());
+     let end = loop {
+         if slot.revoked() {
+@@ -1178,6 +1209,26 @@
+                 if header && succeeded {
+                     writer.reset_diagnostics();
+                     payload_started = Some(Instant::now());
++                }
++                if probe_target && !header && succeeded {
++                    let at = event_us();
++                    let first_payload_us = *probe_first_payload_us.get_or_insert(at);
++                    if at.saturating_sub(first_payload_us) >= 10_000_000 {
++                        if slot.revoked() {
++                            break End::Retired;
++                        }
++                        if !network.is_current(network_lease) {
++                            break End::NetworkChanged;
++                        }
++                        publish_probe(
++                            1,
++                            first_payload_us,
++                            listener.frames_sent,
++                            listener.bytes_sent,
++                            at,
++                        );
++                        break End::DiagnosticPassiveClose;
++                    }
+                 }
+             }
+         }
+@@ -1359,6 +1410,7 @@
+ impl std::fmt::Display for EndCode {
+     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+         match self {
++            Self::DiagnosticPassiveClose => f.write_str("diagnostic passive media close"),
+             Self::Retired => f.write_str("format epoch retired"),
+             Self::NetworkChanged => f.write_str("network generation changed"),
+             Self::EncodedReset => f.write_str("encoded ring generation changed"),
+@@ -1399,6 +1451,7 @@
+             .map_or_else(|| "unknown peer".to_owned(), |peer| peer.to_string());
+         let event_us = record.event_us;
+         match record.payload {
++            Payload::PassiveClose { phase, owner_id, sonos_intent, network_generation, operator_epoch, first_payload_us, frames_sent, bytes_sent } => log::info!("passive-media-close: phase={phase} event_us={event_us} owner_id={owner_id} sonos_intent={sonos_intent} network_generation={network_generation} operator_epoch={operator_epoch} first_payload_us={first_payload_us} frames_sent={frames_sent} bytes_sent={bytes_sent}"),
+             Payload::Joined { format, held, owner_id, sonos_intent } => log::info!("stream: {peer} joined {} ({held} of {MAX_LISTENERS}) event_us={event_us} owner_id={owner_id} sonos_intent={sonos_intent} role={}", format.path(), if sonos_intent == 0 { "diagnostic" } else { "sonos" }),
+             Payload::Closed { elapsed_ms, held, owner_id, sonos_intent } => log::info!("stream: {peer} socket closed in {elapsed_ms} ms; releasing slot ({held} held) event_us={event_us} owner_id={owner_id} sonos_intent={sonos_intent}"),
+             Payload::Timeout { elapsed_ms, nominal_limit_ms, remaining_budget_us, deadline_us, bytes } => log::info!("stream: frame write timed out elapsed_ms={elapsed_ms} nominal_limit_ms={nominal_limit_ms} remaining_budget_us={remaining_budget_us} deadline_us={deadline_us:?} bytes={bytes} peer={peer} event_us={event_us}"),
+--- a/firmware/src/stream_pipeline.rs
++++ b/firmware/src/stream_pipeline.rs
+@@ -356,6 +356,8 @@
+ /// Why a listener's stream ended.
+ #[derive(Debug)]
+ pub(crate) enum End {
++    /// Throwaway passive-reconnect probe ended a complete payload frame intentionally.
++    DiagnosticPassiveClose,
+     Retired,
+     NetworkChanged,
+     /// The ring overwrote frames the listener hadn't been sent: it read too slowly.
+--- a/firmware/src/listener_telemetry.rs
++++ b/firmware/src/listener_telemetry.rs
+@@ -47,6 +47,7 @@
+ }
+ #[derive(Clone, Copy, Debug)]
+ pub(crate) enum EndCode {
++    DiagnosticPassiveClose,
+     Retired,
+     NetworkChanged,
+     FellBehind,
+@@ -63,6 +64,7 @@
+     fn from(end: &crate::stream_pipeline::End) -> Self {
+         use crate::stream_pipeline::End;
+         match end {
++            End::DiagnosticPassiveClose => Self::DiagnosticPassiveClose,
+             End::Retired => Self::Retired,
+             End::NetworkChanged => Self::NetworkChanged,
+             End::EncodedReset => Self::EncodedReset,
+@@ -82,6 +84,16 @@
+ #[allow(clippy::large_enum_variant)]
+ #[derive(Clone, Copy, Debug)]
+ pub(crate) enum Payload {
++    PassiveClose {
++        phase: u8,
++        owner_id: u64,
++        sonos_intent: u64,
++        network_generation: u32,
++        operator_epoch: u32,
++        first_payload_us: u64,
++        frames_sent: u64,
++        bytes_sent: u64,
++    },
+     Joined {
+         format: esp_shazam_core::stream_http::Format,
+         held: usize,

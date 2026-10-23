@@ -1,4 +1,4 @@
-// ABOUTME: A small FLAC encoder (RFC 9639) for the LINE IN stream: 48 kHz, 24-bit stereo in blocks of 4,096 frames.
+// ABOUTME: A small FLAC encoder (RFC 9639) for the LINE IN stream: 48 kHz, 16-bit stereo in blocks of 4,096 frames.
 // ABOUTME: Constant subframes, fixed predictors of order 0-4 and partitioned Rice codes, allocating nothing per block.
 
 /// Frames per block: 85 ms at 48 kHz. Each FLAC frame codes one block, and every block has this
@@ -10,17 +10,21 @@ pub const SAMPLE_RATE_HZ: u32 = 48_000;
 pub const CHANNELS: usize = 2;
 /// Bytes in `stream_header`: "fLaC", a metadata block header and the 34-byte streaminfo.
 pub const STREAM_HEADER_LEN: usize = 42;
-/// The most bytes one block's frame can take: the longest frame header, two verbatim subframes and
-/// the CRC-16. A fixed-predictor subframe is sent only when it comes out smaller than verbatim.
+/// Exact allocation bound: the longest header, two verbatim 16-bit subframes, and CRC-16.
+/// Independent subframes never exceed their verbatim costs. Left-side is selected only when its
+/// conservative bit estimate beats independent stereo, including the side channel's extra bit.
+/// Padding and listener renumbering therefore cannot exceed this bound (16,399 bytes).
 pub const MAX_FRAME_BYTES: usize =
-    MAX_HEADER_BYTES + (CHANNELS * VERBATIM_SUBFRAME_BITS as usize).div_ceil(8) + 2;
+    MAX_HEADER_BYTES + CHANNELS * (1 + BYTES_PER_SAMPLE * BLOCK_FRAMES) + 2;
 
-/// The stream ring's samples: sign-extended 24-bit values in `i32`.
-const BITS_PER_SAMPLE: u32 = 24;
+/// Output samples are 16-bit; input remains sign-extended 24-bit capture.
+const BYTES_PER_SAMPLE: usize = 2;
+const BITS_PER_SAMPLE: u32 = 8 * BYTES_PER_SAMPLE as u32;
 const SAMPLE_MAX: i32 = (1 << (BITS_PER_SAMPLE - 1)) - 1;
 const SAMPLE_MIN: i32 = -(1 << (BITS_PER_SAMPLE - 1));
-/// A sample's 24 bits of two's complement.
-const SAMPLE_MASK: u32 = (1 << BITS_PER_SAMPLE) - 1;
+/// The side candidate has predictor sums but reuses the right sample column when selected.
+const SIDE_CHANNEL: usize = 2;
+const CANDIDATE_CHANNELS: usize = 3;
 
 /// The frame header's fields (RFC 9639, section 9.1). The sync code is followed by a 0 for a fixed
 /// block size, so each header counts blocks.
@@ -28,19 +32,95 @@ const SYNC_FIXED_BLOCK_SIZE: [u8; 2] = [0xFF, 0xF8];
 const BLOCK_SIZE_4096: u8 = 0b1100;
 const SAMPLE_RATE_48_KHZ: u8 = 0b1010;
 const LEFT_RIGHT_INDEPENDENT: u8 = 0b0001;
-const BITS_24: u8 = 0b110;
+const LEFT_SIDE: u8 = 0b1000;
+const BITS_16: u8 = 0b100;
 /// A frame number has 31 bits.
 const FRAME_NUMBER_MASK: u32 = (1 << 31) - 1;
 /// A frame header with the longest frame number: 4 fixed bytes, 6 bytes of coded number, the CRC-8.
 const MAX_HEADER_BYTES: usize = 4 + 6 + 1;
 
+/// Why a copied encoder frame could not be numbered for a listener.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RenumberError {
+    /// The supplied length cannot hold a complete encoder frame.
+    InvalidLength,
+    /// The header differs from the encoder's form, has a bad number, or fails CRC-8.
+    InvalidHeader,
+    /// The replacement number needs more bytes than the buffer can hold.
+    InsufficientCapacity,
+    /// Fixed-block frame numbers must fit in 31 bits.
+    NumberOutOfRange,
+}
+
+/// Rewrites a complete `Encoder` frame in its listener's reusable buffer.
+/// Returns the length to send; errors leave the buffer unchanged.
+///
+/// Accepts only this encoder's fixed-block, 4096-frame, 48 kHz, 16-bit independent or left-side
+/// stereo header, with a canonical coded number and valid CRC-8. Checks room for at least two
+/// constant subframes and the footer, but does not validate compressed audio or its old CRC-16:
+/// the caller must supply one complete encoder frame. Subframes and padding remain byte-exact.
+/// No allocation occurs; CRCs use the encoder's lookup tables.
+pub fn renumber_frame(
+    buffer: &mut [u8],
+    len: usize,
+    new_number: u32,
+) -> Result<usize, RenumberError> {
+    // The shortest header is six bytes; each constant channel needs three, then two for CRC-16.
+    if len > buffer.len() || !(14..=MAX_FRAME_BYTES).contains(&len) {
+        return Err(RenumberError::InvalidLength);
+    }
+    if new_number > FRAME_NUMBER_MASK {
+        return Err(RenumberError::NumberOutOfRange);
+    }
+    if buffer[..2] != SYNC_FIXED_BLOCK_SIZE
+        || buffer[2] != BLOCK_SIZE_4096 << 4 | SAMPLE_RATE_48_KHZ
+        || buffer[3] & 0x0f != BITS_16 << 1
+        || !matches!(buffer[3] >> 4, LEFT_RIGHT_INDEPENDENT | LEFT_SIDE)
+    {
+        return Err(RenumberError::InvalidHeader);
+    }
+    let count = match buffer[4].leading_ones() {
+        0 => 1,
+        n @ 2..=6 => n as usize,
+        _ => return Err(RenumberError::InvalidHeader),
+    };
+    let old_header = 5 + count;
+    let minimum_subframes = if buffer[3] >> 4 == LEFT_SIDE { 7 } else { 6 };
+    if len < old_header + minimum_subframes + 2 {
+        return Err(RenumberError::InvalidLength);
+    }
+    let mut number = u32::from(buffer[4] & (0x7f >> count));
+    if count == 1 {
+        number = u32::from(buffer[4]);
+    }
+    for &byte in &buffer[5..4 + count] {
+        if byte & 0xc0 != 0x80 {
+            return Err(RenumberError::InvalidHeader);
+        }
+        number = (number << 6) | u32::from(byte & 0x3f);
+    }
+    let mut coded = [0; 6];
+    if code_number(number, &mut coded) != count || crc8(&buffer[..old_header]) != 0 {
+        return Err(RenumberError::InvalidHeader);
+    }
+    let new_count = code_number(new_number, &mut coded);
+    let new_header = 5 + new_count;
+    let new_len = len - old_header + new_header;
+    if new_len > buffer.len() || new_len > MAX_FRAME_BYTES {
+        return Err(RenumberError::InsufficientCapacity);
+    }
+    buffer.copy_within(old_header..len - 2, new_header);
+    buffer[4..4 + new_count].copy_from_slice(&coded[..new_count]);
+    buffer[new_header - 1] = crc8(&buffer[..new_header - 1]);
+    let footer = crc16(&buffer[..new_len - 2]);
+    buffer[new_len - 2..new_len].copy_from_slice(&footer.to_be_bytes());
+    Ok(new_len)
+}
+
 /// A subframe's header: a 0, 6 bits of type, and a 0 for no wasted bits (RFC 9639, section 9.2.1).
 const SUBFRAME_HEADER_BITS: u64 = 8;
 const VERBATIM_TYPE: u32 = 0b000001;
 const FIXED_TYPE: u32 = 0b001000;
-/// A verbatim subframe: its header, then every sample in 24 bits.
-const VERBATIM_SUBFRAME_BITS: u64 =
-    SUBFRAME_HEADER_BITS + BITS_PER_SAMPLE as u64 * BLOCK_FRAMES as u64;
 /// FLAC's fixed predictors go up to order 4.
 const MAX_FIXED_ORDER: usize = 4;
 /// Up to 2^5 partitions, 32 of 128 residuals each: libFLAC's default limit (the streamable subset
@@ -49,21 +129,21 @@ const MAX_FIXED_ORDER: usize = 4;
 const MAX_PARTITION_ORDER: u32 = 5;
 const PARTITIONS: usize = 1 << MAX_PARTITION_ORDER;
 const PARTITION_FRAMES: usize = BLOCK_FRAMES / PARTITIONS;
-/// `push` sums folded residuals in a `u32` over this many frames at a time: 16 of at most 28 bits
-/// fit. It adds each stretch into the partition's `u64` sum.
+/// `push` sums folded residuals in a `u32` over this many frames at a time: 16 of at most 21 bits
+/// (including the side channel) fit. It adds each stretch into the partition's `u64` sum.
 const SUM_FRAMES: usize = 16;
 /// A residual starts with its coding method (2 bits) and partition order (4 bits).
 const RESIDUAL_HEADER_BITS: u64 = 6;
 /// The largest Rice parameter in a 4-bit and in a 5-bit parameter field. All ones is the escape code
 /// for unencoded partitions, which this encoder never writes: a parameter up to 30 codes any residual
-/// of 24-bit samples, and claxon can't read escaped partitions.
+/// of 16-bit samples or their 17-bit side channel, and claxon can't read escaped partitions.
 const MAX_RICE4_PARAMETER: u32 = 14;
 const MAX_RICE5_PARAMETER: u32 = 30;
 /// Estimates count every partition's parameter as 5 bits, so they never fall short of what gets written.
 const PARAMETER_BITS_ESTIMATE: u64 = 5;
 
 /// The stream's header: the "fLaC" marker, then a streaminfo block, the only metadata block, for an
-/// endless 48 kHz, 24-bit stereo stream (RFC 9639, section 8.2). Frames from `Encoder::encode_block`
+/// endless 48 kHz, 16-bit stereo stream (RFC 9639, section 8.2). Frames from `Encoder::encode_block`
 /// follow it.
 pub fn stream_header() -> [u8; STREAM_HEADER_LEN] {
     let mut bytes = Vec::with_capacity(STREAM_HEADER_LEN);
@@ -95,18 +175,19 @@ pub fn stream_header() -> [u8; STREAM_HEADER_LEN] {
 /// Builds blocks of the stream ring's frames and encodes each as a FLAC frame. Frames come in with
 /// `push`, a ring read at a time, and the encoder sorts them by channel and sums every fixed
 /// predictor's residuals as they arrive, so `encode_block` only chooses the coding and writes it.
-/// Nothing is allocated after `new`: the block (32 KB), the partition sums (2.5 KB) and the Rice
-/// parameters (64 bytes) are reused.
+/// With a MAX_FRAME_BYTES-capacity output, nothing is allocated after `new`: the block (32 KiB),
+/// candidate partition sums (3,840 bytes) and Rice parameters (128 bytes) are reused. Side samples
+/// replace the right column only after comparing both assignments; no third sample buffer exists.
 pub struct Encoder {
-    /// The block so far, one channel after the other, `BLOCK_FRAMES` clipped samples each.
+    /// The block so far, one channel after the other, `BLOCK_FRAMES` quantized samples each.
     samples: Vec<i32>,
     /// Frames pushed into the block.
     filled: usize,
     /// Per channel: the last sample and its differences of order 1-3, which the next sample's
     /// residuals build on.
-    previous: [[i32; MAX_FIXED_ORDER]; CHANNELS],
+    previous: [[i32; MAX_FIXED_ORDER]; CANDIDATE_CHANNELS],
     /// Per channel and order: the folded residuals since the last `SUM_FRAMES` boundary.
-    partial: [[u32; MAX_FIXED_ORDER + 1]; CHANNELS],
+    partial: [[u32; MAX_FIXED_ORDER + 1]; CANDIDATE_CHANNELS],
     /// Folded residuals summed per finest partition: a row of `PARTITIONS` for each channel and
     /// order (see `row`). The partition search merges a row in place.
     sums: Vec<u64>,
@@ -123,23 +204,35 @@ impl Default for Encoder {
 
 impl Encoder {
     pub fn new() -> Self {
-        Self {
-            samples: vec![0; CHANNELS * BLOCK_FRAMES],
-            filled: 0,
-            previous: [[0; MAX_FIXED_ORDER]; CHANNELS],
-            partial: [[0; MAX_FIXED_ORDER + 1]; CHANNELS],
-            sums: vec![0; CHANNELS * (MAX_FIXED_ORDER + 1) * PARTITIONS],
-            parameters: vec![0; PARTITIONS],
-            best_parameters: vec![0; PARTITIONS],
+        Self::try_new().expect("FLAC encoder allocation")
+    }
+
+    pub fn try_new() -> Result<Self, std::collections::TryReserveError> {
+        fn zeroes<T: Default + Clone>(
+            len: usize,
+        ) -> Result<Vec<T>, std::collections::TryReserveError> {
+            let mut values = Vec::new();
+            values.try_reserve_exact(len)?;
+            values.resize(len, T::default());
+            Ok(values)
         }
+        Ok(Self {
+            samples: zeroes(CHANNELS * BLOCK_FRAMES)?,
+            filled: 0,
+            previous: [[0; MAX_FIXED_ORDER]; CANDIDATE_CHANNELS],
+            partial: [[0; MAX_FIXED_ORDER + 1]; CANDIDATE_CHANNELS],
+            sums: zeroes(CANDIDATE_CHANNELS * (MAX_FIXED_ORDER + 1) * PARTITIONS)?,
+            parameters: zeroes(PARTITIONS)?,
+            best_parameters: zeroes(CANDIDATE_CHANNELS * PARTITIONS)?,
+        })
     }
 
     /// Discards the current block without replacing any buffers. A capture gap starts fresh
     /// predictor and residual sums; the next full block overwrites every old sample.
     pub fn reset(&mut self) {
         self.filled = 0;
-        self.previous = [[0; MAX_FIXED_ORDER]; CHANNELS];
-        self.partial = [[0; MAX_FIXED_ORDER + 1]; CHANNELS];
+        self.previous = [[0; MAX_FIXED_ORDER]; CANDIDATE_CHANNELS];
+        self.partial = [[0; MAX_FIXED_ORDER + 1]; CANDIDATE_CHANNELS];
         self.sums.fill(0);
     }
 
@@ -149,7 +242,8 @@ impl Encoder {
     }
 
     /// Adds interleaved frames, left then right, to the block: sign-extended 24-bit samples, the
-    /// stream ring's format. Samples beyond 24 bits clip at the rails, as in `wav::pack_s24le`.
+    /// stream ring's format. An arithmetic shift discards eight low bits before prediction;
+    /// out-of-range capture values saturate at the corresponding 16-bit rails.
     ///
     /// Panics if `interleaved` holds more than `frames_wanted()` frames.
     pub fn push(&mut self, interleaved: &[i32]) {
@@ -158,11 +252,11 @@ impl Encoder {
             frames <= self.frames_wanted(),
             "a block is {BLOCK_FRAMES} frames"
         );
-        for channel in 0..CHANNELS {
+        for channel in 0..CANDIDATE_CHANNELS {
             // Local copies, so the loop keeps them in registers.
             let mut previous = self.previous[channel];
             let mut partial = self.partial[channel];
-            let start = channel * BLOCK_FRAMES + self.filled;
+            let start = channel.min(1) * BLOCK_FRAMES + self.filled;
             let column = &mut self.samples[start..start + frames];
             for (n, (sample, frame)) in
                 (self.filled..).zip(column.iter_mut().zip(interleaved.chunks_exact(CHANNELS)))
@@ -170,8 +264,14 @@ impl Encoder {
                 // The fixed predictor of order k leaves the k-th difference of the samples (RFC
                 // 9639, section 9.2.5), so each order's residual is the difference of the order
                 // below's.
-                let mut difference = clip(frame[channel]);
-                *sample = difference;
+                let mut difference = if channel == SIDE_CHANNEL {
+                    quantize(frame[0]) - quantize(frame[1])
+                } else {
+                    quantize(frame[channel])
+                };
+                if channel != SIDE_CHANNEL {
+                    *sample = difference;
+                }
                 for (order, sum) in partial.iter_mut().enumerate() {
                     // The first `order` samples are the predictor's warm-up: they have no residual.
                     if n >= order {
@@ -202,38 +302,52 @@ impl Encoder {
     /// Panics unless the block has all its `BLOCK_FRAMES` frames.
     pub fn encode_block(&mut self, block_number: u32, out: &mut Vec<u8>) {
         assert_eq!(self.frames_wanted(), 0, "a block is {BLOCK_FRAMES} frames");
+        let left = self.plan_subframe(0, BITS_PER_SAMPLE);
+        let right = self.plan_subframe(1, BITS_PER_SAMPLE);
+        let side = self.plan_subframe(SIDE_CHANNEL, BITS_PER_SAMPLE + 1);
+        // Left is common to both assignments. Estimates bound emitted bits, and independent
+        // plans never exceed 16-bit verbatim, preserving MAX_FRAME_BYTES even for 17-bit side.
+        let use_side = side.bits < right.bits;
+        if use_side {
+            let (left, right) = self.samples.split_at_mut(BLOCK_FRAMES);
+            decorrelate_left_side(left, right);
+        }
         out.clear();
-        push_frame_header(block_number & FRAME_NUMBER_MASK, out);
+        push_frame_header(
+            block_number & FRAME_NUMBER_MASK,
+            if use_side {
+                LEFT_SIDE
+            } else {
+                LEFT_RIGHT_INDEPENDENT
+            },
+            out,
+        );
         let header_crc = crc16(out);
         let mut bits = BitWriter::new(out, header_crc);
-        for channel in 0..CHANNELS {
-            self.write_subframe(channel, &mut bits);
-        }
+        self.write_subframe(0, 0, BITS_PER_SAMPLE, left, &mut bits);
+        self.write_subframe(
+            1,
+            if use_side { SIDE_CHANNEL } else { 1 },
+            BITS_PER_SAMPLE + u32::from(use_side),
+            if use_side { side } else { right },
+            &mut bits,
+        );
         let crc = bits.finish();
         out.extend_from_slice(&crc.to_be_bytes());
-        // Each subframe stands alone, so the next block starts afresh.
         self.reset();
     }
 
-    /// Writes an exact constant channel as one sample, otherwise a fixed-predictor subframe with
-    /// partitioned Rice codes, or verbatim when that comes out no smaller than 24 bits a sample.
-    /// The predictor is the order whose
-    /// residuals add up smallest, as libFLAC picks among its fixed predictors; the partitioning and
-    /// the Rice parameters are the ones with the smallest estimated size.
-    fn write_subframe(&mut self, channel: usize, bits: &mut BitWriter) {
-        // Order 1 skips the first sample: a zero sum means every clipped sample equals the
-        // one before it. Reuse the sums from `push`, without scanning the block again.
+    /// Plans a constant, fixed-predictor or verbatim subframe with an upper bound on its bits.
+    fn plan_subframe(&mut self, channel: usize, sample_bits: u32) -> SubframePlan {
         let first_difference = row(channel, 1);
         if self.sums[first_difference..first_difference + PARTITIONS]
             .iter()
             .all(|&sum| sum == 0)
         {
-            bits.put(8, 0); // constant subframe, no wasted bits (RFC 9639, section 9.2.3)
-            bits.put(
-                BITS_PER_SAMPLE,
-                self.samples[channel * BLOCK_FRAMES] as u32 & SAMPLE_MASK,
-            );
-            return;
+            return SubframePlan {
+                coding: SubframeCoding::Constant,
+                bits: SUBFRAME_HEADER_BITS + u64::from(sample_bits),
+            };
         }
         let order = (0..=MAX_FIXED_ORDER)
             .min_by_key(|&order| {
@@ -242,19 +356,54 @@ impl Encoder {
             })
             .unwrap_or(0);
         let (partition_order, residual_bits) = self.best_partitioning(channel, order);
-        let warm_up_bits = order as u64 * u64::from(BITS_PER_SAMPLE);
-        let samples = &self.samples[channel * BLOCK_FRAMES..(channel + 1) * BLOCK_FRAMES];
-        if SUBFRAME_HEADER_BITS + warm_up_bits + residual_bits < VERBATIM_SUBFRAME_BITS {
-            let parameters = &self.best_parameters[..1 << partition_order];
-            write_fixed(samples, order, parameters, bits);
+        let fixed_bits =
+            SUBFRAME_HEADER_BITS + order as u64 * u64::from(sample_bits) + residual_bits;
+        let verbatim_bits = SUBFRAME_HEADER_BITS + u64::from(sample_bits) * BLOCK_FRAMES as u64;
+        if fixed_bits < verbatim_bits {
+            SubframePlan {
+                coding: SubframeCoding::Fixed {
+                    order,
+                    partition_order,
+                },
+                bits: fixed_bits,
+            }
         } else {
-            write_verbatim(samples, bits);
+            SubframePlan {
+                coding: SubframeCoding::Verbatim,
+                bits: verbatim_bits,
+            }
+        }
+    }
+
+    fn write_subframe(
+        &self,
+        column: usize,
+        candidate: usize,
+        sample_bits: u32,
+        plan: SubframePlan,
+        bits: &mut BitWriter,
+    ) {
+        let samples = &self.samples[column * BLOCK_FRAMES..(column + 1) * BLOCK_FRAMES];
+        match plan.coding {
+            SubframeCoding::Constant => {
+                bits.put(8, 0);
+                bits.put(sample_bits, samples[0] as u32 & ((1 << sample_bits) - 1));
+            }
+            SubframeCoding::Fixed {
+                order,
+                partition_order,
+            } => {
+                let start = candidate * PARTITIONS;
+                let parameters = &self.best_parameters[start..start + (1 << partition_order)];
+                write_fixed(samples, sample_bits, order, parameters, bits);
+            }
+            SubframeCoding::Verbatim => write_verbatim(samples, sample_bits, bits),
         }
     }
 
     /// The partition order whose Rice codes come out smallest for `channel`'s residual of `order`,
     /// and their estimated bits, from its row of `self.sums`, which it merges in place. The chosen
-    /// partitions' Rice parameters end up in `self.best_parameters`.
+    /// partitions' Rice parameters end up in `channel`'s row of `self.best_parameters`.
     fn best_partitioning(&mut self, channel: usize, order: usize) -> (u32, u64) {
         let row = row(channel, order);
         let mut best = (MAX_PARTITION_ORDER, u64::MAX);
@@ -272,7 +421,9 @@ impl Encoder {
             }
             if bits < best.1 {
                 best = (partition_order, bits);
-                self.best_parameters[..partitions].copy_from_slice(&self.parameters[..partitions]);
+                let start = channel * PARTITIONS;
+                self.best_parameters[start..start + partitions]
+                    .copy_from_slice(&self.parameters[..partitions]);
             }
             // Pairs of partitions make the next order's partitions.
             for j in 0..partitions / 2 {
@@ -283,6 +434,29 @@ impl Encoder {
     }
 }
 
+/// Reuses the right column for side samples after the independent/side plans are complete.
+/// Keep separate slice pointers so the target optimizer does not fold their 16-KiB column
+/// distance into a negative address displacement.
+#[inline(never)]
+fn decorrelate_left_side(left: &[i32], right: &mut [i32]) {
+    for (left, right) in left.iter().zip(right.iter_mut()) {
+        *right = *left - *right;
+    }
+}
+
+#[derive(Clone, Copy)]
+struct SubframePlan {
+    coding: SubframeCoding,
+    bits: u64,
+}
+
+#[derive(Clone, Copy)]
+enum SubframeCoding {
+    Constant,
+    Fixed { order: usize, partition_order: u32 },
+    Verbatim,
+}
+
 /// Where the partition sums of `channel`'s residual of `order` start in `Encoder::sums`.
 fn row(channel: usize, order: usize) -> usize {
     (channel * (MAX_FIXED_ORDER + 1) + order) * PARTITIONS
@@ -290,21 +464,32 @@ fn row(channel: usize, order: usize) -> usize {
 
 /// Writes a fixed-predictor subframe (RFC 9639, sections 9.2.5 and 9.2.7) for one channel's
 /// `samples`, with a Rice parameter for each of `parameters.len()` partitions.
-fn write_fixed(samples: &[i32], order: usize, parameters: &[u8], bits: &mut BitWriter) {
+fn write_fixed(
+    samples: &[i32],
+    sample_bits: u32,
+    order: usize,
+    parameters: &[u8],
+    bits: &mut BitWriter,
+) {
     match order {
-        0 => write_fixed_order::<0>(samples, parameters, bits),
-        1 => write_fixed_order::<1>(samples, parameters, bits),
-        2 => write_fixed_order::<2>(samples, parameters, bits),
-        3 => write_fixed_order::<3>(samples, parameters, bits),
-        _ => write_fixed_order::<4>(samples, parameters, bits),
+        0 => write_fixed_order::<0>(samples, sample_bits, parameters, bits),
+        1 => write_fixed_order::<1>(samples, sample_bits, parameters, bits),
+        2 => write_fixed_order::<2>(samples, sample_bits, parameters, bits),
+        3 => write_fixed_order::<3>(samples, sample_bits, parameters, bits),
+        _ => write_fixed_order::<4>(samples, sample_bits, parameters, bits),
     }
 }
 
 /// `write_fixed` for one predictor order, so that its arithmetic is fixed when this is compiled.
-fn write_fixed_order<const ORDER: usize>(samples: &[i32], parameters: &[u8], bits: &mut BitWriter) {
+fn write_fixed_order<const ORDER: usize>(
+    samples: &[i32],
+    sample_bits: u32,
+    parameters: &[u8],
+    bits: &mut BitWriter,
+) {
     bits.put(8, (FIXED_TYPE | ORDER as u32) << 1);
     for &sample in &samples[..ORDER] {
-        bits.put(BITS_PER_SAMPLE, sample as u32 & SAMPLE_MASK); // the warm-up samples, unencoded
+        bits.put(sample_bits, sample as u32 & ((1 << sample_bits) - 1)); // the warm-up samples, unencoded
     }
     // 4-bit parameter fields (method 0b00) when every parameter fits in one, else 5-bit (0b01).
     let parameter_bits = if parameters
@@ -330,7 +515,8 @@ fn write_fixed_order<const ORDER: usize>(samples: &[i32], parameters: &[u8], bit
 }
 
 /// The residual of the fixed predictor of `ORDER` for the last sample of `window`, which holds the
-/// `ORDER` samples before it too (RFC 9639, section 9.2.5). For 24-bit samples it stays within 28 bits.
+/// `ORDER` samples before it too (RFC 9639, section 9.2.5). For the 17-bit side channel it stays
+/// within 21 signed bits.
 fn fixed_residual<const ORDER: usize>(window: &[i32]) -> i32 {
     match ORDER {
         0 => window[0],
@@ -343,26 +529,30 @@ fn fixed_residual<const ORDER: usize>(window: &[i32]) -> i32 {
 
 /// Writes one channel's `samples` as a verbatim subframe: every sample unencoded (RFC 9639, section
 /// 9.2.4).
-fn write_verbatim(samples: &[i32], bits: &mut BitWriter) {
+fn write_verbatim(samples: &[i32], sample_bits: u32, bits: &mut BitWriter) {
     bits.put(8, VERBATIM_TYPE << 1);
     for &sample in samples {
-        bits.put(BITS_PER_SAMPLE, sample as u32 & SAMPLE_MASK);
+        bits.put(sample_bits, sample as u32 & ((1 << sample_bits) - 1));
     }
 }
 
-/// A sample clipped to the 24-bit rails.
-fn clip(sample: i32) -> i32 {
-    sample.clamp(SAMPLE_MIN, SAMPLE_MAX)
+/// The stream's one 24-to-16-bit policy, shared by the FLAC encoder and the MP3 adapter: discards
+/// eight low capture bits with sign extension (floor, no rounding, no dither), then saturates to
+/// the 16-bit rails. The clamp only guards values outside 24 bits. The recognition path
+/// (`decimate.rs`) rounds its 16-bit output instead; that difference is intended, and a change to
+/// this policy belongs here alone.
+pub fn quantize(sample: i32) -> i32 {
+    (sample >> 8).clamp(SAMPLE_MIN, SAMPLE_MAX)
 }
 
 /// Appends a frame header for block `number` (RFC 9639, section 9.1), with its CRC-8. The header
 /// states the block size, sample rate and bit depth itself, as the streamable subset asks, so a
 /// player can start at any frame.
-fn push_frame_header(number: u32, out: &mut Vec<u8>) {
+fn push_frame_header(number: u32, assignment: u8, out: &mut Vec<u8>) {
     let start = out.len();
     out.extend_from_slice(&SYNC_FIXED_BLOCK_SIZE);
     out.push(BLOCK_SIZE_4096 << 4 | SAMPLE_RATE_48_KHZ);
-    out.push(LEFT_RIGHT_INDEPENDENT << 4 | BITS_24 << 1); // then a reserved 0
+    out.push(assignment << 4 | BITS_16 << 1); // then a reserved 0
     push_coded_number(number, out);
     let crc = crc8(&out[start..]);
     out.push(crc);
@@ -371,10 +561,17 @@ fn push_frame_header(number: u32, out: &mut Vec<u8>) {
 /// Appends `n`, at most 31 bits, as FLAC's coded number: UTF-8's scheme extended to 6 bytes (RFC
 /// 9639, section 9.1.5).
 fn push_coded_number(n: u32, out: &mut Vec<u8>) {
+    let mut coded = [0; 6];
+    let len = code_number(n, &mut coded);
+    out.extend_from_slice(&coded[..len]);
+}
+
+/// Writes a canonical coded number to fixed storage, shared by encoding and listener renumbering.
+fn code_number(n: u32, out: &mut [u8; 6]) -> usize {
     debug_assert!(n <= FRAME_NUMBER_MASK);
     if n < 0x80 {
-        out.push(n as u8);
-        return;
+        out[0] = n as u8;
+        return 1;
     }
     // Each continuation byte carries 6 bits under a 0b10 prefix. The first byte carries the rest
     // under a prefix of a 1 per byte in the code, then a 0.
@@ -386,10 +583,11 @@ fn push_coded_number(n: u32, out: &mut Vec<u8>) {
         _ => 5,
     };
     let prefix = !(0xFF_u8 >> (continuation_bytes + 1));
-    out.push(prefix | (n >> (6 * continuation_bytes)) as u8);
-    for i in (0..continuation_bytes).rev() {
-        out.push(0x80 | ((n >> (6 * i)) & 0x3F) as u8);
+    out[0] = prefix | (n >> (6 * continuation_bytes)) as u8;
+    for (index, i) in (0..continuation_bytes).rev().enumerate() {
+        out[index + 1] = 0x80 | ((n >> (6 * i)) & 0x3F) as u8;
     }
+    continuation_bytes as usize + 1
 }
 
 /// A residual as Rice codes store it: 2r for r at or above 0, and -2r - 1 below (RFC 9639, section
@@ -582,8 +780,8 @@ mod tests {
         0xff, 0xf8, 0x69, 0x18, 0x00, 0x00, 0xbf, 0x03, 0x58, 0xfd, 0x03, 0x12, 0x8b, 0xaa, 0x9a,
     ];
 
-    /// The bytes of one block as 24-bit PCM, what the WAV stream sends for it.
-    const PCM_BLOCK_BYTES: usize = 3 * CHANNELS * BLOCK_FRAMES;
+    /// The bytes of one block as 16-bit PCM, before FLAC compression.
+    const PCM_BLOCK_BYTES: usize = 2 * CHANNELS * BLOCK_FRAMES;
 
     /// Chunk sizes, in frames, that cut a block in uneven places, partitions included. The stream
     /// ring hands a listener up to 240 frames at a time, and fewer when it has caught up.
@@ -648,10 +846,14 @@ mod tests {
         (info, samples)
     }
 
-    /// Fails at the first sample that differs, rather than printing every sample.
-    fn assert_same_samples(decoded: &[i32], expected: &[i32]) {
+    /// Compares decoded samples with independently quantized capture, reporting the first mismatch.
+    fn assert_quantized_samples(decoded: &[i32], expected: &[i32]) {
         assert_eq!(decoded.len(), expected.len(), "samples decoded");
-        if let Some(i) = decoded.iter().zip(expected).position(|(a, b)| a != b) {
+        if let Some(i) = decoded
+            .iter()
+            .zip(expected)
+            .position(|(a, b)| *a != ((*b).clamp(-0x80_0000, 0x7f_ffff) >> 8))
+        {
             panic!(
                 "frame {}, channel {}: decoded {:#x}, the input was {:#x}",
                 i / 2,
@@ -686,7 +888,7 @@ mod tests {
     }
 
     #[test]
-    fn the_stream_header_is_streaminfo_for_48_khz_stereo_24_bit_in_4096_frame_blocks() {
+    fn the_stream_header_is_streaminfo_for_48_khz_stereo_16_bit_in_4096_frame_blocks() {
         #[rustfmt::skip]
         let expected: [u8; STREAM_HEADER_LEN] = [
             b'f', b'L', b'a', b'C',
@@ -694,8 +896,8 @@ mod tests {
             0x10, 0x00, 0x10, 0x00,             // minimum and maximum block size: 4,096 frames
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // minimum and maximum frame size: unknown
             0x0B, 0xB8,                         // 48,000 Hz: the first 16 of 20 bits
-            0x03,                               // the last 4, 2 channels (stored as 1), the top bit of 24 bits (23)
-            0x70,                               // the rest of 23, and the top 4 of 36 bits of total samples
+            0x02,                               // the last 4, 2 channels (stored as 1), the top bit of 16 bits (15)
+            0xF0,                               // the rest of 15, and the top 4 of 36 bits of total samples
             0x00, 0x00, 0x00, 0x00,             // total samples: unknown
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, // MD5: unknown
         ];
@@ -729,15 +931,59 @@ mod tests {
         let (info, decoded) = decode_with_claxon(&encode_stream(&frames));
         assert_eq!(
             (info.sample_rate, info.channels, info.bits_per_sample),
-            (48_000, 2, 24)
+            (48_000, 2, 16)
         );
         assert_eq!((info.min_block_size, info.max_block_size), (4_096, 4_096));
         assert_eq!(info.samples, None, "an endless stream has no length");
-        assert_same_samples(&decoded, &frames);
+        assert_quantized_samples(&decoded, &frames);
     }
 
     #[test]
-    fn constant_channels_use_four_byte_subframes() {
+    fn identical_noise_uses_left_side_and_preserves_samples() {
+        let noise = full_scale_noise_stereo(BLOCK_FRAMES);
+        let block: Vec<_> = noise
+            .chunks_exact(2)
+            .flat_map(|pair| [pair[0], pair[0]])
+            .collect();
+        let stream = encode_stream(&block);
+        let frame = &stream[STREAM_HEADER_LEN..];
+        assert_eq!(frame[3] >> 4, 8);
+        assert!(frame.len() < 8300);
+        assert_quantized_samples(&decode_with_claxon(&stream).1, &block);
+    }
+
+    #[test]
+    fn left_side_renumbering_preserves_audio_at_number_boundaries() {
+        let noise = full_scale_noise_stereo(BLOCK_FRAMES);
+        let block: Vec<_> = noise
+            .chunks_exact(2)
+            .flat_map(|pair| [pair[0], pair[0]])
+            .collect();
+        let original = encode_stream(&block);
+        let original = &original[STREAM_HEADER_LEN..];
+        assert_eq!(original[3] >> 4, 8);
+        for number in [
+            0, 127, 128, 2047, 2048, 65535, 65536, 0x1fffff, 0x200000, 0x3ffffff, 0x4000000,
+            0x7fffffff,
+        ] {
+            let mut buffer = vec![0; MAX_FRAME_BYTES];
+            buffer[..original.len()].copy_from_slice(original);
+            let len = renumber_frame(&mut buffer, original.len(), number).unwrap();
+            let header_len = 5 + if buffer[4] < 128 {
+                1
+            } else {
+                buffer[4].leading_ones() as usize
+            };
+            assert_eq!(crc8(&buffer[..header_len]), 0);
+            assert_eq!(crc16(&buffer[..len]), 0);
+            let mut stream = stream_header().to_vec();
+            stream.extend_from_slice(&buffer[..len]);
+            assert_quantized_samples(&decode_with_claxon(&stream).1, &block);
+        }
+    }
+
+    #[test]
+    fn constant_channels_use_three_byte_subframes() {
         for (left, right) in [(0, 0), (123_456, -654_321), (i32::MAX, i32::MIN)] {
             let frames: Vec<i32> = [left, right]
                 .into_iter()
@@ -747,14 +993,13 @@ mod tests {
             let stream = encode_stream(&frames);
             assert_eq!(
                 stream.len() - STREAM_HEADER_LEN,
-                16,
+                14,
                 "constant stereo frame"
             );
             let frame = &stream[STREAM_HEADER_LEN..];
             assert_eq!(frame[6], 0, "left constant subframe header");
-            assert_eq!(frame[10], 0, "right constant subframe header");
-            let expected: Vec<i32> = frames.into_iter().map(clip).collect();
-            assert_same_samples(&decode_with_claxon(&stream).1, &expected);
+            assert_eq!(frame[9], 0, "right constant subframe header");
+            assert_quantized_samples(&decode_with_claxon(&stream).1, &frames);
         }
     }
 
@@ -772,39 +1017,39 @@ mod tests {
                 });
             }
         }
-        let mixed = 6 + 4 + 1 + 3 * BLOCK_FRAMES + 2;
+        let mixed = 6 + 3 + 1 + 2 * BLOCK_FRAMES + 2;
         assert_eq!(
             frame_sizes(&frames),
-            [mixed, mixed, 16, 6 + 2 * (1 + 3 * BLOCK_FRAMES) + 2]
+            [mixed, mixed, 14, 6 + 2 * (1 + 2 * BLOCK_FRAMES) + 2]
         );
-        assert_same_samples(&decode_with_claxon(&encode_stream(&frames)).1, &frames);
+        assert_quantized_samples(&decode_with_claxon(&encode_stream(&frames)).1, &frames);
     }
 
     #[test]
     fn claxon_decodes_silence_exactly() {
         let silence = vec![0; 3 * CHANNELS * BLOCK_FRAMES];
-        assert_same_samples(&decode_with_claxon(&encode_stream(&silence)).1, &silence);
+        assert_quantized_samples(&decode_with_claxon(&encode_stream(&silence)).1, &silence);
     }
 
     #[test]
     fn claxon_decodes_a_full_scale_square_wave_exactly() {
         let square = full_scale_square_stereo_48k(6 * BLOCK_FRAMES);
-        assert_same_samples(&decode_with_claxon(&encode_stream(&square)).1, &square);
+        assert_quantized_samples(&decode_with_claxon(&encode_stream(&square)).1, &square);
     }
 
     #[test]
     fn full_scale_noise_goes_out_verbatim_and_decodes_exactly() {
         let noise = full_scale_noise_stereo(3 * BLOCK_FRAMES);
-        assert_same_samples(&decode_with_claxon(&encode_stream(&noise)).1, &noise);
-        // No predictor beats 24 bits a sample on noise like this, so each subframe is verbatim: a
-        // 1-byte subframe header and 4,096 samples of 3 bytes. Around them: the frame header's 4
+        assert_quantized_samples(&decode_with_claxon(&encode_stream(&noise)).1, &noise);
+        // No predictor beats 16 bits a sample on noise like this, so each subframe is verbatim: a
+        // 1-byte subframe header and 4,096 samples of 2 bytes. Around them: the frame header's 4
         // bytes, a 1-byte block number and the CRC-8, then the CRC-16.
-        let verbatim = 6 + CHANNELS * (1 + 3 * BLOCK_FRAMES) + 2;
+        let verbatim = 6 + CHANNELS * (1 + 2 * BLOCK_FRAMES) + 2;
         assert_eq!(frame_sizes(&noise), [verbatim; 3]);
     }
 
     #[test]
-    fn the_largest_frame_is_max_frame_bytes() {
+    fn the_largest_frame_fills_the_slot() {
         // Verbatim subframes with the longest block number, 6 bytes coded.
         let mut frame = vec![];
         push_and_encode(
@@ -814,6 +1059,7 @@ mod tests {
             0x7FFF_FFFF,
             &mut frame,
         );
+        assert_eq!(frame.len(), 11 + 2 * (1 + 2 * BLOCK_FRAMES) + 2);
         assert_eq!(frame.len(), MAX_FRAME_BYTES);
     }
 
@@ -833,9 +1079,45 @@ mod tests {
         let (_, decoded) = decode_with_claxon(&encode_stream(&frames));
         assert_eq!(
             decoded[..8],
-            [0x7F_FFFF, -0x80_0000, 0x7F_FFFF, -0x80_0000, 0x7F_FFFF, -0x80_0000, 1, -1]
+            [32767, -32768, 32767, -32768, 32767, -32768, 0, -1]
         );
         assert!(decoded[8..].iter().all(|&s| s == 0));
+    }
+
+    #[test]
+    fn quantization_preserves_sign_and_discards_low_bits_before_prediction() {
+        let input = [
+            0,
+            -1,
+            255,
+            -255,
+            256,
+            -256,
+            257,
+            -257,
+            0x7f_ffff,
+            -0x80_0000,
+            i32::MAX,
+            i32::MIN,
+        ];
+        let expected = [0, -1, 0, -1, 1, -1, 1, -2, 32767, -32768, 32767, -32768];
+        let frames: Vec<_> = input
+            .into_iter()
+            .cycle()
+            .take(CHANNELS * BLOCK_FRAMES)
+            .collect();
+        let (info, decoded) = decode_with_claxon(&encode_stream(&frames));
+        assert_eq!(info.bits_per_sample, 16);
+        for (i, sample) in decoded.iter().enumerate() {
+            assert_eq!(*sample, expected[i % expected.len()], "sample {i}");
+        }
+        // Both values become one constant after truncation, despite varying source low bits.
+        let frames: Vec<_> = [256, -256, 511, -1]
+            .into_iter()
+            .cycle()
+            .take(CHANNELS * BLOCK_FRAMES)
+            .collect();
+        assert_eq!(frame_sizes(&frames), [14]);
     }
 
     #[test]
@@ -862,15 +1144,13 @@ mod tests {
 
     #[test]
     fn music_and_silence_take_fewer_bytes_than_pcm() {
-        // A fixed predictor of order k scales a tone at f by (2 sin(pi f / 48 kHz))^k. At order 4 that
-        // leaves this signal's high tones, 2.6 kHz on the left and 3.3 kHz on the right, at about 15
-        // and 38 thousand: some 16 and 17 bits a sample against 24, so frames come out near 68% of PCM.
+        // Smooth music must compress below 70% of the quantized PCM size.
         let music = frame_sizes(&chord_and_chirp_stereo_48k(4 * BLOCK_FRAMES));
         assert!(
             music.iter().all(|&size| size * 100 < PCM_BLOCK_BYTES * 70),
             "chord and chirp frames {music:?}, against {PCM_BLOCK_BYTES} bytes of PCM"
         );
-        // Silence stores only one 24-bit sample per channel.
+        // Silence stores only one 16-bit sample per channel.
         let silence = frame_sizes(&vec![0; 2 * CHANNELS * BLOCK_FRAMES]);
         assert!(
             silence.iter().all(|&size| size < PCM_BLOCK_BYTES / 16),
@@ -913,7 +1193,7 @@ mod tests {
         push_and_encode(&mut encoder, &block, &CHUNKS, 0, &mut frame);
         let mut stream = stream_header().to_vec();
         stream.extend_from_slice(&frame);
-        assert_same_samples(&decode_with_claxon(&stream).1, &block);
+        assert_quantized_samples(&decode_with_claxon(&stream).1, &block);
         assert_eq!(buffers(&encoder), original_buffers);
     }
 
@@ -938,12 +1218,16 @@ mod tests {
             }
         };
         let len = BLOCK_FRAMES / PARTITIONS;
-        for channel in 0..CHANNELS {
+        for channel in 0..CANDIDATE_CHANNELS {
             let samples: Vec<i32> = block
-                .iter()
-                .skip(channel)
-                .step_by(CHANNELS)
-                .copied()
+                .chunks_exact(CHANNELS)
+                .map(|pair| {
+                    if channel == SIDE_CHANNEL {
+                        (pair[0] >> 8) - (pair[1] >> 8)
+                    } else {
+                        pair[channel] >> 8
+                    }
+                })
                 .collect();
             for order in 0..=MAX_FIXED_ORDER {
                 for j in 0..PARTITIONS {

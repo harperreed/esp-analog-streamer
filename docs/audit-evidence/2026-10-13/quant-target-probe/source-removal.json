@@ -1,0 +1,15 @@
+{
+  "status": "removed_exact_owned_files",
+  "files": [
+    {
+      "source": "target/kata-hardening/oct13-quant-target-impl/quant-cost.rs",
+      "target": "firmware/examples/quant-cost.rs",
+      "sha256": "dcfe6b3b02346512f71e6baaf01a0d037affe36292fae5a63a8f640e2bf895ae"
+    },
+    {
+      "source": "target/kata-hardening/oct13-quant-target-impl/quant-cost/contract.rs",
+      "target": "firmware/examples/quant-cost/contract.rs",
+      "sha256": "0ea464527a384299e5c8185b15fda77fdf4cdec599d00e484e3f29c2d0596e44"
+    }
+  ]
+}

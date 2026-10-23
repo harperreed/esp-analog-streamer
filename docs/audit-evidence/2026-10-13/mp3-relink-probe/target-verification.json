@@ -1,0 +1,52 @@
+{
+  "status": "pass",
+  "target_member_offset_bytes": 88,
+  "baseline_store": {
+    "address": "0x400844ff",
+    "value": 0,
+    "instruction": "s32i a8, a2, 88"
+  },
+  "modified_store": {
+    "address": "0x4008450e",
+    "value": 1,
+    "instruction": "s32i a9, a2, 88"
+  },
+  "mp3_named_functions_in_iram_each": 26,
+  "mp3_function_names": [
+    "shazam_mp3_close",
+    "shazam_mp3_encode",
+    "shazam_mp3_open",
+    "shine_ResvAdjust",
+    "shine_ResvFrameEnd",
+    "shine_check_config",
+    "shine_close",
+    "shine_encode_buffer_interleaved",
+    "shine_find_bitrate_index",
+    "shine_find_samplerate_index",
+    "shine_format_bitstream",
+    "shine_get_bits_count",
+    "shine_initialise",
+    "shine_inner_loop",
+    "shine_iteration_loop",
+    "shine_loop_initialise",
+    "shine_max_reservoir_bits",
+    "shine_mdct_initialise",
+    "shine_mdct_sub",
+    "shine_mpeg_version",
+    "shine_open_bit_stream",
+    "shine_outer_loop",
+    "shine_putbits",
+    "shine_set_config_mpeg_defaults",
+    "shine_subband_initialise",
+    "shine_window_filter_subband"
+  ],
+  "cfg_identical": true,
+  "sdkconfig_identical": true,
+  "locks_identical": true,
+  "only_changed_source": "mp3/vendor/shine/layer3.c",
+  "i2s_iram_safe": true,
+  "actual_target_execution": false,
+  "baseline_canonical_run": "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-relink-parent/recipient/target/check-logs/run.ZAtxchL1",
+  "modified_canonical_run": "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-relink-parent/recipient/target/check-logs/run.EtYxJOgq",
+  "collector_note": "Initial assertion expected 27 prefixed function symbols; actual linked sets contain 26 each. Corrected to compare observed sets and required entry points."
+}

@@ -1,38 +1,196 @@
 #!/usr/bin/env bash
-# ABOUTME: Canonical project check: formatting, lints, Mac tests, and the firmware build once it exists.
-# ABOUTME: Prints one ok/FAIL line per stage; full output lands in target/check-logs/<stage>.log.
+# ABOUTME: Runs canonical checks, accumulating real stage failures and retaining per-run logs.
+# ABOUTME: Records checked boundary snapshots and actual stage exits in target/check-logs/run.*.
 set -uo pipefail
-cd "$(dirname "$0")/.."
-mise_env="$(mise env -s bash)" || { echo "FAIL  mise   (run: mise trust && mise install)"; exit 1; }
-eval "$mise_env" # the toolchain pinned in mise.toml
-LOG_DIR=target/check-logs
-mkdir -p "$LOG_DIR"
-status=0
 
-stage() {
-  local name="$1"
-  shift
-  if "$@" >"$LOG_DIR/$name.log" 2>&1; then
-    echo "ok    $name"
-  else
-    echo "FAIL  $name   (full log: $LOG_DIR/$name.log)"
-    tail -n 40 "$LOG_DIR/$name.log" | sed 's/^/      /'
-    status=1
+check_error() {
+  echo "FAIL  evidence: $*" >&2
+  if [[ -n "${LOG_DIR:-}" ]]; then
+    printf '%s\n' "$*" >> "$LOG_DIR/error.txt" || return 1
+  fi
+  return 1
+}
+
+check_snapshot() {
+  local boundary="$1" path blob directory
+  git rev-parse HEAD > "$LOG_DIR/$boundary.head" || { check_error 'cannot read HEAD'; return 1; }
+  git status --porcelain=v1 --untracked-files=all > "$LOG_DIR/$boundary.status" || { check_error 'cannot read status'; return 1; }
+  git diff HEAD --binary > "$LOG_DIR/$boundary.diff" || { check_error 'cannot read tracked diff'; return 1; }
+  # Known optional inputs are present even when absent; discovery catches additions.
+  if ! { printf '%s\n' scripts/check mise.toml Cargo.toml Cargo.lock firmware/Cargo.toml firmware/Cargo.lock fuzz/Cargo.toml fuzz/Cargo.lock pyproject.toml uv.lock .cargo/config .cargo/config.toml firmware/.cargo/config firmware/.cargo/config.toml fuzz/.cargo/config fuzz/.cargo/config.toml || return 1;
+    for directory in core mp3 tools firmware fuzz .cargo; do
+      if [[ -d "$directory" ]]; then
+        # target and .embuild (the ESP-IDF bootstrap, gitignored) are generated; their manifests are not our config.
+        find "$directory" -type d \( -name target -o -name .embuild \) -prune -o -type f \( -name Cargo.toml -o -name Cargo.lock -o -name mise.toml -o -path '*/.cargo/config' -o -path '*/.cargo/config.toml' \) -print || return 1
+      fi
+    done;
+  } > "$LOG_DIR/$boundary.paths.raw"; then
+    check_error 'cannot inventory config'; return 1
+  fi
+  sed 's|^\./||' "$LOG_DIR/$boundary.paths.raw" | LC_ALL=C sort -u > "$LOG_DIR/$boundary.paths" || { check_error 'cannot sort config inventory'; return 1; }
+  : > "$LOG_DIR/$boundary.config" || return 1
+  while IFS= read -r path; do
+    if [[ -f "$path" ]]; then
+      blob="$(git hash-object -- "$path")" || { check_error "cannot hash $path"; return 1; }
+      printf '%s\tpresent\t%s\n' "$path" "$blob" >> "$LOG_DIR/$boundary.config" || return 1
+    else
+      printf '%s\tabsent\t-\n' "$path" >> "$LOG_DIR/$boundary.config" || return 1
+    fi
+  done < "$LOG_DIR/$boundary.paths"
+}
+
+check_init() {
+  status=0
+  mkdir -p target/check-logs || { check_error 'cannot create log parent'; return 1; }
+  LOG_DIR="$(mktemp -d target/check-logs/run.XXXXXXXX)" || { check_error 'cannot allocate run'; return 1; }
+  printf 'incomplete\n' > "$LOG_DIR/run.status" || return 1
+  printf '%s\n' "${1:-all}" > "$LOG_DIR/scope" || return 1
+  printf 'stage\texit_code\tlog\n' > "$LOG_DIR/stages.tsv" || return 1
+  printf 'branch\tapplicable\n' > "$LOG_DIR/applicability.tsv" || return 1
+  printf '%s\n' 'Boundary snapshots only; untracked bytes and effective environment unverified.' 'Config values are Git blob IDs, not SHA-256 attestations.' > "$LOG_DIR/identity-limits.txt" || return 1
+  check_snapshot start || return 1
+}
+
+check_setup() {
+  local mise_env
+  if ! mise_env="$("$@" 2> "$LOG_DIR/setup.log")"; then
+    check_error 'tool activation failed (see setup.log)'; return 1
+  fi
+  if ! eval "$mise_env" >> "$LOG_DIR/setup.log" 2>&1; then
+    check_error 'activation eval failed (see setup.log)'; return 1
   fi
 }
 
-stage fmt cargo fmt --all -- --check
-stage clippy cargo clippy --workspace --all-targets -- -D warnings
-stage test cargo test --workspace
-stage harnesses scripts/check-harnesses
-stage interface-relay scripts/test-interface-relay
-stage wifi-throughput scripts/test-wifi-throughput-check
+stage() {
+  local name="$1" code
+  shift
+  # Scope fd 3 so an inherited caller descriptor is restored on every return.
+  {
+    if ! exec 3> "$LOG_DIR/$name.log"; then
+      check_error "cannot open $name log"; return 1
+    fi
+    if "$@" >&3 2>&1; then
+      code=0
+      echo "ok    $name"
+    else
+      code=$?
+      echo "FAIL  $name   (full log: $LOG_DIR/$name.log)"
+      tail -n 40 "$LOG_DIR/$name.log" | sed 's/^/      /'
+      status=1
+    fi
+    printf '%s\t%s\t%s.log\n' "$name" "$code" "$name" >> "$LOG_DIR/stages.tsv" || { check_error "cannot record $name exit"; return 1; }
+  } 3>&-
+}
 
-if [ -d firmware ]; then
-  stage firmware-fmt rustfmt --edition 2021 --check firmware/build.rs firmware/src/*.rs
-  stage firmware-build bash -c 'cd firmware && { [ -f "$HOME/export-esp.sh" ] && . "$HOME/export-esp.sh"; true; } && cargo +esp build --release'
-  # cargo's summary line names our crates when they produce warnings
-  stage firmware-warnings bash -c '! grep -E "^warning: .esp-shazam" target/check-logs/firmware-build.log'
+firmware_warnings() {
+  local code
+  [[ -f "$1" && -r "$1" ]] || return 1
+  if grep -E '^warning: .esp-shazam' "$1"; then
+    return 1
+  else
+    code=$?
+    [[ "$code" -eq 1 ]]
+  fi
+}
+
+check_finalize() {
+  local part code
+  check_snapshot end || return 1
+  for part in head status diff config; do
+    if cmp -s "$LOG_DIR/start.$part" "$LOG_DIR/end.$part"; then
+      :
+    else
+      code=$?
+      check_error "boundary $part comparison failed (cmp exit $code)"; return 1
+    fi
+  done
+  printf '%s\n' "$status" > "$LOG_DIR/exit-code" || return 1
+  printf 'complete\n' > "$LOG_DIR/run.status.complete" || return 1
+  [[ -f "$LOG_DIR/run.status" && ! -L "$LOG_DIR/run.status" ]] || return 1
+  mv -f "$LOG_DIR/run.status.complete" "$LOG_DIR/run.status" || return 1
+}
+
+check_install_signal_traps() {
+  trap 'exit 130' INT
+  trap 'exit 143' TERM
+}
+
+check_main() {
+  local scope=all
+  if [[ "$#" -gt 1 ]]; then
+    echo 'Usage: scripts/check [--host | --firmware | --help]' >&2
+    return 2
+  fi
+  case "${1:-}" in
+    '')
+      if [[ "$#" -ne 0 ]]; then
+        echo 'Unknown empty argument (see --help)' >&2
+        return 2
+      fi ;;
+    --host) scope=host ;;
+    --firmware) scope=firmware ;;
+    --help)
+      echo 'Usage: scripts/check [--host | --firmware | --help]'
+      echo 'Default: all applicable stages. --host: host stages. --firmware: required firmware stages.'
+      return 0 ;;
+    *) echo "Unknown argument: $1 (see --help)" >&2; return 2 ;;
+  esac
+  cd "$(dirname "${BASH_SOURCE[0]}")/.." || return 1
+  check_init "$scope" || return 1
+  if [[ "$scope" == firmware && ! -d firmware ]]; then
+    check_error 'firmware workspace is absent'; return 1
+  fi
+  check_install_signal_traps || return 1
+  check_setup mise env -s bash || return 1
+  if [[ "$scope" != firmware ]]; then
+    stage fmt cargo fmt --all -- --check || return 1
+    stage clippy cargo clippy --workspace --all-targets -- -D warnings || return 1
+    stage test cargo test --workspace || return 1
+    stage capture-loom cargo test -p esp-shazam-core --features capture-loom models:: --lib || return 1
+    stage listener-loom cargo test -p esp-shazam-core --features listener-loom --lib --test listener_runtime_loom models:: || return 1
+    stage sonos-web node --test test/sonos-web.test.cjs || return 1
+    stage harnesses scripts/check-harnesses || return 1
+    stage coverage-host scripts/test-coverage-host || return 1
+    stage stream-format scripts/test-stream-format || return 1
+    stage decoder-integrity scripts/test-decoder-integrity || return 1
+    stage replay-oracle scripts/test-replay-stream || return 1
+    stage stream-replay scripts/check-stream-replay || return 1
+    stage failure-observation scripts/test-failure-observation || return 1
+    stage e2e-fixtures scripts/test-e2e-fixtures || return 1
+    stage interface-relay scripts/test-interface-relay || return 1
+    stage wifi-throughput scripts/test-wifi-throughput-check || return 1
+    if [ "$(uname -s)" = Linux ]; then
+      printf "linux\tyes\n" >> "$LOG_DIR/applicability.tsv" || return 1
+      stage fuzz-host scripts/test-fuzz-host || return 1
+      stage fuzz-helpers cargo test --manifest-path fuzz/Cargo.toml --locked --lib || return 1
+      stage mutation-host scripts/test-mutation-host || return 1
+      stage setup-linux scripts/test-setup-linux || return 1
+      stage capture-stream-packets scripts/test-capture-stream-packets || return 1
+    else
+      printf "linux\tno\n" >> "$LOG_DIR/applicability.tsv" || return 1
+    fi
+  fi
+
+  if [[ "$scope" != host ]]; then
+    if [ -d firmware ]; then
+      printf "firmware\tyes\n" >> "$LOG_DIR/applicability.tsv" || return 1
+      stage firmware-fmt rustfmt --edition 2021 --check firmware/build.rs firmware/src/*.rs || return 1
+      stage firmware-build bash -c 'cd firmware && { [ -f "$HOME/export-esp.sh" ] && . "$HOME/export-esp.sh"; true; } && cargo +esp build --release --message-format=json-render-diagnostics' || return 1
+      stage firmware-examples bash -c 'cd firmware && { [ -f "$HOME/export-esp.sh" ] && . "$HOME/export-esp.sh"; true; } && cargo +esp build --release --examples' || return 1
+      stage i2s-iram-tests scripts/test-i2s-iram || return 1
+      stage i2s-iram scripts/check-i2s-iram --cargo-messages "$LOG_DIR/firmware-build.log" || return 1
+      # cargo's summary line names our crates when they produce warnings
+      stage firmware-warnings firmware_warnings "$LOG_DIR/firmware-build.log" || return 1
+      stage firmware-examples-warnings firmware_warnings "$LOG_DIR/firmware-examples.log" || return 1
+    else
+      printf "firmware\tno\n" >> "$LOG_DIR/applicability.tsv" || return 1
+    fi
+  fi
+  check_finalize || return 1
+  return "$status"
+}
+
+if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
+  check_main "$@"
+  exit $?
 fi
-
-exit $status

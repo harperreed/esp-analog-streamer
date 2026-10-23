@@ -1,0 +1,624 @@
+{
+  "date": "2026-10-07",
+  "status": "Investigation in progress; FLAC-to-Sonos not accepted",
+  "control": "Local WSS, verified Sonos CA chain, connection-specific hostname exception",
+  "group": "Authorized existing Altec + 3; group volume capped at 5, no increase of lower values",
+  "audible_confirmation": false,
+  "limitations": [
+    "PLAYING polls alone can miss repeated restarts; compare item position and HTTP requests.",
+    "Initial runs batch-dequeued events; event timestamps are not necessarily receipt times.",
+    "Finite FLAC used radio loadStreamUrl, not a proper track API; does not establish FLAC decoder failure.",
+    "Host source runs also launched physical line-out and reset the idle ESP32; stream source remained host-only.",
+    "No root cause demonstrated; no product codec fallback."
+  ],
+  "runs": [
+    {
+      "label": "native-flac",
+      "source": "board",
+      "codec": "native FLAC",
+      "bit_depth": 24,
+      "passed": false,
+      "error": "Not playing after startup",
+      "volume": 5,
+      "samples": [],
+      "scoped_cleanup_succeeded": true,
+      "final_state": "PLAYBACK_STATE_IDLE"
+    },
+    {
+      "label": "native-flac-relay",
+      "source": "board through host relay",
+      "codec": "native FLAC",
+      "bit_depth": 24,
+      "passed": false,
+      "error": "Not playing after startup",
+      "volume": 5,
+      "samples": [
+        {
+          "elapsed": 0.308,
+          "state": "PLAYBACK_STATE_BUFFERING",
+          "position_ms": 0,
+          "previous_position_ms": 883
+        },
+        {
+          "elapsed": 5.313,
+          "state": "PLAYBACK_STATE_PLAYING",
+          "position_ms": 0,
+          "previous_position_ms": 1017
+        },
+        {
+          "elapsed": 10.32,
+          "state": "PLAYBACK_STATE_PLAYING",
+          "position_ms": 552,
+          "previous_position_ms": 1017
+        },
+        {
+          "elapsed": 15.327,
+          "state": "PLAYBACK_STATE_PLAYING",
+          "position_ms": 5558,
+          "previous_position_ms": 1017
+        },
+        {
+          "elapsed": 20.335,
+          "state": "PLAYBACK_STATE_PLAYING",
+          "position_ms": 10567,
+          "previous_position_ms": 1017
+        },
+        {
+          "elapsed": 25.341,
+          "state": "PLAYBACK_STATE_BUFFERING",
+          "position_ms": 0,
+          "previous_position_ms": 11610
+        }
+      ],
+      "scoped_cleanup_succeeded": true,
+      "final_state": "PLAYBACK_STATE_IDLE"
+    },
+    {
+      "label": "host-native-flac",
+      "source": "host FFmpeg paced",
+      "codec": "native FLAC",
+      "bit_depth": 24,
+      "passed": false,
+      "error": "Not playing after startup",
+      "volume": 5,
+      "samples": [
+        {
+          "elapsed": 0.066,
+          "state": "PLAYBACK_STATE_BUFFERING",
+          "position_ms": 0,
+          "previous_position_ms": 11610
+        },
+        {
+          "elapsed": 5.071,
+          "state": "PLAYBACK_STATE_PLAYING",
+          "position_ms": 2103,
+          "previous_position_ms": 11610
+        },
+        {
+          "elapsed": 10.079,
+          "state": "PLAYBACK_STATE_BUFFERING",
+          "position_ms": 0,
+          "previous_position_ms": 2120
+        },
+        {
+          "elapsed": 15.084,
+          "state": "PLAYBACK_STATE_PLAYING",
+          "position_ms": 0,
+          "previous_position_ms": 2152
+        },
+        {
+          "elapsed": 20.091,
+          "state": "PLAYBACK_STATE_PLAYING",
+          "position_ms": 1000,
+          "previous_position_ms": 2152
+        },
+        {
+          "elapsed": 25.096,
+          "state": "PLAYBACK_STATE_BUFFERING",
+          "position_ms": 0,
+          "previous_position_ms": 2151
+        }
+      ],
+      "scoped_cleanup_succeeded": true,
+      "final_state": "PLAYBACK_STATE_IDLE"
+    },
+    {
+      "label": "host-native-flac16",
+      "source": "host FFmpeg paced",
+      "codec": "native FLAC",
+      "bit_depth": 16,
+      "passed": false,
+      "error": "Not playing after startup",
+      "volume": 5,
+      "samples": [
+        {
+          "elapsed": 0.054,
+          "state": "PLAYBACK_STATE_BUFFERING",
+          "position_ms": 0,
+          "previous_position_ms": 2239
+        },
+        {
+          "elapsed": 5.058,
+          "state": "PLAYBACK_STATE_PLAYING",
+          "position_ms": 1042,
+          "previous_position_ms": 2239
+        },
+        {
+          "elapsed": 10.064,
+          "state": "PLAYBACK_STATE_PLAYING",
+          "position_ms": 6047,
+          "previous_position_ms": 2239
+        },
+        {
+          "elapsed": 15.069,
+          "state": "PLAYBACK_STATE_PLAYING",
+          "position_ms": 11052,
+          "previous_position_ms": 2239
+        },
+        {
+          "elapsed": 20.074,
+          "state": "PLAYBACK_STATE_BUFFERING",
+          "position_ms": 0,
+          "previous_position_ms": 12661
+        }
+      ],
+      "scoped_cleanup_succeeded": false,
+      "final_state": "PLAYBACK_STATE_IDLE"
+    },
+    {
+      "label": "host-ogg-flac",
+      "source": "host FFmpeg paced, .ogg URL",
+      "codec": "Ogg FLAC",
+      "bit_depth": 24,
+      "passed": false,
+      "error": "Sonos reported an error; see protocol log",
+      "volume": 5,
+      "samples": [
+        {
+          "elapsed": 0.009,
+          "state": "PLAYBACK_STATE_IDLE",
+          "position_ms": 0,
+          "previous_position_ms": 2151
+        },
+        {
+          "elapsed": 5.015,
+          "state": "PLAYBACK_STATE_IDLE",
+          "position_ms": 0,
+          "previous_position_ms": 2151
+        }
+      ],
+      "scoped_cleanup_succeeded": true,
+      "final_state": "PLAYBACK_STATE_IDLE"
+    },
+    {
+      "label": "host-ogg-flac-extension",
+      "source": "host FFmpeg paced, .flac URL",
+      "codec": "Ogg FLAC",
+      "bit_depth": 24,
+      "passed": false,
+      "error": "Not playing after startup",
+      "volume": 5,
+      "samples": [
+        {
+          "elapsed": 0.086,
+          "state": "PLAYBACK_STATE_BUFFERING",
+          "position_ms": 0,
+          "previous_position_ms": 2151
+        },
+        {
+          "elapsed": 5.091,
+          "state": "PLAYBACK_STATE_PLAYING",
+          "position_ms": 1903,
+          "previous_position_ms": 2151
+        },
+        {
+          "elapsed": 10.095,
+          "state": "PLAYBACK_STATE_BUFFERING",
+          "position_ms": 0,
+          "previous_position_ms": 2240
+        },
+        {
+          "elapsed": 15.101,
+          "state": "PLAYBACK_STATE_PLAYING",
+          "position_ms": 0,
+          "previous_position_ms": 2203
+        },
+        {
+          "elapsed": 20.108,
+          "state": "PLAYBACK_STATE_PLAYING",
+          "position_ms": 112,
+          "previous_position_ms": 2203
+        },
+        {
+          "elapsed": 25.113,
+          "state": "PLAYBACK_STATE_PLAYING",
+          "position_ms": 0,
+          "previous_position_ms": 2233
+        },
+        {
+          "elapsed": 30.117,
+          "state": "PLAYBACK_STATE_PLAYING",
+          "position_ms": 1500,
+          "previous_position_ms": 2233
+        },
+        {
+          "elapsed": 35.144,
+          "state": "PLAYBACK_STATE_BUFFERING",
+          "position_ms": 0,
+          "previous_position_ms": 2239
+        }
+      ],
+      "scoped_cleanup_succeeded": true,
+      "final_state": "PLAYBACK_STATE_IDLE"
+    },
+    {
+      "label": "host-mp3",
+      "source": "host FFmpeg paced",
+      "codec": "MP3",
+      "bit_depth": null,
+      "passed": true,
+      "error": null,
+      "volume": 5,
+      "samples": [
+        {
+          "elapsed": 0.083,
+          "state": "PLAYBACK_STATE_BUFFERING",
+          "position_ms": 0,
+          "previous_position_ms": 12661
+        },
+        {
+          "elapsed": 5.089,
+          "state": "PLAYBACK_STATE_PLAYING",
+          "position_ms": 342,
+          "previous_position_ms": 12661
+        },
+        {
+          "elapsed": 10.094,
+          "state": "PLAYBACK_STATE_PLAYING",
+          "position_ms": 5348,
+          "previous_position_ms": 12661
+        },
+        {
+          "elapsed": 15.104,
+          "state": "PLAYBACK_STATE_PLAYING",
+          "position_ms": 10356,
+          "previous_position_ms": 12661
+        },
+        {
+          "elapsed": 20.115,
+          "state": "PLAYBACK_STATE_PLAYING",
+          "position_ms": 15363,
+          "previous_position_ms": 12661
+        },
+        {
+          "elapsed": 25.124,
+          "state": "PLAYBACK_STATE_PLAYING",
+          "position_ms": 20375,
+          "previous_position_ms": 12661
+        },
+        {
+          "elapsed": 30.13,
+          "state": "PLAYBACK_STATE_PLAYING",
+          "position_ms": 25384,
+          "previous_position_ms": 12661
+        },
+        {
+          "elapsed": 35.136,
+          "state": "PLAYBACK_STATE_PLAYING",
+          "position_ms": 30389,
+          "previous_position_ms": 12661
+        },
+        {
+          "elapsed": 40.141,
+          "state": "PLAYBACK_STATE_PLAYING",
+          "position_ms": 35394,
+          "previous_position_ms": 12661
+        },
+        {
+          "elapsed": 45.147,
+          "state": "PLAYBACK_STATE_PLAYING",
+          "position_ms": 40399,
+          "previous_position_ms": 12661
+        },
+        {
+          "elapsed": 50.153,
+          "state": "PLAYBACK_STATE_PLAYING",
+          "position_ms": 45406,
+          "previous_position_ms": 12661
+        },
+        {
+          "elapsed": 55.158,
+          "state": "PLAYBACK_STATE_PLAYING",
+          "position_ms": 50410,
+          "previous_position_ms": 12661
+        },
+        {
+          "elapsed": 60.168,
+          "state": "PLAYBACK_STATE_PLAYING",
+          "position_ms": 55418,
+          "previous_position_ms": 12661
+        },
+        {
+          "elapsed": 65.176,
+          "state": "PLAYBACK_STATE_PLAYING",
+          "position_ms": 60428,
+          "previous_position_ms": 12661
+        },
+        {
+          "elapsed": 70.183,
+          "state": "PLAYBACK_STATE_PLAYING",
+          "position_ms": 65435,
+          "previous_position_ms": 12661
+        },
+        {
+          "elapsed": 75.19,
+          "state": "PLAYBACK_STATE_PLAYING",
+          "position_ms": 70442,
+          "previous_position_ms": 12661
+        },
+        {
+          "elapsed": 80.199,
+          "state": "PLAYBACK_STATE_PLAYING",
+          "position_ms": 75450,
+          "previous_position_ms": 12661
+        },
+        {
+          "elapsed": 85.206,
+          "state": "PLAYBACK_STATE_PLAYING",
+          "position_ms": 80458,
+          "previous_position_ms": 12661
+        },
+        {
+          "elapsed": 90.215,
+          "state": "PLAYBACK_STATE_PLAYING",
+          "position_ms": 85466,
+          "previous_position_ms": 12661
+        },
+        {
+          "elapsed": 95.222,
+          "state": "PLAYBACK_STATE_PLAYING",
+          "position_ms": 90474,
+          "previous_position_ms": 12661
+        },
+        {
+          "elapsed": 100.23,
+          "state": "PLAYBACK_STATE_PLAYING",
+          "position_ms": 95482,
+          "previous_position_ms": 12661
+        },
+        {
+          "elapsed": 105.238,
+          "state": "PLAYBACK_STATE_PLAYING",
+          "position_ms": 100489,
+          "previous_position_ms": 12661
+        },
+        {
+          "elapsed": 110.243,
+          "state": "PLAYBACK_STATE_PLAYING",
+          "position_ms": 105496,
+          "previous_position_ms": 12661
+        },
+        {
+          "elapsed": 115.25,
+          "state": "PLAYBACK_STATE_PLAYING",
+          "position_ms": 110502,
+          "previous_position_ms": 12661
+        }
+      ],
+      "scoped_cleanup_succeeded": true,
+      "final_state": "PLAYBACK_STATE_IDLE"
+    },
+    {
+      "label": "host-native-flac-burst",
+      "source": "host FFmpeg paced with 5-second initial burst",
+      "codec": "native FLAC",
+      "bit_depth": 24,
+      "passed": false,
+      "error": "Not playing after startup",
+      "volume": 5,
+      "samples": [
+        {
+          "elapsed": 0.084,
+          "state": "PLAYBACK_STATE_BUFFERING",
+          "position_ms": 0,
+          "previous_position_ms": 115544
+        },
+        {
+          "elapsed": 5.089,
+          "state": "PLAYBACK_STATE_PLAYING",
+          "position_ms": 2103,
+          "previous_position_ms": 115544
+        },
+        {
+          "elapsed": 10.095,
+          "state": "PLAYBACK_STATE_BUFFERING",
+          "position_ms": 0,
+          "previous_position_ms": 2126
+        },
+        {
+          "elapsed": 15.1,
+          "state": "PLAYBACK_STATE_PLAYING",
+          "position_ms": 0,
+          "previous_position_ms": 2118
+        },
+        {
+          "elapsed": 20.106,
+          "state": "PLAYBACK_STATE_PLAYING",
+          "position_ms": 1024,
+          "previous_position_ms": 2118
+        },
+        {
+          "elapsed": 25.111,
+          "state": "PLAYBACK_STATE_BUFFERING",
+          "position_ms": 0,
+          "previous_position_ms": 2156
+        }
+      ],
+      "scoped_cleanup_succeeded": true,
+      "final_state": "PLAYBACK_STATE_IDLE"
+    },
+    {
+      "label": "host-finite-flac",
+      "source": "host finalized file, fast delivery with Content-Length",
+      "codec": "native FLAC",
+      "bit_depth": 24,
+      "passed": false,
+      "error": "Not playing after startup",
+      "volume": 5,
+      "samples": [
+        {
+          "elapsed": 0.027,
+          "state": "PLAYBACK_STATE_BUFFERING",
+          "position_ms": 0,
+          "previous_position_ms": 2156
+        },
+        {
+          "elapsed": 5.032,
+          "state": "PLAYBACK_STATE_PLAYING",
+          "position_ms": 0,
+          "previous_position_ms": 663
+        },
+        {
+          "elapsed": 10.037,
+          "state": "PLAYBACK_STATE_PLAYING",
+          "position_ms": 0,
+          "previous_position_ms": 645
+        },
+        {
+          "elapsed": 15.044,
+          "state": "PLAYBACK_STATE_PLAYING",
+          "position_ms": 0,
+          "previous_position_ms": 627
+        },
+        {
+          "elapsed": 20.052,
+          "state": "PLAYBACK_STATE_PLAYING",
+          "position_ms": 0,
+          "previous_position_ms": 615
+        },
+        {
+          "elapsed": 25.059,
+          "state": "PLAYBACK_STATE_PLAYING",
+          "position_ms": 161,
+          "previous_position_ms": 615
+        },
+        {
+          "elapsed": 30.067,
+          "state": "PLAYBACK_STATE_BUFFERING",
+          "position_ms": 0,
+          "previous_position_ms": 642
+        }
+      ],
+      "scoped_cleanup_succeeded": true,
+      "final_state": "PLAYBACK_STATE_IDLE"
+    }
+  ],
+  "same_file_api_comparisons": [
+    {
+      "run": "track-control-01",
+      "sha256": "21d347c8b4911cd7ba9a3ca3e1ea13fb2c2d1510c3913fb7ffc87608933e9716",
+      "size_bytes": 10196793,
+      "sample_rate": 48000,
+      "bits_per_sample": 24,
+      "modes": [
+        {
+          "mode": "radio",
+          "passed": false,
+          "error": "Playback interrupted",
+          "progress_millis": null,
+          "queue_endpoints": [],
+          "scoped_cleanup_succeeded": true
+        },
+        {
+          "mode": "track",
+          "passed": false,
+          "error": "Playback interrupted",
+          "progress_millis": null,
+          "queue_endpoints": [
+            "context",
+            "itemWindow",
+            "timePlayed",
+            "version"
+          ],
+          "scoped_cleanup_succeeded": true
+        }
+      ]
+    },
+    {
+      "run": "track-control-cd",
+      "sha256": "7e818e01d3756ab5ae443951b3d37073b2d825fc0cb4ef8548a6b87a7c90d6d6",
+      "size_bytes": 3945719,
+      "sample_rate": 44100,
+      "bits_per_sample": 16,
+      "modes": [
+        {
+          "mode": "radio",
+          "passed": false,
+          "error": "Playback position restarted",
+          "progress_millis": null,
+          "queue_endpoints": [],
+          "scoped_cleanup_succeeded": true
+        },
+        {
+          "mode": "track",
+          "passed": true,
+          "error": null,
+          "progress_millis": 120349,
+          "queue_endpoints": [
+            "context",
+            "itemWindow",
+            "timePlayed",
+            "version"
+          ],
+          "scoped_cleanup_succeeded": true
+        }
+      ]
+    }
+  ],
+  "live_track_control": {
+    "delivery": "Host FFmpeg paced, unknown Content-Length and stream sample count; queue duration omitted",
+    "sample_rate": 48000,
+    "bits_per_sample": 16,
+    "radio_passed": false,
+    "track_passed": true,
+    "track_progress_ms": 120451,
+    "volume": 5,
+    "scoped_cleanup_succeeded": true,
+    "direct_board_proof": false
+  },
+  "board_manual_control": {
+    "artifact_sha256": "c4cfaa53d737e23b6d2e3584a75c6ce7e70357f83bda19e1033d8f12f7abafb4",
+    "browser_discover_select_play_stop": true,
+    "rejections": {
+      "oversized_body": 413,
+      "unknown_field": 400,
+      "wrong_content_type": 415
+    },
+    "verified_tls_connected": true,
+    "native_24bit_continuous_playback": false,
+    "failure": "Playback interrupted; playhead restarted",
+    "scoped_stop_confirmed": true,
+    "autoplay_left_enabled": false,
+    "internal_heap_bytes": {
+      "before_connect": {
+        "free": 67435,
+        "largest": 63488
+      },
+      "connected": {
+        "free": 19131,
+        "largest": 11264
+      },
+      "during_stream": {
+        "free": 13691,
+        "largest": 4096,
+        "window_minimum_sum": 3451
+      }
+    },
+    "worker_stack_free_min_bytes": 9168,
+    "limitations": [
+      "Window minimum sums are conservative sums of per-region lows, not simultaneous measurements.",
+      "Short test only; no audible confirmation or endurance acceptance.",
+      "No new capture fault counters between sampled startup-complete and playback windows."
+    ]
+  }
+}

@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "source_revision": "f57aa3eda60cfcabe27a784454a8c121445fb033",
+  "source_archive_sha256": "01f8fb52253baf34924b9e8079621ba2d90e9d9bdbf988eeccc960e3ee509a5e",
+  "fuzz_lock_sha256": "49a9b90474e623937bd7df5e9745122d6a81b11529f5a9c3533993291dfd726b",
+  "run_directory": "target/fuzz-host/run.pCkUt7aR",
+  "command": "scripts/fuzz-host",
+  "status": 0,
+  "rust": "1.95.0-nightly (905b92696 2026-01-31)",
+  "nightly_pin": "nightly-2026-02-01",
+  "cargo_fuzz": "0.13.2",
+  "libfuzzer_sys": "0.4.13",
+  "target": "x86_64-unknown-linux-gnu",
+  "sanitizer": "address",
+  "seed": 154791,
+  "per_target_seconds_limit": 60,
+  "per_target_runs_limit": 1000000,
+  "input_timeout_seconds": 5,
+  "sampled_rss_limit_mb": 1024,
+  "allocation_limit_mb": 64,
+  "targets": [
+    {"name": "flac_frames", "committed_seeds": 21, "runs": 20788, "reported_seconds": 61, "final_reported_rss_mb": 383, "max_input_bytes": 32784},
+    {"name": "http_head", "committed_seeds": 12, "runs": 1000000, "reported_seconds": 23, "final_reported_rss_mb": 498, "max_input_bytes": 4098},
+    {"name": "stream_ops", "committed_seeds": 7, "runs": 1000000, "reported_seconds": 24, "final_reported_rss_mb": 492, "max_input_bytes": 2048}
+  ],
+  "hosted_workflow_executed": false,
+  "hardware_exercised": false
+}

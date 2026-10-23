@@ -1,0 +1,6050 @@
+{
+  "date": "2026-10-08",
+  "implementation_commit": "1934c94",
+  "candidate_image_sha256": "34bf5394197540c97a2323fc92d8a3fa2082c0930bcda0fe2a64cc10e1dcec79",
+  "runs": {
+    "baseline": {
+      "passed": true,
+      "requested_seconds": 45.0,
+      "listeners": 2,
+      "baseline": {
+        "frames": 957600,
+        "callbacks": 4032,
+        "queue_overflows": 17,
+        "software_dropped_frames": 480,
+        "read_errors": 0,
+        "restarts": 2,
+        "supervisor_restarts": 0,
+        "overflow_restarts": 2,
+        "settling_discarded_frames": 26400,
+        "discontinuities": 2,
+        "health_restart_requests": 0,
+        "capture_runtime_window_us": 10050016,
+        "capture_task_runtime_us": 767675,
+        "read_service_delay_estimate_max_us": 1123,
+        "raw_work_max_us": 1026,
+        "meter_work_max_us": 1259,
+        "store_work_max_us": 117,
+        "raw_read_max_us": 320,
+        "staged_frames": 0,
+        "staged_max_frames": 240,
+        "staging_pending_attempts": 0,
+        "staging_pending_max_attempts": 1,
+        "staging_pending_us": 0,
+        "staging_pending_max_us": 4969,
+        "timing_deficit_estimate_frames": 4080,
+        "internal_free": 84575,
+        "internal_largest": 77824,
+        "psram_free": 918692,
+        "psram_largest": 901120,
+        "internal_min_sum": 83895,
+        "psram_min_sum": 911940,
+        "internal_window_start_free": 84719,
+        "psram_window_start_free": 919996
+      },
+      "last_capture": {
+        "frames": 3368160,
+        "callbacks": 14076,
+        "queue_overflows": 17,
+        "software_dropped_frames": 480,
+        "read_errors": 0,
+        "restarts": 2,
+        "supervisor_restarts": 0,
+        "overflow_restarts": 2,
+        "settling_discarded_frames": 26400,
+        "discontinuities": 2,
+        "health_restart_requests": 0,
+        "capture_runtime_window_us": 10003829,
+        "capture_task_runtime_us": 820613,
+        "read_service_delay_estimate_max_us": 3360,
+        "raw_work_max_us": 2149,
+        "meter_work_max_us": 3866,
+        "store_work_max_us": 376,
+        "raw_read_max_us": 3876,
+        "staged_frames": 0,
+        "staged_max_frames": 240,
+        "staging_pending_attempts": 0,
+        "staging_pending_max_attempts": 1,
+        "staging_pending_us": 0,
+        "staging_pending_max_us": 6363,
+        "timing_deficit_estimate_frames": 4121,
+        "internal_free": 84127,
+        "internal_largest": 77824,
+        "psram_free": 920536,
+        "psram_largest": 917504,
+        "internal_min_sum": 72943,
+        "psram_min_sum": 763976,
+        "internal_window_start_free": 73663,
+        "psram_window_start_free": 785852
+      },
+      "counter_deltas": {
+        "queue_overflows": 0,
+        "software_dropped_frames": 0,
+        "read_errors": 0,
+        "restarts": 0,
+        "discontinuities": 0
+      },
+      "minimums": {
+        "internal_min_sum": 72831,
+        "psram_min_sum": 754292
+      },
+      "decoder_accounting": [
+        {
+          "timeline_seconds": 45.0,
+          "decoded_audio_frames": 2160000,
+          "decoded_seconds": 45.0,
+          "decoded_packets": 528,
+          "skipped_source_audio_frames": 0,
+          "duplicate_audio_frames": 0,
+          "decoded_discontinuities": 0,
+          "sample_hash_format": "SHA256, stereo pcm_s32le, packet boundaries"
+        },
+        {
+          "timeline_seconds": 45.0,
+          "decoded_audio_frames": 2160000,
+          "decoded_seconds": 45.0,
+          "decoded_packets": 528,
+          "skipped_source_audio_frames": 0,
+          "duplicate_audio_frames": 0,
+          "decoded_discontinuities": 0,
+          "sample_hash_format": "SHA256, stereo pcm_s32le, packet boundaries"
+        }
+      ],
+      "runtime_windows_host_interval_seconds": [
+        32,
+        65
+      ],
+      "runtime_windows": 4,
+      "capture_core_percent": 8.166661523734895,
+      "source_directory": "target/tls-capture/restored-production/20261008T151102.226455Z",
+      "artifact_sha256": {
+        "uart.log": "e699e97591befafbf3d0026ca77ab698473515d9f352ca1a98b6f028fafdaf94",
+        "summary.json": "918c64f207f4c0aaa3dc961c922156fd43022b3cc72265b5abb55b7689557a49",
+        "events.jsonl": "ed2a4c7209cbcaccb7012aa750837674548858d1c3d81d46c16e186acdeb9f7c",
+        "listener-1.framehash": "72b1644a96599cc4bc7f9cddcd9883a942bbc10175e75adc5ccc25fe65b5b8e0",
+        "listener-2.framehash": "72b1644a96599cc4bc7f9cddcd9883a942bbc10175e75adc5ccc25fe65b5b8e0"
+      }
+    },
+    "candidate": {
+      "passed": true,
+      "requested_seconds": 45.0,
+      "listeners": 2,
+      "baseline": {
+        "frames": 956880,
+        "callbacks": 4027,
+        "queue_overflows": 15,
+        "software_dropped_frames": 480,
+        "read_errors": 0,
+        "restarts": 2,
+        "supervisor_restarts": 0,
+        "overflow_restarts": 2,
+        "settling_discarded_frames": 26400,
+        "discontinuities": 2,
+        "health_restart_requests": 0,
+        "capture_runtime_window_us": 10008663,
+        "capture_task_runtime_us": 895925,
+        "read_service_delay_estimate_max_us": 1681,
+        "raw_work_max_us": 1350,
+        "meter_work_max_us": 1518,
+        "store_work_max_us": 206,
+        "raw_read_max_us": 1123,
+        "staged_frames": 0,
+        "staged_max_frames": 0,
+        "staging_pending_attempts": 0,
+        "staging_pending_max_attempts": 0,
+        "staging_pending_us": 0,
+        "staging_pending_max_us": 0,
+        "timing_deficit_estimate_frames": 3359,
+        "internal_free": 81263,
+        "internal_largest": 77824,
+        "psram_free": 937956,
+        "psram_largest": 933888,
+        "internal_min_sum": 80471,
+        "psram_min_sum": 930404,
+        "internal_window_start_free": 81283,
+        "psram_window_start_free": 937400
+      },
+      "last_capture": {
+        "frames": 3370320,
+        "callbacks": 14083,
+        "queue_overflows": 15,
+        "software_dropped_frames": 480,
+        "read_errors": 0,
+        "restarts": 2,
+        "supervisor_restarts": 0,
+        "overflow_restarts": 2,
+        "settling_discarded_frames": 26400,
+        "discontinuities": 2,
+        "health_restart_requests": 0,
+        "capture_runtime_window_us": 10060345,
+        "capture_task_runtime_us": 930721,
+        "read_service_delay_estimate_max_us": 3976,
+        "raw_work_max_us": 2352,
+        "meter_work_max_us": 2854,
+        "store_work_max_us": 1039,
+        "raw_read_max_us": 3070,
+        "staged_frames": 0,
+        "staged_max_frames": 0,
+        "staging_pending_attempts": 0,
+        "staging_pending_max_attempts": 0,
+        "staging_pending_us": 0,
+        "staging_pending_max_us": 0,
+        "timing_deficit_estimate_frames": 3367,
+        "internal_free": 80179,
+        "internal_largest": 69632,
+        "psram_free": 930388,
+        "psram_largest": 835584,
+        "internal_min_sum": 69371,
+        "psram_min_sum": 768820,
+        "internal_window_start_free": 69859,
+        "psram_window_start_free": 848112
+      },
+      "counter_deltas": {
+        "queue_overflows": 0,
+        "software_dropped_frames": 0,
+        "read_errors": 0,
+        "restarts": 0,
+        "discontinuities": 0
+      },
+      "minimums": {
+        "internal_min_sum": 69115,
+        "psram_min_sum": 768820
+      },
+      "decoder_accounting": [
+        {
+          "timeline_seconds": 45.0,
+          "decoded_audio_frames": 2160000,
+          "decoded_seconds": 45.0,
+          "decoded_packets": 528,
+          "skipped_source_audio_frames": 0,
+          "duplicate_audio_frames": 0,
+          "decoded_discontinuities": 0,
+          "sample_hash_format": "SHA256, stereo pcm_s32le, packet boundaries"
+        },
+        {
+          "timeline_seconds": 45.0,
+          "decoded_audio_frames": 2160000,
+          "decoded_seconds": 45.0,
+          "decoded_packets": 528,
+          "skipped_source_audio_frames": 0,
+          "duplicate_audio_frames": 0,
+          "decoded_discontinuities": 0,
+          "sample_hash_format": "SHA256, stereo pcm_s32le, packet boundaries"
+        }
+      ],
+      "runtime_windows_host_interval_seconds": [
+        32,
+        65
+      ],
+      "runtime_windows": 4,
+      "capture_core_percent": 9.305563805289353,
+      "source_directory": "target/capture-publication/production-two/20261008T155933.895597Z",
+      "artifact_sha256": {
+        "uart.log": "0d1bde25f851173287414b04d9fab4cc20522ff9b68f985258c7bfd021987351",
+        "summary.json": "6d93e2ec9489207daf63eb0f675f3fcb6cd35060674da6f0696dc8eeae9f6f78",
+        "events.jsonl": "d1c2eb87fd647b82f29254dde0515e15769b92bce2c3fb1195419e4c1711ccfa",
+        "listener-1.framehash": "79941d52cceffffebeb59019dc06643bbe27b5e098fbd9624c70a028fce290d3",
+        "listener-2.framehash": "79941d52cceffffebeb59019dc06643bbe27b5e098fbd9624c70a028fce290d3"
+      }
+    }
+  },
+  "linked_atomic_inspection": {
+    "image_sha256": "34bf5394197540c97a2323fc92d8a3fa2082c0930bcda0fe2a64cc10e1dcec79",
+    "flash_text_bytes_identical": true,
+    "flash_text_sha256": "319e404ab7442d7a5a7f7aacfd5347d474ba29730818c7950f0ad7b16c6777b3",
+    "inspection_copy": "Removed only .xt.prop/.xt.lit from scratch ELF; never flash this copy.",
+    "read": {
+      "start": "0x400f824c",
+      "stop": "0x400f8550",
+      "memw": 21,
+      "calls": [
+        "400f8329:\t0008e0        \tcallx8\ta8",
+        "400f837c:\t0008e0        \tcallx8\ta8",
+        "400f851c:\t0008e0        \tcallx8\ta8",
+        "400f8527:\t0009e0        \tcallx8\ta9",
+        "400f8530:\t0008e0        \tcallx8\ta8",
+        "400f8539:\t0008e0        \tcallx8\ta8",
+        "400f8544:\t0008e0        \tcallx8\ta8",
+        "400f854d:\t0008e0        \tcallx8\ta8"
+      ],
+      "target_loads": [
+        "400f8320:\t615f81        \tl32r\ta8, 400d089c <_stext+0x87c> (4000cff8 <__udivdi3>)",
+        "400f8375:\t670981        \tl32r\ta8, 400d1f9c <_stext+0x1f7c> (4000d280 <__umoddi3>)",
+        "400f8517:\t5f6e81        \tl32r\ta8, 400d02d0 <_stext+0x2b0> (4015be4c <core::slice::index::slice_index_fail>)",
+        "400f8522:\t616891        \tl32r\ta9, 400d0ac4 <_stext+0xaa4> (4015bd64 <core::panicking::panic_bounds_check>)",
+        "400f852d:\t66a181        \tl32r\ta8, 400d1fb4 <_stext+0x1f94> (4015c9fc <core::panicking::panic_const::panic_const_rem_by_zero>)",
+        "400f8536:\t669f81        \tl32r\ta8, 400d1fb4 <_stext+0x1f94> (4015c9fc <core::panicking::panic_const::panic_const_rem_by_zero>)",
+        "400f853f:\t616181        \tl32r\ta8, 400d0ac4 <_stext+0xaa4> (4015bd64 <core::panicking::panic_bounds_check>)",
+        "400f854a:\t615e81        \tl32r\ta8, 400d0ac4 <_stext+0xaa4> (4015bd64 <core::panicking::panic_bounds_check>)"
+      ]
+    },
+    "publish": {
+      "start": "0x400f86e0",
+      "stop": "0x400f89bc",
+      "memw": 22,
+      "calls": [
+        "400f8895:\t0008e0        \tcallx8\ta8",
+        "400f88ae:\t0008e0        \tcallx8\ta8",
+        "400f897f:\t0009e0        \tcallx8\ta9",
+        "400f898a:\t0008e0        \tcallx8\ta8",
+        "400f8993:\t0008e0        \tcallx8\ta8",
+        "400f899c:\t0008e0        \tcallx8\ta8",
+        "400f89a7:\t0008e0        \tcallx8\ta8",
+        "400f89b0:\t0008e0        \tcallx8\ta8",
+        "400f89b9:\t0008e0        \tcallx8\ta8"
+      ],
+      "target_loads": [
+        "400f888c:\t600481        \tl32r\ta8, 400d089c <_stext+0x87c> (4000cff8 <__udivdi3>)",
+        "400f88a7:\t65bd81        \tl32r\ta8, 400d1f9c <_stext+0x1f7c> (4000d280 <__umoddi3>)",
+        "400f897a:\t5e5591        \tl32r\ta9, 400d02d0 <_stext+0x2b0> (4015be4c <core::slice::index::slice_index_fail>)",
+        "400f8985:\t604f81        \tl32r\ta8, 400d0ac4 <_stext+0xaa4> (4015bd64 <core::panicking::panic_bounds_check>)",
+        "400f8990:\t659881        \tl32r\ta8, 400d1ff0 <_stext+0x1fd0> (4015c9ec <core::panicking::panic_const::panic_const_div_by_zero>)",
+        "400f8999:\t658681        \tl32r\ta8, 400d1fb4 <_stext+0x1f94> (4015c9fc <core::panicking::panic_const::panic_const_rem_by_zero>)",
+        "400f89a2:\t604881        \tl32r\ta8, 400d0ac4 <_stext+0xaa4> (4015bd64 <core::panicking::panic_bounds_check>)",
+        "400f89ad:\t604581        \tl32r\ta8, 400d0ac4 <_stext+0xaa4> (4015bd64 <core::panicking::panic_bounds_check>)",
+        "400f89b6:\t658e81        \tl32r\ta8, 400d1ff0 <_stext+0x1fd0> (4015c9ec <core::panicking::panic_const::panic_const_div_by_zero>)"
+      ]
+    },
+    "invalidate": {
+      "start": "0x401fe4c4",
+      "stop": "0x401fe558",
+      "memw": 16,
+      "calls": [],
+      "target_loads": []
+    }
+  },
+  "recognition_on_build": "pass; never flashed",
+  "hardware_acceptance": "failed; dp08 remains open",
+  "delayed_two_initial": {
+    "source_directory": "target/capture-publication/delayed-two/20261008T160554.591177Z",
+    "uart_sha256": "25d93ecb56664144c6a229fa185fafdf3be275447bb76321c3a6bcafcbc96375",
+    "image_sha256": "3a354eaab69efd33584494da7a4be90a494e245a869846a665a074725e83c7fa",
+    "passed": false,
+    "fixture_passed": true,
+    "two_listeners_during_pauses": false,
+    "stream_failure_device_ms": 38979,
+    "failure_host_seconds": 44.444,
+    "fixture": {
+      "pause_begin_ms": [
+        40211,
+        50441,
+        60665
+      ],
+      "pause_end_ms": [
+        40414,
+        50645,
+        63174
+      ],
+      "pause_elapsed_us": [
+        202354,
+        204328,
+        2508363
+      ],
+      "short_frames": [
+        240,
+        240
+      ],
+      "short_actual_copy_accepted": [
+        true,
+        true
+      ],
+      "short_reference_equal": [
+        true,
+        true
+      ],
+      "long_overrun": true,
+      "long_cursor_unchanged": true,
+      "fresh_frames": 240,
+      "cleanup_ms": 63185,
+      "recovered_ms": 83195,
+      "event_storage_bytes": 392,
+      "event_capacity": 16,
+      "event_overflow": false,
+      "buffer_bytes": 3840,
+      "reference_psram": false,
+      "delayed_psram": false,
+      "stack_bytes": 8192
+    },
+    "final_listeners": [
+      {
+        "source_path": "target/capture-publication/delayed-two/20261008T160554.591177Z/listener-1.framehash",
+        "sha256": "8c56f9ea2e4e788564e2ca7927595d7da33524722f2b280ffa5d052b46f0779e",
+        "frames": 5760000,
+        "packets": 1407,
+        "timeline_gaps": 0
+      },
+      {
+        "source_path": "target/capture-publication/delayed-two/20261008T160554.591177Z/listener-2.framehash",
+        "sha256": "991bc208df1503b1560165df2c49f4258e9bac27ad26165f5f1d98a6a3db9816",
+        "frames": 385024,
+        "packets": 94,
+        "timeline_gaps": 0
+      }
+    ],
+    "summary_failure_decoder_frames": [
+      675840,
+      385024
+    ],
+    "capture_observations": [
+      {
+        "device_ms": 11349,
+        "frames": 474240,
+        "queue_overflows": 14,
+        "software_dropped_frames": 480,
+        "read_errors": 0,
+        "restarts": 2,
+        "discontinuities": 2,
+        "capture_runtime_window_us": 9891952,
+        "capture_task_runtime_us": 854369,
+        "internal_min_sum": 67491,
+        "psram_min_sum": 923544
+      },
+      {
+        "device_ms": 21349,
+        "frames": 954480,
+        "queue_overflows": 14,
+        "software_dropped_frames": 480,
+        "read_errors": 0,
+        "restarts": 2,
+        "discontinuities": 2,
+        "capture_runtime_window_us": 10005217,
+        "capture_task_runtime_us": 902860,
+        "internal_min_sum": 67731,
+        "psram_min_sum": 928752
+      },
+      {
+        "device_ms": 31389,
+        "frames": 1436160,
+        "queue_overflows": 14,
+        "software_dropped_frames": 480,
+        "read_errors": 0,
+        "restarts": 2,
+        "discontinuities": 2,
+        "capture_runtime_window_us": 10033667,
+        "capture_task_runtime_us": 924057,
+        "internal_min_sum": 57095,
+        "psram_min_sum": 781256
+      },
+      {
+        "device_ms": 41449,
+        "frames": 1919040,
+        "queue_overflows": 14,
+        "software_dropped_frames": 480,
+        "read_errors": 0,
+        "restarts": 2,
+        "discontinuities": 2,
+        "capture_runtime_window_us": 10060992,
+        "capture_task_runtime_us": 924079,
+        "internal_min_sum": 56787,
+        "psram_min_sum": 780180
+      },
+      {
+        "device_ms": 51529,
+        "frames": 2402880,
+        "queue_overflows": 14,
+        "software_dropped_frames": 480,
+        "read_errors": 0,
+        "restarts": 2,
+        "discontinuities": 2,
+        "capture_runtime_window_us": 10078966,
+        "capture_task_runtime_us": 928553,
+        "internal_min_sum": 61443,
+        "psram_min_sum": 844328
+      },
+      {
+        "device_ms": 61549,
+        "frames": 2884080,
+        "queue_overflows": 14,
+        "software_dropped_frames": 480,
+        "read_errors": 0,
+        "restarts": 2,
+        "discontinuities": 2,
+        "capture_runtime_window_us": 10026702,
+        "capture_task_runtime_us": 919601,
+        "internal_min_sum": 62059,
+        "psram_min_sum": 855420
+      },
+      {
+        "device_ms": 71589,
+        "frames": 3365760,
+        "queue_overflows": 14,
+        "software_dropped_frames": 480,
+        "read_errors": 0,
+        "restarts": 2,
+        "discontinuities": 2,
+        "capture_runtime_window_us": 10034400,
+        "capture_task_runtime_us": 926274,
+        "internal_min_sum": 62059,
+        "psram_min_sum": 852116
+      },
+      {
+        "device_ms": 81609,
+        "frames": 3846720,
+        "queue_overflows": 14,
+        "software_dropped_frames": 480,
+        "read_errors": 0,
+        "restarts": 2,
+        "discontinuities": 2,
+        "capture_runtime_window_us": 10018950,
+        "capture_task_runtime_us": 921009,
+        "internal_min_sum": 64219,
+        "psram_min_sum": 857312
+      },
+      {
+        "device_ms": 91649,
+        "frames": 4328640,
+        "queue_overflows": 14,
+        "software_dropped_frames": 480,
+        "read_errors": 0,
+        "restarts": 2,
+        "discontinuities": 2,
+        "capture_runtime_window_us": 10039638,
+        "capture_task_runtime_us": 919479,
+        "internal_min_sum": 66011,
+        "psram_min_sum": 855588
+      },
+      {
+        "device_ms": 101729,
+        "frames": 4812480,
+        "queue_overflows": 14,
+        "software_dropped_frames": 480,
+        "read_errors": 0,
+        "restarts": 2,
+        "discontinuities": 2,
+        "capture_runtime_window_us": 10080073,
+        "capture_task_runtime_us": 922344,
+        "internal_min_sum": 74855,
+        "psram_min_sum": 854008
+      },
+      {
+        "device_ms": 111829,
+        "frames": 5297280,
+        "queue_overflows": 14,
+        "software_dropped_frames": 480,
+        "read_errors": 0,
+        "restarts": 2,
+        "discontinuities": 2,
+        "capture_runtime_window_us": 10099910,
+        "capture_task_runtime_us": 927603,
+        "internal_min_sum": 74939,
+        "psram_min_sum": 868884
+      },
+      {
+        "device_ms": 121899,
+        "frames": 5780640,
+        "queue_overflows": 14,
+        "software_dropped_frames": 480,
+        "read_errors": 0,
+        "restarts": 2,
+        "discontinuities": 2,
+        "capture_runtime_window_us": 10070133,
+        "capture_task_runtime_us": 923663,
+        "internal_min_sum": 74855,
+        "psram_min_sum": 856124
+      },
+      {
+        "device_ms": 131939,
+        "frames": 6262560,
+        "queue_overflows": 14,
+        "software_dropped_frames": 480,
+        "read_errors": 0,
+        "restarts": 2,
+        "discontinuities": 2,
+        "capture_runtime_window_us": 10039864,
+        "capture_task_runtime_us": 923466,
+        "internal_min_sum": 74383,
+        "psram_min_sum": 856056
+      },
+      {
+        "device_ms": 141969,
+        "frames": 6744000,
+        "queue_overflows": 14,
+        "software_dropped_frames": 480,
+        "read_errors": 0,
+        "restarts": 2,
+        "discontinuities": 2,
+        "capture_runtime_window_us": 10031338,
+        "capture_task_runtime_us": 917812,
+        "internal_min_sum": 74435,
+        "psram_min_sum": 855528
+      },
+      {
+        "device_ms": 152069,
+        "frames": 7228800,
+        "queue_overflows": 14,
+        "software_dropped_frames": 480,
+        "read_errors": 0,
+        "restarts": 2,
+        "discontinuities": 2,
+        "capture_runtime_window_us": 10099941,
+        "capture_task_runtime_us": 917040,
+        "internal_min_sum": 74807,
+        "psram_min_sum": 877336
+      },
+      {
+        "device_ms": 162109,
+        "frames": 7710720,
+        "queue_overflows": 14,
+        "software_dropped_frames": 480,
+        "read_errors": 0,
+        "restarts": 2,
+        "discontinuities": 2,
+        "capture_runtime_window_us": 10038753,
+        "capture_task_runtime_us": 909878,
+        "internal_min_sum": 79935,
+        "psram_min_sum": 929280
+      }
+    ],
+    "watchdog_found": false
+  },
+  "diagnostic_commit": "940a8ce",
+  "final_canonical_stages_passed": 20,
+  "delayed_one": {
+    "source_directory": "target/capture-publication/delayed-one/20261008T160954.862241Z",
+    "uart_sha256": "b2878fdaf3e78860519c324d54b8130b11270e350f190380e68e70bc935750f5",
+    "image_sha256": "3a354eaab69efd33584494da7a4be90a494e245a869846a665a074725e83c7fa",
+    "passed": true,
+    "fixture_passed": true,
+    "fixture": {
+      "pause_begin_ms": [
+        40170,
+        50404,
+        60636
+      ],
+      "pause_end_ms": [
+        40374,
+        50615,
+        63144
+      ],
+      "pause_elapsed_us": [
+        203332,
+        211380,
+        2507424
+      ],
+      "short_frames": [
+        240,
+        240
+      ],
+      "short_actual_copy_accepted": [
+        true,
+        true
+      ],
+      "short_reference_equal": [
+        true,
+        true
+      ],
+      "long_overrun": true,
+      "long_cursor_unchanged": true,
+      "fresh_frames": 240,
+      "cleanup_ms": 63155,
+      "recovered_ms": 83161,
+      "event_storage_bytes": 392,
+      "event_capacity": 16,
+      "event_overflow": false,
+      "buffer_bytes": 3840,
+      "reference_psram": false,
+      "delayed_psram": false,
+      "stack_bytes": 8192
+    },
+    "final_listeners": [
+      {
+        "source_path": "target/capture-publication/delayed-one/20261008T160954.862241Z/listener-1.framehash",
+        "sha256": "68edf70b0147db65e1c9f790e27c4a13e3ff51a8e53aaf3cf7d683c5938cff0d",
+        "frames": 5760000,
+        "packets": 1407,
+        "timeline_gaps": 0
+      }
+    ],
+    "capture_observations": [
+      {
+        "device_ms": 11429,
+        "frames": 478080,
+        "queue_overflows": 14,
+        "software_dropped_frames": 480,
+        "read_errors": 0,
+        "restarts": 2,
+        "discontinuities": 2,
+        "capture_runtime_window_us": 9971705,
+        "capture_task_runtime_us": 850994,
+        "internal_min_sum": 67319,
+        "psram_min_sum": 928708
+      },
+      {
+        "device_ms": 21439,
+        "frames": 958320,
+        "queue_overflows": 14,
+        "software_dropped_frames": 480,
+        "read_errors": 0,
+        "restarts": 2,
+        "discontinuities": 2,
+        "capture_runtime_window_us": 10010677,
+        "capture_task_runtime_us": 895737,
+        "internal_min_sum": 67111,
+        "psram_min_sum": 913124
+      },
+      {
+        "device_ms": 31459,
+        "frames": 1439520,
+        "queue_overflows": 14,
+        "software_dropped_frames": 480,
+        "read_errors": 0,
+        "restarts": 2,
+        "discontinuities": 2,
+        "capture_runtime_window_us": 10024400,
+        "capture_task_runtime_us": 924185,
+        "internal_min_sum": 62111,
+        "psram_min_sum": 898568
+      },
+      {
+        "device_ms": 41489,
+        "frames": 1920960,
+        "queue_overflows": 14,
+        "software_dropped_frames": 480,
+        "read_errors": 0,
+        "restarts": 2,
+        "discontinuities": 2,
+        "capture_runtime_window_us": 10025225,
+        "capture_task_runtime_us": 925823,
+        "internal_min_sum": 62111,
+        "psram_min_sum": 900820
+      },
+      {
+        "device_ms": 51499,
+        "frames": 2401680,
+        "queue_overflows": 14,
+        "software_dropped_frames": 480,
+        "read_errors": 0,
+        "restarts": 2,
+        "discontinuities": 2,
+        "capture_runtime_window_us": 10015254,
+        "capture_task_runtime_us": 926021,
+        "internal_min_sum": 62111,
+        "psram_min_sum": 893912
+      },
+      {
+        "device_ms": 61589,
+        "frames": 2885520,
+        "queue_overflows": 14,
+        "software_dropped_frames": 480,
+        "read_errors": 0,
+        "restarts": 2,
+        "discontinuities": 2,
+        "capture_runtime_window_us": 10083152,
+        "capture_task_runtime_us": 930086,
+        "internal_min_sum": 62231,
+        "psram_min_sum": 900320
+      },
+      {
+        "device_ms": 71639,
+        "frames": 3368400,
+        "queue_overflows": 14,
+        "software_dropped_frames": 480,
+        "read_errors": 0,
+        "restarts": 2,
+        "discontinuities": 2,
+        "capture_runtime_window_us": 10056525,
+        "capture_task_runtime_us": 926201,
+        "internal_min_sum": 62111,
+        "psram_min_sum": 886464
+      },
+      {
+        "device_ms": 81669,
+        "frames": 3849360,
+        "queue_overflows": 14,
+        "software_dropped_frames": 480,
+        "read_errors": 0,
+        "restarts": 2,
+        "discontinuities": 2,
+        "capture_runtime_window_us": 10023489,
+        "capture_task_runtime_us": 924762,
+        "internal_min_sum": 65703,
+        "psram_min_sum": 898504
+      },
+      {
+        "device_ms": 91679,
+        "frames": 4330080,
+        "queue_overflows": 14,
+        "software_dropped_frames": 480,
+        "read_errors": 0,
+        "restarts": 2,
+        "discontinuities": 2,
+        "capture_runtime_window_us": 10011840,
+        "capture_task_runtime_us": 919031,
+        "internal_min_sum": 65959,
+        "psram_min_sum": 902072
+      },
+      {
+        "device_ms": 101709,
+        "frames": 4811280,
+        "queue_overflows": 14,
+        "software_dropped_frames": 480,
+        "read_errors": 0,
+        "restarts": 2,
+        "discontinuities": 2,
+        "capture_runtime_window_us": 10028195,
+        "capture_task_runtime_us": 921608,
+        "internal_min_sum": 74647,
+        "psram_min_sum": 900284
+      },
+      {
+        "device_ms": 111779,
+        "frames": 5294640,
+        "queue_overflows": 14,
+        "software_dropped_frames": 480,
+        "read_errors": 0,
+        "restarts": 2,
+        "discontinuities": 2,
+        "capture_runtime_window_us": 10070040,
+        "capture_task_runtime_us": 926357,
+        "internal_min_sum": 74647,
+        "psram_min_sum": 899224
+      },
+      {
+        "device_ms": 121829,
+        "frames": 5777040,
+        "queue_overflows": 14,
+        "software_dropped_frames": 480,
+        "read_errors": 0,
+        "restarts": 2,
+        "discontinuities": 2,
+        "capture_runtime_window_us": 10049908,
+        "capture_task_runtime_us": 924098,
+        "internal_min_sum": 74647,
+        "psram_min_sum": 900244
+      },
+      {
+        "device_ms": 131849,
+        "frames": 6258240,
+        "queue_overflows": 14,
+        "software_dropped_frames": 480,
+        "read_errors": 0,
+        "restarts": 2,
+        "discontinuities": 2,
+        "capture_runtime_window_us": 10021533,
+        "capture_task_runtime_us": 920885,
+        "internal_min_sum": 74667,
+        "psram_min_sum": 900924
+      },
+      {
+        "device_ms": 141859,
+        "frames": 6738960,
+        "queue_overflows": 14,
+        "software_dropped_frames": 480,
+        "read_errors": 0,
+        "restarts": 2,
+        "discontinuities": 2,
+        "capture_runtime_window_us": 10016040,
+        "capture_task_runtime_us": 922120,
+        "internal_min_sum": 74583,
+        "psram_min_sum": 900344
+      },
+      {
+        "device_ms": 151959,
+        "frames": 7223280,
+        "queue_overflows": 14,
+        "software_dropped_frames": 480,
+        "read_errors": 0,
+        "restarts": 2,
+        "discontinuities": 2,
+        "capture_runtime_window_us": 10092524,
+        "capture_task_runtime_us": 907202,
+        "internal_min_sum": 74647,
+        "psram_min_sum": 904352
+      }
+    ],
+    "watchdog_found": false
+  },
+  "delayed_two_repeat": {
+    "source_directory": "target/capture-publication/delayed-two-repeat/20261008T161252.418518Z",
+    "uart_sha256": "b950e17aeb36a5b4e0f2fe64314f988de1fd8fcf6e9873eb75cb30b74d365be0",
+    "image_sha256": "3a354eaab69efd33584494da7a4be90a494e245a869846a665a074725e83c7fa",
+    "passed": true,
+    "fixture_passed": true,
+    "two_listeners_during_pauses": true,
+    "numeric_fixture_events": [
+      {
+        "marker": "REPORT",
+        "event_capacity": 16,
+        "event_storage_bytes": 392,
+        "retrospective": true,
+        "overflowed": false
+      },
+      {
+        "marker": "BASELINE",
+        "ms": 15154,
+        "core": 1,
+        "priority": 2,
+        "stack_bytes": 8192,
+        "buffer_bytes": 3840,
+        "capacity_frames": 96000,
+        "block_frames": 240,
+        "short_pause_ms": 200,
+        "long_pause_ms": 2500,
+        "retrospective": true,
+        "reference_psram": false,
+        "delayed_psram": false
+      },
+      {
+        "marker": "PAUSE_BEGIN",
+        "case": "short-1",
+        "ms": 40174,
+        "requested_ms": 200,
+        "retrospective": true
+      },
+      {
+        "marker": "PAUSE_END",
+        "case": "short-1",
+        "ms": 40407,
+        "elapsed_us": 232789,
+        "retrospective": true
+      },
+      {
+        "marker": "PAUSE_RESULT",
+        "case": "short-1",
+        "ms": 40407,
+        "retrospective": true,
+        "verdict_frames": 240
+      },
+      {
+        "marker": "CASE_OK",
+        "case": "short-1",
+        "ms": 40407,
+        "frames": 240,
+        "retrospective": true,
+        "coherent": true,
+        "paused_copy_accepted": true
+      },
+      {
+        "marker": "PAUSE_BEGIN",
+        "case": "short-2",
+        "ms": 50481,
+        "requested_ms": 200,
+        "retrospective": true
+      },
+      {
+        "marker": "PAUSE_END",
+        "case": "short-2",
+        "ms": 50684,
+        "elapsed_us": 202934,
+        "retrospective": true
+      },
+      {
+        "marker": "PAUSE_RESULT",
+        "case": "short-2",
+        "ms": 50684,
+        "retrospective": true,
+        "verdict_frames": 240
+      },
+      {
+        "marker": "CASE_OK",
+        "case": "short-2",
+        "ms": 50684,
+        "frames": 240,
+        "retrospective": true,
+        "coherent": true,
+        "paused_copy_accepted": true
+      },
+      {
+        "marker": "PAUSE_BEGIN",
+        "case": "long",
+        "ms": 60735,
+        "requested_ms": 2500,
+        "retrospective": true
+      },
+      {
+        "marker": "PAUSE_END",
+        "case": "long",
+        "ms": 63235,
+        "elapsed_us": 2500872,
+        "retrospective": true
+      },
+      {
+        "marker": "PAUSE_RESULT",
+        "case": "long",
+        "ms": 63236,
+        "retrospective": true,
+        "verdict_overrun": true
+      },
+      {
+        "marker": "CASE_OK",
+        "case": "long",
+        "ms": 63263,
+        "fresh_frames": 240,
+        "retrospective": true,
+        "stale_rejected": true
+      },
+      {
+        "marker": "CLEANUP",
+        "ms": 63263,
+        "retrospective": true
+      },
+      {
+        "marker": "RECOVERED",
+        "ms": 83267,
+        "retrospective": true
+      }
+    ],
+    "final_listeners": [
+      {
+        "source_path": "target/capture-publication/delayed-two-repeat/20261008T161252.418518Z/listener-1.framehash",
+        "sha256": "e6ea7013a7d8e97f783001702bc31b72e2c28d5cda8cc20b05ce8f45de8b7509",
+        "frames": 5760000,
+        "packets": 1407,
+        "timeline_gaps": 0
+      },
+      {
+        "source_path": "target/capture-publication/delayed-two-repeat/20261008T161252.418518Z/listener-2.framehash",
+        "sha256": "e6ea7013a7d8e97f783001702bc31b72e2c28d5cda8cc20b05ce8f45de8b7509",
+        "frames": 5760000,
+        "packets": 1407,
+        "timeline_gaps": 0
+      }
+    ],
+    "capture_observations": [
+      {
+        "device_ms": 11379,
+        "frames": 475680,
+        "queue_overflows": 13,
+        "software_dropped_frames": 480,
+        "read_errors": 0,
+        "restarts": 2,
+        "discontinuities": 2,
+        "capture_runtime_window_us": 9920471,
+        "capture_task_runtime_us": 849886,
+        "internal_min_sum": 67583,
+        "psram_min_sum": 928748
+      },
+      {
+        "device_ms": 21479,
+        "frames": 960480,
+        "queue_overflows": 13,
+        "software_dropped_frames": 480,
+        "read_errors": 0,
+        "restarts": 2,
+        "discontinuities": 2,
+        "capture_runtime_window_us": 10099940,
+        "capture_task_runtime_us": 907252,
+        "internal_min_sum": 67439,
+        "psram_min_sum": 921756
+      },
+      {
+        "device_ms": 31499,
+        "frames": 1441680,
+        "queue_overflows": 13,
+        "software_dropped_frames": 480,
+        "read_errors": 0,
+        "restarts": 2,
+        "discontinuities": 2,
+        "capture_runtime_window_us": 10022869,
+        "capture_task_runtime_us": 942032,
+        "internal_min_sum": 56811,
+        "psram_min_sum": 861456
+      },
+      {
+        "device_ms": 41519,
+        "frames": 1922640,
+        "queue_overflows": 13,
+        "software_dropped_frames": 480,
+        "read_errors": 0,
+        "restarts": 2,
+        "discontinuities": 2,
+        "capture_runtime_window_us": 10021770,
+        "capture_task_runtime_us": 941798,
+        "internal_min_sum": 56811,
+        "psram_min_sum": 868932
+      },
+      {
+        "device_ms": 51579,
+        "frames": 2405760,
+        "queue_overflows": 13,
+        "software_dropped_frames": 480,
+        "read_errors": 0,
+        "restarts": 2,
+        "discontinuities": 2,
+        "capture_runtime_window_us": 10061868,
+        "capture_task_runtime_us": 945139,
+        "internal_min_sum": 56811,
+        "psram_min_sum": 872024
+      },
+      {
+        "device_ms": 61599,
+        "frames": 2886480,
+        "queue_overflows": 13,
+        "software_dropped_frames": 480,
+        "read_errors": 0,
+        "restarts": 2,
+        "discontinuities": 2,
+        "capture_runtime_window_us": 10014926,
+        "capture_task_runtime_us": 941677,
+        "internal_min_sum": 56931,
+        "psram_min_sum": 870816
+      },
+      {
+        "device_ms": 71679,
+        "frames": 3370320,
+        "queue_overflows": 13,
+        "software_dropped_frames": 480,
+        "read_errors": 0,
+        "restarts": 2,
+        "discontinuities": 2,
+        "capture_runtime_window_us": 10080104,
+        "capture_task_runtime_us": 947838,
+        "internal_min_sum": 56811,
+        "psram_min_sum": 867216
+      },
+      {
+        "device_ms": 81699,
+        "frames": 3851280,
+        "queue_overflows": 13,
+        "software_dropped_frames": 480,
+        "read_errors": 0,
+        "restarts": 2,
+        "discontinuities": 2,
+        "capture_runtime_window_us": 10023533,
+        "capture_task_runtime_us": 941773,
+        "internal_min_sum": 60403,
+        "psram_min_sum": 868984
+      },
+      {
+        "device_ms": 91729,
+        "frames": 4332720,
+        "queue_overflows": 13,
+        "software_dropped_frames": 480,
+        "read_errors": 0,
+        "restarts": 2,
+        "discontinuities": 2,
+        "capture_runtime_window_us": 10026532,
+        "capture_task_runtime_us": 941876,
+        "internal_min_sum": 60659,
+        "psram_min_sum": 868408
+      },
+      {
+        "device_ms": 101809,
+        "frames": 4816560,
+        "queue_overflows": 13,
+        "software_dropped_frames": 480,
+        "read_errors": 0,
+        "restarts": 2,
+        "discontinuities": 2,
+        "capture_runtime_window_us": 10079953,
+        "capture_task_runtime_us": 947613,
+        "internal_min_sum": 69347,
+        "psram_min_sum": 871920
+      },
+      {
+        "device_ms": 111819,
+        "frames": 5296800,
+        "queue_overflows": 13,
+        "software_dropped_frames": 480,
+        "read_errors": 0,
+        "restarts": 2,
+        "discontinuities": 2,
+        "capture_runtime_window_us": 10008629,
+        "capture_task_runtime_us": 942161,
+        "internal_min_sum": 69347,
+        "psram_min_sum": 871920
+      },
+      {
+        "device_ms": 121909,
+        "frames": 5781360,
+        "queue_overflows": 13,
+        "software_dropped_frames": 480,
+        "read_errors": 0,
+        "restarts": 2,
+        "discontinuities": 2,
+        "capture_runtime_window_us": 10094103,
+        "capture_task_runtime_us": 947716,
+        "internal_min_sum": 69347,
+        "psram_min_sum": 870160
+      },
+      {
+        "device_ms": 132009,
+        "frames": 6266160,
+        "queue_overflows": 13,
+        "software_dropped_frames": 480,
+        "read_errors": 0,
+        "restarts": 2,
+        "discontinuities": 2,
+        "capture_runtime_window_us": 10097598,
+        "capture_task_runtime_us": 948922,
+        "internal_min_sum": 69411,
+        "psram_min_sum": 868748
+      },
+      {
+        "device_ms": 142089,
+        "frames": 6749760,
+        "queue_overflows": 13,
+        "software_dropped_frames": 480,
+        "read_errors": 0,
+        "restarts": 2,
+        "discontinuities": 2,
+        "capture_runtime_window_us": 10078181,
+        "capture_task_runtime_us": 947489,
+        "internal_min_sum": 68987,
+        "psram_min_sum": 865468
+      },
+      {
+        "device_ms": 152149,
+        "frames": 7232880,
+        "queue_overflows": 13,
+        "software_dropped_frames": 480,
+        "read_errors": 0,
+        "restarts": 2,
+        "discontinuities": 2,
+        "capture_runtime_window_us": 10061184,
+        "capture_task_runtime_us": 911049,
+        "internal_min_sum": 69347,
+        "psram_min_sum": 872548
+      }
+    ],
+    "watchdog_found": false
+  },
+  "tls_two": {
+    "source_directory": "target/capture-publication/tls-two/20261008T162023.420707Z",
+    "uart_sha256": "6d1cd37c1322cb7bf40ac9dcec304174ade64107480f955370be8ebda6cdc566",
+    "peer_source_path": "target/capture-publication/tls-peer.log",
+    "peer_sha256": "c77d85a17ae52deaadf826d93a6b7fac90e98ab208d5deb413cc575129da4f7c",
+    "passed": true,
+    "numeric_tls_events": [
+      {
+        "marker": "BASELINE",
+        "device_log_ms": 16266,
+        "cycle": 0,
+        "ms": 15053,
+        "cycles": 3
+      },
+      {
+        "marker": "CONNECT_BEGIN",
+        "device_log_ms": 41276,
+        "cycle": 1,
+        "ms": 40064,
+        "cycles": 3
+      },
+      {
+        "marker": "CYCLE_END",
+        "device_log_ms": 43806,
+        "cycle": 1,
+        "ms": 42594,
+        "elapsed_ms": 2529,
+        "ok": true
+      },
+      {
+        "marker": "CONNECT_BEGIN",
+        "device_log_ms": 53816,
+        "cycle": 2,
+        "ms": 52604,
+        "cycles": 3
+      },
+      {
+        "marker": "CYCLE_END",
+        "device_log_ms": 56316,
+        "cycle": 2,
+        "ms": 55104,
+        "elapsed_ms": 2499,
+        "ok": true
+      },
+      {
+        "marker": "CONNECT_BEGIN",
+        "device_log_ms": 66326,
+        "cycle": 3,
+        "ms": 65113,
+        "cycles": 3
+      },
+      {
+        "marker": "CYCLE_END",
+        "device_log_ms": 68826,
+        "cycle": 3,
+        "ms": 67616,
+        "elapsed_ms": 2502,
+        "ok": true
+      },
+      {
+        "marker": "RECOVERED",
+        "device_log_ms": 88846,
+        "cycle": 3,
+        "ms": 87633,
+        "cycles": 3
+      },
+      {
+        "marker": "BEGIN",
+        "device_log_ms": 91346,
+        "epoch_us": 44942,
+        "window_begin_us": 35044942,
+        "window_end_us": 75044942,
+        "stopped_us": 75054263,
+        "dump_begin_us": 90135999,
+        "tick_us": 10000,
+        "observer_core": 1,
+        "sample_priority": 11,
+        "initial_audio_priority": 10,
+        "dump_priority": 2,
+        "stack_bytes": 4096,
+        "record_bytes": 24,
+        "capacity": 4096,
+        "storage_bytes": 98304,
+        "unknown_state": 255,
+        "running": 0,
+        "ready": 1,
+        "blocked": 2,
+        "suspended": 3,
+        "deleted": 4,
+        "storage_psram": true,
+        "capture_found": true,
+        "overflow": false,
+        "deadline_reached": true,
+        "recovery_done": true
+      },
+      {
+        "marker": "END",
+        "device_log_ms": 118276,
+        "records": 3994,
+        "max_probe_us": 2451,
+        "max_gap_us": 59417,
+        "gaps_over_two_ticks": 2,
+        "start_late_us": 59417,
+        "tail_us": 640,
+        "deadline_late_us": 0,
+        "overflow": false
+      }
+    ],
+    "peer_events": [
+      {
+        "event": "ready",
+        "expected_connections": 3,
+        "run_timeout_ms": 180000
+      },
+      {
+        "active_ms": 2117,
+        "event": "connection",
+        "handshake_ms": 400,
+        "pings": 0,
+        "reason": "peer_eof"
+      },
+      {
+        "active_ms": 2100,
+        "event": "connection",
+        "handshake_ms": 371,
+        "pings": 0,
+        "reason": "peer_eof"
+      },
+      {
+        "active_ms": 2085,
+        "event": "connection",
+        "handshake_ms": 388,
+        "pings": 0,
+        "reason": "peer_eof"
+      },
+      {
+        "connections": 3,
+        "elapsed_ms": 69402,
+        "event": "summary",
+        "expected_connections": 3,
+        "pings": 0,
+        "success": true
+      }
+    ],
+    "final_listeners": [
+      {
+        "source_path": "target/capture-publication/tls-two/20261008T162023.420707Z/listener-1.framehash",
+        "sha256": "b615365481893daf5411db25bfe16cc35734bfe4fc5484b78539ead2ef1558f8",
+        "frames": 5760000,
+        "packets": 1407,
+        "timeline_gaps": 0
+      },
+      {
+        "source_path": "target/capture-publication/tls-two/20261008T162023.420707Z/listener-2.framehash",
+        "sha256": "b615365481893daf5411db25bfe16cc35734bfe4fc5484b78539ead2ef1558f8",
+        "frames": 5760000,
+        "packets": 1407,
+        "timeline_gaps": 0
+      }
+    ],
+    "capture_observations": [
+      {
+        "device_log_ms": 11416,
+        "frames": 479040,
+        "queue_overflows": 12,
+        "software_dropped_frames": 240,
+        "read_errors": 0,
+        "restarts": 1,
+        "discontinuities": 1,
+        "capture_runtime_window_us": 9950474,
+        "capture_task_runtime_us": 853375,
+        "internal_min_sum": 58359,
+        "psram_min_sum": 830464
+      },
+      {
+        "device_log_ms": 21506,
+        "frames": 963360,
+        "queue_overflows": 12,
+        "software_dropped_frames": 240,
+        "read_errors": 0,
+        "restarts": 1,
+        "discontinuities": 1,
+        "capture_runtime_window_us": 10091162,
+        "capture_task_runtime_us": 905584,
+        "internal_min_sum": 58347,
+        "psram_min_sum": 830884
+      },
+      {
+        "device_log_ms": 31556,
+        "frames": 1446000,
+        "queue_overflows": 12,
+        "software_dropped_frames": 240,
+        "read_errors": 0,
+        "restarts": 1,
+        "discontinuities": 1,
+        "capture_runtime_window_us": 10053838,
+        "capture_task_runtime_us": 941019,
+        "internal_min_sum": 47443,
+        "psram_min_sum": 769040
+      },
+      {
+        "device_log_ms": 41626,
+        "frames": 1929360,
+        "queue_overflows": 12,
+        "software_dropped_frames": 240,
+        "read_errors": 0,
+        "restarts": 1,
+        "discontinuities": 1,
+        "capture_runtime_window_us": 10071683,
+        "capture_task_runtime_us": 945657,
+        "internal_min_sum": 20943,
+        "psram_min_sum": 758436
+      },
+      {
+        "device_log_ms": 51656,
+        "frames": 2410560,
+        "queue_overflows": 12,
+        "software_dropped_frames": 240,
+        "read_errors": 0,
+        "restarts": 1,
+        "discontinuities": 1,
+        "capture_runtime_window_us": 10023395,
+        "capture_task_runtime_us": 938829,
+        "internal_min_sum": 20855,
+        "psram_min_sum": 769720
+      },
+      {
+        "device_log_ms": 61726,
+        "frames": 2893920,
+        "queue_overflows": 12,
+        "software_dropped_frames": 240,
+        "read_errors": 0,
+        "restarts": 1,
+        "discontinuities": 1,
+        "capture_runtime_window_us": 10071511,
+        "capture_task_runtime_us": 943218,
+        "internal_min_sum": 20987,
+        "psram_min_sum": 771988
+      },
+      {
+        "device_log_ms": 71766,
+        "frames": 3375840,
+        "queue_overflows": 12,
+        "software_dropped_frames": 240,
+        "read_errors": 0,
+        "restarts": 1,
+        "discontinuities": 1,
+        "capture_runtime_window_us": 10039874,
+        "capture_task_runtime_us": 940893,
+        "internal_min_sum": 20895,
+        "psram_min_sum": 770304
+      },
+      {
+        "device_log_ms": 81776,
+        "frames": 3856320,
+        "queue_overflows": 12,
+        "software_dropped_frames": 240,
+        "read_errors": 0,
+        "restarts": 1,
+        "discontinuities": 1,
+        "capture_runtime_window_us": 10010186,
+        "capture_task_runtime_us": 934915,
+        "internal_min_sum": 46295,
+        "psram_min_sum": 773664
+      },
+      {
+        "device_log_ms": 91776,
+        "frames": 4336800,
+        "queue_overflows": 12,
+        "software_dropped_frames": 240,
+        "read_errors": 0,
+        "restarts": 1,
+        "discontinuities": 1,
+        "capture_runtime_window_us": 10005241,
+        "capture_task_runtime_us": 936210,
+        "internal_min_sum": 46295,
+        "psram_min_sum": 771888
+      },
+      {
+        "device_log_ms": 101846,
+        "frames": 4820160,
+        "queue_overflows": 12,
+        "software_dropped_frames": 240,
+        "read_errors": 0,
+        "restarts": 1,
+        "discontinuities": 1,
+        "capture_runtime_window_us": 10070730,
+        "capture_task_runtime_us": 954734,
+        "internal_min_sum": 61791,
+        "psram_min_sum": 764832
+      },
+      {
+        "device_log_ms": 111926,
+        "frames": 5304000,
+        "queue_overflows": 12,
+        "software_dropped_frames": 240,
+        "read_errors": 0,
+        "restarts": 1,
+        "discontinuities": 1,
+        "capture_runtime_window_us": 10079374,
+        "capture_task_runtime_us": 958411,
+        "internal_min_sum": 61923,
+        "psram_min_sum": 760144
+      },
+      {
+        "device_log_ms": 121966,
+        "frames": 5785440,
+        "queue_overflows": 12,
+        "software_dropped_frames": 240,
+        "read_errors": 0,
+        "restarts": 1,
+        "discontinuities": 1,
+        "capture_runtime_window_us": 10034573,
+        "capture_task_runtime_us": 952181,
+        "internal_min_sum": 62159,
+        "psram_min_sum": 766900
+      },
+      {
+        "device_log_ms": 132046,
+        "frames": 6269520,
+        "queue_overflows": 12,
+        "software_dropped_frames": 240,
+        "read_errors": 0,
+        "restarts": 1,
+        "discontinuities": 1,
+        "capture_runtime_window_us": 10080181,
+        "capture_task_runtime_us": 953252,
+        "internal_min_sum": 66891,
+        "psram_min_sum": 870316
+      },
+      {
+        "device_log_ms": 142116,
+        "frames": 6752640,
+        "queue_overflows": 12,
+        "software_dropped_frames": 240,
+        "read_errors": 0,
+        "restarts": 1,
+        "discontinuities": 1,
+        "capture_runtime_window_us": 10069832,
+        "capture_task_runtime_us": 953341,
+        "internal_min_sum": 67011,
+        "psram_min_sum": 872192
+      },
+      {
+        "device_log_ms": 152196,
+        "frames": 7236960,
+        "queue_overflows": 12,
+        "software_dropped_frames": 240,
+        "read_errors": 0,
+        "restarts": 1,
+        "discontinuities": 1,
+        "capture_runtime_window_us": 10085113,
+        "capture_task_runtime_us": 914497,
+        "internal_min_sum": 66891,
+        "psram_min_sum": 871992
+      }
+    ],
+    "watchdog_found": false,
+    "image_sha256": "c548638eadf7d883d3f40903cd6c414c8d7fa601cef7754017a55d32d0dc15bf"
+  },
+  "host_verification": {
+    "canonical_log_sha256": "9a57fb18eb342d4a620dd83d3663edc9135646a353687eaf16887edba9c751a5",
+    "canonical_stages_passed": 20,
+    "workspace_including_doctests": {
+      "passed": 303,
+      "failed": 0,
+      "ignored": 2
+    },
+    "loom_models_passed": 2,
+    "scope": "Default host workspace plus separately bounded production-protocol Loom models; ignored tests are pre-existing.",
+    "canonical_after_harness_fix": {
+      "path": "target/capture-publication/check-demuxer.log",
+      "sha256": "9a57fb18eb342d4a620dd83d3663edc9135646a353687eaf16887edba9c751a5",
+      "stages_passed": 20
+    }
+  },
+  "paired_cost_review": {
+    "method": {
+      "metric": "encoder charged task runtime / whole telemetry window elapsed time, percent of one core",
+      "selection": "whole telemetry records with estimated host endpoint in [32,65] seconds; first selected window can begin before32seconds",
+      "host_interval_seconds": [
+        32,
+        65
+      ],
+      "offset_method": "median of capture event elapsed_seconds minus UART device_ms/1000, matched by capture frames; no exact encoder UART receipt timestamps",
+      "limitations": [
+        "Separate quiet-input real runs; not an isolated atomic-copy benchmark",
+        "Task charge includes interrupts/logging and excludes current scheduling slice",
+        "listener start/end markers do not establish unchanged slot population at every instant",
+        "Static linked entry frames are not runtime stack high-water measurements"
+      ]
+    },
+    "runs": {
+      "baseline": {
+        "source_directory": "target/tls-capture/restored-production/20261008T151102.226455Z",
+        "source_hashes": {
+          "uart.log": "e699e97591befafbf3d0026ca77ab698473515d9f352ca1a98b6f028fafdaf94",
+          "events.jsonl": "ed2a4c7209cbcaccb7012aa750837674548858d1c3d81d46c16e186acdeb9f7c",
+          "summary.json": "918c64f207f4c0aaa3dc961c922156fd43022b3cc72265b5abb55b7689557a49",
+          "listener-1.framehash": "72b1644a96599cc4bc7f9cddcd9883a942bbc10175e75adc5ccc25fe65b5b8e0",
+          "listener-2.framehash": "72b1644a96599cc4bc7f9cddcd9883a942bbc10175e75adc5ccc25fe65b5b8e0"
+        },
+        "capture_matched_offsets_seconds": [
+          0.5340000000000007,
+          0.5489999999999995,
+          0.9039999999999999,
+          0.5030000000000001,
+          1.0460000000000065,
+          1.161999999999999,
+          0.6460000000000008
+        ],
+        "median_host_device_offset_seconds": 0.6460000000000008,
+        "endpoint_selection": {
+          "windows": [
+            {
+              "elapsed_us": 10070007,
+              "task_runtime_us": 1379352,
+              "encoded_frames": 354,
+              "resets": 0,
+              "listeners_start": 2,
+              "listeners_end": 2,
+              "device_end_ms": 36136,
+              "estimated_host_end_seconds": 36.782000000000004,
+              "estimated_host_start_seconds": 26.711993000000003,
+              "runtime_valid": true
+            },
+            {
+              "elapsed_us": 10079051,
+              "task_runtime_us": 1376690,
+              "encoded_frames": 472,
+              "resets": 0,
+              "listeners_start": 2,
+              "listeners_end": 2,
+              "device_end_ms": 46216,
+              "estimated_host_end_seconds": 46.862,
+              "estimated_host_start_seconds": 36.782949,
+              "runtime_valid": true
+            },
+            {
+              "elapsed_us": 10069912,
+              "task_runtime_us": 1346273,
+              "encoded_frames": 590,
+              "resets": 0,
+              "listeners_start": 2,
+              "listeners_end": 2,
+              "device_end_ms": 56286,
+              "estimated_host_end_seconds": 56.932,
+              "estimated_host_start_seconds": 46.862088,
+              "runtime_valid": true
+            }
+          ],
+          "window_count": 3,
+          "elapsed_us_sum": 30218970,
+          "task_runtime_us_sum": 4102315,
+          "encoder_core_percent": 13.575297238787424
+        },
+        "fully_contained_sensitivity": {
+          "windows": [
+            {
+              "elapsed_us": 10079051,
+              "task_runtime_us": 1376690,
+              "encoded_frames": 472,
+              "resets": 0,
+              "listeners_start": 2,
+              "listeners_end": 2,
+              "device_end_ms": 46216,
+              "estimated_host_end_seconds": 46.862,
+              "estimated_host_start_seconds": 36.782949,
+              "runtime_valid": true
+            },
+            {
+              "elapsed_us": 10069912,
+              "task_runtime_us": 1346273,
+              "encoded_frames": 590,
+              "resets": 0,
+              "listeners_start": 2,
+              "listeners_end": 2,
+              "device_end_ms": 56286,
+              "estimated_host_end_seconds": 56.932,
+              "estimated_host_start_seconds": 46.862088,
+              "runtime_valid": true
+            }
+          ],
+          "window_count": 2,
+          "elapsed_us_sum": 20148963,
+          "task_runtime_us_sum": 2722963,
+          "encoder_core_percent": 13.514159512824556
+        }
+      },
+      "candidate": {
+        "source_directory": "target/capture-publication/production-two/20261008T155933.895597Z",
+        "source_hashes": {
+          "uart.log": "0d1bde25f851173287414b04d9fab4cc20522ff9b68f985258c7bfd021987351",
+          "events.jsonl": "d1c2eb87fd647b82f29254dde0515e15769b92bce2c3fb1195419e4c1711ccfa",
+          "summary.json": "6d93e2ec9489207daf63eb0f675f3fcb6cd35060674da6f0696dc8eeae9f6f78",
+          "listener-1.framehash": "79941d52cceffffebeb59019dc06643bbe27b5e098fbd9624c70a028fce290d3",
+          "listener-2.framehash": "79941d52cceffffebeb59019dc06643bbe27b5e098fbd9624c70a028fce290d3"
+        },
+        "capture_matched_offsets_seconds": [
+          0.4949999999999992,
+          0.5700000000000003,
+          0.6820000000000022,
+          0.4860000000000042,
+          0.9650000000000034,
+          0.6610000000000014,
+          0.6269999999999953
+        ],
+        "median_host_device_offset_seconds": 0.6269999999999953,
+        "endpoint_selection": {
+          "windows": [
+            {
+              "elapsed_us": 10069834,
+              "task_runtime_us": 1399566,
+              "encoded_frames": 353,
+              "resets": 0,
+              "listeners_start": 2,
+              "listeners_end": 2,
+              "device_end_ms": 35916,
+              "estimated_host_end_seconds": 36.54299999999999,
+              "estimated_host_start_seconds": 26.473165999999992,
+              "runtime_valid": true
+            },
+            {
+              "elapsed_us": 10079179,
+              "task_runtime_us": 1426880,
+              "encoded_frames": 471,
+              "resets": 0,
+              "listeners_start": 2,
+              "listeners_end": 2,
+              "device_end_ms": 45996,
+              "estimated_host_end_seconds": 46.623,
+              "estimated_host_start_seconds": 36.543820999999994,
+              "runtime_valid": true
+            },
+            {
+              "elapsed_us": 10060890,
+              "task_runtime_us": 1431583,
+              "encoded_frames": 589,
+              "resets": 0,
+              "listeners_start": 2,
+              "listeners_end": 2,
+              "device_end_ms": 56056,
+              "estimated_host_end_seconds": 56.68299999999999,
+              "estimated_host_start_seconds": 46.62210999999999,
+              "runtime_valid": true
+            }
+          ],
+          "window_count": 3,
+          "elapsed_us_sum": 30209903,
+          "task_runtime_us_sum": 4258029,
+          "encoder_core_percent": 14.094811889995144
+        },
+        "fully_contained_sensitivity": {
+          "windows": [
+            {
+              "elapsed_us": 10079179,
+              "task_runtime_us": 1426880,
+              "encoded_frames": 471,
+              "resets": 0,
+              "listeners_start": 2,
+              "listeners_end": 2,
+              "device_end_ms": 45996,
+              "estimated_host_end_seconds": 46.623,
+              "estimated_host_start_seconds": 36.543820999999994,
+              "runtime_valid": true
+            },
+            {
+              "elapsed_us": 10060890,
+              "task_runtime_us": 1431583,
+              "encoded_frames": 589,
+              "resets": 0,
+              "listeners_start": 2,
+              "listeners_end": 2,
+              "device_end_ms": 56056,
+              "estimated_host_end_seconds": 56.68299999999999,
+              "estimated_host_start_seconds": 46.62210999999999,
+              "runtime_valid": true
+            }
+          ],
+          "window_count": 2,
+          "elapsed_us_sum": 20140069,
+          "task_runtime_us_sum": 2858463,
+          "encoder_core_percent": 14.192915625065634
+        }
+      }
+    },
+    "stack_cost": {
+      "method": "entry a1 immediate from linked function prologue, original instruction bytes; metadata section names adjusted only in transient anonymous memory for objdump",
+      "production_stack_configuration": "unchanged; no production task added",
+      "runtime_highwater_measured": false,
+      "functions": [
+        {
+          "function": "audio_in::capture",
+          "baseline_bytes": 496,
+          "candidate_bytes": 464
+        },
+        {
+          "function": "stream::encode",
+          "baseline_bytes": 320,
+          "candidate_bytes": 320
+        },
+        {
+          "function": "StreamRing::read",
+          "baseline_bytes": 48,
+          "candidate_bytes": 64
+        },
+        {
+          "function": "CaptureBuffer::publish",
+          "baseline_bytes": 48,
+          "candidate_bytes": 96
+        }
+      ]
+    },
+    "endpoint_selection_delta_percentage_points": 0.5195146512077198,
+    "fully_contained_sensitivity_delta_percentage_points": 0.6787561122410786
+  },
+  "candidate_image_path": "target/capture-publication/candidate-production.elf",
+  "nvs_two": {
+    "source_directory": "target/capture-publication/nvs-two/20261008T162503.146387Z",
+    "uart_sha256": "d67eba316f42f22c30e3ad4a49c682dbe43438ca46b8e438ae4e3bbc4104f153",
+    "image_sha256": "99c712887cebacaafcbd1de2253c1360972012313c1d7ef44d769b04ab89ac96",
+    "passed": true,
+    "numeric_nvs_events": [
+      {
+        "marker": "BASELINE",
+        "device_log_ms": 16247,
+        "sequence": 0,
+        "ms": 15050,
+        "writes": 120,
+        "bytes": 1024
+      },
+      {
+        "marker": "OPEN_BEGIN",
+        "device_log_ms": 41267,
+        "sequence": 0,
+        "ms": 40065,
+        "writes": 120,
+        "bytes": 1024
+      },
+      {
+        "marker": "OPEN_END",
+        "device_log_ms": 41267,
+        "sequence": 0,
+        "ms": 40066,
+        "writes": 120,
+        "bytes": 1024
+      },
+      {
+        "marker": "WRITE_BEGIN",
+        "device_log_ms": 41267,
+        "sequence": 0,
+        "ms": 40071,
+        "writes": 120,
+        "bytes": 1024
+      },
+      {
+        "marker": "WRITE_END",
+        "device_log_ms": 41287,
+        "sequence": 0,
+        "ms": 40085,
+        "elapsed_us": 5230,
+        "bytes": 1024,
+        "readback": true
+      },
+      {
+        "marker": "WRITE_BEGIN",
+        "device_log_ms": 41547,
+        "sequence": 1,
+        "ms": 40345,
+        "writes": 120,
+        "bytes": 1024
+      },
+      {
+        "marker": "WRITE_END",
+        "device_log_ms": 41567,
+        "sequence": 1,
+        "ms": 40369,
+        "elapsed_us": 22979,
+        "bytes": 1024,
+        "readback": true
+      },
+      {
+        "marker": "WRITE_BEGIN",
+        "device_log_ms": 41827,
+        "sequence": 2,
+        "ms": 40625,
+        "writes": 120,
+        "bytes": 1024
+      },
+      {
+        "marker": "WRITE_END",
+        "device_log_ms": 41837,
+        "sequence": 2,
+        "ms": 40639,
+        "elapsed_us": 13121,
+        "bytes": 1024,
+        "readback": true
+      },
+      {
+        "marker": "WRITE_BEGIN",
+        "device_log_ms": 42097,
+        "sequence": 3,
+        "ms": 40896,
+        "writes": 120,
+        "bytes": 1024
+      },
+      {
+        "marker": "WRITE_END",
+        "device_log_ms": 42107,
+        "sequence": 3,
+        "ms": 40909,
+        "elapsed_us": 12098,
+        "bytes": 1024,
+        "readback": true
+      },
+      {
+        "marker": "WRITE_BEGIN",
+        "device_log_ms": 42367,
+        "sequence": 4,
+        "ms": 41168,
+        "writes": 120,
+        "bytes": 1024
+      },
+      {
+        "marker": "WRITE_END",
+        "device_log_ms": 42397,
+        "sequence": 4,
+        "ms": 41193,
+        "elapsed_us": 22983,
+        "bytes": 1024,
+        "readback": true
+      },
+      {
+        "marker": "WRITE_BEGIN",
+        "device_log_ms": 42647,
+        "sequence": 5,
+        "ms": 41451,
+        "writes": 120,
+        "bytes": 1024
+      },
+      {
+        "marker": "WRITE_END",
+        "device_log_ms": 42657,
+        "sequence": 5,
+        "ms": 41462,
+        "elapsed_us": 9957,
+        "bytes": 1024,
+        "readback": true
+      },
+      {
+        "marker": "WRITE_BEGIN",
+        "device_log_ms": 42917,
+        "sequence": 6,
+        "ms": 41714,
+        "writes": 120,
+        "bytes": 1024
+      },
+      {
+        "marker": "WRITE_END",
+        "device_log_ms": 42927,
+        "sequence": 6,
+        "ms": 41731,
+        "elapsed_us": 16376,
+        "bytes": 1024,
+        "readback": true
+      },
+      {
+        "marker": "WRITE_BEGIN",
+        "device_log_ms": 43187,
+        "sequence": 7,
+        "ms": 41985,
+        "writes": 120,
+        "bytes": 1024
+      },
+      {
+        "marker": "WRITE_END",
+        "device_log_ms": 43197,
+        "sequence": 7,
+        "ms": 41999,
+        "elapsed_us": 12947,
+        "bytes": 1024,
+        "readback": true
+      },
+      {
+        "marker": "WRITE_BEGIN",
+        "device_log_ms": 43457,
+        "sequence": 8,
+        "ms": 42254,
+        "writes": 120,
+        "bytes": 1024
+      },
+      {
+        "marker": "WRITE_END",
+        "device_log_ms": 43497,
+        "sequence": 8,
+        "ms": 42294,
+        "elapsed_us": 39089,
+        "bytes": 1024,
+        "readback": true
+      },
+      {
+        "marker": "WRITE_BEGIN",
+        "device_log_ms": 43757,
+        "sequence": 9,
+        "ms": 42554,
+        "writes": 120,
+        "bytes": 1024
+      },
+      {
+        "marker": "WRITE_END",
+        "device_log_ms": 43767,
+        "sequence": 9,
+        "ms": 42572,
+        "elapsed_us": 17542,
+        "bytes": 1024,
+        "readback": true
+      },
+      {
+        "marker": "WRITE_BEGIN",
+        "device_log_ms": 44027,
+        "sequence": 10,
+        "ms": 42825,
+        "writes": 120,
+        "bytes": 1024
+      },
+      {
+        "marker": "WRITE_END",
+        "device_log_ms": 44037,
+        "sequence": 10,
+        "ms": 42839,
+        "elapsed_us": 12952,
+        "bytes": 1024,
+        "readback": true
+      },
+      {
+        "marker": "WRITE_BEGIN",
+        "device_log_ms": 44297,
+        "sequence": 11,
+        "ms": 43095,
+        "writes": 120,
+        "bytes": 1024
+      },
+      {
+        "marker": "WRITE_END",
+        "device_log_ms": 44317,
+        "sequence": 11,
+        "ms": 43122,
+        "elapsed_us": 25766,
+        "bytes": 1024,
+        "readback": true
+      },
+      {
+        "marker": "WRITE_BEGIN",
+        "device_log_ms": 44577,
+        "sequence": 12,
+        "ms": 43374,
+        "writes": 120,
+        "bytes": 1024
+      },
+      {
+        "marker": "WRITE_END",
+        "device_log_ms": 44607,
+        "sequence": 12,
+        "ms": 43403,
+        "elapsed_us": 28612,
+        "bytes": 1024,
+        "readback": true
+      },
+      {
+        "marker": "WRITE_BEGIN",
+        "device_log_ms": 44857,
+        "sequence": 13,
+        "ms": 43657,
+        "writes": 120,
+        "bytes": 1024
+      },
+      {
+        "marker": "WRITE_END",
+        "device_log_ms": 44867,
+        "sequence": 13,
+        "ms": 43671,
+        "elapsed_us": 12990,
+        "bytes": 1024,
+        "readback": true
+      },
+      {
+        "marker": "WRITE_BEGIN",
+        "device_log_ms": 45127,
+        "sequence": 14,
+        "ms": 43924,
+        "writes": 120,
+        "bytes": 1024
+      },
+      {
+        "marker": "WRITE_END",
+        "device_log_ms": 45147,
+        "sequence": 14,
+        "ms": 43952,
+        "elapsed_us": 25497,
+        "bytes": 1024,
+        "readback": true
+      },
+      {
+        "marker": "WRITE_BEGIN",
+        "device_log_ms": 45407,
+        "sequence": 15,
+        "ms": 44206,
+        "writes": 120,
+        "bytes": 1024
+      },
+      {
+        "marker": "WRITE_END",
+        "device_log_ms": 45417,
+        "sequence": 15,
+        "ms": 44219,
+        "elapsed_us": 12927,
+        "bytes": 1024,
+        "readback": true
+      },
+      {
+        "marker": "WRITE_BEGIN",
+        "device_log_ms": 45677,
+        "sequence": 16,
+        "ms": 44475,
+        "writes": 120,
+        "bytes": 1024
+      },
+      {
+        "marker": "WRITE_END",
+        "device_log_ms": 45687,
+        "sequence": 16,
+        "ms": 44489,
+        "elapsed_us": 13064,
+        "bytes": 1024,
+        "readback": true
+      },
+      {
+        "marker": "WRITE_BEGIN",
+        "device_log_ms": 45957,
+        "sequence": 17,
+        "ms": 44757,
+        "writes": 120,
+        "bytes": 1024
+      },
+      {
+        "marker": "WRITE_END",
+        "device_log_ms": 45967,
+        "sequence": 17,
+        "ms": 44772,
+        "elapsed_us": 13538,
+        "bytes": 1024,
+        "readback": true
+      },
+      {
+        "marker": "WRITE_BEGIN",
+        "device_log_ms": 46227,
+        "sequence": 18,
+        "ms": 45025,
+        "writes": 120,
+        "bytes": 1024
+      },
+      {
+        "marker": "WRITE_END",
+        "device_log_ms": 46247,
+        "sequence": 18,
+        "ms": 45053,
+        "elapsed_us": 26687,
+        "bytes": 1024,
+        "readback": true
+      },
+      {
+        "marker": "WRITE_BEGIN",
+        "device_log_ms": 46507,
+        "sequence": 19,
+        "ms": 45306,
+        "writes": 120,
+        "bytes": 1024
+      },
+      {
+        "marker": "WRITE_END",
+        "device_log_ms": 46517,
+        "sequence": 19,
+        "ms": 45320,
+        "elapsed_us": 12068,
+        "bytes": 1024,
+        "readback": true
+      },
+      {
+        "marker": "WRITE_BEGIN",
+        "device_log_ms": 46777,
+        "sequence": 20,
+        "ms": 45574,
+        "writes": 120,
+        "bytes": 1024
+      },
+      {
+        "marker": "WRITE_END",
+        "device_log_ms": 46787,
+        "sequence": 20,
+        "ms": 45591,
+        "elapsed_us": 16198,
+        "bytes": 1024,
+        "readback": true
+      },
+      {
+        "marker": "WRITE_BEGIN",
+        "device_log_ms": 47047,
+        "sequence": 21,
+        "ms": 45845,
+        "writes": 120,
+        "bytes": 1024
+      },
+      {
+        "marker": "WRITE_END",
+        "device_log_ms": 47067,
+        "sequence": 21,
+        "ms": 45869,
+        "elapsed_us": 23378,
+        "bytes": 1024,
+        "readback": true
+      },
+      {
+        "marker": "WRITE_BEGIN",
+        "device_log_ms": 47317,
+        "sequence": 22,
+        "ms": 46122,
+        "writes": 120,
+        "bytes": 1024
+      },
+      {
+        "marker": "WRITE_END",
+        "device_log_ms": 47337,
+        "sequence": 22,
+        "ms": 46139,
+        "elapsed_us": 16783,
+        "bytes": 1024,
+        "readback": true
+      },
+      {
+        "marker": "WRITE_BEGIN",
+        "device_log_ms": 47597,
+        "sequence": 23,
+        "ms": 46394,
+        "writes": 120,
+        "bytes": 1024
+      },
+      {
+        "marker": "WRITE_END",
+        "device_log_ms": 47607,
+        "sequence": 23,
+        "ms": 46411,
+        "elapsed_us": 16684,
+        "bytes": 1024,
+        "readback": true
+      },
+      {
+        "marker": "WRITE_BEGIN",
+        "device_log_ms": 47867,
+        "sequence": 24,
+        "ms": 46665,
+        "writes": 120,
+        "bytes": 1024
+      },
+      {
+        "marker": "WRITE_END",
+        "device_log_ms": 47897,
+        "sequence": 24,
+        "ms": 46693,
+        "elapsed_us": 27241,
+        "bytes": 1024,
+        "readback": true
+      },
+      {
+        "marker": "WRITE_BEGIN",
+        "device_log_ms": 48157,
+        "sequence": 25,
+        "ms": 46955,
+        "writes": 120,
+        "bytes": 1024
+      },
+      {
+        "marker": "WRITE_END",
+        "device_log_ms": 48167,
+        "sequence": 25,
+        "ms": 46969,
+        "elapsed_us": 13178,
+        "bytes": 1024,
+        "readback": true
+      },
+      {
+        "marker": "WRITE_BEGIN",
+        "device_log_ms": 48417,
+        "sequence": 26,
+        "ms": 47221,
+        "writes": 120,
+        "bytes": 1024
+      },
+      {
+        "marker": "WRITE_END",
+        "device_log_ms": 48437,
+        "sequence": 26,
+        "ms": 47235,
+        "elapsed_us": 13881,
+        "bytes": 1024,
+        "readback": true
+      },
+      {
+        "marker": "WRITE_BEGIN",
+        "device_log_ms": 48697,
+        "sequence": 27,
+        "ms": 47495,
+        "writes": 120,
+        "bytes": 1024
+      },
+      {
+        "marker": "WRITE_END",
+        "device_log_ms": 48717,
+        "sequence": 27,
+        "ms": 47520,
+        "elapsed_us": 23398,
+        "bytes": 1024,
+        "readback": true
+      },
+      {
+        "marker": "WRITE_BEGIN",
+        "device_log_ms": 48977,
+        "sequence": 28,
+        "ms": 47774,
+        "writes": 120,
+        "bytes": 1024
+      },
+      {
+        "marker": "WRITE_END",
+        "device_log_ms": 48997,
+        "sequence": 28,
+        "ms": 47795,
+        "elapsed_us": 20138,
+        "bytes": 1024,
+        "readback": true
+      },
+      {
+        "marker": "WRITE_BEGIN",
+        "device_log_ms": 49257,
+        "sequence": 29,
+        "ms": 48054,
+        "writes": 120,
+        "bytes": 1024
+      },
+      {
+        "marker": "WRITE_END",
+        "device_log_ms": 49267,
+        "sequence": 29,
+        "ms": 48071,
+        "elapsed_us": 16246,
+        "bytes": 1024,
+        "readback": true
+      },
+      {
+        "marker": "WRITE_BEGIN",
+        "device_log_ms": 49527,
+        "sequence": 30,
+        "ms": 48331,
+        "writes": 120,
+        "bytes": 1024
+      },
+      {
+        "marker": "WRITE_END",
+        "device_log_ms": 49547,
+        "sequence": 30,
+        "ms": 48348,
+        "elapsed_us": 15615,
+        "bytes": 1024,
+        "readback": true
+      },
+      {
+        "marker": "WRITE_BEGIN",
+        "device_log_ms": 49807,
+        "sequence": 31,
+        "ms": 48605,
+        "writes": 120,
+        "bytes": 1024
+      },
+      {
+        "marker": "WRITE_END",
+        "device_log_ms": 49837,
+        "sequence": 31,
+        "ms": 48633,
+        "elapsed_us": 27175,
+        "bytes": 1024,
+        "readback": true
+      },
+      {
+        "marker": "WRITE_BEGIN",
+        "device_log_ms": 50097,
+        "sequence": 32,
+        "ms": 48894,
+        "writes": 120,
+        "bytes": 1024
+      },
+      {
+        "marker": "WRITE_END",
+        "device_log_ms": 50107,
+        "sequence": 32,
+        "ms": 48913,
+        "elapsed_us": 18050,
+        "bytes": 1024,
+        "readback": true
+      },
+      {
+        "marker": "WRITE_BEGIN",
+        "device_log_ms": 50367,
+        "sequence": 33,
+        "ms": 49165,
+        "writes": 120,
+        "bytes": 1024
+      },
+      {
+        "marker": "WRITE_END",
+        "device_log_ms": 50377,
+        "sequence": 33,
+        "ms": 49179,
+        "elapsed_us": 13088,
+        "bytes": 1024,
+        "readback": true
+      },
+      {
+        "marker": "WRITE_BEGIN",
+        "device_log_ms": 50637,
+        "sequence": 34,
+        "ms": 49434,
+        "writes": 120,
+        "bytes": 1024
+      },
+      {
+        "marker": "WRITE_END",
+        "device_log_ms": 50677,
+        "sequence": 34,
+        "ms": 49478,
+        "elapsed_us": 42892,
+        "bytes": 1024,
+        "readback": true
+      },
+      {
+        "marker": "WRITE_BEGIN",
+        "device_log_ms": 50937,
+        "sequence": 35,
+        "ms": 49733,
+        "writes": 120,
+        "bytes": 1024
+      },
+      {
+        "marker": "WRITE_END",
+        "device_log_ms": 50947,
+        "sequence": 35,
+        "ms": 49751,
+        "elapsed_us": 16215,
+        "bytes": 1024,
+        "readback": true
+      },
+      {
+        "marker": "WRITE_BEGIN",
+        "device_log_ms": 51207,
+        "sequence": 36,
+        "ms": 50007,
+        "writes": 120,
+        "bytes": 1024
+      },
+      {
+        "marker": "WRITE_END",
+        "device_log_ms": 51217,
+        "sequence": 36,
+        "ms": 50019,
+        "elapsed_us": 11928,
+        "bytes": 1024,
+        "readback": true
+      },
+      {
+        "marker": "WRITE_BEGIN",
+        "device_log_ms": 51477,
+        "sequence": 37,
+        "ms": 50275,
+        "writes": 120,
+        "bytes": 1024
+      },
+      {
+        "marker": "WRITE_END",
+        "device_log_ms": 51497,
+        "sequence": 37,
+        "ms": 50302,
+        "elapsed_us": 26295,
+        "bytes": 1024,
+        "readback": true
+      },
+      {
+        "marker": "WRITE_BEGIN",
+        "device_log_ms": 51767,
+        "sequence": 38,
+        "ms": 50566,
+        "writes": 120,
+        "bytes": 1024
+      },
+      {
+        "marker": "WRITE_END",
+        "device_log_ms": 51777,
+        "sequence": 38,
+        "ms": 50582,
+        "elapsed_us": 14449,
+        "bytes": 1024,
+        "readback": true
+      },
+      {
+        "marker": "WRITE_BEGIN",
+        "device_log_ms": 52037,
+        "sequence": 39,
+        "ms": 50835,
+        "writes": 120,
+        "bytes": 1024
+      },
+      {
+        "marker": "WRITE_END",
+        "device_log_ms": 52047,
+        "sequence": 39,
+        "ms": 50849,
+        "elapsed_us": 11607,
+        "bytes": 1024,
+        "readback": true
+      },
+      {
+        "marker": "WRITE_BEGIN",
+        "device_log_ms": 52307,
+        "sequence": 40,
+        "ms": 51104,
+        "writes": 120,
+        "bytes": 1024
+      },
+      {
+        "marker": "WRITE_END",
+        "device_log_ms": 52327,
+        "sequence": 40,
+        "ms": 51132,
+        "elapsed_us": 27283,
+        "bytes": 1024,
+        "readback": true
+      },
+      {
+        "marker": "WRITE_BEGIN",
+        "device_log_ms": 52587,
+        "sequence": 41,
+        "ms": 51384,
+        "writes": 120,
+        "bytes": 1024
+      },
+      {
+        "marker": "WRITE_END",
+        "device_log_ms": 52617,
+        "sequence": 41,
+        "ms": 51413,
+        "elapsed_us": 28574,
+        "bytes": 1024,
+        "readback": true
+      },
+      {
+        "marker": "WRITE_BEGIN",
+        "device_log_ms": 52877,
+        "sequence": 42,
+        "ms": 51674,
+        "writes": 120,
+        "bytes": 1024
+      },
+      {
+        "marker": "WRITE_END",
+        "device_log_ms": 52897,
+        "sequence": 42,
+        "ms": 51696,
+        "elapsed_us": 21824,
+        "bytes": 1024,
+        "readback": true
+      },
+      {
+        "marker": "WRITE_BEGIN",
+        "device_log_ms": 53157,
+        "sequence": 43,
+        "ms": 51954,
+        "writes": 120,
+        "bytes": 1024
+      },
+      {
+        "marker": "WRITE_END",
+        "device_log_ms": 53167,
+        "sequence": 43,
+        "ms": 51971,
+        "elapsed_us": 16439,
+        "bytes": 1024,
+        "readback": true
+      },
+      {
+        "marker": "WRITE_BEGIN",
+        "device_log_ms": 53427,
+        "sequence": 44,
+        "ms": 52225,
+        "writes": 120,
+        "bytes": 1024
+      },
+      {
+        "marker": "WRITE_END",
+        "device_log_ms": 53457,
+        "sequence": 44,
+        "ms": 52253,
+        "elapsed_us": 27253,
+        "bytes": 1024,
+        "readback": true
+      },
+      {
+        "marker": "WRITE_BEGIN",
+        "device_log_ms": 53717,
+        "sequence": 45,
+        "ms": 52514,
+        "writes": 120,
+        "bytes": 1024
+      },
+      {
+        "marker": "WRITE_END",
+        "device_log_ms": 53737,
+        "sequence": 45,
+        "ms": 52535,
+        "elapsed_us": 20189,
+        "bytes": 1024,
+        "readback": true
+      },
+      {
+        "marker": "WRITE_BEGIN",
+        "device_log_ms": 53997,
+        "sequence": 46,
+        "ms": 52797,
+        "writes": 120,
+        "bytes": 1024
+      },
+      {
+        "marker": "WRITE_END",
+        "device_log_ms": 54007,
+        "sequence": 46,
+        "ms": 52810,
+        "elapsed_us": 11307,
+        "bytes": 1024,
+        "readback": true
+      },
+      {
+        "marker": "WRITE_BEGIN",
+        "device_log_ms": 54267,
+        "sequence": 47,
+        "ms": 53068,
+        "writes": 120,
+        "bytes": 1024
+      },
+      {
+        "marker": "WRITE_END",
+        "device_log_ms": 54287,
+        "sequence": 47,
+        "ms": 53091,
+        "elapsed_us": 22724,
+        "bytes": 1024,
+        "readback": true
+      },
+      {
+        "marker": "WRITE_BEGIN",
+        "device_log_ms": 54547,
+        "sequence": 48,
+        "ms": 53344,
+        "writes": 120,
+        "bytes": 1024
+      },
+      {
+        "marker": "WRITE_END",
+        "device_log_ms": 54557,
+        "sequence": 48,
+        "ms": 53361,
+        "elapsed_us": 16279,
+        "bytes": 1024,
+        "readback": true
+      },
+      {
+        "marker": "WRITE_BEGIN",
+        "device_log_ms": 54817,
+        "sequence": 49,
+        "ms": 53622,
+        "writes": 120,
+        "bytes": 1024
+      },
+      {
+        "marker": "WRITE_END",
+        "device_log_ms": 54837,
+        "sequence": 49,
+        "ms": 53639,
+        "elapsed_us": 16643,
+        "bytes": 1024,
+        "readback": true
+      },
+      {
+        "marker": "WRITE_BEGIN",
+        "device_log_ms": 55097,
+        "sequence": 50,
+        "ms": 53894,
+        "writes": 120,
+        "bytes": 1024
+      },
+      {
+        "marker": "WRITE_END",
+        "device_log_ms": 55147,
+        "sequence": 50,
+        "ms": 53953,
+        "elapsed_us": 58225,
+        "bytes": 1024,
+        "readback": true
+      },
+      {
+        "marker": "WRITE_BEGIN",
+        "device_log_ms": 55407,
+        "sequence": 51,
+        "ms": 54208,
+        "writes": 120,
+        "bytes": 1024
+      },
+      {
+        "marker": "WRITE_END",
+        "device_log_ms": 55417,
+        "sequence": 51,
+        "ms": 54219,
+        "elapsed_us": 10723,
+        "bytes": 1024,
+        "readback": true
+      },
+      {
+        "marker": "WRITE_BEGIN",
+        "device_log_ms": 55687,
+        "sequence": 52,
+        "ms": 54486,
+        "writes": 120,
+        "bytes": 1024
+      },
+      {
+        "marker": "WRITE_END",
+        "device_log_ms": 55697,
+        "sequence": 52,
+        "ms": 54501,
+        "elapsed_us": 14081,
+        "bytes": 1024,
+        "readback": true
+      },
+      {
+        "marker": "WRITE_BEGIN",
+        "device_log_ms": 55957,
+        "sequence": 53,
+        "ms": 54760,
+        "writes": 120,
+        "bytes": 1024
+      },
+      {
+        "marker": "WRITE_END",
+        "device_log_ms": 55977,
+        "sequence": 53,
+        "ms": 54778,
+        "elapsed_us": 17190,
+        "bytes": 1024,
+        "readback": true
+      },
+      {
+        "marker": "WRITE_BEGIN",
+        "device_log_ms": 56237,
+        "sequence": 54,
+        "ms": 55035,
+        "writes": 120,
+        "bytes": 1024
+      },
+      {
+        "marker": "WRITE_END",
+        "device_log_ms": 56247,
+        "sequence": 54,
+        "ms": 55049,
+        "elapsed_us": 13170,
+        "bytes": 1024,
+        "readback": true
+      },
+      {
+        "marker": "WRITE_BEGIN",
+        "device_log_ms": 56507,
+        "sequence": 55,
+        "ms": 55304,
+        "writes": 120,
+        "bytes": 1024
+      },
+      {
+        "marker": "WRITE_END",
+        "device_log_ms": 56517,
+        "sequence": 55,
+        "ms": 55321,
+        "elapsed_us": 16012,
+        "bytes": 1024,
+        "readback": true
+      },
+      {
+        "marker": "WRITE_BEGIN",
+        "device_log_ms": 56777,
+        "sequence": 56,
+        "ms": 55574,
+        "writes": 120,
+        "bytes": 1024
+      },
+      {
+        "marker": "WRITE_END",
+        "device_log_ms": 56797,
+        "sequence": 56,
+        "ms": 55600,
+        "elapsed_us": 25083,
+        "bytes": 1024,
+        "readback": true
+      },
+      {
+        "marker": "WRITE_BEGIN",
+        "device_log_ms": 57057,
+        "sequence": 57,
+        "ms": 55854,
+        "writes": 120,
+        "bytes": 1024
+      },
+      {
+        "marker": "WRITE_END",
+        "device_log_ms": 57107,
+        "sequence": 57,
+        "ms": 55907,
+        "elapsed_us": 52627,
+        "bytes": 1024,
+        "readback": true
+      },
+      {
+        "marker": "WRITE_BEGIN",
+        "device_log_ms": 57367,
+        "sequence": 58,
+        "ms": 56165,
+        "writes": 120,
+        "bytes": 1024
+      },
+      {
+        "marker": "WRITE_END",
+        "device_log_ms": 57377,
+        "sequence": 58,
+        "ms": 56179,
+        "elapsed_us": 13199,
+        "bytes": 1024,
+        "readback": true
+      },
+      {
+        "marker": "WRITE_BEGIN",
+        "device_log_ms": 57637,
+        "sequence": 59,
+        "ms": 56434,
+        "writes": 120,
+        "bytes": 1024
+      },
+      {
+        "marker": "WRITE_END",
+        "device_log_ms": 57657,
+        "sequence": 59,
+        "ms": 56463,
+        "elapsed_us": 28098,
+        "bytes": 1024,
+        "readback": true
+      },
+      {
+        "marker": "WRITE_BEGIN",
+        "device_log_ms": 57927,
+        "sequence": 60,
+        "ms": 56724,
+        "writes": 120,
+        "bytes": 1024
+      },
+      {
+        "marker": "WRITE_END",
+        "device_log_ms": 57957,
+        "sequence": 60,
+        "ms": 56755,
+        "elapsed_us": 30064,
+        "bytes": 1024,
+        "readback": true
+      },
+      {
+        "marker": "WRITE_BEGIN",
+        "device_log_ms": 58207,
+        "sequence": 61,
+        "ms": 57007,
+        "writes": 120,
+        "bytes": 1024
+      },
+      {
+        "marker": "WRITE_END",
+        "device_log_ms": 58217,
+        "sequence": 61,
+        "ms": 57020,
+        "elapsed_us": 11522,
+        "bytes": 1024,
+        "readback": true
+      },
+      {
+        "marker": "WRITE_BEGIN",
+        "device_log_ms": 58477,
+        "sequence": 62,
+        "ms": 57274,
+        "writes": 120,
+        "bytes": 1024
+      },
+      {
+        "marker": "WRITE_END",
+        "device_log_ms": 58497,
+        "sequence": 62,
+        "ms": 57300,
+        "elapsed_us": 25440,
+        "bytes": 1024,
+        "readback": true
+      },
+      {
+        "marker": "WRITE_BEGIN",
+        "device_log_ms": 58757,
+        "sequence": 63,
+        "ms": 57556,
+        "writes": 120,
+        "bytes": 1024
+      },
+      {
+        "marker": "WRITE_END",
+        "device_log_ms": 58787,
+        "sequence": 63,
+        "ms": 57586,
+        "elapsed_us": 27613,
+        "bytes": 1024,
+        "readback": true
+      },
+      {
+        "marker": "WRITE_BEGIN",
+        "device_log_ms": 59047,
+        "sequence": 64,
+        "ms": 57844,
+        "writes": 120,
+        "bytes": 1024
+      },
+      {
+        "marker": "WRITE_END",
+        "device_log_ms": 59057,
+        "sequence": 64,
+        "ms": 57861,
+        "elapsed_us": 16463,
+        "bytes": 1024,
+        "readback": true
+      },
+      {
+        "marker": "WRITE_BEGIN",
+        "device_log_ms": 59317,
+        "sequence": 65,
+        "ms": 58115,
+        "writes": 120,
+        "bytes": 1024
+      },
+      {
+        "marker": "WRITE_END",
+        "device_log_ms": 59327,
+        "sequence": 65,
+        "ms": 58129,
+        "elapsed_us": 12881,
+        "bytes": 1024,
+        "readback": true
+      },
+      {
+        "marker": "WRITE_BEGIN",
+        "device_log_ms": 59587,
+        "sequence": 66,
+        "ms": 58384,
+        "writes": 120,
+        "bytes": 1024
+      },
+      {
+        "marker": "WRITE_END",
+        "device_log_ms": 59627,
+        "sequence": 66,
+        "ms": 58425,
+        "elapsed_us": 39720,
+        "bytes": 1024,
+        "readback": true
+      },
+      {
+        "marker": "WRITE_BEGIN",
+        "device_log_ms": 59887,
+        "sequence": 67,
+        "ms": 58684,
+        "writes": 120,
+        "bytes": 1024
+      },
+      {
+        "marker": "WRITE_END",
+        "device_log_ms": 59897,
+        "sequence": 67,
+        "ms": 58701,
+        "elapsed_us": 16346,
+        "bytes": 1024,
+        "readback": true
+      },
+      {
+        "marker": "WRITE_BEGIN",
+        "device_log_ms": 60157,
+        "sequence": 68,
+        "ms": 58954,
+        "writes": 120,
+        "bytes": 1024
+      },
+      {
+        "marker": "WRITE_END",
+        "device_log_ms": 60167,
+        "sequence": 68,
+        "ms": 58972,
+        "elapsed_us": 17729,
+        "bytes": 1024,
+        "readback": true
+      },
+      {
+        "marker": "WRITE_BEGIN",
+        "device_log_ms": 60427,
+        "sequence": 69,
+        "ms": 59224,
+        "writes": 120,
+        "bytes": 1024
+      },
+      {
+        "marker": "WRITE_END",
+        "device_log_ms": 60437,
+        "sequence": 69,
+        "ms": 59239,
+        "elapsed_us": 14485,
+        "bytes": 1024,
+        "readback": true
+      },
+      {
+        "marker": "WRITE_BEGIN",
+        "device_log_ms": 60697,
+        "sequence": 70,
+        "ms": 59494,
+        "writes": 120,
+        "bytes": 1024
+      },
+      {
+        "marker": "WRITE_END",
+        "device_log_ms": 60737,
+        "sequence": 70,
+        "ms": 59537,
+        "elapsed_us": 42701,
+        "bytes": 1024,
+        "readback": true
+      },
+      {
+        "marker": "WRITE_BEGIN",
+        "device_log_ms": 60987,
+        "sequence": 71,
+        "ms": 59788,
+        "writes": 120,
+        "bytes": 1024
+      },
+      {
+        "marker": "WRITE_END",
+        "device_log_ms": 60997,
+        "sequence": 71,
+        "ms": 59799,
+        "elapsed_us": 9577,
+        "bytes": 1024,
+        "readback": true
+      },
+      {
+        "marker": "WRITE_BEGIN",
+        "device_log_ms": 61257,
+        "sequence": 72,
+        "ms": 60054,
+        "writes": 120,
+        "bytes": 1024
+      },
+      {
+        "marker": "WRITE_END",
+        "device_log_ms": 61267,
+        "sequence": 72,
+        "ms": 60071,
+        "elapsed_us": 16128,
+        "bytes": 1024,
+        "readback": true
+      },
+      {
+        "marker": "WRITE_BEGIN",
+        "device_log_ms": 61527,
+        "sequence": 73,
+        "ms": 60324,
+        "writes": 120,
+        "bytes": 1024
+      },
+      {
+        "marker": "WRITE_END",
+        "device_log_ms": 61547,
+        "sequence": 73,
+        "ms": 60352,
+        "elapsed_us": 27407,
+        "bytes": 1024,
+        "readback": true
+      },
+      {
+        "marker": "WRITE_BEGIN",
+        "device_log_ms": 61837,
+        "sequence": 74,
+        "ms": 60605,
+        "writes": 120,
+        "bytes": 1024
+      },
+      {
+        "marker": "WRITE_END",
+        "device_log_ms": 61857,
+        "sequence": 74,
+        "ms": 60660,
+        "elapsed_us": 10982,
+        "bytes": 1024,
+        "readback": true
+      },
+      {
+        "marker": "WRITE_BEGIN",
+        "device_log_ms": 62117,
+        "sequence": 75,
+        "ms": 60919,
+        "writes": 120,
+        "bytes": 1024
+      },
+      {
+        "marker": "WRITE_END",
+        "device_log_ms": 62127,
+        "sequence": 75,
+        "ms": 60930,
+        "elapsed_us": 10299,
+        "bytes": 1024,
+        "readback": true
+      },
+      {
+        "marker": "WRITE_BEGIN",
+        "device_log_ms": 62387,
+        "sequence": 76,
+        "ms": 61185,
+        "writes": 120,
+        "bytes": 1024
+      },
+      {
+        "marker": "WRITE_END",
+        "device_log_ms": 62417,
+        "sequence": 76,
+        "ms": 61213,
+        "elapsed_us": 27224,
+        "bytes": 1024,
+        "readback": true
+      },
+      {
+        "marker": "WRITE_BEGIN",
+        "device_log_ms": 62677,
+        "sequence": 77,
+        "ms": 61477,
+        "writes": 120,
+        "bytes": 1024
+      },
+      {
+        "marker": "WRITE_END",
+        "device_log_ms": 62687,
+        "sequence": 77,
+        "ms": 61493,
+        "elapsed_us": 14581,
+        "bytes": 1024,
+        "readback": true
+      },
+      {
+        "marker": "WRITE_BEGIN",
+        "device_log_ms": 62947,
+        "sequence": 78,
+        "ms": 61752,
+        "writes": 120,
+        "bytes": 1024
+      },
+      {
+        "marker": "WRITE_END",
+        "device_log_ms": 62967,
+        "sequence": 78,
+        "ms": 61770,
+        "elapsed_us": 17809,
+        "bytes": 1024,
+        "readback": true
+      },
+      {
+        "marker": "WRITE_BEGIN",
+        "device_log_ms": 63227,
+        "sequence": 79,
+        "ms": 62024,
+        "writes": 120,
+        "bytes": 1024
+      },
+      {
+        "marker": "WRITE_END",
+        "device_log_ms": 63247,
+        "sequence": 79,
+        "ms": 62052,
+        "elapsed_us": 26887,
+        "bytes": 1024,
+        "readback": true
+      },
+      {
+        "marker": "WRITE_BEGIN",
+        "device_log_ms": 63507,
+        "sequence": 80,
+        "ms": 62304,
+        "writes": 120,
+        "bytes": 1024
+      },
+      {
+        "marker": "WRITE_END",
+        "device_log_ms": 63527,
+        "sequence": 80,
+        "ms": 62324,
+        "elapsed_us": 19156,
+        "bytes": 1024,
+        "readback": true
+      },
+      {
+        "marker": "WRITE_BEGIN",
+        "device_log_ms": 63787,
+        "sequence": 81,
+        "ms": 62586,
+        "writes": 120,
+        "bytes": 1024
+      },
+      {
+        "marker": "WRITE_END",
+        "device_log_ms": 63797,
+        "sequence": 81,
+        "ms": 62601,
+        "elapsed_us": 12951,
+        "bytes": 1024,
+        "readback": true
+      },
+      {
+        "marker": "WRITE_BEGIN",
+        "device_log_ms": 64057,
+        "sequence": 82,
+        "ms": 62857,
+        "writes": 120,
+        "bytes": 1024
+      },
+      {
+        "marker": "WRITE_END",
+        "device_log_ms": 64067,
+        "sequence": 82,
+        "ms": 62869,
+        "elapsed_us": 11639,
+        "bytes": 1024,
+        "readback": true
+      },
+      {
+        "marker": "WRITE_BEGIN",
+        "device_log_ms": 64327,
+        "sequence": 83,
+        "ms": 63124,
+        "writes": 120,
+        "bytes": 1024
+      },
+      {
+        "marker": "WRITE_END",
+        "device_log_ms": 64357,
+        "sequence": 83,
+        "ms": 63154,
+        "elapsed_us": 29144,
+        "bytes": 1024,
+        "readback": true
+      },
+      {
+        "marker": "WRITE_BEGIN",
+        "device_log_ms": 64607,
+        "sequence": 84,
+        "ms": 63407,
+        "writes": 120,
+        "bytes": 1024
+      },
+      {
+        "marker": "WRITE_END",
+        "device_log_ms": 64617,
+        "sequence": 84,
+        "ms": 63419,
+        "elapsed_us": 11677,
+        "bytes": 1024,
+        "readback": true
+      },
+      {
+        "marker": "WRITE_BEGIN",
+        "device_log_ms": 64877,
+        "sequence": 85,
+        "ms": 63674,
+        "writes": 120,
+        "bytes": 1024
+      },
+      {
+        "marker": "WRITE_END",
+        "device_log_ms": 64897,
+        "sequence": 85,
+        "ms": 63700,
+        "elapsed_us": 25102,
+        "bytes": 1024,
+        "readback": true
+      },
+      {
+        "marker": "WRITE_BEGIN",
+        "device_log_ms": 65157,
+        "sequence": 86,
+        "ms": 63956,
+        "writes": 120,
+        "bytes": 1024
+      },
+      {
+        "marker": "WRITE_END",
+        "device_log_ms": 65177,
+        "sequence": 86,
+        "ms": 63981,
+        "elapsed_us": 23115,
+        "bytes": 1024,
+        "readback": true
+      },
+      {
+        "marker": "WRITE_BEGIN",
+        "device_log_ms": 65437,
+        "sequence": 87,
+        "ms": 64235,
+        "writes": 120,
+        "bytes": 1024
+      },
+      {
+        "marker": "WRITE_END",
+        "device_log_ms": 65447,
+        "sequence": 87,
+        "ms": 64249,
+        "elapsed_us": 11627,
+        "bytes": 1024,
+        "readback": true
+      },
+      {
+        "marker": "WRITE_BEGIN",
+        "device_log_ms": 65707,
+        "sequence": 88,
+        "ms": 64505,
+        "writes": 120,
+        "bytes": 1024
+      },
+      {
+        "marker": "WRITE_END",
+        "device_log_ms": 65717,
+        "sequence": 88,
+        "ms": 64519,
+        "elapsed_us": 13197,
+        "bytes": 1024,
+        "readback": true
+      },
+      {
+        "marker": "WRITE_BEGIN",
+        "device_log_ms": 65977,
+        "sequence": 89,
+        "ms": 64774,
+        "writes": 120,
+        "bytes": 1024
+      },
+      {
+        "marker": "WRITE_END",
+        "device_log_ms": 66017,
+        "sequence": 89,
+        "ms": 64818,
+        "elapsed_us": 43715,
+        "bytes": 1024,
+        "readback": true
+      },
+      {
+        "marker": "WRITE_BEGIN",
+        "device_log_ms": 66267,
+        "sequence": 90,
+        "ms": 65071,
+        "writes": 120,
+        "bytes": 1024
+      },
+      {
+        "marker": "WRITE_END",
+        "device_log_ms": 66287,
+        "sequence": 90,
+        "ms": 65086,
+        "elapsed_us": 14544,
+        "bytes": 1024,
+        "readback": true
+      },
+      {
+        "marker": "WRITE_BEGIN",
+        "device_log_ms": 66547,
+        "sequence": 91,
+        "ms": 65344,
+        "writes": 120,
+        "bytes": 1024
+      },
+      {
+        "marker": "WRITE_END",
+        "device_log_ms": 66557,
+        "sequence": 91,
+        "ms": 65361,
+        "elapsed_us": 16327,
+        "bytes": 1024,
+        "readback": true
+      },
+      {
+        "marker": "WRITE_BEGIN",
+        "device_log_ms": 66817,
+        "sequence": 92,
+        "ms": 65615,
+        "writes": 120,
+        "bytes": 1024
+      },
+      {
+        "marker": "WRITE_END",
+        "device_log_ms": 66837,
+        "sequence": 92,
+        "ms": 65640,
+        "elapsed_us": 23930,
+        "bytes": 1024,
+        "readback": true
+      },
+      {
+        "marker": "WRITE_BEGIN",
+        "device_log_ms": 67097,
+        "sequence": 93,
+        "ms": 65895,
+        "writes": 120,
+        "bytes": 1024
+      },
+      {
+        "marker": "WRITE_END",
+        "device_log_ms": 67107,
+        "sequence": 93,
+        "ms": 65909,
+        "elapsed_us": 13234,
+        "bytes": 1024,
+        "readback": true
+      },
+      {
+        "marker": "WRITE_BEGIN",
+        "device_log_ms": 67367,
+        "sequence": 94,
+        "ms": 66164,
+        "writes": 120,
+        "bytes": 1024
+      },
+      {
+        "marker": "WRITE_END",
+        "device_log_ms": 67387,
+        "sequence": 94,
+        "ms": 66191,
+        "elapsed_us": 26433,
+        "bytes": 1024,
+        "readback": true
+      },
+      {
+        "marker": "WRITE_BEGIN",
+        "device_log_ms": 67647,
+        "sequence": 95,
+        "ms": 66444,
+        "writes": 120,
+        "bytes": 1024
+      },
+      {
+        "marker": "WRITE_END",
+        "device_log_ms": 67657,
+        "sequence": 95,
+        "ms": 66461,
+        "elapsed_us": 16005,
+        "bytes": 1024,
+        "readback": true
+      },
+      {
+        "marker": "WRITE_BEGIN",
+        "device_log_ms": 67917,
+        "sequence": 96,
+        "ms": 66714,
+        "writes": 120,
+        "bytes": 1024
+      },
+      {
+        "marker": "WRITE_END",
+        "device_log_ms": 67947,
+        "sequence": 96,
+        "ms": 66746,
+        "elapsed_us": 31546,
+        "bytes": 1024,
+        "readback": true
+      },
+      {
+        "marker": "WRITE_BEGIN",
+        "device_log_ms": 68207,
+        "sequence": 97,
+        "ms": 67004,
+        "writes": 120,
+        "bytes": 1024
+      },
+      {
+        "marker": "WRITE_END",
+        "device_log_ms": 68227,
+        "sequence": 97,
+        "ms": 67030,
+        "elapsed_us": 24765,
+        "bytes": 1024,
+        "readback": true
+      },
+      {
+        "marker": "WRITE_BEGIN",
+        "device_log_ms": 68487,
+        "sequence": 98,
+        "ms": 67284,
+        "writes": 120,
+        "bytes": 1024
+      },
+      {
+        "marker": "WRITE_END",
+        "device_log_ms": 68517,
+        "sequence": 98,
+        "ms": 67315,
+        "elapsed_us": 30420,
+        "bytes": 1024,
+        "readback": true
+      },
+      {
+        "marker": "WRITE_BEGIN",
+        "device_log_ms": 68777,
+        "sequence": 99,
+        "ms": 67575,
+        "writes": 120,
+        "bytes": 1024
+      },
+      {
+        "marker": "WRITE_END",
+        "device_log_ms": 68797,
+        "sequence": 99,
+        "ms": 67599,
+        "elapsed_us": 23267,
+        "bytes": 1024,
+        "readback": true
+      },
+      {
+        "marker": "WRITE_BEGIN",
+        "device_log_ms": 69057,
+        "sequence": 100,
+        "ms": 67857,
+        "writes": 120,
+        "bytes": 1024
+      },
+      {
+        "marker": "WRITE_END",
+        "device_log_ms": 69067,
+        "sequence": 100,
+        "ms": 67869,
+        "elapsed_us": 11351,
+        "bytes": 1024,
+        "readback": true
+      },
+      {
+        "marker": "WRITE_BEGIN",
+        "device_log_ms": 69337,
+        "sequence": 101,
+        "ms": 68137,
+        "writes": 120,
+        "bytes": 1024
+      },
+      {
+        "marker": "WRITE_END",
+        "device_log_ms": 69347,
+        "sequence": 101,
+        "ms": 68152,
+        "elapsed_us": 13935,
+        "bytes": 1024,
+        "readback": true
+      },
+      {
+        "marker": "WRITE_BEGIN",
+        "device_log_ms": 69607,
+        "sequence": 102,
+        "ms": 68409,
+        "writes": 120,
+        "bytes": 1024
+      },
+      {
+        "marker": "WRITE_END",
+        "device_log_ms": 69637,
+        "sequence": 102,
+        "ms": 68440,
+        "elapsed_us": 30045,
+        "bytes": 1024,
+        "readback": true
+      },
+      {
+        "marker": "WRITE_BEGIN",
+        "device_log_ms": 69897,
+        "sequence": 103,
+        "ms": 68695,
+        "writes": 120,
+        "bytes": 1024
+      },
+      {
+        "marker": "WRITE_END",
+        "device_log_ms": 69907,
+        "sequence": 103,
+        "ms": 68709,
+        "elapsed_us": 13562,
+        "bytes": 1024,
+        "readback": true
+      },
+      {
+        "marker": "WRITE_BEGIN",
+        "device_log_ms": 70167,
+        "sequence": 104,
+        "ms": 68964,
+        "writes": 120,
+        "bytes": 1024
+      },
+      {
+        "marker": "WRITE_END",
+        "device_log_ms": 70187,
+        "sequence": 104,
+        "ms": 68990,
+        "elapsed_us": 24887,
+        "bytes": 1024,
+        "readback": true
+      },
+      {
+        "marker": "WRITE_BEGIN",
+        "device_log_ms": 70457,
+        "sequence": 105,
+        "ms": 69257,
+        "writes": 120,
+        "bytes": 1024
+      },
+      {
+        "marker": "WRITE_END",
+        "device_log_ms": 70477,
+        "sequence": 105,
+        "ms": 69283,
+        "elapsed_us": 24934,
+        "bytes": 1024,
+        "readback": true
+      },
+      {
+        "marker": "WRITE_BEGIN",
+        "device_log_ms": 70737,
+        "sequence": 106,
+        "ms": 69535,
+        "writes": 120,
+        "bytes": 1024
+      },
+      {
+        "marker": "WRITE_END",
+        "device_log_ms": 70747,
+        "sequence": 106,
+        "ms": 69549,
+        "elapsed_us": 13581,
+        "bytes": 1024,
+        "readback": true
+      },
+      {
+        "marker": "WRITE_BEGIN",
+        "device_log_ms": 71007,
+        "sequence": 107,
+        "ms": 69804,
+        "writes": 120,
+        "bytes": 1024
+      },
+      {
+        "marker": "WRITE_END",
+        "device_log_ms": 71017,
+        "sequence": 107,
+        "ms": 69821,
+        "elapsed_us": 16338,
+        "bytes": 1024,
+        "readback": true
+      },
+      {
+        "marker": "WRITE_BEGIN",
+        "device_log_ms": 71277,
+        "sequence": 108,
+        "ms": 70075,
+        "writes": 120,
+        "bytes": 1024
+      },
+      {
+        "marker": "WRITE_END",
+        "device_log_ms": 71287,
+        "sequence": 108,
+        "ms": 70089,
+        "elapsed_us": 12321,
+        "bytes": 1024,
+        "readback": true
+      },
+      {
+        "marker": "WRITE_BEGIN",
+        "device_log_ms": 71547,
+        "sequence": 109,
+        "ms": 70344,
+        "writes": 120,
+        "bytes": 1024
+      },
+      {
+        "marker": "WRITE_END",
+        "device_log_ms": 71587,
+        "sequence": 109,
+        "ms": 70387,
+        "elapsed_us": 42596,
+        "bytes": 1024,
+        "readback": true
+      },
+      {
+        "marker": "WRITE_BEGIN",
+        "device_log_ms": 71847,
+        "sequence": 110,
+        "ms": 70646,
+        "writes": 120,
+        "bytes": 1024
+      },
+      {
+        "marker": "WRITE_END",
+        "device_log_ms": 71857,
+        "sequence": 110,
+        "ms": 70659,
+        "elapsed_us": 9441,
+        "bytes": 1024,
+        "readback": true
+      },
+      {
+        "marker": "WRITE_BEGIN",
+        "device_log_ms": 72117,
+        "sequence": 111,
+        "ms": 70915,
+        "writes": 120,
+        "bytes": 1024
+      },
+      {
+        "marker": "WRITE_END",
+        "device_log_ms": 72127,
+        "sequence": 111,
+        "ms": 70929,
+        "elapsed_us": 13084,
+        "bytes": 1024,
+        "readback": true
+      },
+      {
+        "marker": "WRITE_BEGIN",
+        "device_log_ms": 72387,
+        "sequence": 112,
+        "ms": 71184,
+        "writes": 120,
+        "bytes": 1024
+      },
+      {
+        "marker": "WRITE_END",
+        "device_log_ms": 72417,
+        "sequence": 112,
+        "ms": 71221,
+        "elapsed_us": 36078,
+        "bytes": 1024,
+        "readback": true
+      },
+      {
+        "marker": "WRITE_BEGIN",
+        "device_log_ms": 72677,
+        "sequence": 113,
+        "ms": 71475,
+        "writes": 120,
+        "bytes": 1024
+      },
+      {
+        "marker": "WRITE_END",
+        "device_log_ms": 72687,
+        "sequence": 113,
+        "ms": 71489,
+        "elapsed_us": 13237,
+        "bytes": 1024,
+        "readback": true
+      },
+      {
+        "marker": "WRITE_BEGIN",
+        "device_log_ms": 72947,
+        "sequence": 114,
+        "ms": 71745,
+        "writes": 120,
+        "bytes": 1024
+      },
+      {
+        "marker": "WRITE_END",
+        "device_log_ms": 72957,
+        "sequence": 114,
+        "ms": 71759,
+        "elapsed_us": 13028,
+        "bytes": 1024,
+        "readback": true
+      },
+      {
+        "marker": "WRITE_BEGIN",
+        "device_log_ms": 73217,
+        "sequence": 115,
+        "ms": 72014,
+        "writes": 120,
+        "bytes": 1024
+      },
+      {
+        "marker": "WRITE_END",
+        "device_log_ms": 73247,
+        "sequence": 115,
+        "ms": 72044,
+        "elapsed_us": 29665,
+        "bytes": 1024,
+        "readback": true
+      },
+      {
+        "marker": "WRITE_BEGIN",
+        "device_log_ms": 73497,
+        "sequence": 116,
+        "ms": 72295,
+        "writes": 120,
+        "bytes": 1024
+      },
+      {
+        "marker": "WRITE_END",
+        "device_log_ms": 73507,
+        "sequence": 116,
+        "ms": 72311,
+        "elapsed_us": 14653,
+        "bytes": 1024,
+        "readback": true
+      },
+      {
+        "marker": "WRITE_BEGIN",
+        "device_log_ms": 73767,
+        "sequence": 117,
+        "ms": 72564,
+        "writes": 120,
+        "bytes": 1024
+      },
+      {
+        "marker": "WRITE_END",
+        "device_log_ms": 73787,
+        "sequence": 117,
+        "ms": 72590,
+        "elapsed_us": 25252,
+        "bytes": 1024,
+        "readback": true
+      },
+      {
+        "marker": "WRITE_BEGIN",
+        "device_log_ms": 74047,
+        "sequence": 118,
+        "ms": 72844,
+        "writes": 120,
+        "bytes": 1024
+      },
+      {
+        "marker": "WRITE_END",
+        "device_log_ms": 74067,
+        "sequence": 118,
+        "ms": 72870,
+        "elapsed_us": 23952,
+        "bytes": 1024,
+        "readback": true
+      },
+      {
+        "marker": "WRITE_BEGIN",
+        "device_log_ms": 74327,
+        "sequence": 119,
+        "ms": 73125,
+        "writes": 120,
+        "bytes": 1024
+      },
+      {
+        "marker": "WRITE_END",
+        "device_log_ms": 74337,
+        "sequence": 119,
+        "ms": 73139,
+        "elapsed_us": 13386,
+        "bytes": 1024,
+        "readback": true
+      },
+      {
+        "marker": "CLEANUP_BEGIN",
+        "device_log_ms": 74597,
+        "sequence": 120,
+        "ms": 73396,
+        "writes": 120,
+        "bytes": 1024
+      },
+      {
+        "marker": "CLEANUP_END",
+        "device_log_ms": 74607,
+        "sequence": 120,
+        "ms": 73404,
+        "writes": 120,
+        "bytes": 1024
+      },
+      {
+        "marker": "RECOVERED",
+        "device_log_ms": 94617,
+        "sequence": 120,
+        "ms": 93422,
+        "writes": 120,
+        "bytes": 1024
+      }
+    ],
+    "final_listeners": [
+      {
+        "source_path": "target/capture-publication/nvs-two/20261008T162503.146387Z/listener-1.framehash",
+        "sha256": "b2103fb66dc1d4402bdd9ad0e31996071c6523cedcb76d15f41ddc7992ab3ee0",
+        "frames": 4320000,
+        "packets": 1055,
+        "timeline_gaps": 0
+      },
+      {
+        "source_path": "target/capture-publication/nvs-two/20261008T162503.146387Z/listener-2.framehash",
+        "sha256": "b2103fb66dc1d4402bdd9ad0e31996071c6523cedcb76d15f41ddc7992ab3ee0",
+        "frames": 4320000,
+        "packets": 1055,
+        "timeline_gaps": 0
+      }
+    ],
+    "capture_observations": [
+      {
+        "device_log_ms": 11357,
+        "frames": 474480,
+        "queue_overflows": 15,
+        "software_dropped_frames": 480,
+        "read_errors": 0,
+        "restarts": 2,
+        "discontinuities": 2,
+        "capture_runtime_window_us": 9903028,
+        "capture_task_runtime_us": 850311,
+        "internal_min_sum": 71107,
+        "psram_min_sum": 927696
+      },
+      {
+        "device_log_ms": 21447,
+        "frames": 958800,
+        "queue_overflows": 15,
+        "software_dropped_frames": 480,
+        "read_errors": 0,
+        "restarts": 2,
+        "discontinuities": 2,
+        "capture_runtime_window_us": 10088703,
+        "capture_task_runtime_us": 905902,
+        "internal_min_sum": 71171,
+        "psram_min_sum": 926148
+      },
+      {
+        "device_log_ms": 31517,
+        "frames": 1442160,
+        "queue_overflows": 15,
+        "software_dropped_frames": 480,
+        "read_errors": 0,
+        "restarts": 2,
+        "discontinuities": 2,
+        "capture_runtime_window_us": 10071570,
+        "capture_task_runtime_us": 930388,
+        "internal_min_sum": 60051,
+        "psram_min_sum": 871104
+      },
+      {
+        "device_log_ms": 41617,
+        "frames": 1926960,
+        "queue_overflows": 15,
+        "software_dropped_frames": 480,
+        "read_errors": 0,
+        "restarts": 2,
+        "discontinuities": 2,
+        "capture_runtime_window_us": 10097247,
+        "capture_task_runtime_us": 934258,
+        "internal_min_sum": 60051,
+        "psram_min_sum": 865940
+      },
+      {
+        "device_log_ms": 51637,
+        "frames": 2407920,
+        "queue_overflows": 15,
+        "software_dropped_frames": 480,
+        "read_errors": 0,
+        "restarts": 2,
+        "discontinuities": 2,
+        "capture_runtime_window_us": 10021543,
+        "capture_task_runtime_us": 930227,
+        "internal_min_sum": 59955,
+        "psram_min_sum": 862608
+      },
+      {
+        "device_log_ms": 61747,
+        "frames": 2893440,
+        "queue_overflows": 15,
+        "software_dropped_frames": 480,
+        "read_errors": 0,
+        "restarts": 2,
+        "discontinuities": 2,
+        "capture_runtime_window_us": 10113746,
+        "capture_task_runtime_us": 941824,
+        "internal_min_sum": 59755,
+        "psram_min_sum": 869408
+      },
+      {
+        "device_log_ms": 71747,
+        "frames": 3373440,
+        "queue_overflows": 15,
+        "software_dropped_frames": 480,
+        "read_errors": 0,
+        "restarts": 2,
+        "discontinuities": 2,
+        "capture_runtime_window_us": 10000541,
+        "capture_task_runtime_us": 935064,
+        "internal_min_sum": 59271,
+        "psram_min_sum": 863184
+      },
+      {
+        "device_log_ms": 81777,
+        "frames": 3854640,
+        "queue_overflows": 15,
+        "software_dropped_frames": 480,
+        "read_errors": 0,
+        "restarts": 2,
+        "discontinuities": 2,
+        "capture_runtime_window_us": 10025621,
+        "capture_task_runtime_us": 934028,
+        "internal_min_sum": 60083,
+        "psram_min_sum": 864808
+      },
+      {
+        "device_log_ms": 91857,
+        "frames": 4338480,
+        "queue_overflows": 15,
+        "software_dropped_frames": 480,
+        "read_errors": 0,
+        "restarts": 2,
+        "discontinuities": 2,
+        "capture_runtime_window_us": 10078621,
+        "capture_task_runtime_us": 939516,
+        "internal_min_sum": 60083,
+        "psram_min_sum": 863280
+      },
+      {
+        "device_log_ms": 101897,
+        "frames": 4820400,
+        "queue_overflows": 15,
+        "software_dropped_frames": 480,
+        "read_errors": 0,
+        "restarts": 2,
+        "discontinuities": 2,
+        "capture_runtime_window_us": 10039985,
+        "capture_task_runtime_us": 932319,
+        "internal_min_sum": 60083,
+        "psram_min_sum": 860168
+      },
+      {
+        "device_log_ms": 111917,
+        "frames": 5301600,
+        "queue_overflows": 15,
+        "software_dropped_frames": 480,
+        "read_errors": 0,
+        "restarts": 2,
+        "discontinuities": 2,
+        "capture_runtime_window_us": 10024963,
+        "capture_task_runtime_us": 938393,
+        "internal_min_sum": 68939,
+        "psram_min_sum": 859624
+      },
+      {
+        "device_log_ms": 121947,
+        "frames": 5782800,
+        "queue_overflows": 15,
+        "software_dropped_frames": 480,
+        "read_errors": 0,
+        "restarts": 2,
+        "discontinuities": 2,
+        "capture_runtime_window_us": 10026288,
+        "capture_task_runtime_us": 914703,
+        "internal_min_sum": 68939,
+        "psram_min_sum": 863468
+      }
+    ],
+    "watchdog_found": false
+  },
+  "network_reconnect": {
+    "source_directory": "target/capture-publication/network/20261008T162911.122327Z",
+    "uart_sha256": "943d5f437811b52d77bfd36afbab907d52ec3695e54e00103d694f6956ca1f6b",
+    "image_sha256": "fc0e6261fee340eca9b20b41efb2164bd19207675a7991c4393c8622a5237bf6",
+    "passed": true,
+    "admission_cap_checked": true,
+    "disconnect_fixture_ms": 30044,
+    "disconnect_result_fixture_ms": 30057,
+    "disconnect_result": 0,
+    "original_departures_log_ms": [
+      31276,
+      31326
+    ],
+    "wifi_disconnected_log_ms": 31366,
+    "wifi_reconnected_log_ms": 35406,
+    "fresh_admissions_log_ms": [
+      40336,
+      40346
+    ],
+    "final_listeners": [
+      {
+        "source_path": "target/capture-publication/network/20261008T162911.122327Z/network-baseline-1.framehash",
+        "sha256": "aed7031a5c320a56356b691461b33f699385b3710198568ae59af403143f4b46",
+        "frames": 1060864,
+        "packets": 259,
+        "timeline_gaps": 0
+      },
+      {
+        "source_path": "target/capture-publication/network/20261008T162911.122327Z/network-baseline-2.framehash",
+        "sha256": "9893f778f48d51126c1f791f5f3e1313a518cf8afe5fd953587528e4df130f92",
+        "frames": 888832,
+        "packets": 217,
+        "timeline_gaps": 0
+      },
+      {
+        "source_path": "target/capture-publication/network/20261008T162911.122327Z/network-recovered-1.framehash",
+        "sha256": "0baf5ab81d98cac13c1c118b178fe23248e5129d39c0c452f1c4ed8ea58edfc9",
+        "frames": 480000,
+        "packets": 118,
+        "timeline_gaps": 0
+      },
+      {
+        "source_path": "target/capture-publication/network/20261008T162911.122327Z/network-recovered-2.framehash",
+        "sha256": "0baf5ab81d98cac13c1c118b178fe23248e5129d39c0c452f1c4ed8ea58edfc9",
+        "frames": 480000,
+        "packets": 118,
+        "timeline_gaps": 0
+      }
+    ],
+    "capture_observations": [
+      {
+        "device_log_ms": 11436,
+        "frames": 478560,
+        "queue_overflows": 14,
+        "software_dropped_frames": 480,
+        "read_errors": 0,
+        "restarts": 2,
+        "discontinuities": 2,
+        "capture_runtime_window_us": 9987690,
+        "capture_task_runtime_us": 862434,
+        "internal_min_sum": 63967,
+        "psram_min_sum": 775960
+      },
+      {
+        "device_log_ms": 21536,
+        "frames": 963120,
+        "queue_overflows": 14,
+        "software_dropped_frames": 480,
+        "read_errors": 0,
+        "restarts": 2,
+        "discontinuities": 2,
+        "capture_runtime_window_us": 10092945,
+        "capture_task_runtime_us": 930110,
+        "internal_min_sum": 64183,
+        "psram_min_sum": 777244
+      },
+      {
+        "device_log_ms": 31566,
+        "frames": 1444560,
+        "queue_overflows": 14,
+        "software_dropped_frames": 480,
+        "read_errors": 0,
+        "restarts": 2,
+        "discontinuities": 2,
+        "capture_runtime_window_us": 10030975,
+        "capture_task_runtime_us": 917296,
+        "internal_min_sum": 64099,
+        "psram_min_sum": 778204
+      },
+      {
+        "device_log_ms": 41676,
+        "frames": 1929840,
+        "queue_overflows": 14,
+        "software_dropped_frames": 480,
+        "read_errors": 0,
+        "restarts": 2,
+        "discontinuities": 2,
+        "capture_runtime_window_us": 10109958,
+        "capture_task_runtime_us": 907341,
+        "internal_min_sum": 69267,
+        "psram_min_sum": 780404
+      },
+      {
+        "device_log_ms": 51726,
+        "frames": 2412720,
+        "queue_overflows": 14,
+        "software_dropped_frames": 480,
+        "read_errors": 0,
+        "restarts": 2,
+        "discontinuities": 2,
+        "capture_runtime_window_us": 10057067,
+        "capture_task_runtime_us": 919087,
+        "internal_min_sum": 68331,
+        "psram_min_sum": 776888
+      },
+      {
+        "device_log_ms": 61756,
+        "frames": 2893920,
+        "queue_overflows": 14,
+        "software_dropped_frames": 480,
+        "read_errors": 0,
+        "restarts": 2,
+        "discontinuities": 2,
+        "capture_runtime_window_us": 10028891,
+        "capture_task_runtime_us": 913804,
+        "internal_min_sum": 68679,
+        "psram_min_sum": 773816
+      }
+    ],
+    "watchdog_found": false
+  },
+  "remaining_issue_refs": {
+    "dma_service": "93hm",
+    "tcp_delivery": "pd6c",
+    "settling": "ed4k",
+    "long_run": "ee3q"
+  },
+  "capture_flac_initial": {
+    "source_directory": "target/capture-publication/capture-flac/20261008T163231.831718Z",
+    "uart_sha256": "efec132536649581a416115ac292cfb1d8dcfae313e46dd22cc7dd0e785ad6c2",
+    "image_sha256": "7782d1d3f427642d0307f033719d0b311d30bd496e805d672bb404599d7dfea0",
+    "passed": false,
+    "error": "existing client ended before recovery suspension",
+    "stream_ring_behind_log_ms": 20057,
+    "numeric_fixture_events": [
+      {
+        "marker": "BOOT",
+        "device_log_ms": 16247,
+        "ms": 15044,
+        "reset_reason": 1
+      },
+      {
+        "marker": "AUDIO_TASK_FOUND",
+        "device_log_ms": 16247,
+        "ms": 15045
+      },
+      {
+        "marker": "SHORT_SUSPEND",
+        "device_log_ms": 16247,
+        "ms": 15047
+      },
+      {
+        "marker": "SHORT_RESUME",
+        "device_log_ms": 16287,
+        "ms": 15084
+      },
+      {
+        "marker": "RECOVERY_SUSPEND",
+        "device_log_ms": 26297,
+        "ms": 25094
+      }
+    ],
+    "final_listeners": [
+      {
+        "source_path": "target/capture-publication/capture-flac/20261008T163231.831718Z/capture-baseline.framehash",
+        "sha256": "40b5480cd912726a6061baa7bdf5bb7beda2ab85e72c05e8d69a6a84a3361e3a",
+        "frames": 663552,
+        "packets": 162
+      }
+    ],
+    "capture_observations": [
+      {
+        "device_log_ms": 11347,
+        "frames": 473760,
+        "queue_overflows": 16,
+        "software_dropped_frames": 480,
+        "read_errors": 0,
+        "restarts": 2,
+        "discontinuities": 2
+      },
+      {
+        "device_log_ms": 21437,
+        "frames": 958080,
+        "queue_overflows": 16,
+        "software_dropped_frames": 480,
+        "read_errors": 0,
+        "restarts": 2,
+        "discontinuities": 2
+      }
+    ],
+    "complete_health_gates_observed": false
+  },
+  "capture_flac_repeat": {
+    "source_directory": "target/capture-publication/capture-flac-repeat/20261008T163421.420566Z",
+    "uart_sha256": "b7b4424491443ef69c398347fbf0ffdfbaaa860b91fe9f50d23206df34dae4aa",
+    "image_sha256": "7782d1d3f427642d0307f033719d0b311d30bd496e805d672bb404599d7dfea0",
+    "passed": false,
+    "error": "capture-baseline: no decoded audio progress",
+    "fixture_markers_observed": false,
+    "final_framehash": {
+      "source_path": "target/capture-publication/capture-flac-repeat/20261008T163421.420566Z/capture-baseline.framehash",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "frames": 0,
+      "packets": 0
+    },
+    "capture_observations": [
+      {
+        "device_log_ms": 11367,
+        "frames": 474960,
+        "queue_overflows": 15,
+        "software_dropped_frames": 480,
+        "read_errors": 0,
+        "restarts": 2,
+        "discontinuities": 2
+      }
+    ],
+    "complete_health_gates_observed": false
+  },
+  "capture_health": {
+    "source_directory": "target/capture-publication/capture-health/20261008T163553.672398Z",
+    "uart_sha256": "4cfa5e1be40ba5c2f8cea7ad08423080034f90b9a37ffad1a873d0125cbc4145",
+    "image_sha256": "7782d1d3f427642d0307f033719d0b311d30bd496e805d672bb404599d7dfea0",
+    "passed": true,
+    "scope": "capture supervisor only; no freshness or decoded playback",
+    "numeric_fixture_events": [
+      {
+        "boot_index": 1,
+        "marker": "BOOT",
+        "device_log_ms": 16247,
+        "ms": 15044,
+        "reset_reason": 1
+      },
+      {
+        "boot_index": 1,
+        "marker": "AUDIO_TASK_FOUND",
+        "device_log_ms": 16247,
+        "ms": 15045
+      },
+      {
+        "boot_index": 1,
+        "marker": "SHORT_SUSPEND",
+        "device_log_ms": 16247,
+        "ms": 15047
+      },
+      {
+        "boot_index": 1,
+        "marker": "SHORT_RESUME",
+        "device_log_ms": 16277,
+        "ms": 15074
+      },
+      {
+        "boot_index": 1,
+        "marker": "RECOVERY_SUSPEND",
+        "device_log_ms": 26287,
+        "ms": 25084
+      },
+      {
+        "boot_index": 1,
+        "marker": "RECOVERY_RESUME",
+        "device_log_ms": 29797,
+        "ms": 28594
+      },
+      {
+        "boot_index": 1,
+        "marker": "FINAL_SUSPEND",
+        "device_log_ms": 39807,
+        "ms": 38604
+      },
+      {
+        "boot_index": 2,
+        "marker": "BOOT",
+        "device_log_ms": 16247,
+        "ms": 15044,
+        "reset_reason": 3
+      },
+      {
+        "boot_index": 2,
+        "marker": "POST_REBOOT",
+        "device_log_ms": 16247,
+        "ms": 15045
+      }
+    ],
+    "capture_observations": [
+      {
+        "boot_index": 1,
+        "device_log_ms": 11427,
+        "frames": 477120,
+        "queue_overflows": 17,
+        "software_dropped_frames": 480,
+        "read_errors": 0,
+        "restarts": 2,
+        "discontinuities": 2,
+        "supervisor_restarts": 0,
+        "health_restart_requests": 0
+      },
+      {
+        "boot_index": 1,
+        "device_log_ms": 21497,
+        "frames": 960480,
+        "queue_overflows": 17,
+        "software_dropped_frames": 480,
+        "read_errors": 0,
+        "restarts": 2,
+        "discontinuities": 2,
+        "supervisor_restarts": 0,
+        "health_restart_requests": 0
+      },
+      {
+        "boot_index": 1,
+        "device_log_ms": 31577,
+        "frames": 1276080,
+        "queue_overflows": 710,
+        "software_dropped_frames": 720,
+        "read_errors": 0,
+        "restarts": 3,
+        "discontinuities": 3,
+        "supervisor_restarts": 1,
+        "health_restart_requests": 1
+      },
+      {
+        "boot_index": 1,
+        "device_log_ms": 41597,
+        "frames": 1671120,
+        "queue_overflows": 1058,
+        "software_dropped_frames": 720,
+        "read_errors": 0,
+        "restarts": 3,
+        "discontinuities": 3,
+        "supervisor_restarts": 1,
+        "health_restart_requests": 1
+      },
+      {
+        "boot_index": 2,
+        "device_log_ms": 11387,
+        "frames": 476160,
+        "queue_overflows": 15,
+        "software_dropped_frames": 480,
+        "read_errors": 0,
+        "restarts": 2,
+        "discontinuities": 2,
+        "supervisor_restarts": 0,
+        "health_restart_requests": 0
+      },
+      {
+        "boot_index": 2,
+        "device_log_ms": 21477,
+        "frames": 960240,
+        "queue_overflows": 15,
+        "software_dropped_frames": 480,
+        "read_errors": 0,
+        "restarts": 2,
+        "discontinuities": 2,
+        "supervisor_restarts": 0,
+        "health_restart_requests": 0
+      }
+    ],
+    "decoder_acceptance_observed": false
+  },
+  "capture_wav_initial": {
+    "source_directory": "target/capture-publication/capture-wav/20261008T163718.567057Z",
+    "uart_sha256": "41e94b1c79c334e4599ea6d1b42cecc122f95ad899137fba0c90289f2e228721",
+    "image_sha256": "7782d1d3f427642d0307f033719d0b311d30bd496e805d672bb404599d7dfea0",
+    "passed": false,
+    "error": "post-reboot ffmpeg premature stream integrity failure",
+    "numeric_fixture_events": [
+      {
+        "marker": "BOOT",
+        "device_log_ms": 16247,
+        "ms": 15044,
+        "reset_reason": 1
+      },
+      {
+        "marker": "AUDIO_TASK_FOUND",
+        "device_log_ms": 16247,
+        "ms": 15045
+      },
+      {
+        "marker": "SHORT_SUSPEND",
+        "device_log_ms": 16247,
+        "ms": 15053
+      },
+      {
+        "marker": "SHORT_RESUME",
+        "device_log_ms": 16287,
+        "ms": 15084
+      },
+      {
+        "marker": "RECOVERY_SUSPEND",
+        "device_log_ms": 26297,
+        "ms": 25094
+      },
+      {
+        "marker": "RECOVERY_RESUME",
+        "device_log_ms": 29807,
+        "ms": 28604
+      },
+      {
+        "marker": "FINAL_SUSPEND",
+        "device_log_ms": 39817,
+        "ms": 38614
+      },
+      {
+        "marker": "BOOT",
+        "device_log_ms": 16247,
+        "ms": 15044,
+        "reset_reason": 3
+      },
+      {
+        "marker": "POST_REBOOT",
+        "device_log_ms": 16247,
+        "ms": 15045
+      }
+    ],
+    "final_listeners": [
+      {
+        "source_path": "target/capture-publication/capture-wav/20261008T163718.567057Z/capture-baseline.framehash",
+        "sha256": "83470a3d35aa8273ca08ae3193360b48c10091e44938239372420045d1f7d4fa",
+        "frames": 581632,
+        "packets": 142,
+        "timeline_gaps": 0
+      },
+      {
+        "source_path": "target/capture-publication/capture-wav/20261008T163718.567057Z/capture-post-reboot.framehash",
+        "sha256": "7f0b3ffc73b4818308ba6c7b2585253bbf4ab9864b7076d86c0076b783ca23f3",
+        "frames": 45056,
+        "packets": 11,
+        "timeline_gaps": 0
+      },
+      {
+        "source_path": "target/capture-publication/capture-wav/20261008T163718.567057Z/capture-recovered.framehash",
+        "sha256": "2bcb513ed69134904466e1fb57e6a884f52358285e1777d84e15e23ab04684cd",
+        "frames": 288000,
+        "packets": 71,
+        "timeline_gaps": 0
+      }
+    ],
+    "capture_observations": [
+      {
+        "boot_index": 1,
+        "device_log_ms": 11437,
+        "frames": 478080,
+        "queue_overflows": 16,
+        "software_dropped_frames": 480,
+        "read_errors": 0,
+        "restarts": 2,
+        "discontinuities": 2,
+        "supervisor_restarts": 0,
+        "health_restart_requests": 0
+      },
+      {
+        "boot_index": 1,
+        "device_log_ms": 21527,
+        "frames": 962400,
+        "queue_overflows": 16,
+        "software_dropped_frames": 480,
+        "read_errors": 0,
+        "restarts": 2,
+        "discontinuities": 2,
+        "supervisor_restarts": 0,
+        "health_restart_requests": 0
+      },
+      {
+        "boot_index": 1,
+        "device_log_ms": 31617,
+        "frames": 1278480,
+        "queue_overflows": 708,
+        "software_dropped_frames": 480,
+        "read_errors": 0,
+        "restarts": 3,
+        "discontinuities": 3,
+        "supervisor_restarts": 1,
+        "health_restart_requests": 1
+      },
+      {
+        "boot_index": 1,
+        "device_log_ms": 41717,
+        "frames": 1671840,
+        "queue_overflows": 1078,
+        "software_dropped_frames": 480,
+        "read_errors": 0,
+        "restarts": 3,
+        "discontinuities": 3,
+        "supervisor_restarts": 1,
+        "health_restart_requests": 1
+      },
+      {
+        "boot_index": 2,
+        "device_log_ms": 11387,
+        "frames": 475680,
+        "queue_overflows": 17,
+        "software_dropped_frames": 480,
+        "read_errors": 0,
+        "restarts": 2,
+        "discontinuities": 2,
+        "supervisor_restarts": 0,
+        "health_restart_requests": 0
+      }
+    ],
+    "summary_decoder_frames": [
+      569344,
+      288000,
+      45056
+    ]
+  },
+  "capture_flac_known_demuxer": {
+    "source_directory": "target/capture-publication/capture-flac-demuxer/20261008T164737.350729Z",
+    "uart_sha256": "9c86df51ed8019dc51b72dad990a1194465c9d4eb6a1b97d7bd83c02d87cb63c",
+    "image_sha256": "7782d1d3f427642d0307f033719d0b311d30bd496e805d672bb404599d7dfea0",
+    "known_input_demuxer": true,
+    "passed": false,
+    "error": "capture-baseline: no decoded audio progress",
+    "numeric_fixture_events": [],
+    "capture_observations": [
+      {
+        "device_log_ms": 11347,
+        "frames": 474240,
+        "queue_overflows": 15,
+        "software_dropped_frames": 480,
+        "read_errors": 0,
+        "restarts": 2,
+        "discontinuities": 2
+      }
+    ],
+    "final_listeners": [
+      {
+        "source_path": "target/capture-publication/capture-flac-demuxer/20261008T164737.350729Z/capture-baseline.framehash",
+        "sha256": "8f2c3cc32a4dfa4d627bf97201c6659a55d1df8e5ff72c93c9c5dc5cc6342b37",
+        "frames": 118784,
+        "packets": 29,
+        "timeline_gaps": 0
+      }
+    ],
+    "complete_health_gates_observed": false
+  },
+  "cable_confirmation": {
+    "received_utc": "2026-10-08T16:48:48Z",
+    "statement": "Doctor Biz confirmed LINE IN connected to LINE OUT; actual connection time unknown. Driven tones subsequently verified in a 4,096-frame decoded prefix; the requested four-second capture failed."
+  },
+  "harness_fix_commit": "4aa931f",
+  "final_production_image": {
+    "path": "target/capture-publication/final-production.elf",
+    "sha256": "36c559caea3a2a4fe282ed71a47a748257c9ad3e9f91ac14dc83cf868c85cfe4",
+    "flash_text_identical_to_initial_candidate": true,
+    "flash_text_sha256": "319e404ab7442d7a5a7f7aacfd5347d474ba29730818c7950f0ad7b16c6777b3",
+    "source_difference": "Only the raw-read metric comment changed after candidate production; harness source does not enter firmware."
+  },
+  "connected_signal_probe": {
+    "frames": 4096,
+    "sample_rate": 48000,
+    "channels": [
+      {
+        "ac_rms_dbfs": -43.15280696381769,
+        "peak_frequency_hz": 2003.90625,
+        "tone_1000_dbfs": -86.23164513590275,
+        "tone_2000_dbfs": -41.787090067689675
+      },
+      {
+        "ac_rms_dbfs": -43.42732677377849,
+        "peak_frequency_hz": 996.09375,
+        "tone_1000_dbfs": -42.07562021767397,
+        "tone_2000_dbfs": -93.16896771532392
+      }
+    ],
+    "complete_capture": false,
+    "requested_frames": 192000,
+    "ffmpeg_exit_code": 183,
+    "source_tones": [
+      {
+        "rms_dbfs": -21.072495899295905,
+        "frequency_hz": 1000.0
+      },
+      {
+        "rms_dbfs": -21.072718846686733,
+        "frequency_hz": 2000.0
+      }
+    ],
+    "workstation_master_db": -23.25,
+    "workstation_pcm_db": -0.6,
+    "interpretation": "Partial valid decoded prefix confirms driven tones at ADC; stream ended prematurely. Not a continuity, gain-calibration or settling pass.",
+    "source_directory": "target/capture-publication",
+    "pcm_sha256": "b4a6a20185fae24a9e7269eac5c74824d8349dd9858a8734e9543021825f5574",
+    "decoder_log_sha256": "d7383bf533062d99cec5454f61e0a18e61338a0508bd20e8d5b81e6b91d9a46a"
+  },
+  "settling_connected": {
+    "raw_path": "target/capture-publication/settling-connected-uart.log",
+    "raw_sha256": "8858484af1a2eeddc129324892cd602ff38012801f6b91379ee0c62299096f71",
+    "source_image_sha256": "1e32b3e09275e90d57d3ca12f3df5e1d456ee6006187fbd9d1202639449ea567",
+    "source_tone_path": "target/capture-settling/stereo-tone-120s.wav",
+    "source_tone_sha256": "2032dd09d81f23ff078de9a268a0697ddf1d1d3e966bfa33b4c357a80ff2b5aa",
+    "physically_cold": false,
+    "thresholds": {
+      "reference_blocks": [
+        160,
+        199
+      ],
+      "ac_rms_deviation_db": 1,
+      "dc_deviation_lsb": 1000,
+      "peak_reference_ratio": 1.25,
+      "meaning": "descriptive comparisons, not production policy"
+    },
+    "trials": [
+      {
+        "pair": 1,
+        "kind": "codec-soft-reinit",
+        "begin": {
+          "marker": "BEGIN",
+          "trial": 1,
+          "kind": "codec-soft-reinit",
+          "setup_begin_us": 50208,
+          "codec_end_us": 64409,
+          "restart_begin_us": 64410,
+          "capture_begin_us": 64471,
+          "codec_elapsed_us": 14201,
+          "restart_elapsed_us": 61,
+          "setup_overflows": 0,
+          "callback_baseline": 2,
+          "overflow_baseline": 0
+        },
+        "summary": {
+          "marker": "SUMMARY",
+          "trial": 1,
+          "kind": "codec-soft-reinit",
+          "valid": true,
+          "blocks": 200,
+          "frames": 48000,
+          "capture_end_us": 1064627,
+          "elapsed_us": 1000156,
+          "callback_delta": 200,
+          "overflow_delta": 0,
+          "read_errors": 0,
+          "malformed_reads": 0,
+          "short_reads": 0,
+          "late_reads": 0,
+          "deadline_reached": false,
+          "codec_failed": false,
+          "restart_error": 0
+        },
+        "channels": {
+          "l": {
+            "late_reference": {
+              "rms_lsb": 58264.31620723946,
+              "ac_rms_lsb": 58262.82874064702,
+              "dc_lsb": -416.32947916666666,
+              "peak_lsb": 85340,
+              "ac_dbfs": -43.16596667744582
+            },
+            "first_block": {
+              "rms_lsb": 0.0,
+              "ac_rms_lsb": 0.0,
+              "dc_lsb": 0.0,
+              "peak_lsb": 0,
+              "ac_dbfs": null
+            },
+            "first_50ms": {
+              "rms_lsb": 0.0,
+              "ac_rms_lsb": 0.0,
+              "dc_lsb": 0.0,
+              "peak_lsb": 0,
+              "ac_dbfs": null
+            },
+            "first_nonzero_block": 35,
+            "first_nonzero_audio_interval_ms": [
+              175,
+              180
+            ],
+            "last_descriptive_anomaly_block": 60,
+            "descriptive_stable_from_audio_ms": 305,
+            "maximum_peak_lsb": 93733,
+            "maximum_abs_dc_lsb": 10232.775
+          },
+          "r": {
+            "late_reference": {
+              "rms_lsb": 56361.889071207544,
+              "ac_rms_lsb": 56359.687259209,
+              "dc_lsb": -498.1884375,
+              "peak_lsb": 83237,
+              "ac_dbfs": -43.45442651468946
+            },
+            "first_block": {
+              "rms_lsb": 0.0,
+              "ac_rms_lsb": 0.0,
+              "dc_lsb": 0.0,
+              "peak_lsb": 0,
+              "ac_dbfs": null
+            },
+            "first_50ms": {
+              "rms_lsb": 0.0,
+              "ac_rms_lsb": 0.0,
+              "dc_lsb": 0.0,
+              "peak_lsb": 0,
+              "ac_dbfs": null
+            },
+            "first_nonzero_block": 35,
+            "first_nonzero_audio_interval_ms": [
+              175,
+              180
+            ],
+            "last_descriptive_anomaly_block": 79,
+            "descriptive_stable_from_audio_ms": 400,
+            "maximum_peak_lsb": 98951,
+            "maximum_abs_dc_lsb": 17835.3
+          }
+        }
+      },
+      {
+        "pair": 1,
+        "kind": "i2s-only-restart",
+        "begin": {
+          "marker": "BEGIN",
+          "trial": 1,
+          "kind": "i2s-only-restart",
+          "setup_begin_us": 1064636,
+          "codec_end_us": 1064637,
+          "restart_begin_us": 1064637,
+          "capture_begin_us": 1064675,
+          "codec_elapsed_us": 1,
+          "restart_elapsed_us": 38,
+          "setup_overflows": 0,
+          "callback_baseline": 202,
+          "overflow_baseline": 0
+        },
+        "summary": {
+          "marker": "SUMMARY",
+          "trial": 1,
+          "kind": "i2s-only-restart",
+          "valid": true,
+          "blocks": 200,
+          "frames": 48000,
+          "capture_end_us": 2064841,
+          "elapsed_us": 1000166,
+          "callback_delta": 200,
+          "overflow_delta": 0,
+          "read_errors": 0,
+          "malformed_reads": 0,
+          "short_reads": 0,
+          "late_reads": 0,
+          "deadline_reached": false,
+          "codec_failed": false,
+          "restart_error": 0
+        },
+        "channels": {
+          "l": {
+            "late_reference": {
+              "rms_lsb": 58181.179676456944,
+              "ac_rms_lsb": 58179.204085746904,
+              "dc_lsb": -479.4585416666667,
+              "peak_lsb": 85351,
+              "ac_dbfs": -43.17844249276316
+            },
+            "first_block": {
+              "rms_lsb": 58277.53521605331,
+              "ac_rms_lsb": 58271.80847294606,
+              "dc_lsb": -816.975,
+              "peak_lsb": 84980,
+              "ac_dbfs": -43.16462807176173
+            },
+            "first_50ms": {
+              "rms_lsb": 58220.68762776681,
+              "ac_rms_lsb": 58218.20305796881,
+              "dc_lsb": -537.8666666666667,
+              "peak_lsb": 84980,
+              "ac_dbfs": -43.172622074770956
+            },
+            "first_nonzero_block": 0,
+            "first_nonzero_audio_interval_ms": [
+              0,
+              5
+            ],
+            "last_descriptive_anomaly_block": null,
+            "descriptive_stable_from_audio_ms": 0,
+            "maximum_peak_lsb": 85351,
+            "maximum_abs_dc_lsb": 946.8583333333333
+          },
+          "r": {
+            "late_reference": {
+              "rms_lsb": 56242.6587956838,
+              "ac_rms_lsb": 56240.40610140984,
+              "dc_lsb": -503.37854166666665,
+              "peak_lsb": 82084,
+              "ac_dbfs": -43.4728290457918
+            },
+            "first_block": {
+              "rms_lsb": 56427.35179037733,
+              "ac_rms_lsb": 56422.996617410034,
+              "dc_lsb": -701.0583333333333,
+              "peak_lsb": 81610,
+              "ac_dbfs": -43.444675050417686
+            },
+            "first_50ms": {
+              "rms_lsb": 56298.00295462679,
+              "ac_rms_lsb": 56296.15222269367,
+              "dc_lsb": -456.48833333333334,
+              "peak_lsb": 82040,
+              "ac_dbfs": -43.46422375869154
+            },
+            "first_nonzero_block": 0,
+            "first_nonzero_audio_interval_ms": [
+              0,
+              5
+            ],
+            "last_descriptive_anomaly_block": null,
+            "descriptive_stable_from_audio_ms": 0,
+            "maximum_peak_lsb": 82504,
+            "maximum_abs_dc_lsb": 907.3458333333333
+          }
+        }
+      },
+      {
+        "pair": 2,
+        "kind": "codec-soft-reinit",
+        "begin": {
+          "marker": "BEGIN",
+          "trial": 2,
+          "kind": "codec-soft-reinit",
+          "setup_begin_us": 2064848,
+          "codec_end_us": 2078980,
+          "restart_begin_us": 2078981,
+          "capture_begin_us": 2079094,
+          "codec_elapsed_us": 14132,
+          "restart_elapsed_us": 113,
+          "setup_overflows": 0,
+          "callback_baseline": 404,
+          "overflow_baseline": 0
+        },
+        "summary": {
+          "marker": "SUMMARY",
+          "trial": 2,
+          "kind": "codec-soft-reinit",
+          "valid": true,
+          "blocks": 200,
+          "frames": 48000,
+          "capture_end_us": 3079251,
+          "elapsed_us": 1000157,
+          "callback_delta": 200,
+          "overflow_delta": 0,
+          "read_errors": 0,
+          "malformed_reads": 0,
+          "short_reads": 0,
+          "late_reads": 0,
+          "deadline_reached": false,
+          "codec_failed": false,
+          "restart_error": 0
+        },
+        "channels": {
+          "l": {
+            "late_reference": {
+              "rms_lsb": 58251.54788400834,
+              "ac_rms_lsb": 58249.14988063154,
+              "dc_lsb": -528.55375,
+              "peak_lsb": 86217,
+              "ac_dbfs": -43.16800617708218
+            },
+            "first_block": {
+              "rms_lsb": 0.0,
+              "ac_rms_lsb": 0.0,
+              "dc_lsb": 0.0,
+              "peak_lsb": 0,
+              "ac_dbfs": null
+            },
+            "first_50ms": {
+              "rms_lsb": 0.0,
+              "ac_rms_lsb": 0.0,
+              "dc_lsb": 0.0,
+              "peak_lsb": 0,
+              "ac_dbfs": null
+            },
+            "first_nonzero_block": 36,
+            "first_nonzero_audio_interval_ms": [
+              180,
+              185
+            ],
+            "last_descriptive_anomaly_block": 55,
+            "descriptive_stable_from_audio_ms": 280,
+            "maximum_peak_lsb": 91128,
+            "maximum_abs_dc_lsb": 7469.183333333333
+          },
+          "r": {
+            "late_reference": {
+              "rms_lsb": 56284.40618792003,
+              "ac_rms_lsb": 56281.66339706632,
+              "dc_lsb": -555.6484375,
+              "peak_lsb": 82253,
+              "ac_dbfs": -43.46645951607209
+            },
+            "first_block": {
+              "rms_lsb": 0.0,
+              "ac_rms_lsb": 0.0,
+              "dc_lsb": 0.0,
+              "peak_lsb": 0,
+              "ac_dbfs": null
+            },
+            "first_50ms": {
+              "rms_lsb": 0.0,
+              "ac_rms_lsb": 0.0,
+              "dc_lsb": 0.0,
+              "peak_lsb": 0,
+              "ac_dbfs": null
+            },
+            "first_nonzero_block": 36,
+            "first_nonzero_audio_interval_ms": [
+              180,
+              185
+            ],
+            "last_descriptive_anomaly_block": 97,
+            "descriptive_stable_from_audio_ms": 490,
+            "maximum_peak_lsb": 95645,
+            "maximum_abs_dc_lsb": 17929.0625
+          }
+        }
+      },
+      {
+        "pair": 2,
+        "kind": "i2s-only-restart",
+        "begin": {
+          "marker": "BEGIN",
+          "trial": 2,
+          "kind": "i2s-only-restart",
+          "setup_begin_us": 3079256,
+          "codec_end_us": 3079257,
+          "restart_begin_us": 3079257,
+          "capture_begin_us": 3079296,
+          "codec_elapsed_us": 1,
+          "restart_elapsed_us": 39,
+          "setup_overflows": 0,
+          "callback_baseline": 604,
+          "overflow_baseline": 0
+        },
+        "summary": {
+          "marker": "SUMMARY",
+          "trial": 2,
+          "kind": "i2s-only-restart",
+          "valid": true,
+          "blocks": 200,
+          "frames": 48000,
+          "capture_end_us": 4079453,
+          "elapsed_us": 1000157,
+          "callback_delta": 200,
+          "overflow_delta": 0,
+          "read_errors": 0,
+          "malformed_reads": 0,
+          "short_reads": 0,
+          "late_reads": 0,
+          "deadline_reached": false,
+          "codec_failed": false,
+          "restart_error": 0
+        },
+        "channels": {
+          "l": {
+            "late_reference": {
+              "rms_lsb": 58172.83448915037,
+              "ac_rms_lsb": 58170.63035201757,
+              "dc_lsb": -506.3960416666667,
+              "peak_lsb": 84470,
+              "ac_dbfs": -43.17972260640413
+            },
+            "first_block": {
+              "rms_lsb": 58213.05481712557,
+              "ac_rms_lsb": 58212.48787818689,
+              "dc_lsb": -256.9166666666667,
+              "peak_lsb": 83769,
+              "ac_dbfs": -43.17347479531204
+            },
+            "first_50ms": {
+              "rms_lsb": 58185.54155509769,
+              "ac_rms_lsb": 58183.85960021213,
+              "dc_lsb": -442.4116666666667,
+              "peak_lsb": 85113,
+              "ac_dbfs": -43.17774747350887
+            },
+            "first_nonzero_block": 0,
+            "first_nonzero_audio_interval_ms": [
+              0,
+              5
+            ],
+            "last_descriptive_anomaly_block": null,
+            "descriptive_stable_from_audio_ms": 0,
+            "maximum_peak_lsb": 85113,
+            "maximum_abs_dc_lsb": 1011.6416666666667
+          },
+          "r": {
+            "late_reference": {
+              "rms_lsb": 56348.654497698895,
+              "ac_rms_lsb": 56346.630217488186,
+              "dc_lsb": -477.62625,
+              "peak_lsb": 83727,
+              "ac_dbfs": -43.45643903761511
+            },
+            "first_block": {
+              "rms_lsb": 56231.70274435202,
+              "ac_rms_lsb": 56230.54477568945,
+              "dc_lsb": -360.87083333333334,
+              "peak_lsb": 80865,
+              "ac_dbfs": -43.474352183747754
+            },
+            "first_50ms": {
+              "rms_lsb": 56354.34551931939,
+              "ac_rms_lsb": 56352.12163406449,
+              "dc_lsb": -500.6458333333333,
+              "peak_lsb": 82559,
+              "ac_dbfs": -43.45559257148142
+            },
+            "first_nonzero_block": 0,
+            "first_nonzero_audio_interval_ms": [
+              0,
+              5
+            ],
+            "last_descriptive_anomaly_block": null,
+            "descriptive_stable_from_audio_ms": 0,
+            "maximum_peak_lsb": 83727,
+            "maximum_abs_dc_lsb": 1110.8875
+          }
+        }
+      },
+      {
+        "pair": 3,
+        "kind": "codec-soft-reinit",
+        "begin": {
+          "marker": "BEGIN",
+          "trial": 3,
+          "kind": "codec-soft-reinit",
+          "setup_begin_us": 4079464,
+          "codec_end_us": 4093640,
+          "restart_begin_us": 4093641,
+          "capture_begin_us": 4093744,
+          "codec_elapsed_us": 14176,
+          "restart_elapsed_us": 103,
+          "setup_overflows": 0,
+          "callback_baseline": 806,
+          "overflow_baseline": 0
+        },
+        "summary": {
+          "marker": "SUMMARY",
+          "trial": 3,
+          "kind": "codec-soft-reinit",
+          "valid": true,
+          "blocks": 200,
+          "frames": 48000,
+          "capture_end_us": 5093907,
+          "elapsed_us": 1000163,
+          "callback_delta": 200,
+          "overflow_delta": 0,
+          "read_errors": 0,
+          "malformed_reads": 0,
+          "short_reads": 0,
+          "late_reads": 0,
+          "deadline_reached": false,
+          "codec_failed": false,
+          "restart_error": 0
+        },
+        "channels": {
+          "l": {
+            "late_reference": {
+              "rms_lsb": 58169.38924224343,
+              "ac_rms_lsb": 58167.5568098634,
+              "dc_lsb": -461.71375,
+              "peak_lsb": 84915,
+              "ac_dbfs": -43.180181551976624
+            },
+            "first_block": {
+              "rms_lsb": 0.0,
+              "ac_rms_lsb": 0.0,
+              "dc_lsb": 0.0,
+              "peak_lsb": 0,
+              "ac_dbfs": null
+            },
+            "first_50ms": {
+              "rms_lsb": 0.0,
+              "ac_rms_lsb": 0.0,
+              "dc_lsb": 0.0,
+              "peak_lsb": 0,
+              "ac_dbfs": null
+            },
+            "first_nonzero_block": 12,
+            "first_nonzero_audio_interval_ms": [
+              60,
+              65
+            ],
+            "last_descriptive_anomaly_block": 74,
+            "descriptive_stable_from_audio_ms": 375,
+            "maximum_peak_lsb": 394621,
+            "maximum_abs_dc_lsb": 11713.291666666666
+          },
+          "r": {
+            "late_reference": {
+              "rms_lsb": 56214.78548849864,
+              "ac_rms_lsb": 56212.51178343863,
+              "dc_lsb": -505.59520833333335,
+              "peak_lsb": 82413,
+              "ac_dbfs": -43.47713817314844
+            },
+            "first_block": {
+              "rms_lsb": 0.0,
+              "ac_rms_lsb": 0.0,
+              "dc_lsb": 0.0,
+              "peak_lsb": 0,
+              "ac_dbfs": null
+            },
+            "first_50ms": {
+              "rms_lsb": 0.0,
+              "ac_rms_lsb": 0.0,
+              "dc_lsb": 0.0,
+              "peak_lsb": 0,
+              "ac_dbfs": null
+            },
+            "first_nonzero_block": 12,
+            "first_nonzero_audio_interval_ms": [
+              60,
+              65
+            ],
+            "last_descriptive_anomaly_block": 91,
+            "descriptive_stable_from_audio_ms": 460,
+            "maximum_peak_lsb": 244013,
+            "maximum_abs_dc_lsb": 43416.85
+          }
+        }
+      },
+      {
+        "pair": 3,
+        "kind": "i2s-only-restart",
+        "begin": {
+          "marker": "BEGIN",
+          "trial": 3,
+          "kind": "i2s-only-restart",
+          "setup_begin_us": 5093916,
+          "codec_end_us": 5093923,
+          "restart_begin_us": 5093924,
+          "capture_begin_us": 5093954,
+          "codec_elapsed_us": 7,
+          "restart_elapsed_us": 30,
+          "setup_overflows": 0,
+          "callback_baseline": 1006,
+          "overflow_baseline": 0
+        },
+        "summary": {
+          "marker": "SUMMARY",
+          "trial": 3,
+          "kind": "i2s-only-restart",
+          "valid": true,
+          "blocks": 200,
+          "frames": 48000,
+          "capture_end_us": 6094118,
+          "elapsed_us": 1000164,
+          "callback_delta": 200,
+          "overflow_delta": 0,
+          "read_errors": 0,
+          "malformed_reads": 0,
+          "short_reads": 0,
+          "late_reads": 0,
+          "deadline_reached": false,
+          "codec_failed": false,
+          "restart_error": 0
+        },
+        "channels": {
+          "l": {
+            "late_reference": {
+              "rms_lsb": 58279.95416805797,
+              "ac_rms_lsb": 58278.00330166409,
+              "dc_lsb": -476.85322916666667,
+              "peak_lsb": 86341,
+              "ac_dbfs": -43.163704730954876
+            },
+            "first_block": {
+              "rms_lsb": 58179.52580390001,
+              "ac_rms_lsb": 58175.83494812121,
+              "dc_lsb": -655.325,
+              "peak_lsb": 84159,
+              "ac_dbfs": -43.178945504198566
+            },
+            "first_50ms": {
+              "rms_lsb": 58270.5843827634,
+              "ac_rms_lsb": 58268.70592251935,
+              "dc_lsb": -467.8829166666667,
+              "peak_lsb": 86014,
+              "ac_dbfs": -43.165090544589304
+            },
+            "first_nonzero_block": 0,
+            "first_nonzero_audio_interval_ms": [
+              0,
+              5
+            ],
+            "last_descriptive_anomaly_block": null,
+            "descriptive_stable_from_audio_ms": 0,
+            "maximum_peak_lsb": 86341,
+            "maximum_abs_dc_lsb": 1008.2666666666667
+          },
+          "r": {
+            "late_reference": {
+              "rms_lsb": 56242.30689565648,
+              "ac_rms_lsb": 56240.252398275166,
+              "dc_lsb": -480.7235416666667,
+              "peak_lsb": 82572,
+              "ac_dbfs": -43.47285278406791
+            },
+            "first_block": {
+              "rms_lsb": 56225.82826438991,
+              "ac_rms_lsb": 56222.480288013285,
+              "dc_lsb": -613.575,
+              "peak_lsb": 81062,
+              "ac_dbfs": -43.47559798838525
+            },
+            "first_50ms": {
+              "rms_lsb": 56229.631285474534,
+              "ac_rms_lsb": 56228.428291734686,
+              "dc_lsb": -367.8129166666667,
+              "peak_lsb": 81724,
+              "ac_dbfs": -43.47467912157321
+            },
+            "first_nonzero_block": 0,
+            "first_nonzero_audio_interval_ms": [
+              0,
+              5
+            ],
+            "last_descriptive_anomaly_block": null,
+            "descriptive_stable_from_audio_ms": 0,
+            "maximum_peak_lsb": 82624,
+            "maximum_abs_dc_lsb": 936.275
+          }
+        }
+      },
+      {
+        "pair": 4,
+        "kind": "codec-soft-reinit",
+        "begin": {
+          "marker": "BEGIN",
+          "trial": 4,
+          "kind": "codec-soft-reinit",
+          "setup_begin_us": 6094125,
+          "codec_end_us": 6108358,
+          "restart_begin_us": 6108358,
+          "capture_begin_us": 6108442,
+          "codec_elapsed_us": 14233,
+          "restart_elapsed_us": 84,
+          "setup_overflows": 0,
+          "callback_baseline": 1208,
+          "overflow_baseline": 0
+        },
+        "summary": {
+          "marker": "SUMMARY",
+          "trial": 4,
+          "kind": "codec-soft-reinit",
+          "valid": true,
+          "blocks": 200,
+          "frames": 48000,
+          "capture_end_us": 7108604,
+          "elapsed_us": 1000162,
+          "callback_delta": 200,
+          "overflow_delta": 0,
+          "read_errors": 0,
+          "malformed_reads": 0,
+          "short_reads": 0,
+          "late_reads": 0,
+          "deadline_reached": false,
+          "codec_failed": false,
+          "restart_error": 0
+        },
+        "channels": {
+          "l": {
+            "late_reference": {
+              "rms_lsb": 58299.123593646684,
+              "ac_rms_lsb": 58297.55120372559,
+              "dc_lsb": -428.176875,
+              "peak_lsb": 86129,
+              "ac_dbfs": -43.160791754520424
+            },
+            "first_block": {
+              "rms_lsb": 0.0,
+              "ac_rms_lsb": 0.0,
+              "dc_lsb": 0.0,
+              "peak_lsb": 0,
+              "ac_dbfs": null
+            },
+            "first_50ms": {
+              "rms_lsb": 0.0,
+              "ac_rms_lsb": 0.0,
+              "dc_lsb": 0.0,
+              "peak_lsb": 0,
+              "ac_dbfs": null
+            },
+            "first_nonzero_block": 35,
+            "first_nonzero_audio_interval_ms": [
+              175,
+              180
+            ],
+            "last_descriptive_anomaly_block": 87,
+            "descriptive_stable_from_audio_ms": 440,
+            "maximum_peak_lsb": 92364,
+            "maximum_abs_dc_lsb": 8082.525
+          },
+          "r": {
+            "late_reference": {
+              "rms_lsb": 56338.28852612785,
+              "ac_rms_lsb": 56336.51490150438,
+              "dc_lsb": -447.0378125,
+              "peak_lsb": 82040,
+              "ac_dbfs": -43.45799846371087
+            },
+            "first_block": {
+              "rms_lsb": 0.0,
+              "ac_rms_lsb": 0.0,
+              "dc_lsb": 0.0,
+              "peak_lsb": 0,
+              "ac_dbfs": null
+            },
+            "first_50ms": {
+              "rms_lsb": 0.0,
+              "ac_rms_lsb": 0.0,
+              "dc_lsb": 0.0,
+              "peak_lsb": 0,
+              "ac_dbfs": null
+            },
+            "first_nonzero_block": 35,
+            "first_nonzero_audio_interval_ms": [
+              175,
+              180
+            ],
+            "last_descriptive_anomaly_block": 87,
+            "descriptive_stable_from_audio_ms": 440,
+            "maximum_peak_lsb": 87477,
+            "maximum_abs_dc_lsb": 5681.254166666667
+          }
+        }
+      },
+      {
+        "pair": 4,
+        "kind": "i2s-only-restart",
+        "begin": {
+          "marker": "BEGIN",
+          "trial": 4,
+          "kind": "i2s-only-restart",
+          "setup_begin_us": 7108609,
+          "codec_end_us": 7108616,
+          "restart_begin_us": 7108616,
+          "capture_begin_us": 7108673,
+          "codec_elapsed_us": 7,
+          "restart_elapsed_us": 57,
+          "setup_overflows": 0,
+          "callback_baseline": 1408,
+          "overflow_baseline": 0
+        },
+        "summary": {
+          "marker": "SUMMARY",
+          "trial": 4,
+          "kind": "i2s-only-restart",
+          "valid": true,
+          "blocks": 200,
+          "frames": 48000,
+          "capture_end_us": 8108830,
+          "elapsed_us": 1000157,
+          "callback_delta": 200,
+          "overflow_delta": 0,
+          "read_errors": 0,
+          "malformed_reads": 0,
+          "short_reads": 0,
+          "late_reads": 0,
+          "deadline_reached": false,
+          "codec_failed": false,
+          "restart_error": 0
+        },
+        "channels": {
+          "l": {
+            "late_reference": {
+              "rms_lsb": 58170.47530389576,
+              "ac_rms_lsb": 58167.9835193333,
+              "dc_lsb": -538.4146875,
+              "peak_lsb": 85291,
+              "ac_dbfs": -43.18011783367777
+            },
+            "first_block": {
+              "rms_lsb": 58327.49641039093,
+              "ac_rms_lsb": 58326.434687590976,
+              "dc_lsb": -351.9291666666667,
+              "peak_lsb": 84094,
+              "ac_dbfs": -43.156489401853776
+            },
+            "first_50ms": {
+              "rms_lsb": 58198.373734756686,
+              "ac_rms_lsb": 58196.01393651888,
+              "dc_lsb": -524.0870833333333,
+              "peak_lsb": 84416,
+              "ac_dbfs": -43.175933221250986
+            },
+            "first_nonzero_block": 0,
+            "first_nonzero_audio_interval_ms": [
+              0,
+              5
+            ],
+            "last_descriptive_anomaly_block": null,
+            "descriptive_stable_from_audio_ms": 0,
+            "maximum_peak_lsb": 85291,
+            "maximum_abs_dc_lsb": 1072.1
+          },
+          "r": {
+            "late_reference": {
+              "rms_lsb": 56219.58539341331,
+              "ac_rms_lsb": 56217.02524923692,
+              "dc_lsb": -536.5202083333334,
+              "peak_lsb": 81932,
+              "ac_dbfs": -43.476440785844986
+            },
+            "first_block": {
+              "rms_lsb": 56321.85958178228,
+              "ac_rms_lsb": 56321.48007413865,
+              "dc_lsb": -206.75833333333333,
+              "peak_lsb": 81521,
+              "ac_dbfs": -43.46031682295434
+            },
+            "first_50ms": {
+              "rms_lsb": 56255.098496040046,
+              "ac_rms_lsb": 56252.90590182095,
+              "dc_lsb": -496.67333333333335,
+              "peak_lsb": 81961,
+              "ac_dbfs": -43.47089876415314
+            },
+            "first_nonzero_block": 0,
+            "first_nonzero_audio_interval_ms": [
+              0,
+              5
+            ],
+            "last_descriptive_anomaly_block": null,
+            "descriptive_stable_from_audio_ms": 0,
+            "maximum_peak_lsb": 82736,
+            "maximum_abs_dc_lsb": 995.875
+          }
+        }
+      },
+      {
+        "pair": 5,
+        "kind": "codec-soft-reinit",
+        "begin": {
+          "marker": "BEGIN",
+          "trial": 5,
+          "kind": "codec-soft-reinit",
+          "setup_begin_us": 8108843,
+          "codec_end_us": 8123067,
+          "restart_begin_us": 8123067,
+          "capture_begin_us": 8123108,
+          "codec_elapsed_us": 14224,
+          "restart_elapsed_us": 41,
+          "setup_overflows": 0,
+          "callback_baseline": 1610,
+          "overflow_baseline": 0
+        },
+        "summary": {
+          "marker": "SUMMARY",
+          "trial": 5,
+          "kind": "codec-soft-reinit",
+          "valid": true,
+          "blocks": 200,
+          "frames": 48000,
+          "capture_end_us": 9123270,
+          "elapsed_us": 1000162,
+          "callback_delta": 200,
+          "overflow_delta": 0,
+          "read_errors": 0,
+          "malformed_reads": 0,
+          "short_reads": 0,
+          "late_reads": 0,
+          "deadline_reached": false,
+          "codec_failed": false,
+          "restart_error": 0
+        },
+        "channels": {
+          "l": {
+            "late_reference": {
+              "rms_lsb": 58186.5144520484,
+              "ac_rms_lsb": 58183.94020834722,
+              "dc_lsb": -547.3261458333334,
+              "peak_lsb": 84597,
+              "ac_dbfs": -43.17773544005345
+            },
+            "first_block": {
+              "rms_lsb": 0.0,
+              "ac_rms_lsb": 0.0,
+              "dc_lsb": 0.0,
+              "peak_lsb": 0,
+              "ac_dbfs": null
+            },
+            "first_50ms": {
+              "rms_lsb": 0.0,
+              "ac_rms_lsb": 0.0,
+              "dc_lsb": 0.0,
+              "peak_lsb": 0,
+              "ac_dbfs": null
+            },
+            "first_nonzero_block": 34,
+            "first_nonzero_audio_interval_ms": [
+              170,
+              175
+            ],
+            "last_descriptive_anomaly_block": 52,
+            "descriptive_stable_from_audio_ms": 265,
+            "maximum_peak_lsb": 89501,
+            "maximum_abs_dc_lsb": 5462.554166666667
+          },
+          "r": {
+            "late_reference": {
+              "rms_lsb": 56359.53806032044,
+              "ac_rms_lsb": 56357.35011499752,
+              "dc_lsb": -496.606875,
+              "peak_lsb": 82552,
+              "ac_dbfs": -43.45478671181964
+            },
+            "first_block": {
+              "rms_lsb": 0.0,
+              "ac_rms_lsb": 0.0,
+              "dc_lsb": 0.0,
+              "peak_lsb": 0,
+              "ac_dbfs": null
+            },
+            "first_50ms": {
+              "rms_lsb": 0.0,
+              "ac_rms_lsb": 0.0,
+              "dc_lsb": 0.0,
+              "peak_lsb": 0,
+              "ac_dbfs": null
+            },
+            "first_nonzero_block": 34,
+            "first_nonzero_audio_interval_ms": [
+              170,
+              175
+            ],
+            "last_descriptive_anomaly_block": 80,
+            "descriptive_stable_from_audio_ms": 405,
+            "maximum_peak_lsb": 98898,
+            "maximum_abs_dc_lsb": 17288.641666666666
+          }
+        }
+      },
+      {
+        "pair": 5,
+        "kind": "i2s-only-restart",
+        "begin": {
+          "marker": "BEGIN",
+          "trial": 5,
+          "kind": "i2s-only-restart",
+          "setup_begin_us": 9123279,
+          "codec_end_us": 9123286,
+          "restart_begin_us": 9123286,
+          "capture_begin_us": 9123385,
+          "codec_elapsed_us": 7,
+          "restart_elapsed_us": 99,
+          "setup_overflows": 0,
+          "callback_baseline": 1810,
+          "overflow_baseline": 0
+        },
+        "summary": {
+          "marker": "SUMMARY",
+          "trial": 5,
+          "kind": "i2s-only-restart",
+          "valid": true,
+          "blocks": 200,
+          "frames": 48000,
+          "capture_end_us": 10123544,
+          "elapsed_us": 1000159,
+          "callback_delta": 200,
+          "overflow_delta": 0,
+          "read_errors": 0,
+          "malformed_reads": 0,
+          "short_reads": 0,
+          "late_reads": 0,
+          "deadline_reached": false,
+          "codec_failed": false,
+          "restart_error": 0
+        },
+        "channels": {
+          "l": {
+            "late_reference": {
+              "rms_lsb": 58284.71504732537,
+              "ac_rms_lsb": 58282.57478268208,
+              "dc_lsb": -499.4845833333333,
+              "peak_lsb": 85903,
+              "ac_dbfs": -43.16302341347553
+            },
+            "first_block": {
+              "rms_lsb": 58215.8959634666,
+              "ac_rms_lsb": 58213.65677162146,
+              "dc_lsb": -510.59583333333336,
+              "peak_lsb": 84592,
+              "ac_dbfs": -43.17330038638693
+            },
+            "first_50ms": {
+              "rms_lsb": 58295.52450818659,
+              "ac_rms_lsb": 58294.39270431704,
+              "dc_lsb": -363.25875,
+              "peak_lsb": 85609,
+              "ac_dbfs": -43.16126235954461
+            },
+            "first_nonzero_block": 0,
+            "first_nonzero_audio_interval_ms": [
+              0,
+              5
+            ],
+            "last_descriptive_anomaly_block": null,
+            "descriptive_stable_from_audio_ms": 0,
+            "maximum_peak_lsb": 86451,
+            "maximum_abs_dc_lsb": 1013.7333333333333
+          },
+          "r": {
+            "late_reference": {
+              "rms_lsb": 56325.415062788634,
+              "ac_rms_lsb": 56323.024677175876,
+              "dc_lsb": -518.9154166666667,
+              "peak_lsb": 82351,
+              "ac_dbfs": -43.46007861778763
+            },
+            "first_block": {
+              "rms_lsb": 56382.585711370135,
+              "ac_rms_lsb": 56380.535815885865,
+              "dc_lsb": -480.78333333333336,
+              "peak_lsb": 82050,
+              "ac_dbfs": -43.45121402744164
+            },
+            "first_50ms": {
+              "rms_lsb": 56353.39985910344,
+              "ac_rms_lsb": 56352.070622665524,
+              "dc_lsb": -387.05583333333334,
+              "peak_lsb": 82050,
+              "ac_dbfs": -43.45560043417707
+            },
+            "first_nonzero_block": 0,
+            "first_nonzero_audio_interval_ms": [
+              0,
+              5
+            ],
+            "last_descriptive_anomaly_block": null,
+            "descriptive_stable_from_audio_ms": 0,
+            "maximum_peak_lsb": 82529,
+            "maximum_abs_dc_lsb": 968.625
+          }
+        }
+      }
+    ],
+    "block_csv": "docs/audit-evidence/2026-10-08/capture-settling-connected.csv",
+    "block_csv_sha256": "24a925615b49a80fcdfe0e30f6e90e6d94b0c56be558d013cd025c223018af0d",
+    "runtime_mixer_db": {
+      "master": -23.25,
+      "pcm": -0.6
+    },
+    "production_policy_changed": false
+  },
+  "publication_controls_used_verified_signal": false,
+  "final_production_two": {
+    "source_directory": "target/capture-publication/final-production-two/20261008T170430.264928Z",
+    "uart_sha256": "8a13aae53703bd87ed9a664ca233c5e06954e31513d9917f6a7a468e1db95be0",
+    "image_sha256": "36c559caea3a2a4fe282ed71a47a748257c9ad3e9f91ac14dc83cf868c85cfe4",
+    "known_input_demuxer": true,
+    "passed": false,
+    "error": "premature stream integrity failure",
+    "failure_host_seconds": 42.94803360092919,
+    "failure_observation": {
+      "requested_seconds": 120.0,
+      "observed_seconds": 120.00070829002652,
+      "stop_reason": "deadline",
+      "secondary_error": null,
+      "started_elapsed_seconds": 42.94803360092919,
+      "ended_elapsed_seconds": 162.94893127295654
+    },
+    "summary_failure_decoder_frames": [
+      548864,
+      532480
+    ],
+    "final_listeners": [
+      {
+        "source_path": "target/capture-publication/final-production-two/20261008T170430.264928Z/listener-1.framehash",
+        "sha256": "9ad8ac75fc950c5b1a8aebe5f5b4c562c394e4df1d940c55ff2a1177e071979c",
+        "frames": 1990656,
+        "packets": 486,
+        "timeline_gaps": 0
+      },
+      {
+        "source_path": "target/capture-publication/final-production-two/20261008T170430.264928Z/listener-2.framehash",
+        "sha256": "4c25b0b9c1b0518ef612507fb6a1c7a7cc764f3d7468fd646f23f9f216b9cfa4",
+        "frames": 532480,
+        "packets": 130,
+        "timeline_gaps": 0
+      }
+    ],
+    "capture_observations": [
+      {
+        "device_log_ms": 11426,
+        "frames": 477360,
+        "queue_overflows": 17,
+        "software_dropped_frames": 480,
+        "read_errors": 0,
+        "restarts": 2,
+        "discontinuities": 2,
+        "capture_runtime_window_us": 9971686,
+        "capture_task_runtime_us": 847966,
+        "internal_min_sum": 80279,
+        "psram_min_sum": 931844
+      },
+      {
+        "device_log_ms": 21446,
+        "frames": 958320,
+        "queue_overflows": 17,
+        "software_dropped_frames": 480,
+        "read_errors": 0,
+        "restarts": 2,
+        "discontinuities": 2,
+        "capture_runtime_window_us": 10020280,
+        "capture_task_runtime_us": 891125,
+        "internal_min_sum": 80499,
+        "psram_min_sum": 930440
+      },
+      {
+        "device_log_ms": 31516,
+        "frames": 1441680,
+        "queue_overflows": 17,
+        "software_dropped_frames": 480,
+        "read_errors": 0,
+        "restarts": 2,
+        "discontinuities": 2,
+        "capture_runtime_window_us": 10069999,
+        "capture_task_runtime_us": 936207,
+        "internal_min_sum": 69159,
+        "psram_min_sum": 771784
+      },
+      {
+        "device_log_ms": 41586,
+        "frames": 1925040,
+        "queue_overflows": 17,
+        "software_dropped_frames": 480,
+        "read_errors": 0,
+        "restarts": 2,
+        "discontinuities": 2,
+        "capture_runtime_window_us": 10068772,
+        "capture_task_runtime_us": 916101,
+        "internal_min_sum": 69027,
+        "psram_min_sum": 775948
+      },
+      {
+        "device_log_ms": 51656,
+        "frames": 2408400,
+        "queue_overflows": 17,
+        "software_dropped_frames": 480,
+        "read_errors": 0,
+        "restarts": 2,
+        "discontinuities": 2,
+        "capture_runtime_window_us": 10071347,
+        "capture_task_runtime_us": 937727,
+        "internal_min_sum": 69891,
+        "psram_min_sum": 781640
+      },
+      {
+        "device_log_ms": 61656,
+        "frames": 2888400,
+        "queue_overflows": 17,
+        "software_dropped_frames": 480,
+        "read_errors": 0,
+        "restarts": 2,
+        "discontinuities": 2,
+        "capture_runtime_window_us": 10001373,
+        "capture_task_runtime_us": 910308,
+        "internal_min_sum": 74819,
+        "psram_min_sum": 855632
+      },
+      {
+        "device_log_ms": 71686,
+        "frames": 3369840,
+        "queue_overflows": 17,
+        "software_dropped_frames": 480,
+        "read_errors": 0,
+        "restarts": 2,
+        "discontinuities": 2,
+        "capture_runtime_window_us": 10028368,
+        "capture_task_runtime_us": 905542,
+        "internal_min_sum": 74735,
+        "psram_min_sum": 855644
+      },
+      {
+        "device_log_ms": 81706,
+        "frames": 3850800,
+        "queue_overflows": 17,
+        "software_dropped_frames": 480,
+        "read_errors": 0,
+        "restarts": 2,
+        "discontinuities": 2,
+        "capture_runtime_window_us": 10018688,
+        "capture_task_runtime_us": 895304,
+        "internal_min_sum": 74723,
+        "psram_min_sum": 882808
+      },
+      {
+        "device_log_ms": 91736,
+        "frames": 4332240,
+        "queue_overflows": 17,
+        "software_dropped_frames": 480,
+        "read_errors": 0,
+        "restarts": 2,
+        "discontinuities": 2,
+        "capture_runtime_window_us": 10031475,
+        "capture_task_runtime_us": 894205,
+        "internal_min_sum": 79015,
+        "psram_min_sum": 919252
+      },
+      {
+        "device_log_ms": 101806,
+        "frames": 4815600,
+        "queue_overflows": 17,
+        "software_dropped_frames": 480,
+        "read_errors": 0,
+        "restarts": 2,
+        "discontinuities": 2,
+        "capture_runtime_window_us": 10069989,
+        "capture_task_runtime_us": 896500,
+        "internal_min_sum": 79115,
+        "psram_min_sum": 913516
+      },
+      {
+        "device_log_ms": 111856,
+        "frames": 5298000,
+        "queue_overflows": 17,
+        "software_dropped_frames": 480,
+        "read_errors": 0,
+        "restarts": 2,
+        "discontinuities": 2,
+        "capture_runtime_window_us": 10049660,
+        "capture_task_runtime_us": 895383,
+        "internal_min_sum": 79987,
+        "psram_min_sum": 927832
+      },
+      {
+        "device_log_ms": 121906,
+        "frames": 5780640,
+        "queue_overflows": 17,
+        "software_dropped_frames": 480,
+        "read_errors": 0,
+        "restarts": 2,
+        "discontinuities": 2,
+        "capture_runtime_window_us": 10055753,
+        "capture_task_runtime_us": 895544,
+        "internal_min_sum": 80095,
+        "psram_min_sum": 927252
+      },
+      {
+        "device_log_ms": 131946,
+        "frames": 6262320,
+        "queue_overflows": 17,
+        "software_dropped_frames": 480,
+        "read_errors": 0,
+        "restarts": 2,
+        "discontinuities": 2,
+        "capture_runtime_window_us": 10034329,
+        "capture_task_runtime_us": 892894,
+        "internal_min_sum": 80335,
+        "psram_min_sum": 929036
+      },
+      {
+        "device_log_ms": 141976,
+        "frames": 6743760,
+        "queue_overflows": 17,
+        "software_dropped_frames": 480,
+        "read_errors": 0,
+        "restarts": 2,
+        "discontinuities": 2,
+        "capture_runtime_window_us": 10029022,
+        "capture_task_runtime_us": 892760,
+        "internal_min_sum": 80347,
+        "psram_min_sum": 923720
+      },
+      {
+        "device_log_ms": 151996,
+        "frames": 7224720,
+        "queue_overflows": 17,
+        "software_dropped_frames": 480,
+        "read_errors": 0,
+        "restarts": 2,
+        "discontinuities": 2,
+        "capture_runtime_window_us": 10020991,
+        "capture_task_runtime_us": 893109,
+        "internal_min_sum": 79331,
+        "psram_min_sum": 920376
+      },
+      {
+        "device_log_ms": 162016,
+        "frames": 7705920,
+        "queue_overflows": 17,
+        "software_dropped_frames": 480,
+        "read_errors": 0,
+        "restarts": 2,
+        "discontinuities": 2,
+        "capture_runtime_window_us": 10025801,
+        "capture_task_runtime_us": 895392,
+        "internal_min_sum": 79487,
+        "psram_min_sum": 922632
+      }
+    ],
+    "stream_ring_behind_log_ms": [
+      42186,
+      71836
+    ],
+    "radio": {
+      "effective_protocol": 7,
+      "power_save": 0,
+      "association_channel": 6,
+      "association_rssi_dbm": -45,
+      "negotiated_phy": 4
+    },
+    "restore": {
+      "firmware_configuration_matches_original": true,
+      "sonos_configuration_matches_original": true,
+      "board_sonos_state": "stopped",
+      "autoplay": false,
+      "shazam_enabled": false,
+      "host_playback_finished": true
+    },
+    "physical_source": {
+      "cable_confirmed_connected": true,
+      "actively_driven_tone_during_soak": false,
+      "confirmation_source": "Doctor Biz confirmed the connection; standalone settling tone finished before flash."
+    },
+    "watchdog_found": false,
+    "required_frames_per_listener": 2160000
+  },
+  "production_restore": {
+    "image_path": "target/capture-publication/final-production.elf",
+    "image_sha256": "36c559caea3a2a4fe282ed71a47a748257c9ad3e9f91ac14dc83cf868c85cfe4",
+    "firmware_configuration_matches_original": true,
+    "sonos_configuration_matches_original": true,
+    "board_sonos_state": "stopped",
+    "autoplay": false,
+    "shazam_enabled": false,
+    "host_playback_finished": true,
+    "source": "Read-only HTTP state/config verification after final collector closed; actual speaker playback/volume not queried."
+  },
+  "demuxer_regression": {
+    "commit": "4aa931f",
+    "issue": "b8rs",
+    "source_directory": "target/capture-publication/probe-delay/",
+    "real_production_encoder": true,
+    "default_first_decode_seconds": 12.284,
+    "forced_flac_first_decode_seconds": 1.773,
+    "forced_flac_two_decoded_seconds_at": 3.72,
+    "sent_by_six_seconds": {
+      "blocks": 69,
+      "frames": 282624,
+      "body_bytes": 1008
+    },
+    "default_decoded_frames_by_six_seconds": 0,
+    "real_input_tests_passed": 4,
+    "stream_format_tests_passed": 8,
+    "decoder_integrity_tests_passed": 12,
+    "existing_timeouts_and_integrity_gates_preserved": true,
+    "explains_original_board_failure": false
+  },
+  "packet_trace": {
+    "status": "not captured",
+    "reason": "sudo requires interactive authentication; no graphical display available to this session",
+    "persistent_privileges_changed": false
+  }
+}

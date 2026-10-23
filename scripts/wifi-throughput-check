@@ -1,5 +1,5 @@
 #!/usr/bin/env -S uv run --quiet --no-project python3
-# ABOUTME: Validates two finite deterministic TCP transfers through a verified macOS interface.
+# ABOUTME: Validates two finite deterministic TCP transfers through a verified macOS or Linux interface.
 # ABOUTME: Records exact bytes, elapsed time and one-second delivery bins; never controls the board.
 import argparse
 import concurrent.futures
@@ -78,9 +78,21 @@ def client(host, port, interface, seconds, report, sockets, lock):
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
             with lock:
                 sockets.append(sock)
-            sock.setsockopt(socket.IPPROTO_IP, 25, index)
-            if sock.getsockopt(socket.IPPROTO_IP, 25) != index:
-                raise Failure('IP_BOUND_IF verification failed')
+            if sys.platform == 'linux':
+                # SO_BINDTODEVICE takes a NUL-terminated name at SOL_SOCKET, not IP level.
+                # Fresh sockets can bind without privileges on supporting Linux kernels.
+                device = os.fsencode(interface) + b'\0'
+                try:
+                    sock.setsockopt(socket.SOL_SOCKET, socket.SO_BINDTODEVICE, device)
+                except OSError as error:
+                    raise Failure(f'SO_BINDTODEVICE failed for {interface}: {error}; '
+                                  'refusing an unbound connection') from error
+                if sock.getsockopt(socket.SOL_SOCKET, socket.SO_BINDTODEVICE, 256) != device:
+                    raise Failure('SO_BINDTODEVICE verification failed')
+            else:
+                sock.setsockopt(socket.IPPROTO_IP, 25, index)
+                if sock.getsockopt(socket.IPPROTO_IP, 25) != index:
+                    raise Failure('IP_BOUND_IF verification failed')
             report.update(interface=interface, interface_index=index)
             sock.settimeout(10)
             sock.connect((host, port))
@@ -98,7 +110,8 @@ def main():
     parser = argparse.ArgumentParser(description='Read-only check of the throwaway Wi-Fi throughput example; start firmware separately.')
     parser.add_argument('host')
     parser.add_argument('--port', type=int, default=8675)
-    parser.add_argument('--interface', default='en0')
+    parser.add_argument('--interface', default='en0' if sys.platform == 'darwin' else None,
+                        help='outgoing interface (macOS default: en0; required on Linux)')
     parser.add_argument('--seconds', type=float, default=145,
                         help='total host deadline including connect/admission (default:145)')
     parser.add_argument('--out', type=Path, required=True, help='new JSON report path; never overwrite')
@@ -108,8 +121,10 @@ def main():
     except ipaddress.AddressValueError:
         parser.error('host must be a literal IPv4 address; DNS is outside the bounded experiment')
     os.umask(0o077)
-    if sys.platform != 'darwin':
-        parser.error('interface binding requires macOS IP_BOUND_IF=25')
+    if sys.platform not in ('darwin', 'linux'):
+        parser.error('interface binding requires macOS or Linux')
+    if sys.platform == 'linux' and not args.interface:
+        parser.error('--interface is required on Linux')
     if not 1 <= args.seconds <= 180 or not 1 <= args.port <= 65535:
         parser.error('seconds must be 1..180 and port 1..65535')
     # Reserve the report before contacting the board; an existing report is never overwritten.

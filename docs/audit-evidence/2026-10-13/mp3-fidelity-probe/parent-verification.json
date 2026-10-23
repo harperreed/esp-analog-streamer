@@ -1,0 +1,151 @@
+{
+  "source_receipt_sha256": "15c2344f556957e7f7aa5de82885040493dcbe04a7402dbf6ea399045bdc7e50",
+  "script_sha256": "38c3b567398b4bc4f1aeab59ac2d66304ab3b12f8da24ab3b05d10fe8bfe1bad",
+  "verified_rows": [
+    {
+      "fixture": "alignment",
+      "codec": "production",
+      "original_frames": 110592,
+      "decoded_frames": 112896,
+      "metrics": [
+        {
+          "channel": 0,
+          "raw_snr_db": 12.612334577539645,
+          "gain": 1.0252703766056994
+        },
+        {
+          "channel": 1,
+          "raw_snr_db": 12.565140510036423,
+          "gain": 1.0253959296107669
+        }
+      ]
+    },
+    {
+      "fixture": "alignment",
+      "codec": "lame",
+      "original_frames": 110592,
+      "decoded_frames": 114048,
+      "metrics": [
+        {
+          "channel": 0,
+          "raw_snr_db": 7.53074246758532,
+          "gain": 0.8384159439405658
+        },
+        {
+          "channel": 1,
+          "raw_snr_db": 7.48134026744254,
+          "gain": 0.8338791603434622
+        }
+      ]
+    },
+    {
+      "fixture": "tones",
+      "codec": "production",
+      "original_frames": 483840,
+      "decoded_frames": 486144,
+      "metrics": [
+        {
+          "channel": 0,
+          "raw_snr_db": 75.32914960136725,
+          "gain": 0.999857502114721
+        },
+        {
+          "channel": 1,
+          "raw_snr_db": 74.80541063300447,
+          "gain": 0.9998501505724313
+        }
+      ]
+    },
+    {
+      "fixture": "tones",
+      "codec": "lame",
+      "original_frames": 483840,
+      "decoded_frames": 487296,
+      "metrics": [
+        {
+          "channel": 0,
+          "raw_snr_db": 78.66681224843455,
+          "gain": 0.999967795123532
+        },
+        {
+          "channel": 1,
+          "raw_snr_db": 77.5383023736313,
+          "gain": 0.9999395293941559
+        }
+      ]
+    },
+    {
+      "fixture": "fade",
+      "codec": "production",
+      "original_frames": 483840,
+      "decoded_frames": 486144,
+      "metrics": [
+        {
+          "channel": 0,
+          "raw_snr_db": 74.81306457828387,
+          "gain": 0.9998535000883666
+        },
+        {
+          "channel": 1,
+          "raw_snr_db": 74.71470723143413,
+          "gain": 0.9998572913233902
+        }
+      ]
+    },
+    {
+      "fixture": "fade",
+      "codec": "lame",
+      "original_frames": 483840,
+      "decoded_frames": 487296,
+      "metrics": [
+        {
+          "channel": 0,
+          "raw_snr_db": 77.34834701722764,
+          "gain": 0.9999543647300052
+        },
+        {
+          "channel": 1,
+          "raw_snr_db": 76.55527197012115,
+          "gain": 0.9999464359946797
+        }
+      ]
+    },
+    {
+      "fixture": "recorded_music",
+      "codec": "production",
+      "original_frames": 483840,
+      "decoded_frames": 486144,
+      "metrics": [
+        {
+          "channel": 0,
+          "raw_snr_db": 39.1861726902303,
+          "gain": 0.9989585907350473
+        },
+        {
+          "channel": 1,
+          "raw_snr_db": 39.18617627631083,
+          "gain": 0.9989585907351
+        }
+      ]
+    },
+    {
+      "fixture": "recorded_music",
+      "codec": "lame",
+      "original_frames": 483840,
+      "decoded_frames": 487296,
+      "metrics": [
+        {
+          "channel": 0,
+          "raw_snr_db": 58.94779381109386,
+          "gain": 1.0000140796347168
+        },
+        {
+          "channel": 1,
+          "raw_snr_db": 58.94779381109386,
+          "gain": 1.0000140796347168
+        }
+      ]
+    }
+  ],
+  "scope": "Fresh parent check of actual source/output hashes, counts and uncompensated steady metrics."
+}

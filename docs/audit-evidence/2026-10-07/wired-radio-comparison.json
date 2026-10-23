@@ -1,0 +1,220 @@
+{
+  "date": "2026-10-07",
+  "workload": "Wi-Fi-only deterministic two-peer fixture, normally135168 bytes/second/peer; half-rate run67584. No audio, web or MQTT.",
+  "host_interface": "enp5s0",
+  "host_address": "192.168.23.153",
+  "host_wifi": "disconnected verified by NetworkManager before both compared runs",
+  "runs": {
+    "transport-bg-wired-only": {
+      "protocol": "bg",
+      "peers": [
+        {
+          "passed": false,
+          "interface": "enp5s0",
+          "interface_index": 2,
+          "local_address": [
+            "192.168.23.153",
+            38180
+          ],
+          "bytes": 128160,
+          "expected": 15814656,
+          "elapsed_seconds": 9.205459097982384,
+          "average_bytes_per_second": 13922.173640214163,
+          "error": "truncated payload at 128160/15814656",
+          "total_elapsed_seconds": 9.246948053943925
+        },
+        {
+          "passed": false,
+          "interface": "enp5s0",
+          "interface_index": 2,
+          "local_address": [
+            "192.168.23.153",
+            38182
+          ],
+          "bytes": 97920,
+          "expected": 15814656,
+          "elapsed_seconds": 9.11903587600682,
+          "average_bytes_per_second": 10737.977274290392,
+          "error": "truncated payload at 97920/15814656",
+          "total_elapsed_seconds": 9.160486762993969
+        }
+      ],
+      "private_uart": "target/wired-investigation/transport-bg-wired-only-uart.log",
+      "uart_sha256": "6dacf32009329f8868cccd8777daa8bbb8bfdb39d0b31c1cf65710e84d4795c8",
+      "private_host_report": "target/wired-investigation/transport-bg-wired-only.json",
+      "host_report_sha256": "90cd07d238391d9e37e4644a39452b03a26ca1c69688e7848b9b1c1c35bf5ba4"
+    },
+    "transport-control-wired-only": {
+      "protocol": "bg (boot log verified; intended bgn control was invalid)",
+      "peers": [
+        {
+          "passed": false,
+          "interface": "enp5s0",
+          "interface_index": 2,
+          "local_address": [
+            "192.168.23.153",
+            44366
+          ],
+          "bytes": 122400,
+          "expected": 15814656,
+          "elapsed_seconds": 9.046806096914224,
+          "average_bytes_per_second": 13529.636723589048,
+          "error": "truncated payload at 122400/15814656",
+          "total_elapsed_seconds": 9.19353141495958
+        },
+        {
+          "passed": false,
+          "interface": "enp5s0",
+          "interface_index": 2,
+          "local_address": [
+            "192.168.23.153",
+            44382
+          ],
+          "bytes": 97920,
+          "expected": 15814656,
+          "elapsed_seconds": 8.846776152029634,
+          "average_bytes_per_second": 11068.438752972757,
+          "error": "truncated payload at 97920/15814656",
+          "total_elapsed_seconds": 9.030163730029017
+        }
+      ],
+      "private_uart": "target/wired-investigation/transport-control-wired-only-uart.log",
+      "uart_sha256": "cad9fc8f6c8ecf18477606a1589726cde1bcb17d9be2515cbeff5151b9fe2d40",
+      "private_host_report": "target/wired-investigation/transport-control-wired-only.json",
+      "host_report_sha256": "cf7bc6d2228cce775fb94a9620f99f29b8e423162f94ecf336e6cde14f122b09"
+    },
+    "transport-bgn-verified": {
+      "protocol": "bgn (association boot log verified after explicit bitmap7 restoration)",
+      "peers": [
+        {
+          "passed": false,
+          "interface": "enp5s0",
+          "interface_index": 2,
+          "local_address": [
+            "192.168.23.153",
+            35558
+          ],
+          "bytes": 1226784,
+          "expected": 15814656,
+          "elapsed_seconds": 17.72845753992442,
+          "average_bytes_per_second": 69198.57507272062,
+          "error": "truncated payload at 1226784/15814656",
+          "total_elapsed_seconds": 17.783566231955774
+        },
+        {
+          "passed": true,
+          "interface": "enp5s0",
+          "interface_index": 2,
+          "local_address": [
+            "192.168.23.153",
+            35562
+          ],
+          "bytes": 15814656,
+          "expected": 15814656,
+          "elapsed_seconds": 117.306441187975,
+          "average_bytes_per_second": 134814.89882263303,
+          "total_elapsed_seconds": 117.44619709800463
+        }
+      ],
+      "private_uart": "target/wired-investigation/transport-bgn-verified-uart.log",
+      "uart_sha256": "20678716ba42b9db91493122b2c36daf5a949959dfbf201c1ad0dfdb2d0238e6",
+      "private_host_report": "target/wired-investigation/transport-bgn-verified.json",
+      "host_report_sha256": "88f0cfcd5e4801216c487c100bcc9d37dbd848e4945eb930d05e68c1b944e512"
+    },
+    "transport-half-rate": {
+      "protocol": "bgn (association boot log verified)",
+      "offered_bytes_per_second_per_peer": 67584,
+      "peers": [
+        {
+          "passed": true,
+          "interface": "enp5s0",
+          "interface_index": 2,
+          "local_address": [
+            "192.168.23.153",
+            57550
+          ],
+          "bytes": 7907328,
+          "expected": 7907328,
+          "elapsed_seconds": 117.3236224569846,
+          "average_bytes_per_second": 67397.57803590776,
+          "total_elapsed_seconds": 117.42089877696708
+        },
+        {
+          "passed": true,
+          "interface": "enp5s0",
+          "interface_index": 2,
+          "local_address": [
+            "192.168.23.153",
+            57560
+          ],
+          "bytes": 7907328,
+          "expected": 7907328,
+          "elapsed_seconds": 117.31553003704175,
+          "average_bytes_per_second": 67402.22711778486,
+          "total_elapsed_seconds": 117.42083414795343
+        }
+      ],
+      "private_uart": "target/wired-investigation/transport-half-rate-uart.log",
+      "diagnostic_only": "Same connections, chunk size, deadlines and duration; chunk count702, rate6 chunks/s. Source restored to count1404/rate12 before commit.",
+      "uart_sha256": "618c14ca4f55c5415c00ca603d40377a6856cec0c40f48d1c7dc2d962031982c",
+      "private_host_report": "target/wired-investigation/transport-half-rate.json",
+      "host_report_sha256": "561524a241d387a10d41e43ecd561689794a3219813241e7f30f9aed3c7c5e90",
+      "schedule_deficit_estimate_seconds": [
+        3.084,
+        7.029
+      ],
+      "deficit_method": "At each complete host-second bin, elapsed seconds minus received payload bytes / 67584; approximate host-clock schedule deficit, not exact packet latency."
+    },
+    "transport-bgn-repeat": {
+      "protocol": "bgn (association boot log verified)",
+      "offered_bytes_per_second_per_peer": 135168,
+      "peers": [
+        {
+          "passed": true,
+          "interface": "enp5s0",
+          "interface_index": 2,
+          "local_address": [
+            "192.168.23.153",
+            38706
+          ],
+          "bytes": 15814656,
+          "expected": 15814656,
+          "elapsed_seconds": 117.13038976700045,
+          "average_bytes_per_second": 135017.53073185383,
+          "total_elapsed_seconds": 117.19043997302651
+        },
+        {
+          "passed": false,
+          "interface": "enp5s0",
+          "interface_index": 2,
+          "local_address": [
+            "192.168.23.153",
+            38708
+          ],
+          "bytes": 309600,
+          "expected": 15814656,
+          "elapsed_seconds": 11.132266953936778,
+          "average_bytes_per_second": 27811.047047386342,
+          "error": "truncated payload at 309600/15814656",
+          "total_elapsed_seconds": 11.225585317006335
+        }
+      ],
+      "private_uart": "target/wired-investigation/transport-bgn-repeat-uart.log",
+      "private_host_report": "target/wired-investigation/transport-bgn-repeat.json",
+      "uart_sha256": "b3ac200e543fec0a23e08d0498227e88d646b6f289ecb1bd88678b752229adb5",
+      "host_report_sha256": "a83c8ace5fac0bba1c117a2992743636992df50b99cb9df4143cf83296b42a1d"
+    }
+  },
+  "conclusion": "After independent bgn verification, full-rate control loses one peer, half rate completes both, then full-rate repeat loses the other peer. This supports load sensitivity but does not establish a rate cap or locate the cause. Half rate still reaches approximately7s schedule deficit. Initial bg runs cannot establish a bgn comparison because the supposed control also used bg.",
+  "excluded_run": "transport-bg: both host interfaces active; zero-byte timeouts conflict with immediate board-side resets. ARP flux is a hypothesis, not verified.",
+  "control_elf_sha256": "7058fef7dd0c790c9b69d01d6826804e3adf88d29aaf0ed222f3f5c75f38d3b6",
+  "next": "Restore saved production on original2.4GHz network. Need AP-side retry/link-rate data or an alternate2.4GHz AP to locate shared delays; no known configured bandwidth limit.",
+  "correction": "Boot log transport-control-wired-only-uart.log reports phy:bg. Binary hash equality did not verify persisted device settings.",
+  "alternate_network_attempt": {
+    "result": "Association failed twice with ESP_ERR_TIMEOUT; no throughput comparison took place.",
+    "host_scan": "Cached scan shows the alternate network only on 5GHz. A fresh scan was denied by NetworkManager authorization.",
+    "operator_confirmation": "Doctor Biz cannot enable2.4GHz there; separate networks are intentional. The board requires2.4GHz.",
+    "private_uart": "target/wired-investigation/transport-other-ssid-uart.log",
+    "retry_private_uart": "target/wired-investigation/other-ssid-association-retry.log"
+  }
+}

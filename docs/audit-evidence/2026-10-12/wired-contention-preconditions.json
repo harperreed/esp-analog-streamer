@@ -1,0 +1,193 @@
+{
+  "scope": "Two failed preconditions; no contention workload or audio playback executed",
+  "source_commit": "12d462b6c43a7b3b524b34ade671e6110f7882cf",
+  "diagnostic_elf_sha256": "01bb762ee722f12075f52d3d243ad4d9e1a762090eafe4674d708d8b5114cb90",
+  "trials": [
+    {
+      "name": "trial-01",
+      "passed": false,
+      "error": "URLError(TimeoutError('timed out'))",
+      "cleanup_complete": true,
+      "cleanup_errors": [],
+      "identity": null,
+      "event_counts": {
+        "http-socket": 3,
+        "http": 3,
+        "api": 3,
+        "attestation": 1
+      },
+      "actions": [],
+      "artifacts": {
+        "result.json": {
+          "sha256": "090d6b5724698ca2a438a6bd95a9c22bab36ba34327fdbb0601502fcd704c3f1",
+          "bytes": 1058
+        },
+        "events.jsonl": {
+          "sha256": "b0f45adbcf744eb4ab51e846c29ae8364af076bbe8e5c3a28e08f689e3283139",
+          "bytes": 4421
+        },
+        "uart.log": {
+          "sha256": "9c7e331bf1538aaf1622cde128df7d68cdb27afe8bdf18e3b5e516f4309f9ea9",
+          "bytes": 22387
+        }
+      },
+      "aplay_log_exists": false
+    },
+    {
+      "name": "trial-02",
+      "passed": false,
+      "error": "CalledProcessError(1, ['amixer', '-c', 'PCH', 'sget', 'Headphone'])",
+      "cleanup_complete": true,
+      "cleanup_errors": [],
+      "identity": {
+        "image": "01bb762ee722f12075f52d3d243ad4d9e1a762090eafe4674d708d8b5114cb90",
+        "boot": "0c2770a550aac3500debfe25664759c4"
+      },
+      "event_counts": {
+        "http-socket": 38,
+        "http": 38,
+        "api": 35,
+        "attestation": 8,
+        "soap-GetZoneGroupState": 1,
+        "soap-GetTransportInfo": 1
+      },
+      "actions": [
+        {
+          "action": "discover"
+        },
+        {
+          "action": "format",
+          "format": "mp3"
+        },
+        {
+          "action": "buffer",
+          "preset": "med"
+        }
+      ],
+      "artifacts": {
+        "result.json": {
+          "sha256": "934bcab49c6cceb394412b2d7ae6b3d1c86a4c6e4ef5ba5e3e3115a634ab3f5c",
+          "bytes": 1864
+        },
+        "events.jsonl": {
+          "sha256": "b6b3a957a1131f6c961e370c9bb04ac2dc55f6eedaf6794f1358fb0672c2e1b2",
+          "bytes": 49727
+        },
+        "uart.log": {
+          "sha256": "62cbaab2a0ce2bd18c3b3e6df3244530ea9359901128a264f44f8d2046e2df78",
+          "bytes": 25016
+        }
+      },
+      "aplay_log_exists": false
+    }
+  ],
+  "routing": {
+    "default_interface": "wlp6s0",
+    "source_address_alone_also_routes_to": "wlp6s0",
+    "required_device": "enp5s0",
+    "required_source": "192.168.23.153",
+    "same_boot_ethernet_recovered": [
+      {
+        "local": [
+          "192.168.23.153",
+          36425
+        ],
+        "peer": [
+          "192.168.23.217",
+          80
+        ],
+        "device": "enp5s0",
+        "boot": "e3dc1ae327b0858b9a77d7e3ce0f6d6f",
+        "device_us": 207137465
+      },
+      {
+        "local": [
+          "192.168.23.153",
+          52755
+        ],
+        "peer": [
+          "192.168.23.217",
+          80
+        ],
+        "device": "enp5s0",
+        "boot": "e3dc1ae327b0858b9a77d7e3ce0f6d6f",
+        "device_us": 207741170
+      },
+      {
+        "local": [
+          "192.168.23.153",
+          54261
+        ],
+        "peer": [
+          "192.168.23.217",
+          80
+        ],
+        "device": "enp5s0",
+        "boot": "e3dc1ae327b0858b9a77d7e3ce0f6d6f",
+        "device_us": 208309263
+      }
+    ]
+  },
+  "audio_access": {
+    "physical_card_present": "PCH",
+    "control_and_playback_open": "EACCES",
+    "named_acl_user": "gdm-greeter",
+    "active_seat_session": "greeter",
+    "harper_in_audio_group": false
+  },
+  "restoration": {
+    "image": "36e14f18791c1011d4215f5e91e2ee5f7d560bd2318d3bbcdb53c6afaf061964",
+    "boot": "20630fb862ad5b966e3ec15a77010ca6",
+    "board_state": "stopped",
+    "sonos_transport": {
+      "CurrentTransportState": "STOPPED",
+      "CurrentTransportStatus": "OK",
+      "CurrentSpeed": "1"
+    },
+    "settings": {
+      "active_format": "mp3",
+      "next_play_format": "mp3",
+      "next_play_buffer": "med",
+      "buffer_available": true,
+      "autoplay": false,
+      "recognition_enabled": false,
+      "pga_gain": 0
+    },
+    "listeners": [
+      {
+        "generation": 0,
+        "state": "idle",
+        "sample_us": 46600413,
+        "media_age_us": null,
+        "write_us": null
+      },
+      {
+        "generation": 0,
+        "state": "idle",
+        "sample_us": 46600432,
+        "media_age_us": null,
+        "write_us": null
+      }
+    ],
+    "owned_audio_uart_flash_processes_remaining": false,
+    "verification_sha256": "28456c373912ca4938e0ed9149b584e5ce573c9f65b7d4a3f7b94a14bec44cdb"
+  },
+  "capture_precondition_baselines": [
+    {
+      "trial": "trial-01",
+      "queue_overflows": 15,
+      "software_dropped_frames": 480,
+      "restarts": 2,
+      "overflow_restarts": 2,
+      "discontinuities": 2
+    },
+    {
+      "trial": "trial-02",
+      "queue_overflows": 14,
+      "software_dropped_frames": 480,
+      "restarts": 2,
+      "overflow_restarts": 2,
+      "discontinuities": 2
+    }
+  ]
+}

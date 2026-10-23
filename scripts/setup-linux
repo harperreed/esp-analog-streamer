@@ -1,0 +1,113 @@
+#!/usr/bin/env bash
+# ABOUTME: Prepares an Ubuntu/Debian workstation for firmware builds, USB flashing, and analog audio tests.
+# ABOUTME: Installs dependencies and runs project checks; --flash explicitly adds a production flash.
+set -euo pipefail
+cd "$(dirname "$0")/.."
+
+usage() {
+    cat <<'HELP'
+Usage: scripts/setup-linux [--port DEVICE] [--dry-run] [--flash]
+
+Run as your normal user from an interactive terminal. Requires mise and uv.
+Installs system packages with sudo, installs the pinned ESP32 tools with mise,
+grants this user access to the connected serial device, and runs scripts/check.
+Populate the gitignored firmware/cfg.toml before running. Credentials are never
+printed or changed. Full stage logs go to target/setup-linux/ with private modes.
+
+  --port DEVICE  Serial device (default: ESPFLASH_PORT or /dev/ttyUSB0)
+  --dry-run      Print the steps without installing, building, or touching USB
+  --flash        Flash production firmware after all checks pass (resets board)
+  --help         Show this help
+
+USB access lasts until the device is unplugged or recreated. Rerun to grant it
+again. This command does not change network settings or start audio playback.
+HELP
+}
+fail() { echo "FAIL: $*" >&2; exit 1; }
+preview=false
+flash=false
+port="${ESPFLASH_PORT:-/dev/ttyUSB0}"
+while (($#)); do
+    case "$1" in
+        --help) usage; exit 0 ;;
+        --dry-run) preview=true; shift ;;
+        --flash) flash=true; shift ;;
+        --port)
+            (($# >= 2)) && [[ "$2" == /dev/* ]] || fail '--port requires an absolute /dev/ path'
+            port="$2"; shift 2 ;;
+        *) fail "unknown argument: $1 (see --help)" ;;
+    esac
+done
+[[ "$port" == /dev/* ]] || fail 'serial device must be an absolute /dev/ path'
+[[ "$(uname -s)" == Linux ]] || fail 'this setup command supports Linux only'
+command -v apt-get >/dev/null || fail 'this setup command requires Ubuntu/Debian apt-get'
+((EUID != 0)) || fail 'run as your normal user; the command uses sudo where needed'
+
+packages=(build-essential pkg-config libasound2-dev libudev-dev ffmpeg acl
+    git wget flex bison gperf python3 python3-pip python3-venv ccache
+    libffi-dev libssl-dev dfu-util libusb-1.0-0)
+if "$preview"; then
+    printf '%s\n' 'Validate local config (values withheld)' 'sudo -v' 'sudo apt-get update'
+    printf 'sudo apt-get install -y'; printf ' %q' "${packages[@]}"; printf '\n'
+    printf 'sudo setfacl -m %q %q\n' "u:$(id -un):rw" "$port"
+    printf '%s\n' 'mise trust' 'mise install' 'mise run esp-toolchain' \
+        'GIT_CONFIG_GLOBAL=/dev/null scripts/check'
+    if "$flash"; then
+        printf 'GIT_CONFIG_GLOBAL=/dev/null ESPFLASH_PORT=%q scripts/flash\n' "$port"
+    fi
+    exit 0
+fi
+
+[[ -c "$port" ]] || fail "serial device missing or not a character device: $port"
+[[ -f firmware/cfg.toml ]] || fail 'create firmware/cfg.toml from cfg.toml.example and fill in Wi-Fi credentials'
+for tool in mise uv sudo; do
+    command -v "$tool" >/dev/null || fail "$tool is required; install it before running setup"
+done
+umask 077
+logs=target/setup-linux
+mkdir -p "$logs"
+chmod -R go-rwx "$logs"
+# The canonical check reuses its own logs; umask alone cannot protect existing files.
+if [[ -d target/check-logs ]]; then
+    chmod -R go-rwx target/check-logs
+fi
+stage() {
+    local name="$1"
+    shift
+    echo "Running $name (log: $logs/$name.log)"
+    if "$@" >"$logs/$name.log" 2>&1; then
+        echo "ok    $name"
+    else
+        fail "$name; see $logs/$name.log (logs may contain private build details)"
+    fi
+}
+stage config uv run --quiet --no-project --python 3.11 python - <<'PY'
+from pathlib import Path
+import tomllib
+
+config = tomllib.loads(Path('firmware/cfg.toml').read_text())['esp-shazam-firmware']
+for key, limit in [('wifi_ssid', 32), ('wifi_pass', 64)]:
+    value = config.get(key)
+    if not isinstance(value, str) or not value or value in ('your-network', 'your-password'):
+        raise SystemExit(f'{key}: missing or placeholder; value withheld')
+    if len(value.encode()) > limit:
+        raise SystemExit(f'{key}: exceeds firmware byte limit; value withheld')
+for key, value in config.items():
+    if isinstance(value, str) and any(c in '"\\' or ord(c) < 32 for c in value):
+        raise SystemExit(f'{key}: unsupported config-macro characters; value withheld')
+print('Configuration validated; values withheld')
+PY
+sudo -v
+stage apt-update sudo apt-get update
+stage packages sudo apt-get install -y "${packages[@]}"
+stage usb-access sudo setfacl -m "u:$(id -un):rw" "$port"
+[[ -r "$port" && -w "$port" ]] || fail "USB access still unavailable: $port"
+stage mise-trust mise trust
+stage tools mise install
+stage esp-toolchain mise run esp-toolchain
+stage espflash mise exec -- espflash --version
+stage check env GIT_CONFIG_GLOBAL=/dev/null scripts/check
+if "$flash"; then
+    stage flash env GIT_CONFIG_GLOBAL=/dev/null ESPFLASH_PORT="$port" scripts/flash
+fi
+echo "Workstation checks passed. Serial device: $port"

@@ -1,0 +1,618 @@
+{
+  "scope": "offline real production bridge, raw MP3, FFmpeg mp3float; no live Stop or finite export API",
+  "git_head": "db8a0868ef66cbd354a05bc7e89ca937cec75446",
+  "compile_argv": [
+    "cc",
+    "-O3",
+    "-fsigned-char",
+    "-Wall",
+    "-Wextra",
+    "-Werror",
+    "-shared",
+    "-fPIC",
+    "-I",
+    "/home/harper/workspace/personal/esp-analog-streamer/mp3/vendor/shine",
+    "/home/harper/workspace/personal/esp-analog-streamer/mp3/src/bridge.c",
+    "/home/harper/workspace/personal/esp-analog-streamer/mp3/vendor/shine/bitstream.c",
+    "/home/harper/workspace/personal/esp-analog-streamer/mp3/vendor/shine/huffman.c",
+    "/home/harper/workspace/personal/esp-analog-streamer/mp3/vendor/shine/l3bitstream.c",
+    "/home/harper/workspace/personal/esp-analog-streamer/mp3/vendor/shine/l3loop.c",
+    "/home/harper/workspace/personal/esp-analog-streamer/mp3/vendor/shine/l3mdct.c",
+    "/home/harper/workspace/personal/esp-analog-streamer/mp3/vendor/shine/l3subband.c",
+    "/home/harper/workspace/personal/esp-analog-streamer/mp3/vendor/shine/layer3.c",
+    "/home/harper/workspace/personal/esp-analog-streamer/mp3/vendor/shine/reservoir.c",
+    "/home/harper/workspace/personal/esp-analog-streamer/mp3/vendor/shine/tables.c",
+    "-lm",
+    "-o",
+    "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-tail/bridge.so"
+  ],
+  "sources": {
+    "mp3/src/bridge.c": "abc352b6740f607e9fa22c7761e7e63d9963d0feca0a0f7bb0c2afed17524d6a",
+    "mp3/vendor/shine/bitstream.c": "44665c9d1516e4a48ebb459064c81d7bd828fe84a522adb0d38fc1546cf8526e",
+    "mp3/vendor/shine/huffman.c": "3cbd7f3a410870493b0bf68a42913b53c54eb8bbfc2e4c37f8a09c920b972df3",
+    "mp3/vendor/shine/l3bitstream.c": "6b8d01088f823b2d4c7d926bdb9e078faf3d0a93ef976df3da141f5a2e08fe60",
+    "mp3/vendor/shine/l3loop.c": "a5677927bc4fbd8795f5de47b1c3fb3dbe5a7fc57df9b26fb00209911f8243dd",
+    "mp3/vendor/shine/l3mdct.c": "dfc90eb9f3c31577d467d42abb8d2c2da40366e58b6cd02d707517f040874a43",
+    "mp3/vendor/shine/l3subband.c": "fccfcc3c5b7b7d0bffb47c35df734bea42d291982730c5715fd8c4e7cc78d3a3",
+    "mp3/vendor/shine/layer3.c": "6d41c15cf6a2d57ac2969f848c445004eea37727efa011007f19cce0e7c26c38",
+    "mp3/vendor/shine/reservoir.c": "5754e370cc3dae68a02adf049fdf30a55628fe113191407d82ba32f8352c7770",
+    "mp3/vendor/shine/tables.c": "94af116b5aa89c21116a7874f2d66b893dc8ec8342a19e03711c3a38a9bdd261",
+    "mp3/vendor/shine/bitstream.h": "041a4afa73d1d3be06ef0825dffcc3d7ce1140d480cba97ea2d23587bc3cbf57",
+    "mp3/vendor/shine/huffman.h": "5c0daa50a28c8ac836fd3e7be61df75d3e0506267e8e79b4f63b955c04a656d4",
+    "mp3/vendor/shine/l3bitstream.h": "7d09cbf7107191de7692e4d9d07d261a7f8ab9bcc40df2b887658c83642bb880",
+    "mp3/vendor/shine/l3loop.h": "1e4cc8d8200b1e7ab7445dcb2c8ccdc41f55873f2bc921e2b281b66f18502716",
+    "mp3/vendor/shine/l3mdct.h": "acf6ce1571ebee244044a68b24dd03777b789df7be733ea27e21a35d54530e6b",
+    "mp3/vendor/shine/l3subband.h": "d25f8a66fdc2401eb6d6f571d69594fae6a8fb34728d4efddf1d0b1212de4251",
+    "mp3/vendor/shine/layer3.h": "80bf1187280edf4886ca24e27c62393023b5a7ed227f694ff3cf4138f00f3f90",
+    "mp3/vendor/shine/mult_mips_gcc.h": "3b69725742c3303ed2e899e92670373ecbcbee33605cf590e84e6a5fa1f4b56b",
+    "mp3/vendor/shine/mult_noarch_gcc.h": "f6094c3ab0ad58130a027867ed8d1a646d63dd4c83ecddd751adec07c6c4e60a",
+    "mp3/vendor/shine/mult_sarm_gcc.h": "39b8c8166614b0b53bf8e63392ace988813dfe520149af5596a038f34af552e5",
+    "mp3/vendor/shine/reservoir.h": "6a24ddb678f635b1d97703468c91d7209a76d47b8d5265d195b95f3222734b92",
+    "mp3/vendor/shine/tables.h": "c6e3872b6b480cea63989f6ddefe20409deb21b9207cde1e0616143981a3cd55",
+    "mp3/vendor/shine/types.h": "668de0f839dea6b6b994f5e78d89ca18a48b9da9fefdd30fb44cc33defacfe46"
+  },
+  "versions": {
+    "cc": "cc (Ubuntu 15.2.0-16ubuntu1) 15.2.0",
+    "ffmpeg": "ffmpeg version 8.0.1-3ubuntu2 Copyright (c) 2000-2025 the FFmpeg developers"
+  },
+  "sample_rate_hz": 48000,
+  "block_sample_frames": 1152,
+  "frame_bytes": 960,
+  "unpadded_source_sample_frames": 18432,
+  "expected_alignment_sample_frames": 1057,
+  "cases": {
+    "early-impulse": {
+      "source_sha256": "f46724d489d10b45e0371e42e99d628fbfc9bd198f8bfcaf461402713862d5ef",
+      "source_nonzero_range": [
+        4608,
+        4608
+      ],
+      "variants_by_appended_blocks": {
+        "0": {
+          "synthetic_zero_sample_frames": 0,
+          "encoded_frames": 16,
+          "encoded_bytes": 15360,
+          "decoded_sample_frames": 18432,
+          "mp3_sha256": "a512564af675814f292c85ca5c856cf007885d2545a232742b1cea0008be3833",
+          "decoded_sha256": "1a9db2596ed8e0985673880952a7fb88e60bd12b5aea6e17fbc30c2998736bc7",
+          "peak_index": [
+            5665,
+            5665
+          ],
+          "peak_abs": [
+            0.5209454894065857,
+            0.37425458431243896
+          ],
+          "decoded_energy": [
+            0.2811757187815727,
+            0.14545621338908823
+          ],
+          "last_nonzero_decoded_index": [
+            6815,
+            6815
+          ],
+          "energy_fraction_of_pad8": [
+            1.0,
+            1.0
+          ],
+          "omitted_reference_energy": [
+            0.0,
+            0.0
+          ],
+          "omitted_reference_peak_abs": [
+            0.0,
+            0.0
+          ]
+        },
+        "1": {
+          "synthetic_zero_sample_frames": 1152,
+          "encoded_frames": 17,
+          "encoded_bytes": 16320,
+          "decoded_sample_frames": 19584,
+          "mp3_sha256": "f7f9c16a0cdb660be21054b2da5c171141a16a28b7129ee86204003161dda235",
+          "decoded_sha256": "8fe053f0ef5109f5af90385de6ab69eff73867c0ab357348db0d9e8d0f994d53",
+          "peak_index": [
+            5665,
+            5665
+          ],
+          "peak_abs": [
+            0.5209454894065857,
+            0.37425458431243896
+          ],
+          "decoded_energy": [
+            0.2811757187815727,
+            0.14545621338908823
+          ],
+          "last_nonzero_decoded_index": [
+            6815,
+            6815
+          ],
+          "energy_fraction_of_pad8": [
+            1.0,
+            1.0
+          ],
+          "omitted_reference_energy": [
+            0.0,
+            0.0
+          ],
+          "omitted_reference_peak_abs": [
+            0.0,
+            0.0
+          ]
+        },
+        "2": {
+          "synthetic_zero_sample_frames": 2304,
+          "encoded_frames": 18,
+          "encoded_bytes": 17280,
+          "decoded_sample_frames": 20736,
+          "mp3_sha256": "3a19b3513ac953b2ea213ba93e5ca4e85832ab833d0788f24a4dfceb5b039873",
+          "decoded_sha256": "79f650e71e4daee621d155412c4ce85e8cea258000175960efaff5d9a389a023",
+          "peak_index": [
+            5665,
+            5665
+          ],
+          "peak_abs": [
+            0.5209454894065857,
+            0.37425458431243896
+          ],
+          "decoded_energy": [
+            0.2811757187815727,
+            0.14545621338908823
+          ],
+          "last_nonzero_decoded_index": [
+            6815,
+            6815
+          ],
+          "energy_fraction_of_pad8": [
+            1.0,
+            1.0
+          ],
+          "omitted_reference_energy": [
+            0.0,
+            0.0
+          ],
+          "omitted_reference_peak_abs": [
+            0.0,
+            0.0
+          ]
+        },
+        "8": {
+          "synthetic_zero_sample_frames": 9216,
+          "encoded_frames": 24,
+          "encoded_bytes": 23040,
+          "decoded_sample_frames": 27648,
+          "mp3_sha256": "b37bb964ed096f953ad85288126192ddd9f94c7e5039e8efcfba383c3c5a4038",
+          "decoded_sha256": "146496da6f3479fdf04838067af160afa8f8b5875ef4d8cbbe4b9c89640a5539",
+          "peak_index": [
+            5665,
+            5665
+          ],
+          "peak_abs": [
+            0.5209454894065857,
+            0.37425458431243896
+          ],
+          "decoded_energy": [
+            0.2811757187815727,
+            0.14545621338908823
+          ],
+          "last_nonzero_decoded_index": [
+            6815,
+            6815
+          ],
+          "energy_fraction_of_pad8": [
+            1.0,
+            1.0
+          ],
+          "omitted_reference_energy": [
+            0.0,
+            0.0
+          ],
+          "omitted_reference_peak_abs": [
+            0.0,
+            0.0
+          ]
+        }
+      }
+    },
+    "terminal-impulse": {
+      "source_sha256": "7a282a76e9bb32478bcf263624820c4a7769eeafba2bd4db389a820c475b46ab",
+      "source_nonzero_range": [
+        18431,
+        18431
+      ],
+      "variants_by_appended_blocks": {
+        "0": {
+          "synthetic_zero_sample_frames": 0,
+          "encoded_frames": 16,
+          "encoded_bytes": 15360,
+          "decoded_sample_frames": 18432,
+          "mp3_sha256": "d0624ac3067221bbc162ff5cdcf70e64607cd57ed44f76b3a7a220883fb507d0",
+          "decoded_sha256": "8123c216413f82bbaa0339c27a43d9822c2a043e20662b27c97874429b996e9a",
+          "peak_index": [
+            0,
+            0
+          ],
+          "peak_abs": [
+            0.0,
+            0.0
+          ],
+          "decoded_energy": [
+            0.0,
+            0.0
+          ],
+          "last_nonzero_decoded_index": [
+            null,
+            null
+          ],
+          "energy_fraction_of_pad8": [
+            0.0,
+            0.0
+          ],
+          "omitted_reference_energy": [
+            0.20571190613735654,
+            0.1279953225794465
+          ],
+          "omitted_reference_peak_abs": [
+            0.4446668326854706,
+            0.3511344790458679
+          ]
+        },
+        "1": {
+          "synthetic_zero_sample_frames": 1152,
+          "encoded_frames": 17,
+          "encoded_bytes": 16320,
+          "decoded_sample_frames": 19584,
+          "mp3_sha256": "2256b2f5c6e2de1624b33568224431136fa6eeffc9fd695d3e0cca2ccf6fa9a8",
+          "decoded_sha256": "57ad86ae12762d2386e14ad908ed7bf40c8915cbb53c3128784415a047e55144",
+          "peak_index": [
+            19488,
+            19488
+          ],
+          "peak_abs": [
+            0.4446668326854706,
+            0.3511344790458679
+          ],
+          "decoded_energy": [
+            0.2015027327551327,
+            0.12582328385745287
+          ],
+          "last_nonzero_decoded_index": [
+            19583,
+            19583
+          ],
+          "energy_fraction_of_pad8": [
+            0.9795385038170161,
+            0.9830303273727408
+          ],
+          "omitted_reference_energy": [
+            0.004209173382223929,
+            0.0021720387219941856
+          ],
+          "omitted_reference_peak_abs": [
+            0.03853641077876091,
+            0.029444728046655655
+          ]
+        },
+        "2": {
+          "synthetic_zero_sample_frames": 2304,
+          "encoded_frames": 18,
+          "encoded_bytes": 17280,
+          "decoded_sample_frames": 20736,
+          "mp3_sha256": "e9b06a9d9d5c346974bd9e0460cebbc23d9510fdf9e967835e2886ae598b15b2",
+          "decoded_sha256": "31d662724954eff0279b461012fde7f901f67c2a8f534635e97bbaa56e11dcb7",
+          "peak_index": [
+            19488,
+            19488
+          ],
+          "peak_abs": [
+            0.4446668326854706,
+            0.3511344790458679
+          ],
+          "decoded_energy": [
+            0.20571190613735654,
+            0.1279953225794465
+          ],
+          "last_nonzero_decoded_index": [
+            20639,
+            20639
+          ],
+          "energy_fraction_of_pad8": [
+            1.0,
+            1.0
+          ],
+          "omitted_reference_energy": [
+            0.0,
+            0.0
+          ],
+          "omitted_reference_peak_abs": [
+            0.0,
+            0.0
+          ]
+        },
+        "8": {
+          "synthetic_zero_sample_frames": 9216,
+          "encoded_frames": 24,
+          "encoded_bytes": 23040,
+          "decoded_sample_frames": 27648,
+          "mp3_sha256": "1ff5188b0a6f3b5bbff35c0f3f2f2db4bf9ffa4da1696b50306c4c31f98db0f8",
+          "decoded_sha256": "d890eb8ecb1f0b548c87c31fbf6a26c2a0218b8e25cbd188cd58fe1c77f08093",
+          "peak_index": [
+            19488,
+            19488
+          ],
+          "peak_abs": [
+            0.4446668326854706,
+            0.3511344790458679
+          ],
+          "decoded_energy": [
+            0.20571190613735654,
+            0.1279953225794465
+          ],
+          "last_nonzero_decoded_index": [
+            20639,
+            20639
+          ],
+          "energy_fraction_of_pad8": [
+            1.0,
+            1.0
+          ],
+          "omitted_reference_energy": [
+            0.0,
+            0.0
+          ],
+          "omitted_reference_peak_abs": [
+            0.0,
+            0.0
+          ]
+        }
+      }
+    },
+    "terminal-burst-256": {
+      "source_sha256": "5df229fe9806ff1808b353c3f86b486defa1bce7509969b5ceb4c3b2b6689af8",
+      "source_nonzero_range": [
+        18177,
+        18431
+      ],
+      "variants_by_appended_blocks": {
+        "0": {
+          "synthetic_zero_sample_frames": 0,
+          "encoded_frames": 16,
+          "encoded_bytes": 15360,
+          "decoded_sample_frames": 18432,
+          "mp3_sha256": "1da57f98018cb590fe1d8051245dfc3b7100c6948483a933c7ce262faedc08b2",
+          "decoded_sha256": "47610dfc5336e02d41b316358c6f0244c490ae3dba930dcb62677d827f3a4462",
+          "peak_index": [
+            18394,
+            18274
+          ],
+          "peak_abs": [
+            6.451663648476824e-05,
+            0.00010409242531750351
+          ],
+          "decoded_energy": [
+            9.039589594166458e-08,
+            2.2051451063987837e-07
+          ],
+          "last_nonzero_decoded_index": [
+            18431,
+            18431
+          ],
+          "energy_fraction_of_pad8": [
+            5.247288492196871e-09,
+            2.3069133859266233e-08
+          ],
+          "omitted_reference_energy": [
+            17.227163248553424,
+            9.558855000714516
+          ],
+          "omitted_reference_peak_abs": [
+            0.381848007440567,
+            0.27733561396598816
+          ]
+        },
+        "1": {
+          "synthetic_zero_sample_frames": 1152,
+          "encoded_frames": 17,
+          "encoded_bytes": 16320,
+          "decoded_sample_frames": 19584,
+          "mp3_sha256": "631ad10be80ddccddab40fb933af765b8f9810af69249c54adbccfcfbcbb82d8",
+          "decoded_sha256": "5ec3c1c4b097704e2b8764968d84fa146b6cd9dd52e1190fa3c09b0ea6332cb1",
+          "peak_index": [
+            19487,
+            19254
+          ],
+          "peak_abs": [
+            0.381848007440567,
+            0.27733561396598816
+          ],
+          "decoded_energy": [
+            17.223549625539,
+            9.558390784903088
+          ],
+          "last_nonzero_decoded_index": [
+            19583,
+            19583
+          ],
+          "energy_fraction_of_pad8": [
+            0.999790231662682,
+            0.9999514129762204
+          ],
+          "omitted_reference_energy": [
+            0.003613713410364743,
+            0.0004644363259407554
+          ],
+          "omitted_reference_peak_abs": [
+            0.00962057989090681,
+            0.0031721582636237144
+          ]
+        },
+        "2": {
+          "synthetic_zero_sample_frames": 2304,
+          "encoded_frames": 18,
+          "encoded_bytes": 17280,
+          "decoded_sample_frames": 20736,
+          "mp3_sha256": "1843636228913fb0a72e823b11763b71605c5a44dae0d2ec34439bce2e8eb015",
+          "decoded_sha256": "ff14e9fef4e44f56362518e4aac3935a8e7ec4dac4b2abf77b959b4312e02789",
+          "peak_index": [
+            19487,
+            19254
+          ],
+          "peak_abs": [
+            0.381848007440567,
+            0.27733561396598816
+          ],
+          "decoded_energy": [
+            17.227163338949318,
+            9.558855221229027
+          ],
+          "last_nonzero_decoded_index": [
+            20639,
+            20639
+          ],
+          "energy_fraction_of_pad8": [
+            1.0,
+            1.0
+          ],
+          "omitted_reference_energy": [
+            0.0,
+            0.0
+          ],
+          "omitted_reference_peak_abs": [
+            0.0,
+            0.0
+          ]
+        },
+        "8": {
+          "synthetic_zero_sample_frames": 9216,
+          "encoded_frames": 24,
+          "encoded_bytes": 23040,
+          "decoded_sample_frames": 27648,
+          "mp3_sha256": "6145208d43c04c5bf634c11c36446c96bd4453d18db868817695b78fb7d75930",
+          "decoded_sha256": "b38272a10da8cd8784774963c8fe45f4d7bf37d2e2d83c2c8e856865440cbc16",
+          "peak_index": [
+            19487,
+            19254
+          ],
+          "peak_abs": [
+            0.381848007440567,
+            0.27733561396598816
+          ],
+          "decoded_energy": [
+            17.227163338949318,
+            9.558855221229027
+          ],
+          "last_nonzero_decoded_index": [
+            20639,
+            20639
+          ],
+          "energy_fraction_of_pad8": [
+            1.0,
+            1.0
+          ],
+          "omitted_reference_energy": [
+            0.0,
+            0.0
+          ],
+          "omitted_reference_peak_abs": [
+            0.0,
+            0.0
+          ]
+        }
+      }
+    }
+  },
+  "observed_peak_alignment_sample_frames": [
+    1057,
+    1057
+  ],
+  "aligned_source_coverage_without_padding": {
+    "source_start_inclusive": 0,
+    "source_end_exclusive": 17375,
+    "terminal_source_positions_without_aligned_output": 1057,
+    "caveat": "Alignment accounting; lossy filters spread energy across nearby samples. Not an exact missing-waveform count."
+  },
+  "padding_accounting": {
+    "one_block": {
+      "append": 1152,
+      "after_delay_trim_output": 18527,
+      "beyond_original_input": 95
+    },
+    "two_blocks": {
+      "append": 2304,
+      "after_delay_trim_output": 19679,
+      "beyond_original_input": 1247
+    },
+    "no_gapless_metadata": "Diagnostic padding appends actual silence input and complete MP3 frames. No metadata trims it."
+  },
+  "epoch_reset": {
+    "actual_adapter_stdout": "partial_discard_sample_frames=137 incomplete_rejected=true reset_silence_equals_fresh=true continuous_tail_differs=true emitted_post_reset_frames=4",
+    "partial_input_sample_frames": 137,
+    "maximum_unencoded_partial_sample_frames": 1151,
+    "partial_input_can_not_emit_complete_frame": true,
+    "reset_discards_partial_and_filter_history": true,
+    "no_reset_control_emits_prior_signal": true,
+    "outputs": {
+      "epoch-after-reset": {
+        "mp3_sha256": "dd14db779c1df561efd465f9b1cfeadbbdeab09ae1b131c07cfb8639bd416656",
+        "decoded_sha256": "1c0273095382988333e2f2b5ae487cea460737ed9be65cbad9c5de537f95bf75",
+        "decoded_sample_frames": 4608,
+        "decoded_peak_abs": [
+          0.0,
+          0.0
+        ],
+        "decoded_energy": [
+          0.0,
+          0.0
+        ]
+      },
+      "epoch-fresh": {
+        "mp3_sha256": "dd14db779c1df561efd465f9b1cfeadbbdeab09ae1b131c07cfb8639bd416656",
+        "decoded_sha256": "1c0273095382988333e2f2b5ae487cea460737ed9be65cbad9c5de537f95bf75",
+        "decoded_sample_frames": 4608,
+        "decoded_peak_abs": [
+          0.0,
+          0.0
+        ],
+        "decoded_energy": [
+          0.0,
+          0.0
+        ]
+      },
+      "epoch-continuous-control": {
+        "mp3_sha256": "8305c3a9e1c040030700935f1c4d4c671d8b3edbcdc8a9308fe1d7ef8fec6d04",
+        "decoded_sha256": "8acbba7187c80a061f012120ae0fe2f8c6baa3c9b8bd0a350d05c5a76a92c159",
+        "decoded_sample_frames": 4608,
+        "decoded_peak_abs": [
+          0.4446668326854706,
+          0.3511344790458679
+        ],
+        "decoded_energy": [
+          0.20571190613735654,
+          0.1279953225794465
+        ]
+      }
+    },
+    "sources": {
+      "firmware/src/stream_codec.rs": "b08276f2e5ec50e20a68b968ded9a4a8e7c4d3188e438f1e510e7d00fa96b650",
+      "firmware/src/stream_pipeline.rs": "dc7b9c8d5cd47b35b2a9a08300a76b6013a9ce25e27911e1104c6616af027120",
+      "firmware/src/sonos.rs": "fd1357534d9ddc3598c0413de7dd80b6d43496ea4cc8b239d99d57cc017d7bfa",
+      "mp3/src/lib.rs": "dd516d3766284a3c5ceed2ac4c129e55dcb5b6c400d32e35639917f4b27d1731",
+      "core/tests/stream_codec.rs": "ef90e0aa4e3fb60792fd3a4103c6e31bea98f0fc2c969dc1246332d82c5075a5",
+      "target/kata-hardening/oct13-mp3-tail/adapter/src/main.rs": "6dc8e08f90f88854e45c69f861ea61a9c495100f83b85401b5611ea751b830ed",
+      "target/kata-hardening/oct13-mp3-tail/adapter/Cargo.toml": "b2ad06a5f622b8f77245cbadc0ab84f65955e815d7a3a83b78db128d473aeb95",
+      "target/kata-hardening/oct13-mp3-tail/adapter/Cargo.lock": "40f5470a044793ec5716761c55a485812f8cc61bd29085c83461692655d43504",
+      "target/kata-hardening/oct13-mp3-tail/check-tail.py": "8713a7e5779855da2e2a69d2baa7490924161be8b9565b58479f4baad82a6c03"
+    }
+  },
+  "negative_controls": {
+    "equal_decoded_count_preserves_terminal_impulse": "rejected: decoded unpadded impulse energy is exactly zero",
+    "one_zero_block_recovers_complete_terminal_filter_tail": "rejected: measured nonzero residual against eight-block reference",
+    "recreated_epoch_carries_prior_audio": "rejected: actual reset output is byte-identical fresh silence; continuous control contains prior impulse"
+  },
+  "contract": {
+    "live_stop": "Sonos Stop revokes delivery and Play intent; it does not stop the continuous shared encoder or invoke a finite flush.",
+    "epoch_reset": "Capture discontinuity/overrun recreates codec and discards partial PCM and prior filter history; temporary read stall keeps partial PCM.",
+    "raw_encoder": "Exactly one 960-byte frame per 1152 stereo sample frames. Drop closes allocation, no tail drain or gapless metadata API.",
+    "bounded_conclusion": "Delay/padding measurement is characterized separately from fidelity; finite export and lossless Stop are not current APIs. No user quality acceptance inferred."
+  }
+}

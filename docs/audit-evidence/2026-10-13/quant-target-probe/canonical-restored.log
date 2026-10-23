@@ -1,0 +1,5 @@
+ok    firmware-fmt
+ok    firmware-build
+ok    i2s-iram-tests
+ok    i2s-iram
+ok    firmware-warnings

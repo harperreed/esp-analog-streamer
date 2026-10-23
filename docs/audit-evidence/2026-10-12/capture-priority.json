@@ -1,0 +1,1078 @@
+{
+  "schema_version": 1,
+  "kata": "93hm",
+  "verdict": "startup_fix_and_ordinary_load_passed_remaining_93hm_gates_open",
+  "canonical": {
+    "run": "run.4Ey5mnzb",
+    "stages": 27,
+    "exit_code": 0
+  },
+  "images": {
+    "a": "e8ad28420b8c71d5c208645b09fa218e2039639f7e9db7d2fdc79b4cb5b0e775",
+    "b": "35c2f31310dbf047c83317ba4256417d25a14ef4df9cf8d441ca7f72163d3e26",
+    "c": "98f511aa6161f056fa9fcadf0ecec193e6bf7a1d0609aa7f278b2471ca2069fc",
+    "production": "e93f8f72692c1630d082de42b3d1ae8d11d8c106c2ef6e978e96b74a83cb5eea"
+  },
+  "quiet": {
+    "a1": {
+      "sources": {
+        "target/kata-hardening/oct12-affinity/a1-uart.log": "b650ee330d9ff30a61d4199e24ebe93909016feaa01d43c0653d63bbcb5618c2",
+        "target/kata-hardening/oct12-affinity/a1-analysis.json": "32153a1cc556a4873ddc45b174676f487d1230fcc25fddf762d4a28e57f86922"
+      },
+      "entry": {
+        "actual_core": 0,
+        "pinned_affinity": 0,
+        "priority": 10
+      },
+      "wifi_phases": [
+        {
+          "phase": "wifi_construct",
+          "begin_us": 146768,
+          "end_us": 240672,
+          "duration_us": 93904
+        },
+        {
+          "phase": "wifi_start",
+          "begin_us": 251216,
+          "end_us": 324676,
+          "duration_us": 73460
+        }
+      ],
+      "faults": [
+        {
+          "event_us": 202726,
+          "overflow_before": 8,
+          "overflow_after": 9,
+          "callbacks": 28,
+          "settling_frames": 23760,
+          "read_begin_us": 151720,
+          "read_end_us": 202674,
+          "read_duration_us": 50954,
+          "read_frames": 240,
+          "read_result_u32": 0,
+          "sample_begin_us": 202722,
+          "sample_end_us": 202741,
+          "phases_at_observation": [
+            "wifi_construct"
+          ]
+        },
+        {
+          "event_us": 323692,
+          "overflow_before": 9,
+          "overflow_after": 15,
+          "callbacks": 52,
+          "settling_frames": 21840,
+          "read_begin_us": 251142,
+          "read_end_us": 323587,
+          "read_duration_us": 72445,
+          "read_frames": 240,
+          "read_result_u32": 0,
+          "sample_begin_us": 323680,
+          "sample_end_us": 323716,
+          "phases_at_observation": [
+            "wifi_start"
+          ]
+        }
+      ],
+      "complete_audio_samples": 3,
+      "partial_tail_excluded": false,
+      "first_counters": {
+        "queue_overflows": 15,
+        "software_dropped_frames": 480,
+        "read_errors": 0,
+        "restarts": 2,
+        "supervisor_restarts": 0,
+        "overflow_restarts": 2,
+        "discontinuities": 2,
+        "health_restart_requests": 0,
+        "settling_discarded_frames": 26400
+      },
+      "first_service_delay_max_us": 67527,
+      "steady_capture_charged_percent_range": [
+        10.147064949801328,
+        10.15349526845978
+      ],
+      "steady_heap_ranges_bytes": {
+        "internal_free": [
+          45043,
+          45163
+        ],
+        "internal_largest": [
+          43008,
+          43008
+        ],
+        "internal_min_sum": [
+          44819,
+          44951
+        ],
+        "psram_free": [
+          2729876,
+          2730436
+        ],
+        "psram_largest": [
+          2359296,
+          2359296
+        ],
+        "psram_min_sum": [
+          2722868,
+          2724724
+        ]
+      },
+      "fresh_api_capture": {
+        "capture_begin_us": 40388765,
+        "capture_end_us": 40388784,
+        "queue_overflows": 15,
+        "software_dropped_frames": 480,
+        "read_errors": 0,
+        "restarts": 2,
+        "supervisor_restarts": 0,
+        "overflow_restarts": 2,
+        "discontinuities": 2,
+        "health_restart_requests": 0,
+        "settling_discarded_frames": 26400,
+        "internal_free": 45043,
+        "internal_largest": 43008,
+        "internal_min_sum": 44767,
+        "psram_free": 2729876,
+        "psram_largest": 2359296,
+        "psram_min_sum": 2723488,
+        "read_service_delay_estimate_max_us": 1920
+      },
+      "fresh_api_encoder": {
+        "kind": "window",
+        "window_start_us": 24532185,
+        "window_end_us": 34541536,
+        "telemetry_epoch": 1,
+        "telemetry_window": 3,
+        "encoded_frames": 1251,
+        "resets": 0,
+        "encode_max_us": 20051,
+        "raw_read_frames": 480384,
+        "raw_read_overruns": 0,
+        "raw_read_retries": 774,
+        "encode_wall_total_us": 7070184,
+        "raw_wait_total_us": 2391336,
+        "raw_wait_max_us": 19465,
+        "encoded_lock_wait_wall_total_us": 20819,
+        "encoded_push_held_wall_total_us": 66981,
+        "block_samples": 1152,
+        "listeners_start": 0,
+        "listeners_end": 0,
+        "stack_free_bytes": 4904,
+        "task_runtime_us": 7588694,
+        "runtime_valid": true
+      },
+      "media_health": "healthy"
+    },
+    "a2": {
+      "sources": {
+        "target/kata-hardening/oct12-affinity/a2-uart.log": "ae310ecfbf82209e26f9b04cb2ae46521aaaaf6ebb78981456faeb85d8d25b8c",
+        "target/kata-hardening/oct12-affinity/a2-analysis.json": "b45d226eace0cf918011f05a8505f67fbfe04920491a2d3b047b9408adfa0545"
+      },
+      "entry": {
+        "actual_core": 0,
+        "pinned_affinity": 0,
+        "priority": 10
+      },
+      "wifi_phases": [
+        {
+          "phase": "wifi_construct",
+          "begin_us": 146748,
+          "end_us": 240606,
+          "duration_us": 93858
+        },
+        {
+          "phase": "wifi_start",
+          "begin_us": 251150,
+          "end_us": 332085,
+          "duration_us": 80935
+        }
+      ],
+      "faults": [
+        {
+          "event_us": 202661,
+          "overflow_before": 8,
+          "overflow_after": 9,
+          "callbacks": 28,
+          "settling_frames": 23760,
+          "read_begin_us": 151700,
+          "read_end_us": 202608,
+          "read_duration_us": 50908,
+          "read_frames": 240,
+          "read_result_u32": 0,
+          "sample_begin_us": 202656,
+          "sample_end_us": 202675,
+          "phases_at_observation": [
+            "wifi_construct"
+          ]
+        },
+        {
+          "event_us": 331103,
+          "overflow_before": 9,
+          "overflow_after": 16,
+          "callbacks": 53,
+          "settling_frames": 21840,
+          "read_begin_us": 251077,
+          "read_end_us": 330998,
+          "read_duration_us": 79921,
+          "read_frames": 240,
+          "read_result_u32": 0,
+          "sample_begin_us": 331091,
+          "sample_end_us": 331127,
+          "phases_at_observation": [
+            "wifi_start"
+          ]
+        }
+      ],
+      "complete_audio_samples": 3,
+      "partial_tail_excluded": false,
+      "first_counters": {
+        "queue_overflows": 16,
+        "software_dropped_frames": 480,
+        "read_errors": 0,
+        "restarts": 2,
+        "supervisor_restarts": 0,
+        "overflow_restarts": 2,
+        "discontinuities": 2,
+        "health_restart_requests": 0,
+        "settling_discarded_frames": 26400
+      },
+      "first_service_delay_max_us": 75004,
+      "steady_capture_charged_percent_range": [
+        10.066731194433336,
+        10.082919298536696
+      ],
+      "steady_heap_ranges_bytes": {
+        "internal_free": [
+          45015,
+          45147
+        ],
+        "internal_largest": [
+          43008,
+          43008
+        ],
+        "internal_min_sum": [
+          44487,
+          44787
+        ],
+        "psram_free": [
+          2729884,
+          2730452
+        ],
+        "psram_largest": [
+          2359296,
+          2359296
+        ],
+        "psram_min_sum": [
+          2721216,
+          2724668
+        ]
+      },
+      "fresh_api_capture": {
+        "capture_begin_us": 40251319,
+        "capture_end_us": 40251338,
+        "queue_overflows": 16,
+        "software_dropped_frames": 480,
+        "read_errors": 0,
+        "restarts": 2,
+        "supervisor_restarts": 0,
+        "overflow_restarts": 2,
+        "discontinuities": 2,
+        "health_restart_requests": 0,
+        "settling_discarded_frames": 26400,
+        "internal_free": 45015,
+        "internal_largest": 43008,
+        "internal_min_sum": 44899,
+        "psram_free": 2729884,
+        "psram_largest": 2359296,
+        "psram_min_sum": 2723600,
+        "read_service_delay_estimate_max_us": 1407
+      },
+      "fresh_api_encoder": {
+        "kind": "window",
+        "window_start_us": 34612257,
+        "window_end_us": 44621478,
+        "telemetry_epoch": 1,
+        "telemetry_window": 4,
+        "encoded_frames": 1668,
+        "resets": 0,
+        "encode_max_us": 19285,
+        "raw_read_frames": 480384,
+        "raw_read_overruns": 0,
+        "raw_read_retries": 576,
+        "encode_wall_total_us": 7047322,
+        "raw_wait_total_us": 2429479,
+        "raw_wait_max_us": 19817,
+        "encoded_lock_wait_wall_total_us": 20664,
+        "encoded_push_held_wall_total_us": 65597,
+        "block_samples": 1152,
+        "listeners_start": 0,
+        "listeners_end": 0,
+        "stack_free_bytes": 4920,
+        "task_runtime_us": 7593364,
+        "runtime_valid": true
+      },
+      "media_health": "healthy"
+    },
+    "b": {
+      "sources": {
+        "target/kata-hardening/oct12-affinity/b-uart.log": "72625951dfda02471587126edcfea5e329779366e2c47a3d1dd8ead4009e7533",
+        "target/kata-hardening/oct12-affinity/b-analysis.json": "22c18ae28b5d2f91dae7629befa60c651f6e0c4ba4873a2a54dfa4dc141d8ec1"
+      },
+      "entry": {
+        "actual_core": 1,
+        "pinned_affinity": 1,
+        "priority": 10
+      },
+      "wifi_phases": [
+        {
+          "phase": "wifi_construct",
+          "begin_us": 145806,
+          "end_us": 240685,
+          "duration_us": 94879
+        },
+        {
+          "phase": "wifi_start",
+          "begin_us": 250965,
+          "end_us": 328590,
+          "duration_us": 77625
+        }
+      ],
+      "faults": [],
+      "complete_audio_samples": 2,
+      "partial_tail_excluded": true,
+      "first_counters": {
+        "queue_overflows": 8,
+        "software_dropped_frames": 0,
+        "read_errors": 0,
+        "restarts": 0,
+        "supervisor_restarts": 0,
+        "overflow_restarts": 0,
+        "discontinuities": 0,
+        "health_restart_requests": 0,
+        "settling_discarded_frames": 24000
+      },
+      "first_service_delay_max_us": 6816,
+      "steady_capture_charged_percent_range": [
+        13.805261546594032,
+        13.805261546594032
+      ],
+      "steady_heap_ranges_bytes": {
+        "internal_free": [
+          45039,
+          45039
+        ],
+        "internal_largest": [
+          43008,
+          43008
+        ],
+        "internal_min_sum": [
+          44887,
+          44887
+        ],
+        "psram_free": [
+          2729900,
+          2729900
+        ],
+        "psram_largest": [
+          2359296,
+          2359296
+        ],
+        "psram_min_sum": [
+          2717620,
+          2717620
+        ]
+      },
+      "fresh_api_capture": {
+        "capture_begin_us": 40531830,
+        "capture_end_us": 40531846,
+        "queue_overflows": 8,
+        "software_dropped_frames": 0,
+        "read_errors": 0,
+        "restarts": 0,
+        "supervisor_restarts": 0,
+        "overflow_restarts": 0,
+        "discontinuities": 0,
+        "health_restart_requests": 0,
+        "settling_discarded_frames": 24000,
+        "internal_free": 45039,
+        "internal_largest": 43008,
+        "internal_min_sum": 44863,
+        "psram_free": 2729900,
+        "psram_largest": 2359296,
+        "psram_min_sum": 2723456,
+        "read_service_delay_estimate_max_us": 550
+      },
+      "fresh_api_encoder": {
+        "kind": "window",
+        "window_start_us": 24625476,
+        "window_end_us": 34648197,
+        "telemetry_epoch": 1,
+        "telemetry_window": 3,
+        "encoded_frames": 1250,
+        "resets": 0,
+        "encode_max_us": 22563,
+        "raw_read_frames": 480384,
+        "raw_read_overruns": 0,
+        "raw_read_retries": 1,
+        "encode_wall_total_us": 8312128,
+        "raw_wait_total_us": 1061201,
+        "raw_wait_max_us": 19629,
+        "encoded_lock_wait_wall_total_us": 21282,
+        "encoded_push_held_wall_total_us": 72672,
+        "block_samples": 1152,
+        "listeners_start": 0,
+        "listeners_end": 0,
+        "stack_free_bytes": 4920,
+        "task_runtime_us": 7618688,
+        "runtime_valid": true
+      },
+      "media_health": "healthy"
+    },
+    "b2": {
+      "sources": {
+        "target/kata-hardening/oct12-affinity/b2-uart.log": "9b508b2b05bf1ed79d934f4e3ec49dde9bd9336f5e64f8dee5b0fd58946be07e",
+        "target/kata-hardening/oct12-affinity/b2-analysis.json": "0d997af2b5e4d5267f1678c6bacee91d6adc26de942b9d1155815a71a2b32504"
+      },
+      "entry": {
+        "actual_core": 1,
+        "pinned_affinity": 1,
+        "priority": 10
+      },
+      "wifi_phases": [
+        {
+          "phase": "wifi_construct",
+          "begin_us": 145664,
+          "end_us": 240681,
+          "duration_us": 95017
+        },
+        {
+          "phase": "wifi_start",
+          "begin_us": 250961,
+          "end_us": 325975,
+          "duration_us": 75014
+        }
+      ],
+      "faults": [],
+      "complete_audio_samples": 3,
+      "partial_tail_excluded": true,
+      "first_counters": {
+        "queue_overflows": 8,
+        "software_dropped_frames": 0,
+        "read_errors": 0,
+        "restarts": 0,
+        "supervisor_restarts": 0,
+        "overflow_restarts": 0,
+        "discontinuities": 0,
+        "health_restart_requests": 0,
+        "settling_discarded_frames": 24000
+      },
+      "first_service_delay_max_us": 7253,
+      "steady_capture_charged_percent_range": [
+        13.826059514276231,
+        13.848883745390077
+      ],
+      "steady_heap_ranges_bytes": {
+        "internal_free": [
+          45011,
+          45131
+        ],
+        "internal_largest": [
+          43008,
+          43008
+        ],
+        "internal_min_sum": [
+          44671,
+          44779
+        ],
+        "psram_free": [
+          2729904,
+          2730464
+        ],
+        "psram_largest": [
+          2359296,
+          2359296
+        ],
+        "psram_min_sum": [
+          2722968,
+          2724688
+        ]
+      },
+      "fresh_api_capture": {
+        "capture_begin_us": 40495717,
+        "capture_end_us": 40495736,
+        "queue_overflows": 8,
+        "software_dropped_frames": 0,
+        "read_errors": 0,
+        "restarts": 0,
+        "supervisor_restarts": 0,
+        "overflow_restarts": 0,
+        "discontinuities": 0,
+        "health_restart_requests": 0,
+        "settling_discarded_frames": 24000,
+        "internal_free": 45011,
+        "internal_largest": 43008,
+        "internal_min_sum": 44739,
+        "psram_free": 2729904,
+        "psram_largest": 2359296,
+        "psram_min_sum": 2724660,
+        "read_service_delay_estimate_max_us": 310
+      },
+      "fresh_api_encoder": {
+        "kind": "window",
+        "window_start_us": 24405735,
+        "window_end_us": 34418770,
+        "telemetry_epoch": 1,
+        "telemetry_window": 3,
+        "encoded_frames": 1251,
+        "resets": 0,
+        "encode_max_us": 23324,
+        "raw_read_frames": 481536,
+        "raw_read_overruns": 0,
+        "raw_read_retries": 1,
+        "encode_wall_total_us": 8341042,
+        "raw_wait_total_us": 1032879,
+        "raw_wait_max_us": 19497,
+        "encoded_lock_wait_wall_total_us": 22316,
+        "encoded_push_held_wall_total_us": 76469,
+        "block_samples": 1152,
+        "listeners_start": 0,
+        "listeners_end": 0,
+        "stack_free_bytes": 4920,
+        "task_runtime_us": 7639131,
+        "runtime_valid": true
+      },
+      "media_health": "healthy"
+    },
+    "c": {
+      "sources": {
+        "target/kata-hardening/oct12-affinity/c-uart.log": "3fcba6997a7dfbef94bce01bb185928886f031641431ce1e068e7d43abd3c0b3",
+        "target/kata-hardening/oct12-affinity/c-analysis.json": "e3926750fcc176a09dd72aed90f07a805323150556e725db10c3731f9cefc5fd"
+      },
+      "entry": {
+        "actual_core": 0,
+        "pinned_affinity": 0,
+        "priority": 24
+      },
+      "wifi_phases": [
+        {
+          "phase": "wifi_construct",
+          "begin_us": 146686,
+          "end_us": 240848,
+          "duration_us": 94162
+        },
+        {
+          "phase": "wifi_start",
+          "begin_us": 251138,
+          "end_us": 325593,
+          "duration_us": 74455
+        }
+      ],
+      "faults": [],
+      "complete_audio_samples": 3,
+      "partial_tail_excluded": false,
+      "first_counters": {
+        "queue_overflows": 8,
+        "software_dropped_frames": 0,
+        "read_errors": 0,
+        "restarts": 0,
+        "supervisor_restarts": 0,
+        "overflow_restarts": 0,
+        "discontinuities": 0,
+        "health_restart_requests": 0,
+        "settling_discarded_frames": 24000
+      },
+      "first_service_delay_max_us": 123,
+      "steady_capture_charged_percent_range": [
+        10.068995541999552,
+        10.08768212291674
+      ],
+      "steady_heap_ranges_bytes": {
+        "internal_free": [
+          45087,
+          45207
+        ],
+        "internal_largest": [
+          43008,
+          43008
+        ],
+        "internal_min_sum": [
+          44695,
+          44815
+        ],
+        "psram_free": [
+          2729892,
+          2730460
+        ],
+        "psram_largest": [
+          2359296,
+          2359296
+        ],
+        "psram_min_sum": [
+          2719524,
+          2722940
+        ]
+      },
+      "fresh_api_capture": {
+        "capture_begin_us": 40361328,
+        "capture_end_us": 40361347,
+        "queue_overflows": 8,
+        "software_dropped_frames": 0,
+        "read_errors": 0,
+        "restarts": 0,
+        "supervisor_restarts": 0,
+        "overflow_restarts": 0,
+        "discontinuities": 0,
+        "health_restart_requests": 0,
+        "settling_discarded_frames": 24000,
+        "internal_free": 45087,
+        "internal_largest": 43008,
+        "internal_min_sum": 44611,
+        "psram_free": 2729892,
+        "psram_largest": 2359296,
+        "psram_min_sum": 2721204,
+        "read_service_delay_estimate_max_us": 59
+      },
+      "fresh_api_encoder": {
+        "kind": "window",
+        "window_start_us": 24332597,
+        "window_end_us": 34361373,
+        "telemetry_epoch": 1,
+        "telemetry_window": 3,
+        "encoded_frames": 1251,
+        "resets": 0,
+        "encode_max_us": 18653,
+        "raw_read_frames": 481536,
+        "raw_read_overruns": 0,
+        "raw_read_retries": 658,
+        "encode_wall_total_us": 7053053,
+        "raw_wait_total_us": 2450871,
+        "raw_wait_max_us": 19879,
+        "encoded_lock_wait_wall_total_us": 20799,
+        "encoded_push_held_wall_total_us": 65335,
+        "block_samples": 1152,
+        "listeners_start": 0,
+        "listeners_end": 0,
+        "stack_free_bytes": 4920,
+        "task_runtime_us": 7604307,
+        "runtime_valid": true
+      },
+      "media_health": "healthy"
+    }
+  },
+  "diagnostic_load": {
+    "A": {
+      "sources": {
+        "target/kata-hardening/oct12-affinity/a-mp3-load/20261013T044135.486639Z/summary.json": "36e0feb3e4e93cd340f2d6ca68f303ba920d82ea826a212377f740bab3496d46",
+        "target/kata-hardening/oct12-affinity/a-mp3-load/20261013T044135.486639Z/uart.log": "34f96d195a2eea6ea6080155e9b9c8776e171b7a17da412cf0e9b3d6930df22e"
+      },
+      "passed": true,
+      "error": null,
+      "requested_seconds": 120.0,
+      "decoded_seconds": [
+        120.0,
+        120.0
+      ],
+      "decoded_frames": [
+        5760000,
+        5760000
+      ],
+      "decoder_faults": [
+        {
+          "skipped_source_audio_frames": 0,
+          "duplicate_audio_frames": 0,
+          "decoded_discontinuities": 0
+        },
+        {
+          "skipped_source_audio_frames": 0,
+          "duplicate_audio_frames": 0,
+          "decoded_discontinuities": 0
+        }
+      ],
+      "baseline_counters": {
+        "queue_overflows": 16,
+        "software_dropped_frames": 480,
+        "read_errors": 0,
+        "restarts": 2,
+        "supervisor_restarts": 0,
+        "overflow_restarts": 2,
+        "discontinuities": 2,
+        "health_restart_requests": 0,
+        "settling_discarded_frames": 26400
+      },
+      "summary_last_capture_begin_us": 142061634,
+      "summary_capture_age_at_failure_s": null,
+      "summary_capture_age_at_end_s": 0.23345053898810875,
+      "summary_counter_deltas": {
+        "queue_overflows": 0,
+        "software_dropped_frames": 0,
+        "read_errors": 0,
+        "restarts": 0,
+        "discontinuities": 0
+      },
+      "summary_heap_minima": {
+        "internal_min_sum": 43323,
+        "psram_min_sum": 2709332
+      },
+      "raw_capture_count": 14,
+      "raw_last_capture": {
+        "frames": 6805680,
+        "capture_begin_us": 142061634,
+        "capture_end_us": 142061671,
+        "queue_overflows": 16,
+        "software_dropped_frames": 480,
+        "read_errors": 0,
+        "restarts": 2,
+        "supervisor_restarts": 0,
+        "overflow_restarts": 2,
+        "discontinuities": 2,
+        "health_restart_requests": 0,
+        "settling_discarded_frames": 26400,
+        "internal_free": 44539,
+        "internal_largest": 43008,
+        "internal_min_sum": 43395,
+        "psram_free": 2729852,
+        "psram_largest": 2359296,
+        "psram_min_sum": 2711776
+      },
+      "postbaseline_capture_charged_percent_range": [
+        10.936406207263625,
+        11.095986979111366
+      ],
+      "encoder_resets_range": [
+        0,
+        0
+      ],
+      "encoder_raw_overruns_range": [
+        0,
+        0
+      ],
+      "joint_encoder_charged_percent_range": [
+        77.2537560310951,
+        77.64909573991605
+      ]
+    },
+    "B": {
+      "sources": {
+        "target/kata-hardening/oct12-affinity/mp3-load/20261013T043908.913367Z/summary.json": "144922e6de76da79e0c052c370fb00a56f4dbe5c5e02410d55a0fcc41a227982",
+        "target/kata-hardening/oct12-affinity/mp3-load/20261013T043908.913367Z/uart.log": "218320134745811250710e8e6baf2c7f2810a4c208abfab7d63c2fea65630b73"
+      },
+      "passed": false,
+      "error": "ffmpeg integrity failure: [http @ 0x64d514921900] [error] Stream ends prematurely at 117120, should be 18446744073709551615",
+      "requested_seconds": 120.0,
+      "decoded_seconds": [
+        2.928,
+        2.712
+      ],
+      "decoded_frames": [
+        140544,
+        130176
+      ],
+      "decoder_faults": [
+        {
+          "skipped_source_audio_frames": 0,
+          "duplicate_audio_frames": 0,
+          "decoded_discontinuities": 0
+        },
+        {
+          "skipped_source_audio_frames": 0,
+          "duplicate_audio_frames": 0,
+          "decoded_discontinuities": 0
+        }
+      ],
+      "baseline_counters": {
+        "queue_overflows": 8,
+        "software_dropped_frames": 0,
+        "read_errors": 0,
+        "restarts": 0,
+        "supervisor_restarts": 0,
+        "overflow_restarts": 0,
+        "discontinuities": 0,
+        "health_restart_requests": 0,
+        "settling_discarded_frames": 24000
+      },
+      "summary_last_capture_begin_us": 20371084,
+      "summary_capture_age_at_failure_s": 7.772955555003136,
+      "summary_capture_age_at_end_s": 22.789239000005182,
+      "summary_counter_deltas": {
+        "queue_overflows": 0,
+        "software_dropped_frames": 0,
+        "read_errors": 0,
+        "restarts": 0,
+        "discontinuities": 0
+      },
+      "summary_heap_minima": {},
+      "raw_capture_count": 4,
+      "raw_last_capture": {
+        "frames": 1978800,
+        "capture_begin_us": 41372244,
+        "capture_end_us": 41372260,
+        "queue_overflows": 8,
+        "software_dropped_frames": 0,
+        "read_errors": 0,
+        "restarts": 0,
+        "supervisor_restarts": 0,
+        "overflow_restarts": 0,
+        "discontinuities": 0,
+        "health_restart_requests": 0,
+        "settling_discarded_frames": 24000,
+        "internal_free": 44559,
+        "internal_largest": 43008,
+        "internal_min_sum": 44415,
+        "psram_free": 2729408,
+        "psram_largest": 2359296,
+        "psram_min_sum": 2724188
+      },
+      "postbaseline_capture_charged_percent_range": [
+        13.857731280466874,
+        14.108613614713857
+      ],
+      "encoder_resets_range": [
+        0,
+        0
+      ],
+      "encoder_raw_overruns_range": [
+        0,
+        0
+      ],
+      "joint_encoder_charged_percent_range": null
+    },
+    "C": {
+      "sources": {
+        "target/kata-hardening/oct12-affinity/c-mp3-load/20261013T044845.713538Z/summary.json": "0c6b1ab7c3c443387c16f9af54c4c1079c9ab140cb2617681590888ac71168a9",
+        "target/kata-hardening/oct12-affinity/c-mp3-load/20261013T044845.713538Z/uart.log": "b47579f11458dce843e14dc888e068e7621d5c3eeb329a1498b0a4f9b2f666d3"
+      },
+      "passed": true,
+      "error": null,
+      "requested_seconds": 120.0,
+      "decoded_seconds": [
+        120.0,
+        120.0
+      ],
+      "decoded_frames": [
+        5760000,
+        5760000
+      ],
+      "decoder_faults": [
+        {
+          "skipped_source_audio_frames": 0,
+          "duplicate_audio_frames": 0,
+          "decoded_discontinuities": 0
+        },
+        {
+          "skipped_source_audio_frames": 0,
+          "duplicate_audio_frames": 0,
+          "decoded_discontinuities": 0
+        }
+      ],
+      "baseline_counters": {
+        "queue_overflows": 8,
+        "software_dropped_frames": 0,
+        "read_errors": 0,
+        "restarts": 0,
+        "supervisor_restarts": 0,
+        "overflow_restarts": 0,
+        "discontinuities": 0,
+        "health_restart_requests": 0,
+        "settling_discarded_frames": 24000
+      },
+      "summary_last_capture_begin_us": 142300528,
+      "summary_capture_age_at_failure_s": null,
+      "summary_capture_age_at_end_s": 0.2336135179939447,
+      "summary_counter_deltas": {
+        "queue_overflows": 0,
+        "software_dropped_frames": 0,
+        "read_errors": 0,
+        "restarts": 0,
+        "discontinuities": 0
+      },
+      "summary_heap_minima": {
+        "internal_min_sum": 42547,
+        "psram_min_sum": 2648048
+      },
+      "raw_capture_count": 14,
+      "raw_last_capture": {
+        "frames": 6823200,
+        "capture_begin_us": 142300528,
+        "capture_end_us": 142300547,
+        "queue_overflows": 8,
+        "software_dropped_frames": 0,
+        "read_errors": 0,
+        "restarts": 0,
+        "supervisor_restarts": 0,
+        "overflow_restarts": 0,
+        "discontinuities": 0,
+        "health_restart_requests": 0,
+        "settling_discarded_frames": 24000,
+        "internal_free": 44507,
+        "internal_largest": 43008,
+        "internal_min_sum": 43099,
+        "psram_free": 2729880,
+        "psram_largest": 2359296,
+        "psram_min_sum": 2648048
+      },
+      "postbaseline_capture_charged_percent_range": [
+        10.806579832100198,
+        10.936698654314686
+      ],
+      "encoder_resets_range": [
+        0,
+        0
+      ],
+      "encoder_raw_overruns_range": [
+        0,
+        0
+      ],
+      "joint_encoder_charged_percent_range": [
+        77.47087132624195,
+        78.09560325792724
+      ]
+    }
+  },
+  "limits": [
+    "A stops its diagnostic last-read observation after two faults; B/C retain active observation. Runtime differences cannot isolate priority/affinity cost.",
+    "Runtime is charged task time including charged interrupts, not runnable latency. Service-delay estimates and historical read wall times include work/preemption/waits.",
+    "Heap minima sum separate region lows; largest blocks are snapshots, not allocation-time guarantees.",
+    "Quiet analog input and decoder continuity do not prove driven-input fidelity, all DMA interrupts, reconnect/configuration recovery, or every system workload.",
+    "All three load runs used the earlier steady-state baseline gate, not the new strict startup option.",
+    "Existing MQTT transport errors remain in raw logs; no network root cause is assigned."
+  ],
+  "ordinary_load": {
+    "passed": true,
+    "error": null,
+    "requested_seconds": 120.0,
+    "listeners": 2,
+    "decoded_seconds": [
+      120.0,
+      120.0
+    ],
+    "capture_gate": "clean_startup_and_steady_state",
+    "require_clean_startup": true,
+    "baseline": {
+      "frames": 966960,
+      "capture_begin_us": 20292035,
+      "capture_end_us": 20292058,
+      "callbacks": 4046,
+      "queue_overflows": 8,
+      "software_dropped_frames": 0,
+      "read_errors": 0,
+      "restarts": 0,
+      "supervisor_restarts": 0,
+      "overflow_restarts": 0,
+      "settling_discarded_frames": 24000,
+      "discontinuities": 0,
+      "health_restart_requests": 0,
+      "capture_runtime_window_us": 10057311,
+      "capture_task_runtime_us": 1010026,
+      "read_service_delay_estimate_max_us": 48,
+      "raw_work_max_us": 472,
+      "meter_work_max_us": 591,
+      "store_work_max_us": 274,
+      "raw_read_max_us": 1638,
+      "staged_frames": 0,
+      "staged_max_frames": 0,
+      "staging_pending_attempts": 0,
+      "staging_pending_max_attempts": 0,
+      "staging_pending_us": 0,
+      "staging_pending_max_us": 0,
+      "timing_deficit_estimate_frames": -110,
+      "internal_free": 48423,
+      "internal_largest": 47104,
+      "psram_free": 2730440,
+      "psram_largest": 2359296,
+      "internal_min_sum": 47631,
+      "psram_min_sum": 2722980,
+      "internal_window_start_free": 48447,
+      "psram_window_start_free": 2729880
+    },
+    "last_capture": {
+      "frames": 7241280,
+      "capture_begin_us": 151010680,
+      "capture_end_us": 151010701,
+      "callbacks": 30189,
+      "queue_overflows": 8,
+      "software_dropped_frames": 0,
+      "read_errors": 0,
+      "restarts": 0,
+      "supervisor_restarts": 0,
+      "overflow_restarts": 0,
+      "settling_discarded_frames": 24000,
+      "discontinuities": 0,
+      "health_restart_requests": 0,
+      "capture_runtime_window_us": 10118097,
+      "capture_task_runtime_us": 1020895,
+      "read_service_delay_estimate_max_us": 62,
+      "raw_work_max_us": 460,
+      "meter_work_max_us": 557,
+      "store_work_max_us": 232,
+      "raw_read_max_us": 1772,
+      "staged_frames": 0,
+      "staged_max_frames": 0,
+      "staging_pending_attempts": 0,
+      "staging_pending_max_attempts": 0,
+      "staging_pending_us": 0,
+      "staging_pending_max_us": 0,
+      "timing_deficit_estimate_frames": 65,
+      "internal_free": 47999,
+      "internal_largest": 47104,
+      "psram_free": 2730420,
+      "psram_largest": 2359296,
+      "internal_min_sum": 47147,
+      "psram_min_sum": 2672008,
+      "internal_window_start_free": 47447,
+      "psram_window_start_free": 2717960
+    },
+    "last_capture_phase": "completion",
+    "last_capture_age_seconds_at_summary": 0.2335223320114892,
+    "counter_deltas": {
+      "queue_overflows": 0,
+      "software_dropped_frames": 0,
+      "read_errors": 0,
+      "restarts": 0,
+      "discontinuities": 0
+    },
+    "capture_samples": 15,
+    "minimums": {
+      "internal_min_sum": 46615,
+      "psram_min_sum": 2634696
+    },
+    "decoder_accounting": [
+      {
+        "timeline_seconds": 120.0,
+        "decoded_audio_frames": 5760000,
+        "decoded_seconds": 120.0,
+        "decoded_packets": 5000,
+        "skipped_source_audio_frames": 0,
+        "duplicate_audio_frames": 0,
+        "decoded_discontinuities": 0,
+        "sample_hash_format": "SHA256, stereo pcm_s32le, packet boundaries"
+      },
+      {
+        "timeline_seconds": 120.0,
+        "decoded_audio_frames": 5760000,
+        "decoded_seconds": 120.0,
+        "decoded_packets": 5000,
+        "skipped_source_audio_frames": 0,
+        "duplicate_audio_frames": 0,
+        "decoded_discontinuities": 0,
+        "sample_hash_format": "SHA256, stereo pcm_s32le, packet boundaries"
+      }
+    ],
+    "sources": {
+      "target/kata-hardening/oct12-affinity/production-mp3-load/20261013T045920.604533Z/summary.json": "2e5ac5db66e41feec3d41fa386519f95cf3f12b709eb8085fa5168f14ad51c4b",
+      "target/kata-hardening/oct12-affinity/production-mp3-load/20261013T045920.604533Z/uart.log": "ae07dfc26a1ced46e06cfd088a731afc4f8ffe7e4412033653cc402ac1b3c9c9",
+      "target/kata-hardening/oct12-affinity/production-mp3-load/20261013T045920.604533Z/listener-1.framehash": "3e04bdb8f8c5423e6e48da757977f4134b5f2206b9a4564562ee86db9a2d8b64",
+      "target/kata-hardening/oct12-affinity/production-mp3-load/20261013T045920.604533Z/listener-2.framehash": "40ab4edae1e1ebb3b2fd1ed543da7dfcb89b163d2550adb4084db8e83810694b"
+    }
+  },
+  "final_state": {
+    "image": "e93f8f72692c1630d082de42b3d1ae8d11d8c106c2ef6e978e96b74a83cb5eea",
+    "boot": "6da14d38badb3e5d09f3745cbb76b5f2",
+    "state": "stopped",
+    "active_format": "mp3",
+    "buffer_preset": "med",
+    "autoplay": false,
+    "remote_transport": "STOPPED",
+    "remote_status": "OK"
+  }
+}

@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+# ABOUTME: Runs one ownership-safe Sonos resume probe cycle on the real board; the parent flashes the probe image first.
+# ABOUTME: Usage: scripts/sonos-resume-probe HOST --serial DEV --image ELF --out DIR --cycle close|app-stop --scheme plain|broadcast [--previous-boot TOKEN]
+set -euo pipefail
+repo="$(cd "$(dirname "$0")/.." && pwd)"
+exec uv run --quiet --project "$repo" --locked python3 "$repo/scripts/sonos_resume_probe.py" "$@"

@@ -1,0 +1,368 @@
+{
+  "kata": "amqe",
+  "status": "original_metrics_acceptance_verified",
+  "date": "2026-10-11",
+  "canonical": {
+    "run": "target/check-logs/run.X4QTsf98",
+    "stages_passed": 27,
+    "exit_code": 0
+  },
+  "firmware_elf_sha256": "2b28be214c224182bb736a122d33757cfd0e4cb26d43c78d6ef4e5dc4b26fbbd",
+  "fixture_sha256": "027accd2d3a6b52bb7a80587c7e567ce85509aa02e7cff0f0ae7a447216959b6",
+  "bounds": {
+    "snapshot_bytes": 656,
+    "cache_bytes": 664,
+    "maximal_json_bytes": 4074,
+    "device_json_limit": 4096,
+    "host_text_limit": 12288,
+    "target_assertions_passed": true
+  },
+  "settings": {
+    "active_format": "mp3",
+    "next_play_buffer": "med",
+    "playback": "stopped",
+    "autoplay": false,
+    "recognition_enabled": false,
+    "test_streams": "unbuffered HTTP MP3 and WAV"
+  },
+  "focused_trial": {
+    "passed": true,
+    "error": null,
+    "alignment": {
+      "anchor_host_elapsed": 6.200701033929363,
+      "anchor_device_us": 4499487,
+      "boundary_seconds": 1,
+      "caveat": "HTTP request/response latency is not measured at the anchor; one-second interior margin excludes boundary observations."
+    },
+    "first_uart_capture": {
+      "frames": 474960,
+      "capture_begin_us": 10160547,
+      "capture_end_us": 10160569,
+      "callbacks": 2019,
+      "queue_overflows": 15,
+      "software_dropped_frames": 480,
+      "read_errors": 0,
+      "restarts": 2,
+      "supervisor_restarts": 0,
+      "overflow_restarts": 2,
+      "settling_discarded_frames": 26400,
+      "discontinuities": 2,
+      "health_restart_requests": 0,
+      "capture_runtime_window_us": 9906739,
+      "capture_task_runtime_us": 943754,
+      "read_service_delay_estimate_max_us": 68866,
+      "raw_work_max_us": 1848,
+      "meter_work_max_us": 5793,
+      "store_work_max_us": 448,
+      "raw_read_max_us": 3072,
+      "staged_frames": 0,
+      "staged_max_frames": 0,
+      "staging_pending_attempts": 0,
+      "staging_pending_max_attempts": 0,
+      "staging_pending_us": 0,
+      "staging_pending_max_us": 0,
+      "timing_deficit_estimate_frames": 3180,
+      "internal_free": 48111,
+      "internal_largest": 47104,
+      "psram_free": 2716364,
+      "psram_largest": 2359296,
+      "internal_min_sum": 47019,
+      "psram_min_sum": 321444,
+      "internal_window_start_free": 191291,
+      "psram_window_start_free": 3405328,
+      "line": 152,
+      "host_begin": 11.861761033929362,
+      "host_end": 11.861783033929363
+    },
+    "whole_uart_span": {
+      "source_span_seconds": 50.981855,
+      "frame_delta": 2447040,
+      "fault_deltas": {
+        "queue_overflows": 0,
+        "software_dropped_frames": 0,
+        "read_errors": 0,
+        "restarts": 0,
+        "supervisor_restarts": 0,
+        "overflow_restarts": 0,
+        "settling_discarded_frames": 0,
+        "discontinuities": 0,
+        "health_restart_requests": 0
+      }
+    },
+    "malformed_audio_lines": [],
+    "phases": [
+      {
+        "phase": "off-before",
+        "host_start": 6.80065966094844,
+        "host_end": 16.80097949784249,
+        "interior_samples": 1,
+        "insufficient_interior_samples": true
+      },
+      {
+        "phase": "on",
+        "host_start": 16.801648813998327,
+        "host_end": 27.30439018784091,
+        "interior_samples": 1,
+        "insufficient_interior_samples": true
+      },
+      {
+        "phase": "off-after",
+        "host_start": 27.61869737599045,
+        "host_end": 37.61903271684423,
+        "interior_samples": 1,
+        "insufficient_interior_samples": true
+      }
+    ],
+    "http": {
+      "requests": 30,
+      "status_counts": {
+        "200": 30
+      },
+      "watermark_min": 6960,
+      "body_max": 2928,
+      "errors": []
+    },
+    "listener_results": [
+      {
+        "index": 0,
+        "bytes": 1255680,
+        "error": null,
+        "admitted": true,
+        "receive_buffer_bytes": 131072,
+        "elapsed": 38.16643210500479
+      },
+      {
+        "index": 1,
+        "bytes": 1971360,
+        "error": null,
+        "admitted": true,
+        "receive_buffer_bytes": 131072,
+        "elapsed": 55.76963805197738
+      },
+      {
+        "index": 3,
+        "bytes": 4360,
+        "error": null,
+        "admitted": true,
+        "receive_buffer_bytes": 8192,
+        "elapsed": 42.342393433908
+      },
+      {
+        "index": 2,
+        "bytes": 30284,
+        "error": null,
+        "admitted": true,
+        "receive_buffer_bytes": 131072,
+        "elapsed": 63.26218703901395
+      }
+    ],
+    "slot_snapshots": {
+      "two-live-slots.json": [
+        {
+          "generation": 1,
+          "state": "ready",
+          "sample_us": 36504289,
+          "media_age_us": 174216,
+          "write_us": 782
+        },
+        {
+          "generation": 1,
+          "state": "ready",
+          "sample_us": 36507586,
+          "media_age_us": 57535,
+          "write_us": 551
+        }
+      ],
+      "both-idle.json": [
+        {
+          "generation": 1,
+          "state": "idle",
+          "sample_us": 55024462,
+          "media_age_us": null,
+          "write_us": null
+        },
+        {
+          "generation": 2,
+          "state": "idle",
+          "sample_us": 55024482,
+          "media_age_us": null,
+          "write_us": null
+        }
+      ],
+      "wav-slot-reuse.json": [
+        {
+          "generation": 2,
+          "state": "writing",
+          "sample_us": 61066489,
+          "media_age_us": 325903,
+          "write_us": 76697
+        },
+        {
+          "generation": 2,
+          "state": "idle",
+          "sample_us": 61066533,
+          "media_age_us": null,
+          "write_us": null
+        }
+      ]
+    },
+    "stalled_sample_count": 6,
+    "relevant_events": [
+      {
+        "kind": "paused-metrics-request-error",
+        "elapsed": 41.64001953904517,
+        "error": "URLError"
+      },
+      {
+        "kind": "receiver-resumed",
+        "elapsed": 42.32199394493364,
+        "index": 3,
+        "pause_seconds": 3.6451804330572486,
+        "sampling_seconds": 3.0422710131388158,
+        "receive_buffer_bytes": 8192,
+        "observation": {
+          "slot": 1,
+          "first": {
+            "generation": 2,
+            "state": "writing",
+            "sample_us": 39382196,
+            "media_age_us": 457139,
+            "write_us": 257974
+          },
+          "second": {
+            "generation": 2,
+            "state": "writing",
+            "sample_us": 40553184,
+            "media_age_us": 1628127,
+            "write_us": 1428962
+          }
+        }
+      },
+      {
+        "kind": "controlled-listener-departure",
+        "elapsed": 61.41748189995997,
+        "bytes_sent": 1985280,
+        "prometheus": true,
+        "grafana_proxy": true
+      },
+      {
+        "kind": "wav-slot-reuse",
+        "elapsed": 63.26203837990761,
+        "slot": 0,
+        "generation": 2,
+        "bytes": 30284
+      },
+      {
+        "kind": "rapid-poll",
+        "elapsed": 64.22921064402908,
+        "served_advanced": true,
+        "capture_source_same": true
+      }
+    ],
+    "cleanup": {
+      "children_reaped": true,
+      "threads_reaped": true,
+      "cleanup_errors": [],
+      "settings_preserved": true,
+      "uart_error": null
+    },
+    "limitations": [
+      "Interior spans only; first source counters retained separately as startup-inclusive totals.",
+      "No sample-exact continuity or zero-overhead claim.",
+      "Failed runs and malformed source lines remain explicit."
+    ]
+  },
+  "metrics_owner_stack_min_bytes": 824,
+  "browser": {
+    "rendered": true,
+    "stock_firefox": "157.0",
+    "grafana": "13.2.3",
+    "prometheus": "3.13.4",
+    "initial_live_source_receipt": true,
+    "later_instant_queries_empty": true,
+    "retained_panels_are_history_not_current_status": true,
+    "browser_reaped": true
+  },
+  "services_cleaned_up": true,
+  "failed_trials": [
+    {
+      "path": "target/kata-hardening/live-listener-metrics/live-run",
+      "reason": "Tiny receive window contaminated clean phase; media-age close."
+    },
+    {
+      "path": "target/kata-hardening/live-listener-metrics/live-run-2",
+      "reason": "Low-priority logging-owner delay froze live observation cache; regression now samples registry in HTTP."
+    },
+    {
+      "path": "target/kata-hardening/live-listener-metrics/live-run-3",
+      "reason": "One normal-window MP3 client ended before collector started; transport reliability remains open."
+    }
+  ],
+  "limits": [
+    "Focused 10-second phases do not establish overhead, long playback stability or sample-exact continuity.",
+    "Cached logging families can be delayed; unavailable/stale fields remain explicit.",
+    "Startup capture faults and transport/recovery release gates remain open."
+  ],
+  "artifacts": [
+    {
+      "path": "target/kata-hardening/live-listener-metrics/live-run-4/receipt.json",
+      "sha256": "a6e5b0b2b944da606352e882db2ea4454adfedd7fece50204a9969528b9ff678"
+    },
+    {
+      "path": "target/kata-hardening/live-listener-metrics/live-run-4/analysis.json",
+      "sha256": "94017d88776920ac94a06047fde843c1d33004d0eba2150e10ce56c0fc902dce"
+    },
+    {
+      "path": "target/kata-hardening/live-listener-metrics/live-run-4/driver.py",
+      "sha256": "92ac8b53d35f176337ea18b5e25c03b2de21574404bb9de8000889fc192cb02a"
+    },
+    {
+      "path": "target/kata-hardening/live-listener-metrics/live-run-4/uart.log",
+      "sha256": "c7a8827a7b2d86b8e460a6efcea2f7c01a0a5c242a58ee293b84748a78ec8ceb"
+    },
+    {
+      "path": "target/kata-hardening/live-listener-metrics/live-run-4/controlled-event-device.json",
+      "sha256": "f2a601c908b890bd294b49371a3f1c4385084a50eb9ec0f99891f7d864f53508"
+    },
+    {
+      "path": "target/kata-hardening/live-listener-metrics/live-run-4/controlled-event-prometheus.json",
+      "sha256": "942ddaa5881415d0d182fb4533fcd4270d542a99af69447b939d6f0435492b4c"
+    },
+    {
+      "path": "target/kata-hardening/live-listener-metrics/live-run-4/controlled-event-grafana.json",
+      "sha256": "22e6090ca71e20da58c3c0a82925c194fec121ca63b04dfc4b7da610f45e9d68"
+    },
+    {
+      "path": "target/kata-hardening/live-listener-metrics/live-run-4/two-live-slots.json",
+      "sha256": "d2dba9e5b9d7fd0a45110b1bf58ba545f7db0e51c243683da050323ce7cccc42"
+    },
+    {
+      "path": "target/kata-hardening/live-listener-metrics/live-run-4/both-idle.json",
+      "sha256": "019eefe9e162e742f4e46dbf3b19ba49f061e23485bbb30e07ff480aaea6f53d"
+    },
+    {
+      "path": "target/kata-hardening/live-listener-metrics/live-run-4/wav-slot-reuse.json",
+      "sha256": "2c18e5e17191be4deedd244b21e91b4bcb57bb15b0953315cb5dec39532e423a"
+    },
+    {
+      "path": "target/kata-hardening/live-listener-metrics/browser/dashboard-final-live-run-4.png",
+      "sha256": "0a72207422501bf9c8632c6b86a2144d86e47cf33503427b2822e9bd1fdc3907"
+    },
+    {
+      "path": "target/kata-hardening/live-listener-metrics/browser/dashboard-final-live-run-4-http.png",
+      "sha256": "3ff9ccf1457a9ebf58c20c19ff2df9fb5451b96b4565780492fe4ab61edec702"
+    },
+    {
+      "path": "target/kata-hardening/live-listener-metrics/browser/dashboard-final-live-run-4-prom-start.json",
+      "sha256": "31e3c8c464638f28fe79ba7a630bba6a0a20984a7da63cedf9925da8cd7964f5"
+    },
+    {
+      "path": "target/kata-hardening/live-listener-metrics/browser/dashboard-final-live-run-4-grafana-queries.json",
+      "sha256": "c5570f5f78c947ab6b80e4cbfc4b51b6e52f408ac569f3691397d5f73d381b48"
+    },
+    {
+      "path": "target/kata-hardening/live-listener-metrics/lab-final/dashboards/device.json",
+      "sha256": "d2b000a658db760bca4f2c0ed92f2013893ff4a7a53ee178f2dd5af93fd962f9"
+    }
+  ]
+}

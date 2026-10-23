@@ -1,0 +1,40 @@
+{
+  "status": "pass",
+  "canonical_scope": "firmware",
+  "canonical_stages": 5,
+  "source_revision": "bfea1d40adc401205ac67ec76d9ad411b9f78215",
+  "recipient": "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-relink-parent/recipient",
+  "canonical_run": "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-relink-parent/recipient/target/check-logs/run.EtYxJOgq",
+  "elf_path": "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-relink-parent/recipient/firmware/target/xtensa-esp32-espidf/release/esp-shazam",
+  "elf_sha256": "f06bf899de36cb9446a2619b8a0de9b49fd972fe2ed4194d0f60dc8507c82637",
+  "cargo_fresh_final_artifact": false,
+  "idf_out_dir": "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-relink-parent/recipient/firmware/target/xtensa-esp32-espidf/release/build/esp-idf-sys-f1224fba55564b99/out",
+  "changed_manifest_files": [
+    "mp3/vendor/shine/layer3.c"
+  ],
+  "public_cfg_sha256": "a161693e2fc39ba0a86aa663b9ac26bf6a145bb88a2325f0a89dcc47ced1fb30",
+  "source_manifest_sha256": "42b3acc33220fa0a927662d136d4ea60f21b8df437272452925ccba9c48724a3",
+  "lock_hashes": {
+    "Cargo.lock": "46d09b9cf8b6302b66bc96d7be2618930ae646e585e70d31b3ca07e20aa89be5",
+    "firmware/Cargo.lock": "86e2f11a004f9f8e3bde47f83aa29dade4de27c18145acb5e405f8b048e3691c",
+    "firmware/components_esp32.lock": "5d476d4bc00866df9137b0cc50ae6d3ce12a3a4845598b2e0cb434bf9a1a2945"
+  },
+  "build_log_sha256": "86594be715ef3d2fa4c2c6962a208fa4f0ed91f42fd51354f330e63c9a8f571e",
+  "retained_artifacts": {
+    "esp-shazam.elf": "f06bf899de36cb9446a2619b8a0de9b49fd972fe2ed4194d0f60dc8507c82637",
+    "exit-code": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+    "firmware-warnings.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "i2s-iram-tests.log": "30748e06465dd7fa252c294301a4282ecb55a5c0bab754ed86ed11960199c313",
+    "i2s-iram.log": "d41ec07ba8f2c0189428947ebbf7e3b1235327c65f56e64ea6fe1830e6e7dfd4",
+    "run.status": "37a40f08d8548dba289b9b0bb35bcf63b359f6d37ee86044ebc6b6da080b9ec1",
+    "sdkconfig": "5a0652685fb55be50214dd788b30fc33b3113c15f371c26ffad321a7c003c33b",
+    "sections-mp3-iram.ld": "e07bb9f04324a3f6c03e2461a44c4c1ed83471d99b9dc57bd9409bdd9b6df3c3",
+    "shazam_mp3_open.asm": "690eda03e06ae22d57f90f9e1b5417590955c3540e17ecda8aea1a82aa232ba4",
+    "shine_initialise.asm": "dd039f3eb51d7e4542f03e6a8100fd629a56781cc301af78e2d94f4a3a549e9c",
+    "stages.tsv": "c820c7f32122edd4a441587b1cca15e2d0dd998282dde8833a42cb5ed16fb8d4",
+    "start.diff": "a027f4b50ab792bfbf498b9864291dd8b67e957c4c5ebf5abee34e6ad4270506",
+    "start.head": "648b2ef5310ff64f83cb409c1e12dd11f6d35015bb0d401709e93c54e771bceb",
+    "start.status": "7c0db074f71ce7ec1ca7f8188f89d25387a00dcd20495394048e81f9802417df",
+    "symbols.txt": "efeb435db5b97b793ff8c8af5855957ee3986b0b1c6826f5d797c61a5ee1295a"
+  }
+}

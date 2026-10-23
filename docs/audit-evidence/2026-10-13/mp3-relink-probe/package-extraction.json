@@ -1,0 +1,16 @@
+{
+  "archive_sha256": "9f8ca3d84b3d369844800d938e7d596a5e36eeec766c5f2ee2b5cd561158690f",
+  "checks": [
+    "exact allowlist/member set",
+    "committed bytes and modes",
+    "embedded/sidecar manifest agreement",
+    "fresh extraction hashes",
+    "deterministic metadata",
+    "unsafe path negative controls"
+  ],
+  "extraction": "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-relink-inputs/verified-extraction",
+  "members": 232,
+  "source_files": 230,
+  "source_revision": "bfea1d40adc401205ac67ec76d9ad411b9f78215",
+  "status": "passed"
+}

@@ -14,6 +14,10 @@ harness = false # no test harness on the device
 
 [profile.release]
 opt-level = "s"
+# Fat LTO with one codegen unit takes the app image from 1.96 MB to 1.67 MB (2026-10-20), which is what makes two
+# OTA slots fit in 4 MB with 17 percent headroom; builds take longer.
+lto = "fat"
+codegen-units = 1
 
 # The fingerprint is the hot path: optimize it for speed, everything else for size.
 [profile.release.package.esp-shazam-core]
@@ -26,13 +30,33 @@ opt-level = 3
 debug = true
 opt-level = "z"
 
+[features]
+# Panics right after the codec is set up: an image that must never mark itself healthy, to prove OTA rollback.
+ota-rollback-probe = []
+# Bounded startup capture observation; absent from normal firmware.
+startup-capture-trace = []
+# Low-rate permanent admission worker resource diagnostic; absent by default.
+admission-resources = []
+# Bounded ON-only compressed frame-write-state diagnostic.
+listener-frame-state = []
+# Diagnostic-only fixed observer OFF / ON / OFF schedule.
+metrics-state-crossover = []
+encoder-probe = ["esp-shazam-core/encoder-probe", "esp-shazam-mp3/encoder-probe"]
+# Declared for shared host runtime models; core rejects this feature on ESP-IDF.
+listener-loom = ["esp-shazam-core/listener-loom"]
+# Explicit delayed-reader diagnostic; its copy hook is absent from normal firmware.
+capture-fixture = ["esp-shazam-core/capture-fixture"]
+
 [dependencies]
 anyhow = "1"
 esp-idf-hal = "=0.47.0"
 esp-idf-svc = "=0.53.0"
 esp-idf-sys = "=0.38.1"
 esp-shazam-core = { path = "../core" }
+esp-shazam-mp3 = { path = "../mp3" }
 log = "0.4"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
 toml-cfg = "0.2"
 
 [build-dependencies]
@@ -50,3 +74,8 @@ remote_component = { name = "espressif/mdns", version = "1.8.2" }
 [[package.metadata.esp-idf-sys.extra_components]]
 bindings_header = "bindings/tcp-retention.h"
 bindings_module = "tcp_retention"
+
+# Generate the pinned heap trace ABI; only the isolated diagnostic example calls it.
+[[package.metadata.esp-idf-sys.extra_components]]
+bindings_header = "bindings/diagnostics.h"
+bindings_module = "diagnostics"

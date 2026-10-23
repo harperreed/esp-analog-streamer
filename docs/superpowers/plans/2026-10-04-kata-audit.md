@@ -2,6 +2,119 @@
 
 ## Current state
 
+Latest real-music retry PASSED: both listeners decoded120.0 s with no decoder
+errors or post-baseline capture fault increments. Device ACLs are restored.
+PipeWire still exposes Dummy Output in the remote session; direct ALSA playback
+via plughw:CARD=PCH,DEV=0 drove the physical jack, verified RUNNING, with board
+input around -43dBFS. Normal firmware is unchanged, bgn verified, workstation
+Ethernet only. Playback/test processes stopped. Curated evidence:
+`docs/audit-evidence/2026-10-07/production-music-retry.json`.
+This pass does not establish a streaming fix or explain prior intermittent
+failures. Earlier quiet-input failed retry is retained separately in
+`production-retry.json`; do not mislabel that run as a cable/music test.
+
+2026-10-07 paired wired capture and load comparison (compaction count 9):
+Workstation Wi-Fi is disconnected; Ethernet enp5s0 has 192.168.23.153.
+The correlated capture ran successfully and retained tcpdump's zero kernel-drop
+count: `target/packet-capture/run-PpWOxAlo/stream.pcap`. Sender UART and soak live
+under `target/wired-investigation/correlated-BBOKvRbo/soak/20261007T182539.473285Z/`.
+Both streams naturally fell a ring behind (24.4/25.6 s); sampled capture fault
+counters stayed flat. Receiver windows stayed open. Sequence holes lasted over
+two seconds. Paired sender snapshots support forward-delivery delay and some
+ACK-return/processing delay, subject to approximate clock alignment; they do
+not locate a fault within driver, RF or AP. See the curated paired evidence.
+
+CORRECTION: the supposed earlier b/g/n wired-only control actually associated as
+bg. Protocol selection persisted after source restoration and reflashing. An
+explicit temporary setter restored bitmap7, verified by readback and phy:bgn.
+The setter is removed from source. Subsequent independent normal-fixture boots
+also verify bgn. Matching ELF hashes is insufficient to restore radio state.
+The corrected `transport-bgn-verified` control failed peer0 after 17.728 s;
+peer1 completed 15,814,656 bytes in 117.306 s. Audio/web/MQTT are absent from
+that fixture, so they are not required for this failure.
+
+Completed load comparison: full-rate control failed one peer at 17.728 s;
+half rate completed both 7,907,328-byte transfers in 117.32 s; full-rate repeat
+failed the other peer at 11.132 s while its partner completed. One half-rate
+peer still reached approximately 7 s schedule deficit in host-second bins.
+This supports load sensitivity, not a proven bandwidth cap or fix. Temporary
+source constants are restored; firmware source has no diff. Curated reports,
+source hashes and the radio-state correction are in
+`docs/audit-evidence/2026-10-07/wired-radio-comparison.json`.
+
+Doctor Biz expects no bandwidth limit. He supplied the faster household SSID,
+but it is a separate 5 GHz network and he cannot enable 2.4 GHz there. Board
+association timed out twice. Cached host scan shows only 5 GHz; fresh scan was
+denied by NetworkManager. Do not count this as a throughput comparison.
+The original production ELF from `target/channel-diagnostic/control.elf` was
+flashed back (SHA256 82bb107be87811c66d02fc400315564476ddcf9ce5e151c2ff30df863bcf73fa).
+Final boot verifies bgn, PGA0x00 and IP192.168.23.217; the status API responds.
+Evidence: `target/wired-investigation/final-production-boot.log` and
+`final-production-state.json`. Doctor Biz supplied the original network password;
+local gitignored credentials are restored. A fresh production build exactly
+matches the saved control ELF hash. It was flashed and verified again: bgn,
+PGA0x00, IP192.168.23.217 and responsive status API. Private evidence is in
+`target/wired-investigation/restored-config-{flash,boot}.log` and
+`restored-config-state.json`. No credential values enter tracked files.
+
+The next useful external evidence is AP-side retries/link-rate/queue data or a
+controlled alternate 2.4 GHz AP. The paired capture cannot distinguish sender
+TCP/driver, RF and AP. No speculative buffer or timeout changes are justified.
+High-severity streaming reliability remains unresolved; fix it before shipping.
+Physical channel reversal remains unresolved upstream of the ADC.
+
+Operator runner `target/wired-investigation/capture-and-test` now uses standard
+grep and checks prerequisites before diagnosing routes. The agent's PATH had rg;
+Doctor Biz's terminal did not. Missing tools are not evidence of a wrong route.
+Linux harness has 11 passing real-socket tests; canonical checks passed before
+these documentation-only corrections. Fresh production and fixture builds passed.
+Paired and load-comparison evidence received independent review; source hashes
+and reports match. Retire this diagnostic phase after final restoration and
+commit; do not resume the same buffer experiments after another compaction.
+
+Ethernet follow-up, 2026-10-07: cable moved to DHCP-configured `enp5s0` (the other
+port is link-local only). Route to board verified through 192.168.23.153 before
+and after test. Same two-listener/music test still failed at 49.424 s on a
+three-second status request timeout; decoded 17.493/16.725 s. Cleanup stopped
+the streams; do not label the UART peer reset a natural streaming failure.
+Sampled post-baseline capture counters remained flat. Firmware unchanged,
+playback stopped, status API responsive afterward. Workstation Wi-Fi is not
+required for the failure; AP/ESP boundary observation remains the next useful
+discriminator. See `docs/audit-evidence/2026-10-07/ethernet-comparison.json`.
+
+2026-10-07 Linux continuation, compaction count 8: workstation setup and physical
+analog validation are committed on `wip/linux-audio-validation`. Board IP is
+192.168.23.217, UART `/dev/ttyUSB0`. Private credentials and test media stay local.
+One listener decoded 120 seconds successfully; two listeners failed twice.
+The latest repeat dropped listener 2 after 27.9 seconds for ring lag, with sampled
+post-baseline capture fault counters unchanged. Packet capture is now available
+at `target/packet-capture/run-gPRKBEPN/stream.pcap`; analyze delivery and ACK timing
+before any more transport tuning. Capture, playback and soak processes stopped.
+
+Packet analysis now confirms ACK-supported sequence holes plus fully ACKed
+no-arrival intervals of 1.132/0.955 seconds. Valid receive windows remained open;
+local ACK generation was fast, but ACK delivery to ESP is unknown. This does not
+locate ESP/driver, RF, AP or client-side delay. Initial capture did not preserve
+kernel-drop counters; the capture script now does. Curated results are in
+`docs/audit-evidence/2026-10-07/linux-stream-packet-timing.json`. Next discriminator
+is simultaneous AP boundary capture; a wired workstation comparison is a simpler
+first isolation step if physical Ethernet is available. No more speculative
+buffer or retry tweaks.
+
+Selective +12 dB left ADC gain changed FLAC left by +12.74 dB and left right
+unchanged, localizing reversed source tones before the ADC. Do not alter I2S
+channel ordering. Workstation analog output, cable and board wiring need physical
+localization; a manufacturer schematic has opposite input/output jack labels,
+but its match to this physical revision is unverified. Evidence lives under
+`docs/audit-evidence/2026-10-07/`. Normal firmware is restored and its ELF SHA256
+matches saved control `82bb107be87811c66d02fc400315564476ddcf9ce5e151c2ff30df863bcf73fa`.
+All canonical checks pass. Browser player, WAV removal, port consolidation,
+MP3 and Sonos remain future work. Retire this diagnostic phase after recording
+packet findings; no production fix has been established. Use plain chat for
+operator questions because Doctor Biz cannot select TUI answers.
+
+## Prior Mac continuation state (2026-10-05)
+
 Compaction count: 7. Playback reliability remains unresolved. All speculative
 production changes from this resumed investigation were reverted. Normal
 production was restored at 2026-10-05 13:02:47 UTC with static TX16/cache32,

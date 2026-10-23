@@ -1,0 +1,481 @@
+{
+  "schema_version": 1,
+  "date": "2026-10-07",
+  "scope": "Paired wired-workstation capture and ESP32 sender observer; two full-rate audio listeners. No new experiment performed for this report.",
+  "sources": [
+    {
+      "private_path": "/home/harper/workspace/personal/esp-analog-streamer/target/packet-capture/run-PpWOxAlo/stream.pcap",
+      "sha256": "fd2741daf7bead27a052ede341993e2baaae82884303f69f87182a34a2005aa2",
+      "bytes": 722742
+    },
+    {
+      "private_path": "/home/harper/workspace/personal/esp-analog-streamer/target/packet-capture/run-PpWOxAlo/tcpdump.log",
+      "sha256": "9d815d36055ae49ae24d27182a7bed0fbe456859b0560d4576b8a4755e3c1636",
+      "bytes": 167
+    },
+    {
+      "private_path": "/home/harper/workspace/personal/esp-analog-streamer/target/packet-capture/run-PpWOxAlo/analysis/packets.json",
+      "sha256": "8c51edaabe3ad9ec29dfcfa928f82b59a6c35e6f6221d734629be3e50bbbe8a3",
+      "bytes": 1514920
+    },
+    {
+      "private_path": "/home/harper/workspace/personal/esp-analog-streamer/target/packet-capture/run-PpWOxAlo/analysis/analysis.json",
+      "sha256": "830dde13701a2599f4d284c324aba1b67a0345cd7844225931d98479d4c17264",
+      "bytes": 117636
+    },
+    {
+      "private_path": "/home/harper/workspace/personal/esp-analog-streamer/target/wired-investigation/correlated-BBOKvRbo/sender-analysis.json",
+      "sha256": "52e24d3f8b888bbc6f9c2859c62bbe7fa304ab011ceb9fecc019465b4416de08",
+      "bytes": 80786
+    },
+    {
+      "private_path": "/home/harper/workspace/personal/esp-analog-streamer/target/wired-investigation/correlated-BBOKvRbo/soak/20261007T182539.473285Z/uart.log",
+      "sha256": "ccf8d1d9efbbf25d5c7dfcab9a95767ff2dce01f2a3620120113f76a7b79f77a",
+      "bytes": 45915
+    },
+    {
+      "private_path": "/home/harper/workspace/personal/esp-analog-streamer/target/wired-investigation/correlated-BBOKvRbo/soak/20261007T182539.473285Z/summary.json",
+      "sha256": "8df8b6c1467e50a004b6a548e4f03f1410f8bb9f978710854b280aaccea56f9a",
+      "bytes": 2863
+    }
+  ],
+  "setup": {
+    "host_link": "Ethernet enp5s0; workstation Wi-Fi off per operator",
+    "radio_verified_protocol_bitmap": 7,
+    "radio_verified_phy": "bgn",
+    "stream_remote_ports": [
+      51724,
+      51726
+    ],
+    "privacy": "No credentials, SSIDs, MAC addresses, payloads, or raw UART excerpts included."
+  },
+  "capture": {
+    "records": 6384,
+    "tcp_records": 6373,
+    "arp_records": 11,
+    "kernel_drops": 0,
+    "drop_evidence": "tcpdump.log",
+    "snaplen_bytes": 128,
+    "pcap_t_zero_unix_s": 1791397562.010517,
+    "pcap_t_zero_utc": "2026-10-07T18:26:02.010517+00:00",
+    "server_isn": {
+      "51724": 1282124696,
+      "51726": 3769456354
+    },
+    "limitations": [
+      "Zero kernel drops does not rule out losses before capture or other capture-path omissions.",
+      "Host receive coalescing means records need not match on-air segments; payload capture is truncated."
+    ]
+  },
+  "run_result": {
+    "passed": false,
+    "failure": "listener-1: ffmpeg reported errors; see its private log",
+    "requested_seconds": 120.0,
+    "elapsed_seconds": 48.511,
+    "decoded_seconds_in_harness_order": [
+      16.128,
+      15.530667
+    ],
+    "listener_number_to_port_mapping": "not established here",
+    "capture_counter_deltas": {
+      "queue_overflows": 0,
+      "software_dropped_frames": 0,
+      "read_errors": 0,
+      "restarts": 0,
+      "discontinuities": 0
+    },
+    "counter_limit": "No observed increment in these capture fault counters; counters cannot detect every lost DMA interrupt.",
+    "natural_closes": [
+      {
+        "remote_port": 51726,
+        "device_log_ms": 46402,
+        "reported_lifetime_s": 24.4,
+        "reason": "fell a ring behind",
+        "socket_release_device_log_ms": 46632
+      },
+      {
+        "remote_port": 51724,
+        "device_log_ms": 47612,
+        "reported_lifetime_s": 25.6,
+        "reason": "fell a ring behind",
+        "socket_release_device_log_ms": null
+      }
+    ],
+    "close_interpretation": "Both application departures explicitly report ring lag, not harness cleanup. Subsequent host FIN/RST traffic does not change that cause; UART ends before second slot release."
+  },
+  "sender_observer": {
+    "sample_totals": {
+      "valid": 245,
+      "invalid": 0,
+      "sender_rows": 42,
+      "invalid_sender_rows": 0
+    },
+    "driver_output_columns": [
+      "single",
+      "chain",
+      "single_ERR_MEM",
+      "chain_ERR_MEM",
+      "single_other",
+      "chain_other"
+    ],
+    "driver_last_totals": [
+      4120,
+      0,
+      33,
+      0,
+      0,
+      0
+    ],
+    "driver_interpretation": "33 single-buffer ERR_MEM events across all STA ports, not attributable to either flow or an exact packet. Counters are independent snapshots.",
+    "nrtx_nonzero": [
+      {
+        "remote_port": 51724,
+        "device_log_ms": 44192,
+        "nrtx": 1
+      }
+    ],
+    "nrtx_caveat": "Resets on new ACK, not cumulative; zero rows cannot rule out intervening retries.",
+    "complete_ack_stall": "No consecutive printed sender snapshots have equal lastack; severe slowdown is observed, not continuous cessation."
+  },
+  "host_flows": {
+    "51724": {
+      "holes": [
+        {
+          "start": 21.452898025512695,
+          "seq": 2936991,
+          "first_gap": 5760,
+          "packet": 6075,
+          "end": 24.696823120117188,
+          "duration": 3.243925094604492,
+          "close_packet": 6296
+        }
+      ],
+      "unique_payload_bytes": 3019983,
+      "valid_client_window_raw": {
+        "n": 1297,
+        "min": 64109,
+        "p50": 65535,
+        "p95": 65535,
+        "p99": 65535,
+        "max": 65535
+      },
+      "zero_valid_client_windows": 0,
+      "ack_for_unseen_data_count": 0,
+      "interpretation": "Receiver sequence holes and continuing nonzero windows contradict a zero-window explanation. Cumulative ACK delay during holes is expected until missing bytes arrive; do not interpret time-to-cumulative-ACK as delayed ACK generation. Host ACK transmission is not proof of sender receipt."
+    },
+    "51726": {
+      "holes": [
+        {
+          "start": 0.4977071285247803,
+          "seq": 5892,
+          "first_gap": 1440,
+          "packet": 114,
+          "end": 1.1628830432891846,
+          "duration": 0.6651759147644043,
+          "close_packet": 147
+        },
+        {
+          "start": 22.361236095428467,
+          "seq": 2759808,
+          "first_gap": 4320,
+          "packet": 6239,
+          "end": 24.585350036621094,
+          "duration": 2.224113941192627,
+          "close_packet": 6292
+        }
+      ],
+      "unique_payload_bytes": 2796492,
+      "valid_client_window_raw": {
+        "n": 1233,
+        "min": 64109,
+        "p50": 65535,
+        "p95": 65535,
+        "p99": 65535,
+        "max": 65535
+      },
+      "zero_valid_client_windows": 0,
+      "ack_for_unseen_data_count": 0,
+      "interpretation": "Receiver sequence holes and continuing nonzero windows contradict a zero-window explanation. Cumulative ACK delay during holes is expected until missing bytes arrive; do not interpret time-to-cumulative-ACK as delayed ACK generation. Host ACK transmission is not proof of sender receipt."
+    }
+  },
+  "cross_flow_timing": {
+    "method": "Intersection of per-flow gaps between consecutive server payload arrivals, at least 0.2 s shared; ACK gaps separately require strictly increasing cumulative ACKs and at least 0.4 s shared. All times use the same host capture clock.",
+    "data_gap_overlap_count": 18,
+    "selected_data_gap_overlaps": [
+      {
+        "pcap_t_interval_s": [
+          22.614912,
+          24.288493
+        ],
+        "duration_s": 1.673581,
+        "flow_51724_data_gap_s": [
+          22.216786,
+          24.560785
+        ],
+        "flow_51726_data_gap_s": [
+          22.614912,
+          24.288493
+        ],
+        "resume_separation_s": 0.272292
+      },
+      {
+        "pcap_t_interval_s": [
+          12.925395,
+          13.85891
+        ],
+        "duration_s": 0.933515,
+        "flow_51724_data_gap_s": [
+          12.902107,
+          13.860073
+        ],
+        "flow_51726_data_gap_s": [
+          12.925395,
+          13.85891
+        ],
+        "resume_separation_s": 0.001163
+      },
+      {
+        "pcap_t_interval_s": [
+          5.139857,
+          5.707083
+        ],
+        "duration_s": 0.567226,
+        "flow_51724_data_gap_s": [
+          5.139857,
+          5.860303
+        ],
+        "flow_51726_data_gap_s": [
+          5.040053,
+          5.707083
+        ],
+        "resume_separation_s": 0.15322
+      },
+      {
+        "pcap_t_interval_s": [
+          12.419086,
+          12.886007
+        ],
+        "duration_s": 0.466921,
+        "flow_51724_data_gap_s": [
+          12.375235,
+          12.89109
+        ],
+        "flow_51726_data_gap_s": [
+          12.419086,
+          12.886007
+        ],
+        "resume_separation_s": 0.005083
+      },
+      {
+        "pcap_t_interval_s": [
+          9.375438,
+          9.838908
+        ],
+        "duration_s": 0.46347,
+        "flow_51724_data_gap_s": [
+          9.338483,
+          9.838908
+        ],
+        "flow_51726_data_gap_s": [
+          9.375438,
+          10.05916
+        ],
+        "resume_separation_s": 0.220252
+      },
+      {
+        "pcap_t_interval_s": [
+          16.379197,
+          16.834704
+        ],
+        "duration_s": 0.455507,
+        "flow_51724_data_gap_s": [
+          16.379197,
+          16.834704
+        ],
+        "flow_51726_data_gap_s": [
+          16.369199,
+          16.834973
+        ],
+        "resume_separation_s": 0.000269
+      }
+    ],
+    "ack_progress_gap_overlaps": [
+      {
+        "pcap_t_interval_s": [
+          0.679949,
+          1.134581
+        ],
+        "duration_s": 0.454632,
+        "held_cumulative_ack_relative": {
+          "51724": 18852,
+          "51726": 5892
+        }
+      },
+      {
+        "pcap_t_interval_s": [
+          5.139937,
+          5.707144
+        ],
+        "duration_s": 0.567207,
+        "held_cumulative_ack_relative": {
+          "51724": 652452,
+          "51726": 265092
+        }
+      },
+      {
+        "pcap_t_interval_s": [
+          9.375477,
+          9.838966
+        ],
+        "duration_s": 0.463489,
+        "held_cumulative_ack_relative": {
+          "51724": 1191799,
+          "51726": 793572
+        }
+      },
+      {
+        "pcap_t_interval_s": [
+          12.419128,
+          12.886062
+        ],
+        "duration_s": 0.466934,
+        "held_cumulative_ack_relative": {
+          "51724": 1691479,
+          "51726": 1235331
+        }
+      },
+      {
+        "pcap_t_interval_s": [
+          12.966989,
+          13.858978
+        ],
+        "duration_s": 0.891989,
+        "held_cumulative_ack_relative": {
+          "51724": 1705879,
+          "51726": 1269891
+        }
+      },
+      {
+        "pcap_t_interval_s": [
+          16.4209,
+          16.834724
+        ],
+        "duration_s": 0.413824,
+        "held_cumulative_ack_relative": {
+          "51724": 2168119,
+          "51726": 1734528
+        }
+      },
+      {
+        "pcap_t_interval_s": [
+          22.614973,
+          24.288552
+        ],
+        "duration_s": 1.673579,
+        "held_cumulative_ack_relative": {
+          "51724": 2939871,
+          "51726": 2761248
+        }
+      }
+    ],
+    "terminal_holes": {
+      "onset_separation_s": 0.908338,
+      "overlap_s": 2.224114,
+      "recovery_separation_s": 0.111473
+    },
+    "conclusion": "Repeated common pauses and near-simultaneous resumes support investigating a shared constraint. They do not distinguish sender CPU/TCP/driver, shared wireless/AP path, buffering, or host/capture batching. Different hole onsets and per-flow recovery also occur; no statistical causal test or shared-link diagnosis is claimed."
+  },
+  "conditional_clock_comparison": {
+    "model": "pcap relative seconds approximately device_ms/1000 - 21.89",
+    "basis": "UART joins near HTTP GET; no measured clock synchronization",
+    "assumed_snapshot_age_allowance_s": 0.5,
+    "assumed_alignment_sensitivity_s": 0.05,
+    "status": "Illustrative conditional ranges, NOT rigorous event-time bounds. Observer validity limits callback completion age, not a proven log-emission capture-age bound. A wider age/alignment uncertainty can erase small apparent leads.",
+    "forward_delivery_examples": [
+      {
+        "remote_port": 51724,
+        "device_log_ms": 43072,
+        "snd_nxt_relative": 2960944,
+        "relative_byte_range_half_open": [
+          2941311,
+          2942751
+        ],
+        "first_host_arrival_t_s": 24.696823,
+        "packet_record": 6296,
+        "conditional_delay_range_s": [
+          3.464823,
+          4.064823
+        ]
+      },
+      {
+        "remote_port": 51726,
+        "device_log_ms": 44182,
+        "snd_nxt_relative": 2795808,
+        "relative_byte_range_half_open": [
+          2762688,
+          2764128
+        ],
+        "first_host_arrival_t_s": 24.58535,
+        "packet_record": 6292,
+        "conditional_delay_range_s": [
+          2.24335,
+          2.84335
+        ]
+      },
+      {
+        "remote_port": 51726,
+        "device_log_ms": 22732,
+        "snd_nxt_relative": 15972,
+        "relative_byte_range_half_open": [
+          5892,
+          7332
+        ],
+        "first_host_arrival_t_s": 1.162883,
+        "packet_record": 147,
+        "conditional_delay_range_s": [
+          0.270883,
+          0.870883
+        ]
+      }
+    ],
+    "return_or_sender_processing_delay_candidates": [
+      {
+        "remote_port": 51726,
+        "device_log_ms": 27512,
+        "lastack_relative": 239172,
+        "higher_host_ack_relative": 240612,
+        "higher_host_ack_t_s": 4.644809,
+        "packet_record": 1103,
+        "conditional_lead_before_earliest_assumed_sample_s": 0.427191
+      },
+      {
+        "remote_port": 51726,
+        "device_log_ms": 35832,
+        "lastack_relative": 1268451,
+        "higher_host_ack_relative": 1269891,
+        "higher_host_ack_t_s": 12.966989,
+        "packet_record": 3398,
+        "conditional_lead_before_earliest_assumed_sample_s": 0.425011
+      },
+      {
+        "remote_port": 51724,
+        "device_log_ms": 27482,
+        "lastack_relative": 613572,
+        "higher_host_ack_relative": 616452,
+        "higher_host_ack_t_s": 4.603853,
+        "packet_record": 1089,
+        "conditional_lead_before_earliest_assumed_sample_s": 0.438147
+      }
+    ],
+    "negative_example": {
+      "remote_port": 51724,
+      "device_log_ms": 35852,
+      "lastack_relative": 1705879,
+      "next_higher_host_ack_relative": 1707319,
+      "next_higher_host_ack_t_s": 13.860115,
+      "interpretation": "Higher ACK lies inside assumed snapshot window; old equal ACK age does not establish ACK loss."
+    },
+    "conclusion": "Bytes already below snd_nxt first appear at host substantially later in selected terminal episodes, conditional on alignment. This indicates delay/loss/retry after TCP send progress, not successful hardware transmission. Earlier strictly higher host ACKs in selected rows suggest return-path or sender ACK-processing delay, not proven return loss."
+  },
+  "recommendation": "Compare verified-bgn network-only and half-rate controls before changing audio code. If common pauses persist without audio, prioritize observation at sender/AP boundaries. This report contains no results from those separate controls."
+}

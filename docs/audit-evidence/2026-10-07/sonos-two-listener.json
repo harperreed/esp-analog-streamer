@@ -1,0 +1,36 @@
+{
+  "passed": false,
+  "seconds": 120,
+  "deadline_seconds": 140,
+  "progress_ms": 120007,
+  "decoded_channel_dbfs": [
+    -33.312875682447874,
+    -33.30239012972188
+  ],
+  "error": "ValueError: UART fault counters changed",
+  "format": "48kHz stereo 16-bit FLAC",
+  "source_gain_change": "During run, workstation Master changed from56(-23.25dB) to72(-11.25dB); Sonos stayed15%.",
+  "phase_interpretation": "Both listeners completed120s without a Sonos restart. The overall capture-fault assertion failed: TLS setup increased fault counters before listeners joined; counters were stable afterward.",
+  "capture_before": {
+    "queue_overflows": 16,
+    "software_dropped_frames": 480,
+    "restarts": 2,
+    "discontinuities": 2,
+    "read_errors": 0
+  },
+  "capture_after_setup": {
+    "queue_overflows": 38,
+    "software_dropped_frames": 35040,
+    "restarts": 3,
+    "discontinuities": 19,
+    "read_errors": 0
+  },
+  "timing_ms": {
+    "tls_start": 13912,
+    "tls_connected": 14992,
+    "encoder_lag": 14952,
+    "sonos_join": 17802,
+    "second_join": 21622
+  },
+  "known_issue": "Intermittent capture disruption during TLS setup remains unresolved; this is not full two-listener acceptance."
+}

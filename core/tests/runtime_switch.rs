@@ -1,0 +1,349 @@
+// ABOUTME: Exercises the production epoch and bounded switch request with real codec/ring state.
+// ABOUTME: Covers cancelled commits, admission races and retirement without a device.
+#![cfg(not(feature = "listener-loom"))]
+#[path = "../../firmware/src/stream_codec.rs"]
+mod stream_codec;
+#[path = "../../firmware/src/stream_runtime.rs"]
+mod stream_runtime;
+use esp_shazam_core::stream_buffer::OutputFormat;
+use std::{
+    sync::{Arc, Mutex},
+    time::Duration,
+};
+use stream_runtime::Runtime;
+
+#[test]
+fn switching_retires_old_ring_and_never_reuses_its_bytes() {
+    let (runtime, mut worker) = Runtime::new(OutputFormat::Mp3, false).unwrap();
+    let (_, old) = runtime.admit_line("GET /stream.mp3 HTTP/1.1");
+    let old = old.unwrap();
+    old.epoch
+        .ring
+        .lock()
+        .unwrap()
+        .push(
+            &[1, 2, 3],
+            esp_shazam_core::flac_ring::SourceMetadata {
+                raw_generation: 0,
+                source_start: 0,
+                source_end: 1,
+                oldest_accepted_us: 0,
+                raw_publication_us: 0,
+            },
+            || 0,
+        )
+        .unwrap();
+    let caller = runtime.clone();
+    let join = std::thread::spawn(move || {
+        caller.switch(
+            OutputFormat::Flac,
+            true,
+            Arc::new(Mutex::new(true)),
+            Duration::from_secs(1),
+        )
+    });
+    assert!(worker.wait_and_service(&runtime, Duration::from_secs(1)));
+    assert!(join.join().unwrap().unwrap());
+    assert!(old.epoch.retired());
+    assert_eq!(runtime.active_format(), OutputFormat::Flac);
+    assert_eq!(worker.epoch.ring.lock().unwrap().progress(), (0, 0));
+    assert_eq!(worker.epoch.ring.lock().unwrap().capacity(), 141);
+    assert_eq!(old.epoch.ring.lock().unwrap().capacity(), 500);
+}
+#[test]
+fn timeout_revokes_commit_and_idle_admission_defers() {
+    let (runtime, mut worker) = Runtime::new(OutputFormat::Flac, false).unwrap();
+    assert!(runtime
+        .switch(
+            OutputFormat::Mp3,
+            true,
+            Arc::new(Mutex::new(true)),
+            Duration::from_millis(1)
+        )
+        .is_err());
+    assert!(!worker.wait_and_service(&runtime, Duration::from_secs(1)));
+    assert_eq!(runtime.active_format(), OutputFormat::Flac);
+    let (_, listener) = runtime.admit_line("GET /stream.flac HTTP/1.1");
+    let caller = runtime.clone();
+    let join = std::thread::spawn(move || {
+        caller.switch(
+            OutputFormat::Mp3,
+            false,
+            Arc::new(Mutex::new(true)),
+            Duration::from_secs(1),
+        )
+    });
+    assert!(!worker.wait_and_service(&runtime, Duration::from_secs(1)));
+    assert!(!join.join().unwrap().unwrap());
+    assert!(!listener.unwrap().epoch.retired());
+}
+#[test]
+fn cancelled_play_and_recognition_leave_active_unchanged() {
+    let (runtime, mut worker) = Runtime::new(OutputFormat::Flac, false).unwrap();
+    let caller = runtime.clone();
+    let token = Arc::new(Mutex::new(false));
+    let join = std::thread::spawn(move || {
+        caller.switch(OutputFormat::Mp3, true, token, Duration::from_secs(1))
+    });
+    assert!(!worker.wait_and_service(&runtime, Duration::from_secs(1)));
+    assert!(join.join().unwrap().is_err());
+    assert_eq!(runtime.active_format(), OutputFormat::Flac);
+    let (runtime, _) = Runtime::new(OutputFormat::Flac, true).unwrap();
+    assert!(runtime
+        .switch(
+            OutputFormat::Mp3,
+            true,
+            Arc::new(Mutex::new(true)),
+            Duration::from_secs(1)
+        )
+        .unwrap_err()
+        .to_string()
+        .contains("recognition"));
+}
+
+#[test]
+fn draining_retired_listener_also_defers_idle_switch() {
+    let (runtime, mut worker) = Runtime::new(OutputFormat::Mp3, false).unwrap();
+    let (_, listener) = runtime.admit_line("GET /stream.mp3 HTTP/1.1");
+    let caller = runtime.clone();
+    let join = std::thread::spawn(move || {
+        caller.switch(
+            OutputFormat::Flac,
+            true,
+            Arc::new(Mutex::new(true)),
+            Duration::from_secs(1),
+        )
+    });
+    assert!(worker.wait_and_service(&runtime, Duration::from_secs(1)));
+    assert!(join.join().unwrap().unwrap());
+    let caller = runtime.clone();
+    let join = std::thread::spawn(move || {
+        caller.switch(
+            OutputFormat::Mp3,
+            false,
+            Arc::new(Mutex::new(true)),
+            Duration::from_secs(1),
+        )
+    });
+    assert!(!worker.wait_and_service(&runtime, Duration::from_secs(1)));
+    assert!(!join.join().unwrap().unwrap());
+    drop(listener);
+}
+
+#[test]
+fn repeated_switches_decode_independently_and_release_unheld_epochs() {
+    use std::{
+        io::Write,
+        process::{Command, Stdio},
+    };
+    let (runtime, mut worker) = Runtime::new(OutputFormat::Mp3, false).unwrap();
+    for (index, format) in [
+        OutputFormat::Mp3,
+        OutputFormat::Flac,
+        OutputFormat::Mp3,
+        OutputFormat::Flac,
+        OutputFormat::Mp3,
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        if index != 0 {
+            let old = Arc::downgrade(&worker.epoch);
+            let caller = runtime.clone();
+            let join = std::thread::spawn(move || {
+                caller.switch(
+                    format,
+                    true,
+                    Arc::new(Mutex::new(true)),
+                    Duration::from_secs(1),
+                )
+            });
+            assert!(worker.wait_and_service(&runtime, Duration::from_secs(1)));
+            assert!(join.join().unwrap().unwrap());
+            assert!(
+                old.upgrade().is_none(),
+                "no reader holds old epoch; its storage must drop"
+            );
+        }
+        assert_eq!(worker.epoch.format, format);
+        let mut stream = stream_codec::stream_header(format);
+        let mut expected = Vec::new();
+        let block_frames = format.block_frames();
+        let mut cursor = worker.epoch.ring.lock().unwrap().cursor_now();
+        let mut copied = vec![0; format.max_frame_bytes()];
+        for number in 0..16 {
+            let pcm: Vec<i32> = (0..2 * block_frames)
+                .map(|sample| (((sample + number * 13) % 307) as i32 - 153) << 12)
+                .collect();
+            expected.extend(pcm.iter().map(|sample| (sample >> 8) as i16));
+            for chunk in pcm.chunks(480) {
+                worker.encoder.push(chunk);
+            }
+            worker
+                .encoder
+                .encode_block(number as u32, &mut worker.bytes)
+                .unwrap();
+            let mut ring = worker.epoch.ring.lock().unwrap();
+            ring.push(
+                &worker.bytes,
+                esp_shazam_core::flac_ring::SourceMetadata {
+                    raw_generation: 0,
+                    source_start: 0,
+                    source_end: 1,
+                    oldest_accepted_us: 0,
+                    raw_publication_us: 0,
+                },
+                || 0,
+            )
+            .unwrap();
+            let len = ring
+                .read(&mut cursor, &mut copied)
+                .map(|read| read.bytes)
+                .unwrap();
+            drop(ring);
+            let len = stream_codec::prepare_listener_frame(format, &mut copied, len, number as u32)
+                .unwrap();
+            stream.extend_from_slice(&copied[..len]);
+        }
+        let demuxer = match format {
+            OutputFormat::Flac => "flac",
+            OutputFormat::Mp3 => "mp3",
+        };
+        let mut decoder = Command::new("ffmpeg")
+            .args([
+                "-nostdin", "-v", "error", "-f", demuxer, "-i", "pipe:0", "-f", "s16le", "pipe:1",
+            ])
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
+            .unwrap();
+        let mut input = decoder.stdin.take().unwrap();
+        let writer = std::thread::spawn(move || input.write_all(&stream).unwrap());
+        let output = decoder.wait_with_output().unwrap();
+        writer.join().unwrap();
+        assert!(
+            output.status.success(),
+            "{}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        assert!(
+            output.stderr.is_empty(),
+            "{}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        assert_eq!(output.stdout.len(), 16 * block_frames * 4);
+        if format == OutputFormat::Flac {
+            let samples: Vec<i16> = output
+                .stdout
+                .chunks_exact(2)
+                .map(|bytes| i16::from_le_bytes(bytes.try_into().unwrap()))
+                .collect();
+            assert_eq!(samples, expected);
+        }
+    }
+}
+
+#[test]
+fn healthy_same_format_play_preserves_compatible_diagnostic_epoch() {
+    let (runtime, worker) = Runtime::new(OutputFormat::Flac, false).unwrap();
+    let (_, diagnostic) = runtime.admit_line("GET /stream.flac HTTP/1.1");
+    let epoch = diagnostic.unwrap().epoch.clone();
+    assert!(runtime
+        .play_format(OutputFormat::Flac, Arc::new(Mutex::new(true)))
+        .unwrap());
+    assert!(Arc::ptr_eq(&worker.epoch, &epoch));
+    assert!(!epoch.retired());
+    assert!(runtime
+        .play_format(OutputFormat::Flac, Arc::new(Mutex::new(false)))
+        .is_err());
+}
+
+#[test]
+fn pending_switch_expiry_revokes_the_actual_worker_commit() {
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    use stream_runtime::{SwitchPoll, SwitchStart};
+    let tick = Arc::new(AtomicUsize::new(0));
+    let clock = tick.clone();
+    let (runtime, mut worker) = Runtime::with_clock(
+        OutputFormat::Flac,
+        false,
+        Arc::new(move || Duration::from_millis(clock.load(Ordering::Acquire) as u64)),
+    )
+    .unwrap();
+    let SwitchStart::Pending(pending) = runtime.begin_switch(
+        OutputFormat::Mp3,
+        true,
+        Arc::new(Mutex::new(true)),
+        Duration::from_millis(10),
+    ) else {
+        panic!("must enqueue")
+    };
+    tick.store(9, Ordering::Release);
+    let SwitchPoll::Pending(pending) = pending.poll() else {
+        panic!("before deadline")
+    };
+    tick.store(10, Ordering::Release);
+    let SwitchPoll::Finished(result) = pending.poll() else {
+        panic!("at deadline")
+    };
+    assert_eq!(result.unwrap_err().kind(), std::io::ErrorKind::TimedOut);
+    assert!(!worker.service(&runtime));
+    assert_eq!(runtime.active_format(), OutputFormat::Flac);
+}
+
+#[test]
+fn disconnected_worker_finalizes_pending_switch_before_clock_expiry() {
+    use stream_runtime::{SwitchPoll, SwitchStart};
+    let (runtime, worker) =
+        Runtime::with_clock(OutputFormat::Flac, false, Arc::new(|| Duration::ZERO)).unwrap();
+    let SwitchStart::Pending(pending) = runtime.begin_switch(
+        OutputFormat::Mp3,
+        true,
+        Arc::new(Mutex::new(true)),
+        Duration::from_secs(10),
+    ) else {
+        panic!("must enqueue")
+    };
+    drop(worker);
+    let SwitchPoll::Finished(result) = pending.poll() else {
+        panic!("disconnection must finalize without advancing clock")
+    };
+    assert_eq!(result.unwrap_err().kind(), std::io::ErrorKind::TimedOut);
+    assert_eq!(runtime.active_format(), OutputFormat::Flac);
+}
+
+#[test]
+fn committed_switch_result_wins_when_finalized_after_expiry() {
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    use stream_runtime::{SwitchPoll, SwitchStart};
+    let tick = Arc::new(AtomicUsize::new(0));
+    let clock = tick.clone();
+    let (runtime, mut worker) = Runtime::with_clock(
+        OutputFormat::Flac,
+        false,
+        Arc::new(move || Duration::from_millis(clock.load(Ordering::Acquire) as u64)),
+    )
+    .unwrap();
+    let (_, old) = runtime.admit_line("GET /stream.flac HTTP/1.1");
+    let SwitchStart::Pending(pending) = runtime.begin_switch(
+        OutputFormat::Mp3,
+        true,
+        Arc::new(Mutex::new(true)),
+        Duration::from_millis(10),
+    ) else {
+        panic!("must enqueue")
+    };
+    tick.store(9, Ordering::Release);
+    assert!(worker.service(&runtime));
+    tick.store(11, Ordering::Release);
+    let SwitchPoll::Finished(result) = pending.poll() else {
+        panic!("completed result")
+    };
+    assert!(
+        result.unwrap(),
+        "committed success survives late caller finalization"
+    );
+    assert!(old.unwrap().epoch.retired());
+    assert_eq!(runtime.active_format(), OutputFormat::Mp3);
+}

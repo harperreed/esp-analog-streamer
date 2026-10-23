@@ -1,0 +1,183 @@
+{
+  "scope": "Retained delivery during read-only Sonos HTTP control recovery",
+  "base_commit": "6c7b21e",
+  "source_sha256": {
+    "core/src/sonos_upnp.rs": "8ceef3b55a725606200764b1a8d065df0a739f5d3c8422b7bace92ced0ae67f1",
+    "firmware/src/sonos.rs": "fd1357534d9ddc3598c0413de7dd80b6d43496ea4cc8b239d99d57cc017d7bfa",
+    "core/tests/sonos_adapter.rs": "f6a6ab2be8fff285334ddad486f065609144744aa39e1d7415722d0103169e26"
+  },
+  "canonical": {
+    "run": "target/check-logs/run.r4q1tnkA",
+    "status": "complete",
+    "exit_code": 0,
+    "stages": [
+      {
+        "stage": "fmt",
+        "exit_code": "0",
+        "log": "fmt.log"
+      },
+      {
+        "stage": "clippy",
+        "exit_code": "0",
+        "log": "clippy.log"
+      },
+      {
+        "stage": "test",
+        "exit_code": "0",
+        "log": "test.log"
+      },
+      {
+        "stage": "capture-loom",
+        "exit_code": "0",
+        "log": "capture-loom.log"
+      },
+      {
+        "stage": "listener-loom",
+        "exit_code": "0",
+        "log": "listener-loom.log"
+      },
+      {
+        "stage": "sonos-web",
+        "exit_code": "0",
+        "log": "sonos-web.log"
+      },
+      {
+        "stage": "harnesses",
+        "exit_code": "0",
+        "log": "harnesses.log"
+      },
+      {
+        "stage": "coverage-host",
+        "exit_code": "0",
+        "log": "coverage-host.log"
+      },
+      {
+        "stage": "stream-format",
+        "exit_code": "0",
+        "log": "stream-format.log"
+      },
+      {
+        "stage": "decoder-integrity",
+        "exit_code": "0",
+        "log": "decoder-integrity.log"
+      },
+      {
+        "stage": "replay-oracle",
+        "exit_code": "0",
+        "log": "replay-oracle.log"
+      },
+      {
+        "stage": "stream-replay",
+        "exit_code": "0",
+        "log": "stream-replay.log"
+      },
+      {
+        "stage": "failure-observation",
+        "exit_code": "0",
+        "log": "failure-observation.log"
+      },
+      {
+        "stage": "tls-capture-peer",
+        "exit_code": "0",
+        "log": "tls-capture-peer.log"
+      },
+      {
+        "stage": "e2e-fixtures",
+        "exit_code": "0",
+        "log": "e2e-fixtures.log"
+      },
+      {
+        "stage": "interface-relay",
+        "exit_code": "0",
+        "log": "interface-relay.log"
+      },
+      {
+        "stage": "wifi-throughput",
+        "exit_code": "0",
+        "log": "wifi-throughput.log"
+      },
+      {
+        "stage": "fuzz-host",
+        "exit_code": "0",
+        "log": "fuzz-host.log"
+      },
+      {
+        "stage": "fuzz-helpers",
+        "exit_code": "0",
+        "log": "fuzz-helpers.log"
+      },
+      {
+        "stage": "mutation-host",
+        "exit_code": "0",
+        "log": "mutation-host.log"
+      },
+      {
+        "stage": "setup-linux",
+        "exit_code": "0",
+        "log": "setup-linux.log"
+      },
+      {
+        "stage": "capture-stream-packets",
+        "exit_code": "0",
+        "log": "capture-stream-packets.log"
+      },
+      {
+        "stage": "firmware-fmt",
+        "exit_code": "0",
+        "log": "firmware-fmt.log"
+      },
+      {
+        "stage": "firmware-build",
+        "exit_code": "0",
+        "log": "firmware-build.log"
+      },
+      {
+        "stage": "i2s-iram-tests",
+        "exit_code": "0",
+        "log": "i2s-iram-tests.log"
+      },
+      {
+        "stage": "i2s-iram",
+        "exit_code": "0",
+        "log": "i2s-iram.log"
+      },
+      {
+        "stage": "firmware-warnings",
+        "exit_code": "0",
+        "log": "firmware-warnings.log"
+      }
+    ]
+  },
+  "earlier_failed_run": {
+    "run": "target/check-logs/run.9j4Jw3qU",
+    "failed_stages": [
+      "clippy",
+      "firmware-warnings"
+    ],
+    "retained": true
+  },
+  "focused_tests": {
+    "protocol": 22,
+    "adapter": 50
+  },
+  "regression_negative_control": {
+    "log": "target/kata-hardening/sonos-control-recovery/worker-regression-red.log",
+    "result": "failed as expected with transient-error queue.clear mutation; mutation removed"
+  },
+  "actual_sonos_observation": {
+    "log": "target/kata-hardening/sonos-control-recovery/actual-observation.log",
+    "result": "Some(Stopped)",
+    "validation_boundaries": 8,
+    "media_writes": false
+  },
+  "firmware_elf_sha256": "36d61e57439e102cc9b3c5b256ffeec8a7dddec9743a672b670a4aadce8fa2c3",
+  "flashed": false,
+  "hardware_recovery_acceptance_run": false,
+  "kata_closed": [],
+  "limits": [
+    "Automatic Play/SetURI remains absent",
+    "Network generation changes remain terminal",
+    "Sonos-initiated reconnect and decoded continuity unverified",
+    "Explicit Stop policy choice remains pending"
+  ]
+}

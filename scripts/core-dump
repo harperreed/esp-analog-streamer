@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+# ABOUTME: Runs the locked private UART core-dump capture and replay helper.
+# ABOUTME: Accepts explicit decoder, ELF, SDK, config and ROM provenance paths.
+set -euo pipefail
+repo="$(cd "$(dirname "$0")/.." && pwd)"
+exec uv run --quiet --project "$repo" --locked python3 "$repo/scripts/core_dump.py" "$@"

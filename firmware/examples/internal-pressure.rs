@@ -13,8 +13,7 @@ use std::time::Duration;
 use esp_idf_svc::hal::cpu::Core;
 use esp_idf_svc::sys;
 
-#[path = "../src/threads.rs"]
-mod threads;
+use esp_shazam_firmware::threads;
 
 const CAPS: u32 = sys::MALLOC_CAP_INTERNAL | sys::MALLOC_CAP_8BIT;
 const FLOOR: usize = sys::CONFIG_SPIRAM_MALLOC_RESERVE_INTERNAL as usize;

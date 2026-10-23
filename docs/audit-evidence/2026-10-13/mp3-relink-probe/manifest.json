@@ -1,0 +1,263 @@
+{
+  "scope": "Exact-copy local engineering scripts/receipts; three raw artifacts stored losslessly as gzip; no media or ELF bytes",
+  "files": [
+    {
+      "path": "package.py",
+      "source": "target/kata-hardening/oct13-relink-inputs/package.py",
+      "sha256": "88e67af4a44d0a711217bebc166800b6eba14665787a0086b7de64bec1692b02",
+      "size": 8535
+    },
+    {
+      "path": "verify.py",
+      "source": "target/kata-hardening/oct13-relink-inputs/verify.py",
+      "sha256": "492835e0ab6604ee6ad6f1a66bb156a63e11e1feeb6520714aa4b4caf722d639",
+      "size": 4589
+    },
+    {
+      "path": "source-manifest.json",
+      "source": "target/kata-hardening/oct13-relink-inputs/artifacts/source-manifest.json",
+      "sha256": "42b3acc33220fa0a927662d136d4ea60f21b8df437272452925ccba9c48724a3",
+      "size": 44360
+    },
+    {
+      "path": "archive.sha256",
+      "source": "target/kata-hardening/oct13-relink-inputs/artifacts/archive.sha256",
+      "sha256": "e1ad7011d5d162907eeb404add5d605824b9d4b99e2e05f47d9495795fe2b66b",
+      "size": 90
+    },
+    {
+      "path": "package-extraction.json",
+      "source": "target/kata-hardening/oct13-relink-inputs/artifacts/extraction-validation.json",
+      "sha256": "8c5bbb864329d90dd32be2fb7354033569b76902f6f48b0a0fb20fb4a255a473",
+      "size": 578
+    },
+    {
+      "path": "package-controls.json",
+      "source": "target/kata-hardening/oct13-relink-inputs/artifacts/probe-evidence.json",
+      "sha256": "787738a6046f4ee5983e12f3e810561783bf5c96b3d45129aed17ef0ec4e3973",
+      "size": 729
+    },
+    {
+      "path": "revision-option-validation.json",
+      "source": "target/kata-hardening/oct13-relink-inputs/revision-option-validation.json",
+      "sha256": "d4dbcbbb1cc24cb69d0dee2eb7543f8bab72f58652650e527f906ef0138b8a79",
+      "size": 472
+    },
+    {
+      "path": "check-recipient.sh",
+      "source": "target/kata-hardening/oct13-relink-parent/check-recipient.sh",
+      "sha256": "e9e42f406b3e0701fdeaf59ad9e0e38d795a41da2416fef46307bfd39dcbc261",
+      "size": 644
+    },
+    {
+      "path": "record-target.py",
+      "source": "target/kata-hardening/oct13-relink-parent/record-target.py",
+      "sha256": "4063147928deae496d12be8d2b1ace0a54bcdf3219da0e23bdd3f3395d58df82",
+      "size": 4175
+    },
+    {
+      "path": "extraction.json",
+      "source": "target/kata-hardening/oct13-relink-parent/extraction.json",
+      "sha256": "7d887e7625721ef8f9f90b9ed280e13a0074a06fe1ec5941a0a6f0c4fc0f781b",
+      "size": 577
+    },
+    {
+      "path": "public-cfg.toml",
+      "source": "target/kata-hardening/oct13-relink-parent/public-cfg.toml",
+      "sha256": "a161693e2fc39ba0a86aa663b9ac26bf6a145bb88a2325f0a89dcc47ced1fb30",
+      "size": 671
+    },
+    {
+      "path": "bootstrap.json",
+      "source": "target/kata-hardening/oct13-relink-parent/bootstrap.json",
+      "sha256": "8c7d2cb6bf4c134160539ee9efad04337149ff9a4889b03e7faf8400d5eeb92a",
+      "size": 716
+    },
+    {
+      "path": "bootstrap-config.diff",
+      "source": "target/kata-hardening/oct13-relink-parent/bootstrap-config.diff",
+      "sha256": "c4fb812d8e4344a688e60d665e070b945c4cc4587559e1f808d53d5eaab9ef89",
+      "size": 1595
+    },
+    {
+      "path": "initial-snapshot-whitespace.log.gz",
+      "source": "target/kata-hardening/oct13-relink-parent/initial-snapshot-whitespace.log",
+      "sha256": "9b3a30a0cdb96e9cb80ead61a2f6e154417b886f20fd51dfc84d84cc9f2bd726",
+      "size": 454,
+      "uncompressed_path": "initial-snapshot-whitespace.log",
+      "encoding": "gzip",
+      "uncompressed_sha256": "d20a3c290c2ff5f074694796fc9d977bca4081d8d285dbdc14f4d1dbb54a7b83",
+      "uncompressed_size": 5671
+    },
+    {
+      "path": "private-bit.patch.gz",
+      "source": "target/kata-hardening/oct13-relink-parent/private-bit.patch",
+      "sha256": "022ea37d4931168a57d5822fa9b8b5279299f189d156502fa1132a0faaa23801",
+      "size": 237,
+      "uncompressed_path": "private-bit.patch",
+      "encoding": "gzip",
+      "uncompressed_sha256": "a027f4b50ab792bfbf498b9864291dd8b67e957c4c5ebf5abee34e6ad4270506",
+      "uncompressed_size": 449
+    },
+    {
+      "path": "offset.c",
+      "source": "target/kata-hardening/oct13-relink-parent/offset.c",
+      "sha256": "1ae6d90f33fc888f6e712385ea0c5f33a1a9903a32c2e1d4d62dbc71383daea4",
+      "size": 358
+    },
+    {
+      "path": "offset.s",
+      "source": "target/kata-hardening/oct13-relink-parent/offset.s",
+      "sha256": "527635b12c6083328816f7541e6a0784d92f5bc04f17dc9e1e125bcdffe765ef",
+      "size": 200
+    },
+    {
+      "path": "tools.json",
+      "source": "target/kata-hardening/oct13-relink-parent/tools.json",
+      "sha256": "f989139a3eca346aed28d292afbf1d6e3f83607989518a6bcd6ab891d876ad35",
+      "size": 987
+    },
+    {
+      "path": "native-python-freeze.txt",
+      "source": "target/kata-hardening/oct13-relink-parent/native-python-freeze.txt",
+      "sha256": "fb42495e91a934b4944a4c62d2cc46e7d74edfe4f3180ff04e82fc9bd95ab3bb",
+      "size": 1124
+    },
+    {
+      "path": "host-verification.json",
+      "source": "target/kata-hardening/oct13-relink-parent/host-verification.json",
+      "sha256": "d55bc8a472e5828346f22de45f4f8dba864f64b7353370838b9b96111adde387",
+      "size": 299
+    },
+    {
+      "path": "target-verification.json",
+      "source": "target/kata-hardening/oct13-relink-parent/target-verification.json",
+      "sha256": "194683e3740846d9900aa6aa8253d81d1e6d097bf41a6e931713ba2b2cf57879",
+      "size": 1781
+    },
+    {
+      "path": "host/run.py",
+      "source": "target/kata-hardening/oct13-relink-recipe/host-private-bit/run.py",
+      "sha256": "1cd19a1a7608da0fc353728854c8df1e838127420ae75930df1f59850246a913",
+      "size": 6105
+    },
+    {
+      "path": "host/probe.c",
+      "source": "target/kata-hardening/oct13-relink-recipe/host-private-bit/probe.c",
+      "sha256": "06a12b3ed74feeed0bfed4df4457ddfb1c20469921752180f1b32ee319a8fd5d",
+      "size": 1373
+    },
+    {
+      "path": "host/receipt.json",
+      "source": "target/kata-hardening/oct13-relink-recipe/host-private-bit/receipt.json",
+      "sha256": "8b49a1f5ed73bfde2fefbb43677c15e2d3adabe179dd7ef9dde80f866a60f6da",
+      "size": 13402
+    },
+    {
+      "path": "review.md",
+      "source": "target/kata-hardening/oct13-relink-review/review.md",
+      "sha256": "47a1de1f78c5277c84d6bcef706b3e718e9220ec7d76ad315fb81cc2752c8d6d",
+      "size": 4481
+    },
+    {
+      "path": "baseline/receipt.json",
+      "source": "target/kata-hardening/oct13-relink-parent/baseline/receipt.json",
+      "sha256": "69201dd493d56113f517f36d764cac149173d63cf6b44b7176d507342a4eac16",
+      "size": 2924
+    },
+    {
+      "path": "baseline/stages.tsv",
+      "source": "target/kata-hardening/oct13-relink-parent/baseline/stages.tsv",
+      "sha256": "c820c7f32122edd4a441587b1cca15e2d0dd998282dde8833a42cb5ed16fb8d4",
+      "size": 190
+    },
+    {
+      "path": "baseline/shine_initialise.asm",
+      "source": "target/kata-hardening/oct13-relink-parent/baseline/shine_initialise.asm",
+      "sha256": "0f8d14666240cbf66239edca03f9b253f6df8b475bfb8d783b9a7b41f4c6a698",
+      "size": 8920
+    },
+    {
+      "path": "baseline/shazam_mp3_open.asm",
+      "source": "target/kata-hardening/oct13-relink-parent/baseline/shazam_mp3_open.asm",
+      "sha256": "690eda03e06ae22d57f90f9e1b5417590955c3540e17ecda8aea1a82aa232ba4",
+      "size": 1890
+    },
+    {
+      "path": "baseline/mp3-symbols.txt",
+      "source": "target/kata-hardening/oct13-relink-parent/baseline/mp3-symbols.txt",
+      "sha256": "9542612984d0a7ccaeaa64b25adb2703a6b909679158bc361ddd315bdacde310",
+      "size": 1530
+    },
+    {
+      "path": "baseline/i2s-iram.log",
+      "source": "target/kata-hardening/oct13-relink-parent/baseline/i2s-iram.log",
+      "sha256": "d41ec07ba8f2c0189428947ebbf7e3b1235327c65f56e64ea6fe1830e6e7dfd4",
+      "size": 189
+    },
+    {
+      "path": "baseline/i2s-iram-tests.log",
+      "source": "target/kata-hardening/oct13-relink-parent/baseline/i2s-iram-tests.log",
+      "sha256": "0b40786abc90ed31bcbda25470dc7c1b5f90239f068748edae69cb86c9730d73",
+      "size": 103
+    },
+    {
+      "path": "modified/receipt.json",
+      "source": "target/kata-hardening/oct13-relink-parent/modified/receipt.json",
+      "sha256": "f911086778bd22800fa3c44d4cb2cd7b0c8477703651cff6d312bfc1df8607e5",
+      "size": 2960
+    },
+    {
+      "path": "modified/stages.tsv",
+      "source": "target/kata-hardening/oct13-relink-parent/modified/stages.tsv",
+      "sha256": "c820c7f32122edd4a441587b1cca15e2d0dd998282dde8833a42cb5ed16fb8d4",
+      "size": 190
+    },
+    {
+      "path": "modified/shine_initialise.asm",
+      "source": "target/kata-hardening/oct13-relink-parent/modified/shine_initialise.asm",
+      "sha256": "dd039f3eb51d7e4542f03e6a8100fd629a56781cc301af78e2d94f4a3a549e9c",
+      "size": 8920
+    },
+    {
+      "path": "modified/shazam_mp3_open.asm",
+      "source": "target/kata-hardening/oct13-relink-parent/modified/shazam_mp3_open.asm",
+      "sha256": "690eda03e06ae22d57f90f9e1b5417590955c3540e17ecda8aea1a82aa232ba4",
+      "size": 1890
+    },
+    {
+      "path": "modified/mp3-symbols.txt",
+      "source": "target/kata-hardening/oct13-relink-parent/modified/mp3-symbols.txt",
+      "sha256": "9542612984d0a7ccaeaa64b25adb2703a6b909679158bc361ddd315bdacde310",
+      "size": 1530
+    },
+    {
+      "path": "modified/i2s-iram.log",
+      "source": "target/kata-hardening/oct13-relink-parent/modified/i2s-iram.log",
+      "sha256": "d41ec07ba8f2c0189428947ebbf7e3b1235327c65f56e64ea6fe1830e6e7dfd4",
+      "size": 189
+    },
+    {
+      "path": "modified/i2s-iram-tests.log",
+      "source": "target/kata-hardening/oct13-relink-parent/modified/i2s-iram-tests.log",
+      "sha256": "30748e06465dd7fa252c294301a4282ecb55a5c0bab754ed86ed11960199c313",
+      "size": 103
+    },
+    {
+      "path": "baseline/sdkconfig",
+      "source": "target/kata-hardening/oct13-relink-parent/baseline/sdkconfig",
+      "sha256": "5a0652685fb55be50214dd788b30fc33b3113c15f371c26ffad321a7c003c33b",
+      "size": 70032
+    },
+    {
+      "path": "baseline/sections-mp3-iram.ld.gz",
+      "source": "target/kata-hardening/oct13-relink-parent/baseline/sections-mp3-iram.ld",
+      "sha256": "2337cc49fadaf5f1b4af494cee586b090663ca0a3cb8aa146a8484ce39704336",
+      "size": 14063,
+      "uncompressed_path": "baseline/sections-mp3-iram.ld",
+      "encoding": "gzip",
+      "uncompressed_sha256": "e07bb9f04324a3f6c03e2461a44c4c1ed83471d99b9dc57bd9409bdd9b6df3c3",
+      "uncompressed_size": 91117
+    }
+  ]
+}

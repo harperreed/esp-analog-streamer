@@ -12,8 +12,7 @@ use std::time::Duration;
 use esp_idf_svc::hal::cpu::Core;
 use esp_idf_svc::sys;
 
-#[path = "../src/threads.rs"]
-mod threads;
+use esp_shazam_firmware::threads;
 
 fn main() -> anyhow::Result<()> {
     threads::ThreadSpec {
@@ -23,8 +22,8 @@ fn main() -> anyhow::Result<()> {
         stack_bytes: 4 * 1024,
     }
     .spawn(|| {
-        // Allow production startup and the host's baseline before the one-shot injection.
-        std::thread::sleep(Duration::from_secs(30));
+        // Allow startup, source settling and live baseline peers before the one-shot injection.
+        std::thread::sleep(Duration::from_secs(60));
         log::info!("network-faults: marker=DISCONNECT_REQUEST ms={}", millis());
         // SAFETY: this public IDF API has no pointer arguments and returns an error if
         // production startup has not initialized/started Wi-Fi. It does not destroy its owner.

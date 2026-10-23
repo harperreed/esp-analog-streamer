@@ -125,9 +125,9 @@ impl Decimator {
     }
 
     /// Replaces the contents of `out` with the 16 kHz samples that `interleaved` completes: one per
-    /// three whole frames, counting on from earlier calls. A trailing half frame is dropped, as in
-    /// `stereo_to_mono`. It allocates only if `out` has less room than this call's output needs,
-    /// so a caller that reuses one `Vec` allocates once.
+    /// three whole frames, counting on from earlier calls. A trailing half frame is dropped. It
+    /// allocates only if `out` has less room than this call's output needs, so a caller that
+    /// reuses one `Vec` allocates once.
     pub fn process(&mut self, interleaved: &[i32], out: &mut Vec<i16>) {
         out.clear();
         out.reserve(interleaved.len() / (2 * DECIMATION) + 1);

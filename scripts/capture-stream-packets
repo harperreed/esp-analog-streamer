@@ -1,0 +1,59 @@
+#!/usr/bin/env bash
+# ABOUTME: Captures bounded TCP and ARP traces for one board's web and stream diagnosis on Linux.
+# ABOUTME: Uses sudo only for tcpdump; private traces stay under target/packet-capture/.
+set -euo pipefail
+cd "$(dirname "$0")/.."
+usage() {
+    cat <<'HELP'
+Usage: scripts/capture-stream-packets [--dry-run] BOARD_IPV4 INTERFACE [SECONDS]
+
+Run in a terminal so sudo can authenticate. Captures TCP ports 80 and 8000 and
+ARP for one board, with 128-byte snapshots and no promiscuous mode. Default duration: 180 s;
+maximum: 3600 s. Logs and trace stay private under target/packet-capture/.
+The trace can contain partial audio or HTTP data; do not publish it unreviewed.
+Run the streaming test separately after the command reports it is listening.
+No firmware, network settings, or persistent privileges are changed.
+
+  --dry-run  Print the capture filter and duration without requesting sudo
+  --help     Show this help
+HELP
+}
+fail() { echo "FAIL: $*" >&2; exit 1; }
+if [[ "${1:-}" == --help ]]; then usage; exit 0; fi
+preview=false
+if [[ "${1:-}" == --dry-run ]]; then preview=true; shift; fi
+(( $# == 2 || $# == 3 )) || { usage >&2; exit 2; }
+host="$1"
+interface="$2"
+seconds="${3:-180}"
+[[ "$host" =~ ^([0-9]{1,3}\.){3}[0-9]{1,3}$ ]] || fail 'BOARD_IPV4 must be a numeric IPv4 address'
+IFS=. read -r -a octets <<<"$host"
+for octet in "${octets[@]}"; do
+    (( 10#$octet <= 255 )) || fail 'invalid IPv4 address'
+done
+[[ "$seconds" =~ ^[1-9][0-9]{0,3}$ ]] && (( seconds <= 3600 )) || fail 'SECONDS must be 1 through 3600'
+[[ "$interface" =~ ^[a-zA-Z0-9_.:-]+$ && -d "/sys/class/net/$interface" ]] || fail 'network interface not found'
+filter="host $host and (arp or (tcp and (port 80 or port 8000)))"
+if "$preview"; then
+    printf 'Capture %s seconds on %s: %s\n' "$seconds" "$interface" "$filter"
+    exit 0
+fi
+for tool in tcpdump timeout sudo; do
+    command -v "$tool" >/dev/null || fail "$tool is required"
+done
+(( EUID != 0 )) || fail 'run as your normal user; this command invokes sudo itself'
+umask 077
+mkdir -p target/packet-capture
+out="$(mktemp -d target/packet-capture/run-XXXXXXXX)"
+touch "$out/stream.pcap"
+sudo -v
+printf 'Trace: %s/stream.pcap\nFilter: %s\n' "$out" "$filter"
+# -Z retains the invoking user's identity for opening the private output file.
+# timeout sends SIGINT so tcpdump flushes its trace and prints packet statistics.
+result=0
+sudo timeout --signal=INT --kill-after=5 "$seconds" tcpdump -Z "$(id -un)" \
+    -i "$interface" -p -nn -s 128 -U -w "$out/stream.pcap" "$filter" \
+    2> >(tee "$out/tcpdump.log" >&2) || result=$?
+if (( result != 0 && result != 124 )); then fail "tcpdump exited $result; see $out/tcpdump.log"; fi
+[[ -s "$out/stream.pcap" ]] || fail 'no trace file written'
+echo "Capture ended: $out/stream.pcap"

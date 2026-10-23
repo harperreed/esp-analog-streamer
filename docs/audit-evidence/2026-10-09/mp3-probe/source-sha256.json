@@ -1,0 +1,19 @@
+{
+  "check-saved-decoders.py": "f6150248037fc30470a4d93476048ae582438498fef4d388b67d329783c59b04",
+  "device/compile-probe.py": "2e304875296af624fe58c4582575ccb5dce8d5a2d2409ffba10ff39d59627b15",
+  "device/mp3-capture-original.rs": "06fd9499bd61a8b002b4bf7d3a2bb7540fdaa133c0fe726fbbd7342c12b2918c",
+  "device/mp3-capture.rs": "4c0865c4a160911677d148fd27df63ab7c003a178b0faf84da7db395ad4cd4da",
+  "device/mp3-cost.rs": "c16c3ca912025dd9b04686009328b5b7ed503e51457b00f31929a2fc7ecb4fa4",
+  "device/mp3-load-original.rs": "484ba8db24cf258243fdac4075da8b9cffba9a311ff35c398929d79fc9585757",
+  "device/mp3-load.rs": "1d6dc444dacdbb29d60151f0420bd002d8ffb95420be8025cd65b2653c3ac068",
+  "device/probe.c": "96b5cc207b62435043c1254b6cc86453d6756be6df9510a2af3c98a3fafaf34b",
+  "host/device-decode.py": "20b2adb4fcf5e1c0ab824d9323d0327e78e6411b79583ec6a8cba135661fb2b1",
+  "host/flac-compare.py": "8ab933cd72fb2ebcb2a945858ba28bb4c28ef0e3599ff59a5fc43f5c1caf1b56",
+  "host/flac-probe/Cargo.toml": "140ea66606c52ed3a31be09fe3392ceb012fefc683d6e64c342efc55384e1da4",
+  "host/flac-probe/src/main.rs": "7962f52770bcf39ace411271d95873e066c15dba3c2fda25baa9ee6330726d3f",
+  "host/joins.py": "419e9ddf839cc516e6e781b8cf6dd76b9cc88639d5c251e61e9c5862ba3eb2ae",
+  "host/probe.c": "6139e3165882362ce81521ff69e0586986c85ae0feb6fa86ea635985cd5d99fb",
+  "host/run.py": "be8dec18cd0fe3a80ebae1c1f704488949f5bbbe0041e36c8a4b4861e5f051bc",
+  "run-device.py": "dbe53b75220626b9f19a0d71d902a71861f0fce00246e8448471a070889f4456",
+  "run-load.py": "949f8bce38cb1fcd2030b69c95470798ea7beb4b41a6e0f99bee8783dc70fcc9"
+}

@@ -1,4 +1,8 @@
-# Name,   Type, SubType, Offset, Size,   Flags
-nvs,      data, nvs,     ,       0x6000,
-phy_init, data, phy,     ,       0x1000,
-factory,  app,  factory, ,       3M,
+# Name,   Type, SubType, Offset,  Size,     Flags
+# Two app slots for over-the-air updates: the running one and the one the next image is written to.
+# 0x1F0000 (2,031,616 B) each is the most 4 MB holds beside the data partitions; the app image must stay under it.
+nvs,      data, nvs,     0x9000,  0x6000,
+phy_init, data, phy,     0xF000,  0x1000,
+otadata,  data, ota,     0x10000, 0x2000,
+ota_0,    app,  ota_0,   0x20000, 0x1F0000,
+ota_1,    app,  ota_1,   0x210000, 0x1F0000,

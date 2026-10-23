@@ -1,0 +1,743 @@
+{
+  "date": "2026-10-11",
+  "firmware_commit": "87848e3",
+  "image_sha256": "36d61e57439e102cc9b3c5b256ffeec8a7dddec9743a672b670a4aadce8fa2c3",
+  "authorization": "Doctor Biz: proceed with board tests. you can play sonos, etc",
+  "fixture_sha256": "027accd2d3a6b52bb7a80587c7e567ce85509aa02e7cff0f0ae7a447216959b6",
+  "runs": {
+    "playback-01": {
+      "passed": false,
+      "error": "ValueError('speaker must start STOPPED')",
+      "identity": {
+        "image": "36d61e57439e102cc9b3c5b256ffeec8a7dddec9743a672b670a4aadce8fa2c3",
+        "boot": "f6f6aaf0b7c9a75520575656a741cb80"
+      },
+      "phases": [],
+      "cleanup_errors": [],
+      "cleanup_complete": true,
+      "uart_errors": [],
+      "uart_faults": [],
+      "uart_sha256": "bdca90f7e5e2b6abc217b862258622949f9b524a39d66cacdbc76252fa122c0d",
+      "files": {
+        "target/kata-hardening/sonos-http-board/playback-01/result.json": "fff09e97c796575414f9f1b3511311cc82463767ad20004855cb0478d4d7b493",
+        "target/kata-hardening/sonos-http-board/playback-01/events.jsonl": "9619bd37ddc784c607082897e0f53f7a3577258dd1b2b21266b62d85f950cebc",
+        "target/kata-hardening/sonos-http-board/playback-01/uart.log": "bdca90f7e5e2b6abc217b862258622949f9b524a39d66cacdbc76252fa122c0d"
+      }
+    },
+    "playback-02": {
+      "passed": false,
+      "error": "ValueError('Sonos did not stop')",
+      "identity": {
+        "image": "36d61e57439e102cc9b3c5b256ffeec8a7dddec9743a672b670a4aadce8fa2c3",
+        "boot": "2d6f96ea7274a19a0f799c0138fdd589"
+      },
+      "phases": [],
+      "cleanup_errors": [],
+      "cleanup_complete": true,
+      "uart_errors": [],
+      "uart_faults": [],
+      "uart_sha256": "9b35fb202dfda1a75ce8ca9dd7235d47afcb5fbeb15debd2cd6e6ad8e6cc18b7",
+      "files": {
+        "target/kata-hardening/sonos-http-board/playback-02/result.json": "7a7a9d8fb91573d8841610bea0b6028c5be9bb32aa5135d68a63ba8394c6cd41",
+        "target/kata-hardening/sonos-http-board/playback-02/events.jsonl": "2f37459a62cf94744aecb473d6709aee975262dd43f5437419b2fd5fbcf768b5",
+        "target/kata-hardening/sonos-http-board/playback-02/uart.log": "9b35fb202dfda1a75ce8ca9dd7235d47afcb5fbeb15debd2cd6e6ad8e6cc18b7"
+      }
+    },
+    "playback-03": {
+      "passed": true,
+      "error": null,
+      "identity": {
+        "image": "36d61e57439e102cc9b3c5b256ffeec8a7dddec9743a672b670a4aadce8fa2c3",
+        "boot": "b1f8edfbaf51b5dd877ddef61d10d238"
+      },
+      "phases": [
+        {
+          "format": "flac",
+          "buffer": "med",
+          "uri": "http://192.168.23.217:8000/stream.flac?buffer=med&network_generation=2&sonos_intent=1",
+          "intent": 1,
+          "payload": {
+            "owner_id": 2,
+            "event_us": 22088098,
+            "departure_us": 52794181,
+            "close_us": 53739576,
+            "port": 46078,
+            "frames_sent": 372,
+            "bytes_sent": 3362340
+          },
+          "sustained_seconds": 15,
+          "positions": [
+            10,
+            12,
+            14,
+            16,
+            18,
+            20,
+            22,
+            24
+          ]
+        },
+        {
+          "format": "mp3",
+          "buffer": "high",
+          "uri": "http://192.168.23.217:8000/stream.mp3?buffer=high&network_generation=2&sonos_intent=3",
+          "intent": 3,
+          "payload": {
+            "owner_id": 5,
+            "event_us": 69281782,
+            "departure_us": 93573754,
+            "close_us": 94351079,
+            "port": 46132,
+            "frames_sent": 1328,
+            "bytes_sent": 1274880
+          },
+          "sustained_seconds": 15,
+          "positions": [
+            5,
+            7,
+            8,
+            10,
+            13,
+            15,
+            17,
+            19
+          ]
+        }
+      ],
+      "cleanup_errors": [],
+      "cleanup_complete": true,
+      "uart_errors": [],
+      "uart_faults": [],
+      "uart_sha256": "38fa0f78a250c240a328d8ee5e5c92dc8f4671071f1215ef448b5a35cd10821e",
+      "files": {
+        "target/kata-hardening/sonos-http-board/playback-03/result.json": "5daa612834ac0db936840bf44067ddcf9674ffa06edd1bd058af6c1372d8b262",
+        "target/kata-hardening/sonos-http-board/playback-03/events.jsonl": "9f7681e9500f254a2e88ac650a284a09e4d6750d1bfd965c6abfa304a42f86e3",
+        "target/kata-hardening/sonos-http-board/playback-03/uart.log": "38fa0f78a250c240a328d8ee5e5c92dc8f4671071f1215ef448b5a35cd10821e"
+      }
+    },
+    "contention-01": {
+      "passed": false,
+      "error": "AssertionError('older diagnostic ended')",
+      "identity": {
+        "image": "36d61e57439e102cc9b3c5b256ffeec8a7dddec9743a672b670a4aadce8fa2c3",
+        "boot": "392f8ea5024169db6a12018576a17c2a"
+      },
+      "phases": [],
+      "cleanup_errors": [],
+      "cleanup_complete": true,
+      "uart_errors": [],
+      "uart_faults": [],
+      "uart_sha256": "ed97760693ad48c252da0b3abbe3da473b26693802998ad308b3bfcecec628a8",
+      "files": {
+        "target/kata-hardening/sonos-http-board/contention-01/result.json": "9eb6a97c3afd14369e0b3e2da416f72c59e4450d6aae118155fe94660556e277",
+        "target/kata-hardening/sonos-http-board/contention-01/events.jsonl": "993b1e6474caed2308d06ae4cc09de65fcbc19e4b3682ef4cbde5aa0b3709d5d",
+        "target/kata-hardening/sonos-http-board/contention-01/uart.log": "ed97760693ad48c252da0b3abbe3da473b26693802998ad308b3bfcecec628a8"
+      }
+    }
+  },
+  "final": {
+    "state": "stopped",
+    "config": {
+      "player_id": "RINCON_38420B8F3F0C01400",
+      "autoplay": false,
+      "buffer_preset": "med",
+      "output_format": "mp3"
+    },
+    "boot": "392f8ea5024169db6a12018576a17c2a",
+    "recognition": false,
+    "transport": {
+      "CurrentTransportState": "STOPPED",
+      "CurrentTransportStatus": "OK",
+      "CurrentSpeed": "1"
+    },
+    "no_aplay": true
+  },
+  "limitations": [
+    "No sample-exact or audible continuity claim from position and payload.",
+    "Contention failed: older diagnostic ended due to media-age limit.",
+    "Startup capture faults remain; no clean-startup acceptance.",
+    "No controlled actual-path outage or automatic media recovery acceptance.",
+    "No Kata closure; original 7vhq/pqqq acceptance remains unmet."
+  ],
+  "playback_analysis": {
+    "run": "playback-03",
+    "passed": true,
+    "identity": {
+      "image": "36d61e57439e102cc9b3c5b256ffeec8a7dddec9743a672b670a4aadce8fa2c3",
+      "boot": "b1f8edfbaf51b5dd877ddef61d10d238"
+    },
+    "uart_hash_matches": true,
+    "post_reset_metrics_samples": 44,
+    "post_reset_images": [
+      "36d61e57439e102cc9b3c5b256ffeec8a7dddec9743a672b670a4aadce8fa2c3"
+    ],
+    "first_nonnull_capture": {
+      "event_sequence": 47,
+      "served_device_us": 10494004,
+      "capture": {
+        "capture_begin_us": 10153368,
+        "capture_end_us": 10153391,
+        "read_frames": 474480,
+        "callbacks": 2017,
+        "queue_overflows": 15,
+        "software_dropped_frames": 480,
+        "read_errors": 0,
+        "restarts": 2,
+        "supervisor_restarts": 0,
+        "overflow_restarts": 2,
+        "settling_discarded_frames": 26400,
+        "discontinuities": 2,
+        "health_restart_requests": 0,
+        "read_service_delay_estimate_max_us": 68620,
+        "raw_work_max_us": 1472,
+        "meter_work_max_us": 5273,
+        "store_work_max_us": 6686,
+        "raw_read_max_us": 2635,
+        "internal_free": 29779,
+        "internal_largest": 28672,
+        "internal_min_sum": 25219,
+        "psram_free": 2727788,
+        "psram_largest": 2359296,
+        "psram_min_sum": 302216
+      }
+    },
+    "final_capture": {
+      "event_sequence": 595,
+      "served_device_us": 102560555,
+      "capture": {
+        "capture_begin_us": 95314897,
+        "capture_end_us": 95314926,
+        "read_frames": 4562400,
+        "callbacks": 19050,
+        "queue_overflows": 15,
+        "software_dropped_frames": 480,
+        "read_errors": 0,
+        "restarts": 2,
+        "supervisor_restarts": 0,
+        "overflow_restarts": 2,
+        "settling_discarded_frames": 26400,
+        "discontinuities": 2,
+        "health_restart_requests": 0,
+        "read_service_delay_estimate_max_us": 2972,
+        "raw_work_max_us": 3756,
+        "meter_work_max_us": 2995,
+        "store_work_max_us": 254,
+        "raw_read_max_us": 3391,
+        "internal_free": 21127,
+        "internal_largest": 10240,
+        "internal_min_sum": 7255,
+        "psram_free": 2724892,
+        "psram_largest": 2359296,
+        "psram_min_sum": 2669384
+      }
+    },
+    "capture_fault_counter_delta": {
+      "queue_overflows": 0,
+      "software_dropped_frames": 0,
+      "read_errors": 0,
+      "restarts": 0,
+      "supervisor_restarts": 0,
+      "overflow_restarts": 0,
+      "settling_discarded_frames": 0,
+      "discontinuities": 0,
+      "health_restart_requests": 0
+    },
+    "uart_minima_bytes": {
+      "internal_free": 21127,
+      "internal_largest": 7424,
+      "internal_min_sum": 7255,
+      "psram_free": 855908,
+      "psram_largest": 606208,
+      "psram_min_sum": 302216,
+      "stack_free_bytes": 4936,
+      "listener_stack_free_bytes": 812,
+      "metrics_stack_free_bytes": 792,
+      "supervisor_stack_min_bytes": 2448,
+      "stack_free_min": 8972
+    },
+    "listener_lifecycle_lines": [
+      "I (23385) esp_shazam_firmware::stream: stream: 192.168.23.205:46078 joined /stream.flac (1 of 2) event_us=22088098 owner_id=2 sonos_intent=1 role=sonos",
+      "I (54165) esp_shazam_firmware::stream: stream: 192.168.23.205:46078 left after 30.7 s: format epoch retired listener_stack_free_bytes=1020 event_us=52794181",
+      "I (55005) esp_shazam_firmware::stream: stream: 192.168.23.205:46078 socket closed in 944 ms; releasing slot (1 held) event_us=53739576 owner_id=2 sonos_intent=1",
+      "I (68665) esp_shazam_firmware::stream: stream: 192.168.23.205:46122 joined /stream.mp3 (1 of 2) event_us=67050802 owner_id=4 sonos_intent=3 role=sonos",
+      "I (78375) esp_shazam_firmware::stream: stream: 192.168.23.205:46122 left after 2.1 s: socket error kind=ConnectionReset raw_os_error=Some(104) listener_stack_free_bytes=1180 event_us=69192210",
+      "I (78695) esp_shazam_firmware::stream: stream: 192.168.23.205:46122 socket closed in 0 ms; releasing slot (1 held) event_us=69192992 owner_id=4 sonos_intent=3",
+      "I (86855) esp_shazam_firmware::stream: stream: 192.168.23.205:46132 joined /stream.mp3 (1 of 2) event_us=69281782 owner_id=5 sonos_intent=3 role=sonos",
+      "I (95235) esp_shazam_firmware::stream: stream: 192.168.23.205:46132 left after 24.2 s: format epoch retired listener_stack_free_bytes=812 event_us=93573754",
+      "I (97075) esp_shazam_firmware::stream: stream: 192.168.23.205:46132 socket closed in 776 ms; releasing slot (1 held) event_us=94351079 owner_id=5 sonos_intent=3"
+    ],
+    "telemetry": {
+      "uart_records": 20,
+      "max_dropped": 0,
+      "any_loss": false
+    },
+    "encoder_raw_overruns_max": 0,
+    "phases": [
+      {
+        "format": "flac",
+        "buffer": "med",
+        "uri": "http://192.168.23.217:8000/stream.flac?buffer=med&network_generation=2&sonos_intent=1",
+        "intent": 1,
+        "payload": {
+          "owner_id": 2,
+          "event_us": 22088098,
+          "departure_us": 52794181,
+          "close_us": 53739576,
+          "port": 46078,
+          "frames_sent": 372,
+          "bytes_sent": 3362340
+        },
+        "sustained_seconds": 15,
+        "positions": [
+          10,
+          12,
+          14,
+          16,
+          18,
+          20,
+          22,
+          24
+        ]
+      },
+      {
+        "format": "mp3",
+        "buffer": "high",
+        "uri": "http://192.168.23.217:8000/stream.mp3?buffer=high&network_generation=2&sonos_intent=3",
+        "intent": 3,
+        "payload": {
+          "owner_id": 5,
+          "event_us": 69281782,
+          "departure_us": 93573754,
+          "close_us": 94351079,
+          "port": 46132,
+          "frames_sent": 1328,
+          "bytes_sent": 1274880
+        },
+        "sustained_seconds": 15,
+        "positions": [
+          5,
+          7,
+          8,
+          10,
+          13,
+          15,
+          17,
+          19
+        ]
+      }
+    ],
+    "limitations": [
+      "First two post-reset metrics have null capture; first published capture is sampled later and cannot locate startup faults precisely.",
+      "Minima are observed UART samples; internal_min_sum sums per-region lows and is not simultaneous allocatable headroom.",
+      "MP3 connection reset and reconnect occurred; passing transport gate does not prove gap-free or audible continuity."
+    ]
+  },
+  "contention_analysis": {
+    "run": "contention-01",
+    "passed": false,
+    "error": "AssertionError('older diagnostic ended')",
+    "identity": {
+      "image": "36d61e57439e102cc9b3c5b256ffeec8a7dddec9743a672b670a4aadce8fa2c3",
+      "boot": "392f8ea5024169db6a12018576a17c2a"
+    },
+    "uart_hash_matches": true,
+    "same_boot_metrics_samples": 24,
+    "first_capture": {
+      "sequence": 35,
+      "monotonic": 1194268.976678942,
+      "kind": "api",
+      "path": "/api/metrics",
+      "request": null,
+      "response": {
+        "listeners": [
+          {
+            "generation": 0,
+            "state": "idle",
+            "sample_us": 11297023,
+            "media_age_us": null,
+            "write_us": null
+          },
+          {
+            "generation": 0,
+            "state": "idle",
+            "sample_us": 11297039,
+            "media_age_us": null,
+            "write_us": null
+          }
+        ],
+        "schema_version": 1,
+        "served_device_us": 11297041,
+        "http_stack_free_bytes": 7140,
+        "boot_token": "392f8ea5024169db6a12018576a17c2a",
+        "build_elf_sha256": "36d61e57439e102cc9b3c5b256ffeec8a7dddec9743a672b670a4aadce8fa2c3",
+        "settings": {
+          "active_format": "mp3",
+          "next_play_format": "mp3",
+          "next_play_buffer": "med",
+          "buffer_available": true,
+          "autoplay": false,
+          "recognition_enabled": false,
+          "pga_gain": 0
+        },
+        "network": {
+          "generation": 2,
+          "connected": true,
+          "disconnects": 0
+        },
+        "capture": {
+          "capture_begin_us": 10204694,
+          "capture_end_us": 10204717,
+          "read_frames": 476400,
+          "callbacks": 2027,
+          "queue_overflows": 17,
+          "software_dropped_frames": 480,
+          "read_errors": 0,
+          "restarts": 2,
+          "supervisor_restarts": 0,
+          "overflow_restarts": 2,
+          "settling_discarded_frames": 26400,
+          "discontinuities": 2,
+          "health_restart_requests": 0,
+          "read_service_delay_estimate_max_us": 78699,
+          "raw_work_max_us": 25045,
+          "meter_work_max_us": 1614,
+          "store_work_max_us": 239,
+          "raw_read_max_us": 2077,
+          "internal_free": 30035,
+          "internal_largest": 29696,
+          "internal_min_sum": 29311,
+          "psram_free": 2727612,
+          "psram_largest": 2359296,
+          "psram_min_sum": 318948
+        },
+        "encoder": {
+          "kind": "boundary",
+          "event_us": 4511469,
+          "telemetry_epoch": 1,
+          "telemetry_window": 0,
+          "reason": "switched"
+        },
+        "listener_loss": null,
+        "encoder_loss": {
+          "observed_device_us": 4733779,
+          "dropped": 0,
+          "loss_occurred": false,
+          "metrics_stack_free_bytes": 1400
+        },
+        "media_progress": {
+          "observed_device_us": 10423086,
+          "operator_epoch": 2,
+          "health": "healthy",
+          "accepted": {
+            "generation": 2,
+            "frames": 460080,
+            "observed_device_us": 10419900
+          },
+          "raw": {
+            "generation": 2,
+            "committed_frames": 460080,
+            "publication_device_us": 10420173
+          },
+          "encoded": {
+            "operator_epoch": 2,
+            "generation": 0,
+            "sequence": 245,
+            "raw_generation": 2,
+            "source_start": 457488,
+            "source_end": 458640,
+            "oldest_accepted_us": 10369849,
+            "raw_publication_us": 10390039,
+            "production_device_us": 10411491
+          },
+          "backlog_frames": 1440
+        },
+        "last_listener_departure": null
+      }
+    },
+    "final_trial_capture": {
+      "sequence": 320,
+      "monotonic": 1194314.790987721,
+      "kind": "api",
+      "path": "/api/metrics",
+      "request": null,
+      "response": {
+        "listeners": [
+          {
+            "generation": 1,
+            "state": "idle",
+            "sample_us": 57127757,
+            "media_age_us": null,
+            "write_us": null
+          },
+          {
+            "generation": 3,
+            "state": "idle",
+            "sample_us": 57127772,
+            "media_age_us": null,
+            "write_us": null
+          }
+        ],
+        "schema_version": 1,
+        "served_device_us": 57127774,
+        "http_stack_free_bytes": 7140,
+        "boot_token": "392f8ea5024169db6a12018576a17c2a",
+        "build_elf_sha256": "36d61e57439e102cc9b3c5b256ffeec8a7dddec9743a672b670a4aadce8fa2c3",
+        "settings": {
+          "active_format": "mp3",
+          "next_play_format": "mp3",
+          "next_play_buffer": "med",
+          "buffer_available": true,
+          "autoplay": false,
+          "recognition_enabled": false,
+          "pga_gain": 0
+        },
+        "network": {
+          "generation": 2,
+          "connected": true,
+          "disconnects": 0
+        },
+        "capture": {
+          "capture_begin_us": 50626271,
+          "capture_end_us": 50626308,
+          "read_frames": 2416800,
+          "callbacks": 10112,
+          "queue_overflows": 17,
+          "software_dropped_frames": 480,
+          "read_errors": 0,
+          "restarts": 2,
+          "supervisor_restarts": 0,
+          "overflow_restarts": 2,
+          "settling_discarded_frames": 26400,
+          "discontinuities": 2,
+          "health_restart_requests": 0,
+          "read_service_delay_estimate_max_us": 6031,
+          "raw_work_max_us": 2534,
+          "meter_work_max_us": 2897,
+          "store_work_max_us": 257,
+          "raw_read_max_us": 10141,
+          "internal_free": 31095,
+          "internal_largest": 18432,
+          "internal_min_sum": 10371,
+          "psram_free": 916656,
+          "psram_largest": 606208,
+          "psram_min_sum": 829660
+        },
+        "encoder": {
+          "kind": "boundary",
+          "event_us": 54024338,
+          "telemetry_epoch": 3,
+          "telemetry_window": 4,
+          "reason": "switched"
+        },
+        "listener_loss": {
+          "observed_device_us": 50880568,
+          "dropped": 0,
+          "loss_occurred": false,
+          "metrics_stack_free_bytes": 824
+        },
+        "encoder_loss": {
+          "observed_device_us": 54049026,
+          "dropped": 0,
+          "loss_occurred": false,
+          "metrics_stack_free_bytes": 824
+        },
+        "media_progress": {
+          "observed_device_us": 50721890,
+          "operator_epoch": 3,
+          "health": "healthy",
+          "accepted": {
+            "generation": 2,
+            "frames": 2394480,
+            "observed_device_us": 50719878
+          },
+          "raw": {
+            "generation": 2,
+            "committed_frames": 2394480,
+            "publication_device_us": 50720071
+          },
+          "encoded": {
+            "operator_epoch": 3,
+            "generation": 0,
+            "sequence": 447,
+            "raw_generation": 2,
+            "source_start": 2388656,
+            "source_end": 2392752,
+            "oldest_accepted_us": 50599914,
+            "raw_publication_us": 50685139,
+            "production_device_us": 50693640
+          },
+          "backlog_frames": 1728
+        },
+        "last_listener_departure": {
+          "observed_device_us": 50319231,
+          "listener_stack_free_bytes": 828,
+          "stats": {
+            "elapsed_us": 22828992,
+            "payload_elapsed_us": 22826043,
+            "frames_sent": 278,
+            "bytes_sent": 2512072,
+            "frame_write_wall_total_us": 10709022,
+            "frame_write_wall_max_us": 2808733,
+            "frame_read_wait_wall_total_us": 11550260,
+            "task_runtime_us": 1344060,
+            "runtime_valid": true,
+            "block_samples": 4096,
+            "media": {
+              "last_age_us": 399222,
+              "max_age_us": 4325883,
+              "queue_frames_max": 48
+            }
+          }
+        }
+      }
+    },
+    "capture_delta": {
+      "queue_overflows": 0,
+      "software_dropped_frames": 0,
+      "read_errors": 0,
+      "restarts": 0,
+      "supervisor_restarts": 0,
+      "overflow_restarts": 0,
+      "settling_discarded_frames": 0,
+      "discontinuities": 0,
+      "health_restart_requests": 0
+    },
+    "independent_final_idle_capture_delta": {
+      "queue_overflows": 0,
+      "software_dropped_frames": 0,
+      "read_errors": 0,
+      "restarts": 0,
+      "supervisor_restarts": 0,
+      "overflow_restarts": 0,
+      "settling_discarded_frames": 0,
+      "discontinuities": 0,
+      "health_restart_requests": 0
+    },
+    "diagnostics": [
+      {
+        "sequence": 254,
+        "monotonic": 1194305.846291768,
+        "kind": "diagnostic-cleanup",
+        "label": "older",
+        "local_address": [
+          "192.168.23.153",
+          46526
+        ],
+        "started_monotonic": 1194272.28994533,
+        "payload_bytes": 1139714,
+        "ended_monotonic": 1194287.228795673,
+        "last_payload_monotonic": 1194287.18548983,
+        "error": null
+      },
+      {
+        "sequence": 255,
+        "monotonic": 1194305.846450962,
+        "kind": "diagnostic-cleanup",
+        "label": "newer",
+        "local_address": [
+          "192.168.23.153",
+          46540
+        ],
+        "started_monotonic": 1194272.538846005,
+        "payload_bytes": 569748,
+        "ended_monotonic": 1194278.095506753,
+        "last_payload_monotonic": 1194278.066705785,
+        "error": null
+      }
+    ],
+    "lifecycle": [
+      "I (16235) esp_shazam_firmware::stream: stream: 192.168.23.153:46526 joined /stream.flac (1 of 2) event_us=14922983 owner_id=1 sonos_intent=0 role=diagnostic",
+      "I (16375) esp_shazam_firmware::stream: stream: 192.168.23.153:46540 joined /stream.flac (2 of 2) event_us=15043319 owner_id=2 sonos_intent=0 role=diagnostic",
+      "I (21885) esp_shazam_firmware::stream: stream: 192.168.23.153:46540 left after 5.4 s: format epoch retired listener_stack_free_bytes=1052 event_us=20510561",
+      "I (22275) esp_shazam_firmware::stream: stream: 192.168.23.153:46540 socket closed in 447 ms; releasing slot (2 held) event_us=20958524 owner_id=2 sonos_intent=0",
+      "I (27915) esp_shazam_firmware::stream: stream: 192.168.23.205:46184 joined /stream.flac (2 of 2) event_us=26607553 owner_id=4 sonos_intent=3 role=sonos",
+      "I (28605) esp_shazam_firmware::stream: stream: 192.168.23.205:46184 left after 0.6 s: socket error kind=ConnectionReset raw_os_error=Some(104) listener_stack_free_bytes=828 event_us=27209186",
+      "I (28625) esp_shazam_firmware::stream: stream: 192.168.23.205:46184 socket closed in 0 ms; releasing slot (2 held) event_us=27210029 owner_id=4 sonos_intent=3",
+      "I (28785) esp_shazam_firmware::stream: stream: 192.168.23.205:46190 joined /stream.flac (2 of 2) event_us=27489917 owner_id=5 sonos_intent=3 role=sonos",
+      "I (31115) esp_shazam_firmware::stream: stream: 192.168.23.153:46526 left after 14.7 s: media age exceeded listener_stack_free_bytes=1084 event_us=29625873",
+      "I (31275) esp_shazam_firmware::stream: stream: 192.168.23.153:46526 socket closed in 328 ms; releasing slot (2 held) event_us=29954660 owner_id=1 sonos_intent=0",
+      "I (51715) esp_shazam_firmware::stream: stream: 192.168.23.205:46190 left after 22.8 s: format epoch retired listener_stack_free_bytes=828 event_us=50319231",
+      "I (52125) esp_shazam_firmware::stream: stream: 192.168.23.205:46190 socket closed in 509 ms; releasing slot (1 held) event_us=50829507 owner_id=5 sonos_intent=3"
+    ],
+    "telemetry": {
+      "records": 19,
+      "max_dropped": 0,
+      "any_loss": false
+    },
+    "max_observed_held_slots": 2,
+    "uart_minima_bytes": {
+      "internal_min_sum": 10099,
+      "internal_free": 21323,
+      "internal_largest": 7424,
+      "listener_stack_free_bytes": 828,
+      "metrics_stack_free_bytes": 824,
+      "stack_free_min": 9104
+    },
+    "sonos_position_observations": [
+      "0:00:02",
+      "0:00:03",
+      "0:00:04",
+      "0:00:04",
+      "0:00:07",
+      "0:00:07",
+      "0:00:09",
+      "0:00:09",
+      "0:00:10",
+      "0:00:10",
+      "0:00:12",
+      "0:00:12",
+      "0:00:13",
+      "0:00:13",
+      "0:00:15",
+      "0:00:15",
+      "0:00:18",
+      "0:00:18"
+    ],
+    "oldest_diagnostic": {
+      "write_wall_max_us": 3535870,
+      "poll_wall_max_us": 3528569,
+      "send_wall_max_us": 17109,
+      "last_age_us": 3326161,
+      "max_age_us": 3645302,
+      "departure_us": 29625873,
+      "reason": "media age exceeded"
+    },
+    "cleanup": {
+      "errors": [],
+      "complete": true,
+      "elapsed_seconds": 10.023184483870864
+    },
+    "independent_final_idle_verified": true,
+    "limitations": [
+      "Startup fault totals predate active test; first published capture cannot precisely locate them.",
+      "Socket poll wait and media age coincide with oldest loss; root cause is not isolated.",
+      "Sonos reconnect was startup client retry, not controlled ownership-safe recovery.",
+      "No completed phases; do not turn supporting receipts into a passing contention verdict."
+    ]
+  },
+  "harness_source_sha256": {
+    "scripts/sonos_http_check.py": "924182f8874b734ddad5838a0c1d161694832ef9a3f7de6ba7dae8287cf36281",
+    "scripts/test_sonos_http_check.py": "b4c0158073c37d7007f3bb1095ae19aa33a5f6b8b66fb19b7776d32123a16193",
+    "target/kata-hardening/sonos-http-board/contention-driver.py": "a13b177f83e989fe21970c409d1af25be7cbc64b8295af6adf5bdcf5a00d9265",
+    "target/kata-hardening/sonos-http-board/test_contention_driver.py": "4134c22c961b92af851b9f3ac0da00b2f5468394176b067a69061fb1f388a626",
+    "target/kata-hardening/tls-verification/control-run.py": "cecfafdf2a3ba608f8d1ae5507d905bc03004dcfe643ad110d77d07a9868e6f0"
+  },
+  "verification": {
+    "focused_harness_tests": 16,
+    "contention_real_socket_tests": 1,
+    "review": "target/kata-hardening/sonos-http-board/harness-review.md",
+    "canonical": {
+      "run": "target/check-logs/run.HvfuxuB4",
+      "scope": "all",
+      "stages_passed": 27,
+      "stages_failed": 0,
+      "exit_code": 0,
+      "complete": true
+    },
+    "canonical_files": {
+      "target/check-logs/run.HvfuxuB4/stages.tsv": "ae28018917bac10f24f103c201611e17e81e648a99a7a156d764c589c18d37ee",
+      "target/check-logs/run.HvfuxuB4/start.diff": "bb4b16134e6711b45a20db4ac7dc52f021b57c67e24a7eb6d5f6fe2d7e1c1981",
+      "target/check-logs/run.HvfuxuB4/end.diff": "bb4b16134e6711b45a20db4ac7dc52f021b57c67e24a7eb6d5f6fe2d7e1c1981"
+    }
+  }
+}

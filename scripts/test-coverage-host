@@ -1,0 +1,58 @@
+#!/usr/bin/env bash
+# ABOUTME: Checks coverage run isolation and fail-closed execution without builds or tool installation.
+# ABOUTME: Uses real directories and processes; coverage tool compatibility needs a separate pilot.
+set -euo pipefail
+cd "$(dirname "$0")/.."
+scratch="$(mktemp -d)"
+trap 'rm -rf "$scratch"' EXIT
+scripts/coverage-host --help >"$scratch/help"
+grep -q 'host' "$scratch/help"
+if scripts/coverage-host --unknown >"$scratch/error" 2>&1; then
+    echo 'FAIL: unknown argument accepted' >&2; exit 1
+fi
+source scripts/coverage-host
+export CARGO_BUILD_TARGET=xtensa-esp32-espidf
+for mode in test json html; do
+    case "$mode" in
+        test) options=(--locked --workspace --tests --no-report) ;;
+        json) options=(report --json --output-path 'reports with spaces/result.json') ;;
+        html) options=(report --html --output-dir 'reports with spaces/html') ;;
+    esac
+    coverage_command x86_64-unknown-linux-gnu "${options[@]}"
+    [[ "${coverage_argv[0]}" == cargo && "${coverage_argv[1]}" == +1.93.0 ]]
+    count=${#coverage_argv[@]}
+    [[ "${coverage_argv[count-2]}" == --target ]]
+    [[ "${coverage_argv[count-1]}" == x86_64-unknown-linux-gnu ]]
+    [[ "${coverage_argv[3]}" == "${options[0]}" ]]
+    [[ "${coverage_argv[count-3]}" == "${options[${#options[@]}-1]}" ]]
+done
+unset CARGO_BUILD_TARGET
+first="$(coverage_run_dir "$scratch/runs")"
+second="$(coverage_run_dir "$scratch/runs")"
+[[ "$first" != "$second" && -d "$first" && -d "$second" ]]
+printf 'old profile' >"$first/stale.profraw"
+[[ ! -e "$second/stale.profraw" ]]
+ln -s "$scratch/runs" "$scratch/link"
+if coverage_run_dir "$scratch/link" >"$scratch/error" 2>&1; then
+    echo 'FAIL: symlink output root accepted' >&2; exit 1
+fi
+if coverage_run_dir "$scratch/link/child" >"$scratch/error" 2>&1; then
+    echo 'FAIL: symlink ancestor accepted' >&2; exit 1
+fi
+printf 'keep' >"$scratch/file"
+if coverage_run_dir "$scratch/file" >"$scratch/error" 2>&1; then
+    echo 'FAIL: file output root accepted' >&2; exit 1
+fi
+[[ "$(cat "$scratch/file")" == keep ]]
+if bash -e -c '
+    source scripts/coverage-host
+    coverage_stage "$1" failing bash -c "echo retained-detail >&2; exit 7"
+    touch "$2/should-not-run"
+' _ "$second" "$scratch" >"$scratch/failure" 2>&1; then
+    echo 'FAIL: failed stage accepted'; exit 1
+fi
+[[ ! -e "$scratch/should-not-run" ]]
+grep -q retained-detail "$second/failing.log"
+coverage_stage "$second" successful bash -c 'echo real-output' >"$scratch/success"
+grep -q real-output "$second/successful.log"
+echo 'PASS coverage CLI, fresh run directories, path safety and stage failures'

@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+# ABOUTME: Runs the offline noise fixture generator with the locked project environment.
+# ABOUTME: Accepts output, duration, and seed arguments without playing audio.
+set -euo pipefail
+repo=$(cd "$(dirname "$0")/.." && pwd)
+cd "$repo"
+exec uv run --locked python scripts/noise_fixture.py "$@"

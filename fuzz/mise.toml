@@ -1,0 +1,5 @@
+# ABOUTME: Pins the isolated host fuzz compiler and cargo-fuzz executable.
+# ABOUTME: Root stable and firmware toolchains remain separately managed.
+[tools]
+rust = "nightly-2026-02-01"
+"cargo:cargo-fuzz" = "0.13.2"

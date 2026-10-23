@@ -1,0 +1,665 @@
+{
+  "kata": "cxbw",
+  "status": "pass",
+  "scope": "Isolated allocation fixture; no application startup, Wi-Fi, saved NVS access or audio workload. No streaming overhead claim.",
+  "tools": {
+    "sdk_commit": "b774170ff46c393eeb5e495ea37936038d3f4f4f",
+    "decoder_version": "espcoredump.py v1.17.2",
+    "gdb_version": "GNU gdb (esp-gdb) 17.1_20260402",
+    "decoder": {
+      "path": "/home/harper/workspace/personal/esp-analog-streamer/firmware/.embuild/espressif/python_env/idf5.5_py3.12_env/bin/esp-coredump",
+      "sha256": "5af3b8c03a512838eac739f9b9acf100106ed9a6635994ba2e704c98d49391b7",
+      "bytes": 271
+    },
+    "gdb": {
+      "path": "/home/harper/.espressif/tools/xtensa-esp-elf-gdb/17.1_20260402/xtensa-esp-elf-gdb/bin/xtensa-esp32-elf-gdb",
+      "sha256": "f82ec1cf2ee0b0b3264dc6966a5b8d1bde3921885beaf0a72a5d614a662ed7e8",
+      "bytes": 434912
+    },
+    "rom": {
+      "path": "/home/harper/workspace/personal/esp-analog-streamer/firmware/.embuild/espressif/tools/esp-rom-elfs/20241011/esp32_rev300_rom.elf",
+      "sha256": "920b70635440517866aab2230964a570d2cf2b676658d93c52fbac108c1cca31",
+      "bytes": 857500
+    }
+  },
+  "runs": {
+    "cxbw-crash-1": {
+      "private_path": "backups/diagnostics/cxbw-crash-1",
+      "manifest": {
+        "sha256": "15b5c6ef1055549f03126ca457082ffc11fdd809457d0e6e4b064aae4e79eb27",
+        "bytes": 17948
+      },
+      "status": "fail",
+      "reason": "decode_timeout",
+      "elapsed_seconds": 80.68629626417533,
+      "elf_sha256": "edc55c7964746c38d5ee9e7cde76ec29bf8cac73f4eaa08f896d77dc2463419c",
+      "limits": {
+        "uart_bytes": 2097152,
+        "body_bytes": 1048576,
+        "line_bytes": 4096,
+        "capture_seconds": 120,
+        "decode_seconds": 60,
+        "decode_bytes": 2097152
+      },
+      "uart": {
+        "sha256": "f313e5cbb9ccf783d0260361985c6b8a38d8f688090b4d9054de8e09f46cda17",
+        "bytes": 22346
+      },
+      "decoded_report": {
+        "sha256": "0039609c3badb073988ce85eb78f141b578143288df73dd6d684afcbe031939d",
+        "bytes": 23
+      },
+      "named_abort_frame": false,
+      "abort_reason": false,
+      "report_complete": false,
+      "official_image_mismatch": false,
+      "private_modes": true,
+      "temporary_files_remaining": 0
+    },
+    "cxbw-crash-2": {
+      "private_path": "backups/diagnostics/cxbw-crash-2",
+      "manifest": {
+        "sha256": "2e37bf68eeefb7e98e38dab01f9cf35e6b6d83c67bd285f68836486722fc238d",
+        "bytes": 17938
+      },
+      "status": "pass",
+      "reason": null,
+      "elapsed_seconds": 20.844414656050503,
+      "elf_sha256": "8896d7e3780b5e8bbb676cdd2a71b810b1500d91476a6a7f8008f7de456d001d",
+      "limits": {
+        "uart_bytes": 2097152,
+        "body_bytes": 1048576,
+        "line_bytes": 4096,
+        "capture_seconds": 120,
+        "decode_seconds": 60,
+        "decode_bytes": 2097152
+      },
+      "uart": {
+        "sha256": "6f02648cdcfface4cd93f2e0ab698a05ca833dd62f2dcb18bf908b4c91628e7c",
+        "bytes": 22043
+      },
+      "decoded_report": {
+        "sha256": "db5da8220a6b529749f919720594245473a68d5861a096891d092e9bb4c6b345",
+        "bytes": 12967
+      },
+      "named_abort_frame": true,
+      "abort_reason": true,
+      "report_complete": true,
+      "official_image_mismatch": false,
+      "private_modes": true,
+      "temporary_files_remaining": 0
+    },
+    "cxbw-replay-1": {
+      "private_path": "backups/diagnostics/cxbw-replay-1",
+      "manifest": {
+        "sha256": "e3047c5e16e0d384ae8e69d886513e6cebae3b1ad2865a8fd4880d3a1641ba85",
+        "bytes": 17941
+      },
+      "status": "pass",
+      "reason": null,
+      "elapsed_seconds": 2.1013819579966366,
+      "elf_sha256": "8896d7e3780b5e8bbb676cdd2a71b810b1500d91476a6a7f8008f7de456d001d",
+      "limits": {
+        "uart_bytes": 2097152,
+        "body_bytes": 1048576,
+        "line_bytes": 4096,
+        "capture_seconds": 120,
+        "decode_seconds": 60,
+        "decode_bytes": 2097152
+      },
+      "uart": {
+        "sha256": "6f02648cdcfface4cd93f2e0ab698a05ca833dd62f2dcb18bf908b4c91628e7c",
+        "bytes": 22043
+      },
+      "decoded_report": {
+        "sha256": "db5da8220a6b529749f919720594245473a68d5861a096891d092e9bb4c6b345",
+        "bytes": 12967
+      },
+      "named_abort_frame": true,
+      "abort_reason": true,
+      "report_complete": true,
+      "official_image_mismatch": false,
+      "private_modes": true,
+      "temporary_files_remaining": 0
+    },
+    "cxbw-wrong-elf-1": {
+      "private_path": "backups/diagnostics/cxbw-wrong-elf-1",
+      "manifest": {
+        "sha256": "68014da773b5cb34b04bdbc7abc1b35110c128c65d6b5903ea3e6b0fad7cfe61",
+        "bytes": 17953
+      },
+      "status": "fail",
+      "reason": "decode_exit",
+      "elapsed_seconds": 3.0424023140221834,
+      "elf_sha256": "73812d26f7402b98aa9d4e73502545383fddfcdaf5e0ac6fd479a8f96551ddbc",
+      "limits": {
+        "uart_bytes": 2097152,
+        "body_bytes": 1048576,
+        "line_bytes": 4096,
+        "capture_seconds": 120,
+        "decode_seconds": 60,
+        "decode_bytes": 2097152
+      },
+      "uart": {
+        "sha256": "6f02648cdcfface4cd93f2e0ab698a05ca833dd62f2dcb18bf908b4c91628e7c",
+        "bytes": 22043
+      },
+      "decoded_report": {
+        "sha256": "0039609c3badb073988ce85eb78f141b578143288df73dd6d684afcbe031939d",
+        "bytes": 23
+      },
+      "named_abort_frame": false,
+      "abort_reason": false,
+      "report_complete": false,
+      "official_image_mismatch": true,
+      "private_modes": true,
+      "temporary_files_remaining": 0
+    }
+  },
+  "cost": {
+    "images": {
+      "baseline-debug": {
+        "sha256": "f2edac3d48be3c91b054e27ecd8d177a9829e0db65af4c16bdb02ef31b370f44",
+        "allocated_bytes": 394968,
+        "sections": {
+          ".rtc.force_slow": 32,
+          ".rtc_slow_reserved": 24,
+          ".iram0.vectors": 1028,
+          ".iram0.text": 51847,
+          ".dram0.data": 11658,
+          ".noinit": 2,
+          ".dram0.bss": 2808,
+          ".flash.appdesc": 256,
+          ".flash.rodata": 72004,
+          ".flash.text": 255308,
+          ".iram0.text_end": 1
+        }
+      },
+      "diagnostic-debug": {
+        "sha256": "8896d7e3780b5e8bbb676cdd2a71b810b1500d91476a6a7f8008f7de456d001d",
+        "allocated_bytes": 411012,
+        "sections": {
+          ".rtc.force_slow": 32,
+          ".rtc_slow_reserved": 24,
+          ".iram0.vectors": 1028,
+          ".iram0.text": 52915,
+          ".dram0.data": 12906,
+          ".noinit": 2,
+          ".dram0.bss": 8120,
+          ".flash.appdesc": 256,
+          ".flash.rodata": 73692,
+          ".flash.text": 262036,
+          ".iram0.text_end": 1
+        }
+      }
+    },
+    "section_deltas": {
+      ".dram0.bss": {
+        "baseline": 2808,
+        "diagnostic": 8120,
+        "delta": 5312
+      },
+      ".dram0.data": {
+        "baseline": 11658,
+        "diagnostic": 12906,
+        "delta": 1248
+      },
+      ".flash.rodata": {
+        "baseline": 72004,
+        "diagnostic": 73692,
+        "delta": 1688
+      },
+      ".flash.text": {
+        "baseline": 255308,
+        "diagnostic": 262036,
+        "delta": 6728
+      },
+      ".iram0.text": {
+        "baseline": 51847,
+        "diagnostic": 52915,
+        "delta": 1068
+      }
+    },
+    "total_delta": 16044,
+    "fixed_trace_records_bytes": 2560,
+    "fixed_dump_stack_bytes": 1792,
+    "runtime_status": "matching optimized debug ELF fixture counters acquired; device decode and restoration owned by parent",
+    "scope": "isolated allocator fixture; debug sections excluded by SHF_ALLOC; no production workload claim",
+    "diagnostic_runtime": [
+      {
+        "record_type": "DIAG_BEGIN",
+        "tracing": "true",
+        "rounds": 500,
+        "tick_hz": 100
+      },
+      {
+        "record_type": "DIAG_HEAP",
+        "phase": "boot",
+        "kind": "internal",
+        "free": 268799,
+        "largest": 139264,
+        "minimum": 236768,
+        "stack_free": 14804
+      },
+      {
+        "record_type": "DIAG_HEAP",
+        "phase": "boot",
+        "kind": "psram",
+        "free": 4192024,
+        "largest": 4128768,
+        "minimum": 4191936,
+        "stack_free": 14804
+      },
+      {
+        "record_type": "DIAG_PSRAM",
+        "bytes": 128,
+        "checksum": 21120,
+        "passed": 1
+      },
+      {
+        "record_type": "DIAG_BUFFER",
+        "records": 64,
+        "bytes": 2560
+      },
+      {
+        "record_type": "DIAG_TRACE",
+        "phase": "known",
+        "allocations": 2,
+        "frees": 1,
+        "records": 2,
+        "high_water": 2,
+        "capacity": 64,
+        "overflow": 0
+      },
+      {
+        "record_type": "DIAG_KNOWN",
+        "live": 1,
+        "freed": 1,
+        "passed": 1
+      },
+      {
+        "record_type": "DIAG_HEAP",
+        "phase": "off1",
+        "kind": "internal",
+        "free": 268747,
+        "largest": 139264,
+        "minimum": 236452,
+        "stack_free": 14804
+      },
+      {
+        "record_type": "DIAG_HEAP",
+        "phase": "off1",
+        "kind": "psram",
+        "free": 4192024,
+        "largest": 4128768,
+        "minimum": 4191892,
+        "stack_free": 14804
+      },
+      {
+        "record_type": "DIAG_LOOP",
+        "phase": "off1",
+        "tracing": "false",
+        "operations": 8000,
+        "elapsed_us": 4991181,
+        "runtime_us": 214306,
+        "max_batch_us": 245,
+        "max_yield_us": 9759
+      },
+      {
+        "record_type": "DIAG_HEAP",
+        "phase": "off1",
+        "kind": "internal",
+        "free": 268747,
+        "largest": 139264,
+        "minimum": 236452,
+        "stack_free": 14804
+      },
+      {
+        "record_type": "DIAG_HEAP",
+        "phase": "off1",
+        "kind": "psram",
+        "free": 4192024,
+        "largest": 4128768,
+        "minimum": 4191892,
+        "stack_free": 14804
+      },
+      {
+        "record_type": "DIAG_HEAP",
+        "phase": "on",
+        "kind": "internal",
+        "free": 268747,
+        "largest": 139264,
+        "minimum": 236452,
+        "stack_free": 14804
+      },
+      {
+        "record_type": "DIAG_HEAP",
+        "phase": "on",
+        "kind": "psram",
+        "free": 4192024,
+        "largest": 4128768,
+        "minimum": 4191892,
+        "stack_free": 14804
+      },
+      {
+        "record_type": "DIAG_TRACE",
+        "phase": "on",
+        "allocations": 8000,
+        "frees": 8000,
+        "records": 0,
+        "high_water": 2,
+        "capacity": 64,
+        "overflow": 0
+      },
+      {
+        "record_type": "DIAG_LOOP",
+        "phase": "on",
+        "tracing": "true",
+        "operations": 8000,
+        "elapsed_us": 4997092,
+        "runtime_us": 190409,
+        "max_batch_us": 285,
+        "max_yield_us": 9715
+      },
+      {
+        "record_type": "DIAG_HEAP",
+        "phase": "on",
+        "kind": "internal",
+        "free": 268747,
+        "largest": 139264,
+        "minimum": 236452,
+        "stack_free": 14804
+      },
+      {
+        "record_type": "DIAG_HEAP",
+        "phase": "on",
+        "kind": "psram",
+        "free": 4192024,
+        "largest": 4128768,
+        "minimum": 4191892,
+        "stack_free": 14804
+      },
+      {
+        "record_type": "DIAG_HEAP",
+        "phase": "off2",
+        "kind": "internal",
+        "free": 268747,
+        "largest": 139264,
+        "minimum": 236452,
+        "stack_free": 14804
+      },
+      {
+        "record_type": "DIAG_HEAP",
+        "phase": "off2",
+        "kind": "psram",
+        "free": 4192024,
+        "largest": 4128768,
+        "minimum": 4191892,
+        "stack_free": 14804
+      },
+      {
+        "record_type": "DIAG_LOOP",
+        "phase": "off2",
+        "tracing": "false",
+        "operations": 8000,
+        "elapsed_us": 4995965,
+        "runtime_us": 179535,
+        "max_batch_us": 241,
+        "max_yield_us": 9759
+      },
+      {
+        "record_type": "DIAG_HEAP",
+        "phase": "off2",
+        "kind": "internal",
+        "free": 268747,
+        "largest": 139264,
+        "minimum": 236452,
+        "stack_free": 14804
+      },
+      {
+        "record_type": "DIAG_HEAP",
+        "phase": "off2",
+        "kind": "psram",
+        "free": 4192024,
+        "largest": 4128768,
+        "minimum": 4191892,
+        "stack_free": 14804
+      },
+      {
+        "record_type": "DIAG_COMPLETE",
+        "passed": 1
+      }
+    ],
+    "baseline_runtime": [
+      {
+        "record_type": "DIAG_BEGIN",
+        "tracing": "false",
+        "rounds": 500,
+        "tick_hz": 100
+      },
+      {
+        "record_type": "DIAG_HEAP",
+        "phase": "boot",
+        "kind": "internal",
+        "free": 275359,
+        "largest": 147456,
+        "minimum": 243328,
+        "stack_free": 14948
+      },
+      {
+        "record_type": "DIAG_HEAP",
+        "phase": "boot",
+        "kind": "psram",
+        "free": 4192024,
+        "largest": 4128768,
+        "minimum": 4191936,
+        "stack_free": 14948
+      },
+      {
+        "record_type": "DIAG_PSRAM",
+        "bytes": 128,
+        "checksum": 21120,
+        "passed": 1
+      },
+      {
+        "record_type": "DIAG_HEAP",
+        "phase": "off1",
+        "kind": "internal",
+        "free": 275359,
+        "largest": 147456,
+        "minimum": 243328,
+        "stack_free": 14948
+      },
+      {
+        "record_type": "DIAG_HEAP",
+        "phase": "off1",
+        "kind": "psram",
+        "free": 4192024,
+        "largest": 4128768,
+        "minimum": 4191892,
+        "stack_free": 14948
+      },
+      {
+        "record_type": "DIAG_LOOP",
+        "phase": "off1",
+        "tracing": "false",
+        "operations": 8000,
+        "elapsed_us": 4992965,
+        "runtime_us": 157024,
+        "max_batch_us": 173,
+        "max_yield_us": 9830
+      },
+      {
+        "record_type": "DIAG_HEAP",
+        "phase": "off1",
+        "kind": "internal",
+        "free": 275359,
+        "largest": 147456,
+        "minimum": 243196,
+        "stack_free": 14948
+      },
+      {
+        "record_type": "DIAG_HEAP",
+        "phase": "off1",
+        "kind": "psram",
+        "free": 4192024,
+        "largest": 4128768,
+        "minimum": 4191892,
+        "stack_free": 14948
+      },
+      {
+        "record_type": "DIAG_HEAP",
+        "phase": "on",
+        "kind": "internal",
+        "free": 275359,
+        "largest": 147456,
+        "minimum": 243196,
+        "stack_free": 14948
+      },
+      {
+        "record_type": "DIAG_HEAP",
+        "phase": "on",
+        "kind": "psram",
+        "free": 4192024,
+        "largest": 4128768,
+        "minimum": 4191892,
+        "stack_free": 14948
+      },
+      {
+        "record_type": "DIAG_LOOP",
+        "phase": "on",
+        "tracing": "false",
+        "operations": 8000,
+        "elapsed_us": 4997116,
+        "runtime_us": 132895,
+        "max_batch_us": 171,
+        "max_yield_us": 9830
+      },
+      {
+        "record_type": "DIAG_HEAP",
+        "phase": "on",
+        "kind": "internal",
+        "free": 275359,
+        "largest": 147456,
+        "minimum": 243196,
+        "stack_free": 14948
+      },
+      {
+        "record_type": "DIAG_HEAP",
+        "phase": "on",
+        "kind": "psram",
+        "free": 4192024,
+        "largest": 4128768,
+        "minimum": 4191892,
+        "stack_free": 14948
+      },
+      {
+        "record_type": "DIAG_HEAP",
+        "phase": "off2",
+        "kind": "internal",
+        "free": 275359,
+        "largest": 147456,
+        "minimum": 243196,
+        "stack_free": 14948
+      },
+      {
+        "record_type": "DIAG_HEAP",
+        "phase": "off2",
+        "kind": "psram",
+        "free": 4192024,
+        "largest": 4128768,
+        "minimum": 4191892,
+        "stack_free": 14948
+      },
+      {
+        "record_type": "DIAG_LOOP",
+        "phase": "off2",
+        "tracing": "false",
+        "operations": 8000,
+        "elapsed_us": 4996919,
+        "runtime_us": 133092,
+        "max_batch_us": 171,
+        "max_yield_us": 9830
+      },
+      {
+        "record_type": "DIAG_HEAP",
+        "phase": "off2",
+        "kind": "internal",
+        "free": 275359,
+        "largest": 147456,
+        "minimum": 243196,
+        "stack_free": 14868
+      },
+      {
+        "record_type": "DIAG_HEAP",
+        "phase": "off2",
+        "kind": "psram",
+        "free": 4192024,
+        "largest": 4128768,
+        "minimum": 4191892,
+        "stack_free": 14868
+      },
+      {
+        "record_type": "DIAG_COMPLETE",
+        "passed": 1
+      },
+      {
+        "record_type": "CONTROL_COMPLETE",
+        "passed": 1
+      }
+    ],
+    "limits": [
+      "Isolated allocation workload only; no production capture/TLS throughput claim.",
+      "Task runtime includes charged interrupts; yield wall time is not runnable wait.",
+      "One OFF/ON/OFF sequence per image; warmup and executable layout confound cross-image timing attribution.",
+      "Core dumps omit most external PSRAM contents; sentinel checksum is a targeted check only."
+    ]
+  },
+  "partition_csv": {
+    "sha256": "0f19e8c75a43382ce745837a73839f39fb3a12f5ed90c6278e086bd1238d7dde",
+    "bytes": 166
+  },
+  "partition_binary": {
+    "sha256": "7f00b6c042a89b15b0cac534f82ed988caf29278ff5700b0c511eb1b5bb7c820",
+    "bytes": 3072
+  },
+  "first_final_check": {
+    "path": "target/check-logs/run.9rGfto1g",
+    "status": "failed",
+    "reason": "I2S checker required one generated config; full-debug profile correctly retained a second config. Fix actual Cargo build association, preserve failed run."
+  },
+  "normal_restore": {
+    "status": "pass",
+    "elf": {
+      "sha256": "e7404b41273f0b12fd55315dde025f81fd9b3d8a19771e49d234ef4ec7550ff7",
+      "bytes": 2812364
+    },
+    "bootloader": {
+      "sha256": "52fe6290545ac5b485807bcfb5ccc4a4e118f1686c0e6e952e1699440283a25b",
+      "bytes": 26080
+    },
+    "state": "stopped",
+    "active_format": "mp3",
+    "saved_format": "mp3",
+    "buffer_preset": "med",
+    "autoplay": false,
+    "recognition": false,
+    "uart_and_source_owners_absent": true,
+    "identity_limit": "Flash tool and HTTP readback; no full flash readback",
+    "flash_log_sha256": "8d360f786508ef8e84cd167fde9b4c2fd3e4631405ad7f670c9c67bddbdefd24"
+  },
+  "canonical": {
+    "command": "scripts/check",
+    "run": "target/check-logs/run.iRLOVAUB",
+    "status": "complete",
+    "exit_code": 0,
+    "stages": 27,
+    "stages_sha256": "ae28018917bac10f24f103c201611e17e81e648a99a7a156d764c589c18d37ee",
+    "boundary_checks_passed": true
+  },
+  "normal_generated_config": {
+    "sha256": "dc90112a3f0ecbeb69627a3e1011152a9af9f364a329305a092143d261a6f66b",
+    "core_dump": "none",
+    "heap_tracing": "off"
+  }
+}

@@ -1,0 +1,344 @@
+{
+  "date": "2026-10-07",
+  "status": "full_autoplay_acceptance_passed_after_parser_and_harness_fixes",
+  "passed": true,
+  "scope": "Real board autoplay over physical ALSA analog input, measured quiet, manual Stop suppression, and session eviction.",
+  "initial_run": {
+    "run_id": "board-autoplay-20261007-160859-e1bb9d",
+    "firmware": {
+      "short_id": "9fd2eac1",
+      "source": "Parent-reported flashed normal build"
+    },
+    "passed": false,
+    "private_evidence": {
+      "summary": "target/sonos/board-autoplay-20261007-160859-e1bb9d/summary.json",
+      "uart": "target/sonos/board-autoplay-20261007-160859-e1bb9d/uart.log",
+      "host_wss": "target/sonos/board-autoplay-20261007-160859-e1bb9d.jsonl"
+    },
+    "method": {
+      "probe": "target/sonos/board-autoplay-check.py",
+      "physical_input": "ALSA music and generated silence into board analog input",
+      "quiet_threshold_dbfs": -60,
+      "quiet_continuous_requirement_seconds": 12,
+      "music_threshold_dbfs": -50,
+      "minimum_music_dwell_seconds": 0.5,
+      "playhead_advance_requirement_ms": 4000,
+      "playback_observation_seconds": 6,
+      "manual_stop_no_retake_seconds": 15,
+      "sonos_volume_before_percent": 15,
+      "sonos_volume_after_percent": 15,
+      "mute_preserved": true
+    },
+    "completed_scenarios": [
+      {
+        "phase": "automatic_music_start",
+        "passed": true,
+        "first_position_ms": 1607,
+        "last_position_ms": 8976,
+        "advance_ms": 7369,
+        "sonos_state": "PLAYBACK_STATE_PLAYING",
+        "same_item_through_observation": true
+      },
+      {
+        "phase": "quiet_stop",
+        "passed": true,
+        "quiet_seconds": 12.014415381010622
+      },
+      {
+        "phase": "music_before_manual_stop",
+        "passed": true,
+        "first_position_ms": 1616,
+        "last_position_ms": 7688,
+        "advance_ms": 6072,
+        "sonos_state": "PLAYBACK_STATE_PLAYING",
+        "same_item_through_observation": true
+      },
+      {
+        "phase": "manual_stop_during_music",
+        "passed": true,
+        "no_retake_seconds": 15
+      },
+      {
+        "phase": "new_music_after_manual_stop",
+        "passed": true,
+        "first_position_ms": 2645,
+        "last_position_ms": 8937,
+        "advance_ms": 6292,
+        "sonos_state": "PLAYBACK_STATE_PLAYING",
+        "same_item_through_observation": true
+      }
+    ],
+    "quiet_rearm_evidence": "The probe required 12 continuous seconds of measured input below -60 dBFS before initial music, after quiet-stop, and after manual Stop; subsequent music scenarios completed.",
+    "failure": {
+      "phase": "eviction",
+      "error": "eviction: Board error: Sonos protocol error: Malformed",
+      "trigger": "Host playbackSession createSession on the selected group returned a new session; the board then reported Malformed.",
+      "interpretation": "Initial run does not establish successful eviction handling or no-retake after eviction."
+    },
+    "cleanup": {
+      "board": {
+        "state": "stopped",
+        "autoplay": false,
+        "active_player_present": false,
+        "last_error": null
+      },
+      "host_session_suspend": {
+        "passed": false,
+        "scope": "Only the session returned to the host probe",
+        "response_type": "globalError",
+        "error_code": "ERROR_COMMAND_FAILED"
+      },
+      "interpretation": "Board cleanup succeeded; host-session cleanup separately failed."
+    },
+    "unverified_scenarios": [
+      "no_retake_after_eviction",
+      "quiet_after_eviction",
+      "new_music_after_eviction"
+    ]
+  },
+  "followup": {
+    "exact_eviction_frame_captured": {
+      "source": "Parent report after initial run",
+      "raw_evidence": "Private diagnostic logs; household and session identifiers omitted here",
+      "fix_status": "Fixed ELF c9bc775f handled ERROR_SESSION_EVICTED and cleared ownership. Final corrected-harness run passed no-retake and quiet/new-music rearm."
+    },
+    "audibility": {
+      "source": "User confirmation relayed by parent",
+      "result": "Board audio audible and described as great",
+      "workstation_master_percent": 72,
+      "sonos_volume_percent": 15,
+      "scope": "Separate later steady playback; does not change initial autoplay run result"
+    }
+  },
+  "fixed_build_rerun": {
+    "status": "passed",
+    "passed": true,
+    "firmware": {
+      "elf_sha256": "c9bc775fadcdce098f757626ef7b7aa7c4cd09ab434a6347a0c7bc7911270f13",
+      "source": "Parent-reported flashed ELF"
+    },
+    "source_levels": {
+      "workstation_master_percent": 72,
+      "sonos_volume_percent": 15,
+      "source": "Parent-reported source Master 72; probe verified Sonos remained 15 percent with mute preserved"
+    },
+    "canonical_checks": {
+      "source": "Parent report",
+      "stages_passed": 13,
+      "rust_tests_passed": 266,
+      "rust_tests_ignored": 2
+    },
+    "attempts": [
+      {
+        "run_id": "board-autoplay-20261007-162642-334f11",
+        "private_summary": "target/sonos/board-autoplay-20261007-162642-334f11/summary.json",
+        "passed": null,
+        "phase": "setup",
+        "error": "setup: <urlopen error timed out>",
+        "completed_scenarios": [],
+        "sample_count": 0,
+        "cleanup_errors": [],
+        "final_board_confirmed": false,
+        "interpretation": "Parent confirmed initial GET timed out immediately after flash before WiFi was ready. No controlled actions, UART collector, samples or scenarios started. This attempt does not assess firmware autoplay or the parser fix.",
+        "probe_reported_passed": false,
+        "classification": "inconclusive_boot_readiness"
+      },
+      {
+        "run_id": "board-autoplay-20261007-162730-24f7de",
+        "private_evidence": {
+          "summary": "target/sonos/board-autoplay-20261007-162730-24f7de/summary.json",
+          "uart": "target/sonos/board-autoplay-20261007-162730-24f7de/uart.log",
+          "host_wss": "target/sonos/board-autoplay-20261007-162730-24f7de.jsonl"
+        },
+        "passed": false,
+        "classification": "eviction_handled_host_suspend_failed_remaining_scenarios_unverified",
+        "completed_scenarios": [
+          {
+            "phase": "automatic_music_start",
+            "passed": true,
+            "first_position_ms": 1170,
+            "last_position_ms": 7482,
+            "advance_ms": 6312,
+            "sonos_state": "PLAYBACK_STATE_PLAYING",
+            "same_item_through_observation": true
+          },
+          {
+            "phase": "quiet_stop",
+            "passed": true,
+            "quiet_seconds": 12.08694825193379
+          },
+          {
+            "phase": "music_before_manual_stop",
+            "passed": true,
+            "first_position_ms": 545,
+            "last_position_ms": 7307,
+            "advance_ms": 6762,
+            "sonos_state": "PLAYBACK_STATE_PLAYING",
+            "same_item_through_observation": true
+          },
+          {
+            "phase": "manual_stop_during_music",
+            "passed": true,
+            "no_retake_seconds": 15
+          },
+          {
+            "phase": "new_music_after_manual_stop",
+            "passed": true,
+            "first_position_ms": 2039,
+            "last_position_ms": 9488,
+            "advance_ms": 7449,
+            "sonos_state": "PLAYBACK_STATE_PLAYING",
+            "same_item_through_observation": true
+          }
+        ],
+        "eviction_observed": {
+          "state": "error",
+          "last_error": "ERROR_SESSION_EVICTED",
+          "active_player_present": false,
+          "malformed_observed": false
+        },
+        "failure": {
+          "phase": "eviction",
+          "command": "playbackSession suspend",
+          "scope": "Only the host-created session",
+          "response_type": "globalError",
+          "error_code": "ERROR_COMMAND_FAILED",
+          "interpretation": "Board eviction handling was observed; the probe aborted at host-session suspend before testing no-retake or post-eviction rearm."
+        },
+        "cleanup": {
+          "board": {
+            "state": "stopped",
+            "autoplay": false,
+            "active_player_present": false,
+            "last_error": null
+          },
+          "host_session_suspend_retry": {
+            "passed": false,
+            "error_code": "ERROR_COMMAND_FAILED"
+          }
+        },
+        "unverified_scenarios": [
+          "no_retake_after_eviction",
+          "quiet_after_eviction",
+          "new_music_after_eviction"
+        ]
+      },
+      {
+        "run_id": "board-autoplay-20261007-163232-60398b",
+        "private_evidence": {
+          "summary": "target/sonos/board-autoplay-20261007-163232-60398b/summary.json",
+          "uart": "target/sonos/board-autoplay-20261007-163232-60398b/uart.log",
+          "host_wss": "target/sonos/board-autoplay-20261007-163232-60398b.jsonl",
+          "readonly_observer_wss": "target/sonos/board-autoplay-20261007-163232-60398b-after-eviction-c059c5.jsonl"
+        },
+        "passed": true,
+        "classification": "full_autoplay_acceptance_passed",
+        "completed_scenarios": [
+          {
+            "phase": "automatic_music_start",
+            "passed": true,
+            "first_position_ms": 735,
+            "last_position_ms": 7799,
+            "advance_ms": 7064,
+            "sonos_state": "PLAYBACK_STATE_PLAYING",
+            "same_item_through_observation": true
+          },
+          {
+            "phase": "quiet_stop",
+            "passed": true,
+            "quiet_seconds": 13.002416293951683
+          },
+          {
+            "phase": "music_before_manual_stop",
+            "passed": true,
+            "first_position_ms": 839,
+            "last_position_ms": 7591,
+            "advance_ms": 6752,
+            "sonos_state": "PLAYBACK_STATE_PLAYING",
+            "same_item_through_observation": true
+          },
+          {
+            "phase": "manual_stop_during_music",
+            "passed": true,
+            "no_retake_seconds": 15
+          },
+          {
+            "phase": "new_music_after_manual_stop",
+            "passed": true,
+            "first_position_ms": 3099,
+            "last_position_ms": 9742,
+            "advance_ms": 6643,
+            "sonos_state": "PLAYBACK_STATE_PLAYING",
+            "same_item_through_observation": true
+          },
+          {
+            "phase": "no_retake_after_eviction",
+            "passed": true,
+            "no_retake_seconds": 20
+          },
+          {
+            "phase": "new_music_after_eviction",
+            "passed": true,
+            "first_position_ms": 1415,
+            "last_position_ms": 7953,
+            "advance_ms": 6538,
+            "sonos_state": "PLAYBACK_STATE_PLAYING",
+            "same_item_through_observation": true
+          }
+        ],
+        "eviction_observed": {
+          "state": "error",
+          "last_error": "ERROR_SESSION_EVICTED",
+          "active_player_present": false
+        },
+        "eviction_no_retake": {
+          "seconds": 20,
+          "group_state": "PLAYBACK_STATE_IDLE",
+          "board_remained_unowned": true,
+          "observed_samples": 18
+        },
+        "quiet_rearm_evidence": "Probe required 12 continuous seconds below -60 dBFS before initial music and each rearm, including after eviction. Final new-music playback advanced 6538 ms.",
+        "cleanup": {
+          "board": {
+            "state": "stopped",
+            "autoplay": false,
+            "active_player_present": false,
+            "last_error": null
+          },
+          "host_empty_session": {
+            "media_loaded": false,
+            "suspend_requested": false,
+            "connection_closed": true
+          },
+          "errors": []
+        },
+        "unverified_scenarios": []
+      }
+    ],
+    "acceptance_verified": true,
+    "successful_run_id": "board-autoplay-20261007-163232-60398b"
+  },
+  "release_recommendation": "Autoplay acceptance passed on ELF c9bc775f with real physical input. This artifact establishes autoplay behavior only; separate playback-duration and capture-health evidence retain their own results.",
+  "privacy": "Curated metrics only; household, player, group, session and item identifiers and raw WSS frames remain in private target artifacts.",
+  "harness_followup": {
+    "changed_after_run": true,
+    "scope": "Throwaway readiness and empty-session cleanup; no firmware changes",
+    "initial_http_wait_seconds": 20,
+    "post_reset_http_wait_seconds": 30,
+    "post_reset_wait_includes_delay_seconds": 8,
+    "uart_reset_checks_begin": "After HTTP readiness and baseline of intentional reset output",
+    "validation": "Corrected harness executed on real board in run 60398b; all scenarios and cleanup passed. Earlier failure evidence remains preserved.",
+    "empty_session_evidence": {
+      "private_summary": "target/sonos/empty-session.json",
+      "group_before": "PLAYBACK_STATE_IDLE",
+      "created_state": "SESSION_STATE_CONNECTED",
+      "subscribe_succeeded": true,
+      "session_info_suspended": false,
+      "suspend_error": "ERROR_COMMAND_FAILED",
+      "group_after": "PLAYBACK_STATE_IDLE",
+      "media_loaded": false
+    },
+    "empty_session_cleanup": "Close the creating WSS connection without requesting suspend; this probe never loads host media. Reconnect a uniquely logged read-only observer.",
+    "coverage_preserved": "Require group IDLE and board unowned for 20 seconds during active music, then measured quiet and fresh music autoplay with advancing board playhead."
+  }
+}

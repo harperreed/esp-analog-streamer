@@ -1,0 +1,11 @@
+{
+  "idf_commit": "b774170ff46c393eeb5e495ea37936038d3f4f4f",
+  "target_gcc": "xtensa-esp-elf-gcc (crosstool-NG esp-14.2.0_20260121) 14.2.0\nCopyright (C) 2024 Free Software Foundation, Inc.\nThis is free software; see the source for copying conditions.  There is NO\nwarranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.",
+  "rustc_esp": "rustc 1.98.1-nightly (183f762d6 2026-09-08) (1.98.1.0)",
+  "uv": "uv 0.12.19 (x86_64-unknown-linux-gnu)",
+  "mise": "2026.9.15 linux-x64 (2026-09-27)",
+  "native_python": "Python 3.14.7",
+  "native_python_freeze_sha256": "fb42495e91a934b4944a4c62d2cc46e7d74edfe4f3180ff04e82fc9bd95ab3bb",
+  "dependencies": "Installed Rust/mise/Cargo caches reused; SDK/tools/dist independently copied; Python venv generated locally with cached/downloaded packages; managed components fetched by pinned native build. Not offline or archive-only.",
+  "firmware_cargo_lock": "86e2f11a004f9f8e3bde47f83aa29dade4de27c18145acb5e405f8b048e3691c"
+}

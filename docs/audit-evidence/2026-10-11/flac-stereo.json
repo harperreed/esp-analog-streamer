@@ -1,0 +1,352 @@
+{
+  "kata": "45k9",
+  "date": "2026-10-11",
+  "status": "Original benchmark and codec compatibility verified; native board TLS control and transport delivery failed",
+  "codec": {
+    "assignments": [
+      1,
+      8
+    ],
+    "pcm_bits": 16,
+    "side_bits": 17,
+    "max_frame_bytes": 16399,
+    "heap_payload_before_bytes": 35392,
+    "heap_payload_after_bytes": 36736,
+    "inline_state_growth_bytes": 36
+  },
+  "decoder": {
+    "decoders": [
+      "Claxon 0.4.3",
+      "FFmpeg"
+    ],
+    "fixtures": 8,
+    "numbering_steps": 8,
+    "exact_decode_comparisons": 128,
+    "crc8_crc16": "passed",
+    "selection_red_preserved": true
+  },
+  "canonical": {
+    "command": "scripts/check",
+    "final_log_directory": "target/check-logs/run.FQL4yLHq",
+    "stages_passed": 27,
+    "exit_code": 0,
+    "prior_backend_failure": "Cannot select i32 Constant<-16384> in Encoder::encode_block; preserved before out-of-line identical subtraction helper"
+  },
+  "benchmark": {
+    "measured_blocks_per_case": 128,
+    "warmup_blocks_per_case": 1,
+    "core": 1,
+    "priority": 7,
+    "task_stack_bytes": 4096,
+    "comparison": [
+      {
+        "kind": "zero",
+        "before_bytes_per_frame": 14.0,
+        "after_bytes_per_frame": 14.0,
+        "bytes_saved_fraction": 0.0,
+        "before_max_us": 6530,
+        "after_max_us": 8596,
+        "before_mean_us": 6500.234375,
+        "after_mean_us": 8580.125,
+        "before_cpu_us": 6529.296875,
+        "after_cpu_us": 8604.1875
+      },
+      {
+        "kind": "dc",
+        "before_bytes_per_frame": 14.0,
+        "after_bytes_per_frame": 14.0,
+        "bytes_saved_fraction": 0.0,
+        "before_max_us": 6530,
+        "after_max_us": 8596,
+        "before_mean_us": 6500.234375,
+        "after_mean_us": 8580.125,
+        "before_cpu_us": 6529.296875,
+        "after_cpu_us": 8604.1875
+      },
+      {
+        "kind": "mixed",
+        "before_bytes_per_frame": 8204.0,
+        "after_bytes_per_frame": 8204.0,
+        "bytes_saved_fraction": 0.0,
+        "before_max_us": 8745,
+        "after_max_us": 10940,
+        "before_mean_us": 8705.3359375,
+        "after_mean_us": 10896.3828125,
+        "before_cpu_us": 8735.4453125,
+        "after_cpu_us": 10923.484375
+      },
+      {
+        "kind": "noise",
+        "before_bytes_per_frame": 16394.0,
+        "after_bytes_per_frame": 16394.0,
+        "bytes_saved_fraction": 0.0,
+        "before_max_us": 12036,
+        "after_max_us": 14164,
+        "before_mean_us": 11997.296875,
+        "after_mean_us": 14115.3828125,
+        "before_cpu_us": 12028.8828125,
+        "after_cpu_us": 14144.4453125
+      },
+      {
+        "kind": "identical",
+        "before_bytes_per_frame": 13263.0,
+        "after_bytes_per_frame": 6639.0,
+        "bytes_saved_fraction": 0.49943451707758424,
+        "before_max_us": 12488,
+        "after_max_us": 12905,
+        "before_mean_us": 12446.828125,
+        "after_mean_us": 12852.4140625,
+        "before_cpu_us": 12478.9140625,
+        "after_cpu_us": 12879.484375
+      },
+      {
+        "kind": "opposite",
+        "before_bytes_per_frame": 13263.0,
+        "after_bytes_per_frame": 13263.0,
+        "bytes_saved_fraction": 0.0,
+        "before_max_us": 12491,
+        "after_max_us": 14504,
+        "before_mean_us": 12446.84375,
+        "after_mean_us": 14447.4453125,
+        "before_cpu_us": 12478.921875,
+        "after_cpu_us": 14476.515625
+      },
+      {
+        "kind": "hard_left",
+        "before_bytes_per_frame": 6639.0,
+        "after_bytes_per_frame": 6639.0,
+        "bytes_saved_fraction": 0.0,
+        "before_max_us": 9263,
+        "after_max_us": 11399,
+        "before_mean_us": 9216.375,
+        "after_mean_us": 11335.5,
+        "before_cpu_us": 9247.453125,
+        "after_cpu_us": 11363.5625
+      },
+      {
+        "kind": "hard_right",
+        "before_bytes_per_frame": 6639.0,
+        "after_bytes_per_frame": 6639.0,
+        "bytes_saved_fraction": 0.0,
+        "before_max_us": 8973,
+        "after_max_us": 12898,
+        "before_mean_us": 8929.3359375,
+        "after_mean_us": 12837.4765625,
+        "before_cpu_us": 8959.4296875,
+        "after_cpu_us": 12864.5546875
+      },
+      {
+        "kind": "extremes",
+        "before_bytes_per_frame": 16394.0,
+        "after_bytes_per_frame": 16394.0,
+        "bytes_saved_fraction": 0.0,
+        "before_max_us": 12035,
+        "after_max_us": 14164,
+        "before_mean_us": 11997.796875,
+        "after_mean_us": 14115.3828125,
+        "before_cpu_us": 12029.390625,
+        "after_cpu_us": 14144.453125
+      },
+      {
+        "kind": "correlated",
+        "before_bytes_per_frame": 13263.0,
+        "after_bytes_per_frame": 8984.0,
+        "bytes_saved_fraction": 0.32262685666892865,
+        "before_max_us": 12491,
+        "after_max_us": 14261,
+        "before_mean_us": 12446.84375,
+        "after_mean_us": 14209.40625,
+        "before_cpu_us": 12478.921875,
+        "after_cpu_us": 14238.46875
+      }
+    ],
+    "limits": [
+      "isolated without capture or network",
+      "heap endpoints do not detect temporary allocation churn",
+      "task runtime includes charged interrupts"
+    ],
+    "cumulative_stack_free_bytes": {
+      "independent": 1716,
+      "adaptive": 1668
+    },
+    "internal_free_heap_phase_endpoints_bytes": {
+      "independent": 264783,
+      "adaptive": 263439
+    },
+    "external_free_heap_phase_endpoints_bytes": {
+      "independent": 4109580,
+      "adaptive": 4109580
+    }
+  },
+  "image_sha256": {
+    "independent": "3de9105076e1e5ee31c46038ec878312c5ca1841f98fba9264d145199bae0415",
+    "adaptive": "76bd5c40f4daddba06ccb6eb3f853da20496b06b93b4fcc47f84ff3183154d22",
+    "production": "32a09ef74ea266905b59048a67705f5a428f196c3656045efe2ca1c6cb4aa0be"
+  },
+  "load": {
+    "first_attempt": "failed preflight: connection refused; no trial collected",
+    "ready_attempt_passed": false,
+    "requested_seconds": 90,
+    "second_connect_after_seconds": 30,
+    "encoder_windows": 8,
+    "generation_ratio_min": 0.9982406537207331,
+    "generation_ratio_max": 1.0011006207864452,
+    "encode_max_us": 34585,
+    "raw_overruns": 0,
+    "resets": 0,
+    "encoder_stack_free_bytes_min": 4932,
+    "capture_counter_deltas": "zero after baseline; boot already had 16 queue overflows,480 dropped frames,2 restarts and2 discontinuities",
+    "phase_rates": [
+      {
+        "phase": "solo_before_second_connect",
+        "label": "listener-1",
+        "wall_seconds": 30.000123650068417,
+        "audio_seconds_per_wall_second": 0.9614182595744364
+      },
+      {
+        "phase": "second_handshake",
+        "label": "listener-1",
+        "wall_seconds": 0.9300783618818969,
+        "audio_seconds_per_wall_second": 0.09174854166123383
+      },
+      {
+        "phase": "both_connected",
+        "label": "listener-1",
+        "wall_seconds": 2.7140463481191546,
+        "audio_seconds_per_wall_second": 0.06288273845615767
+      },
+      {
+        "phase": "both_connected",
+        "label": "listener-2",
+        "wall_seconds": 2.7140463481191546,
+        "audio_seconds_per_wall_second": 0.974682446070444
+      },
+      {
+        "phase": "planned_postjoin_including_recovery",
+        "label": "listener-1",
+        "wall_seconds": 59.069797988049686,
+        "audio_seconds_per_wall_second": 0.0028892373510604175
+      },
+      {
+        "phase": "planned_postjoin_including_recovery",
+        "label": "listener-2",
+        "wall_seconds": 59.069797988049686,
+        "audio_seconds_per_wall_second": 0.9650052752541796
+      }
+    ],
+    "listener_1_eof_seconds": 33.64424836006947,
+    "cleanup_errors": [],
+    "capture_fault_deltas": {
+      "queue_overflows": 0,
+      "software_dropped_frames": 0,
+      "read_errors": 0,
+      "restarts": 0,
+      "supervisor_restarts": 0,
+      "overflow_restarts": 0,
+      "settling_discarded_frames": 0,
+      "discontinuities": 0,
+      "health_restart_requests": 0
+    },
+    "capture_brackets_complete": true,
+    "whole_encoder_seconds": 80.562661,
+    "telemetry_loss_records": 0
+  },
+  "sonos": {
+    "status": "blocked_before_playback",
+    "passed": false,
+    "error": "TimeoutError('board state did not become playing')",
+    "control_error": "Reconnect: Sonos send failed",
+    "boot_markers_observed": 1,
+    "boot_marker_cause": "Unresolved: UART open can reset the board or expose buffered startup output; no attribution from this trial.",
+    "cleanup_errors": [],
+    "restored": {
+      "state": "stopped",
+      "active_format": "mp3",
+      "buffer_preset": "med",
+      "autoplay": false
+    },
+    "artifact": "target/kata-hardening/flac-stereo/sonos-compatibility/result.json",
+    "limitations": [
+      "No playback or left-side Sonos compatibility result was acquired.",
+      "Do not attribute control setup failure to the codec."
+    ],
+    "tls_failure": {
+      "allocation_bytes": 4437,
+      "mbedtls_error": "MBEDTLS_ERR_SSL_ALLOC_FAILED",
+      "error_code": "-0x7F00",
+      "occurrences": 4,
+      "first_connected_internal_free": 17779,
+      "first_connected_internal_largest": 9216,
+      "following_window_internal_min_sum": 2995,
+      "causal_limit": "Immediate allocation failure is established; competing allocations and fragmentation history are not.",
+      "integration_risk": "Additional1344B internal encoderheap may contribute; no paired nativecontrol baseline excludes regression. Resolve before shipping native Play."
+    }
+  },
+  "limits": [
+    "Reduced traffic is not proof network stalls are fixed",
+    "UART arrival times are not device execution times",
+    "Production image hash is host provenance, not device attestation",
+    "Load capture validates complete prefixes; excluded tail bytes remain unvalidated"
+  ],
+  "sonos_soap": {
+    "passed": true,
+    "scope": "Codec compatibility on actual production FLAC route, controlled by workstation SOAP; not native board TLS/control acceptance.",
+    "playing_observation_seconds": 30,
+    "positions": [
+      "0:00:00",
+      "0:00:02",
+      "0:00:05",
+      "0:00:08",
+      "0:00:10",
+      "0:00:12",
+      "0:00:15",
+      "0:00:17",
+      "0:00:20",
+      "0:00:22",
+      "0:00:24",
+      "0:00:27",
+      "0:00:29"
+    ],
+    "assignments": {
+      "8": 254
+    },
+    "decoded_prefix": {
+      "decoded_audio_frames": 1040384,
+      "decoded_seconds": 21.674666666666667,
+      "decoded_packets": 254,
+      "skipped_source_audio_frames": 0,
+      "duplicate_audio_frames": 0,
+      "decoded_discontinuities": 0,
+      "sample_hash_format": "SHA256, stereo pcm_s32le, packet boundaries",
+      "complete_coded_frames": 254,
+      "expected_sample_frames": 1040384,
+      "excluded_tail_bytes": 8640,
+      "excluded_tail_note": "final packet lacks a valid whole-frame CRC; truncation versus corruption is unresolved",
+      "complete_frame_bytes": 2295428
+    },
+    "cleanup_errors": [],
+    "prior_media_restored": true,
+    "volume_unchanged": true,
+    "board_restored": {
+      "state": "stopped",
+      "active_format": "mp3",
+      "buffer_preset": "med",
+      "autoplay": false
+    },
+    "uart_used": false,
+    "capture_fault_clearance": false,
+    "driver_sha256": "dfeed01e7b860fb60972c6be04cf8639ded84d8db6d2310c1cf0e14406e8d8fa",
+    "result_sha256": "2e07f1cc346b6219fc6763e41d9600dbee22b6b8ba49797c16de1c57869f3ad3",
+    "artifact": "target/kata-hardening/flac-stereo/sonos-soap-corrected/result.json",
+    "first_attempt": {
+      "passed": false,
+      "error": "AssertionError(\"TimeoutError('timed out')\")",
+      "cleanup_errors": [
+        "restore-media: <HTTPError 500: 'Internal Server Error'>"
+      ],
+      "capture_bytes": 42,
+      "artifact": "target/kata-hardening/flac-stereo/sonos-soap-compatibility/result.json",
+      "correction": "Two-second debug timeout was below production admission/write budgets. SetNext was redundant because all saved fields were already restored. Corrected driver retains decoder assertions and verifies restored fields."
+    }
+  }
+}

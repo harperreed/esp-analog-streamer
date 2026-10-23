@@ -17,7 +17,7 @@ eval "$mise_env" # the toolchain pinned in mise.toml
 
 songs=test/fixtures/songs
 fixtures=test/fixtures/shazam
-scratch=target/e2e # a response waits here until its checks pass, so a failed run never touches the fixtures
+scratch=target/e2e # collect the complete candidate set before local validation/promotion
 mkdir -p "$songs" "$fixtures" "$scratch"
 
 # 12 s from the middle of the song, and 12 s of white noise, both 16 kHz mono 16-bit.
@@ -52,18 +52,20 @@ grep -q -- '^MATCH ' <<<"$out" && grep -i -F -q -- "$expected" <<<"$out" \
   || { echo "FAIL: expected a match containing \"$expected\""; exit 1; }
 require_no_lyrics "$scratch/match.json"
 jq -n --arg title "$expected" '{title: $title}' > "$scratch/match.expected.json"
-mv "$scratch/match.json" "$scratch/match.expected.json" "$fixtures/"
 
 echo "== white noise"
 "$tool" "$songs/noise.wav" --save-response "$scratch/miss.json"
 jq -e 'has("track") | not' "$scratch/miss.json" >/dev/null || { echo "FAIL: white noise matched a track"; exit 1; }
 require_no_lyrics "$scratch/miss.json"
-mv "$scratch/miss.json" "$fixtures/"
+# Parser tests read the fixture paths. Keep an exact snapshot until both checks pass;
+# a failed parser/golden check or interruption restores locally edited originals.
+scripts/e2e-fixtures "$fixtures" "$scratch" bash -c '
+  set -euo pipefail
+  echo "== parser tests on the saved responses"
+  cargo test -q -p esp-shazam-core --test shazam_fixtures
 
-echo "== parser tests on the saved responses"
-cargo test -q -p esp-shazam-core --test shazam_fixtures
-
-echo "== golden test on the song clip"
-cargo test -q -p esp-shazam-core --test golden -- --ignored
+  echo "== golden test on the song clip"
+  cargo test -q -p esp-shazam-core --test golden -- --ignored
+'
 
 echo "PASS e2e-host"

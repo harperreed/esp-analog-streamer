@@ -1,0 +1,10 @@
+{
+  "archive_sha256": "9f8ca3d84b3d369844800d938e7d596a5e36eeec766c5f2ee2b5cd561158690f",
+  "explicit_revision_archive_matches_original": true,
+  "invalid_revision_rejected": true,
+  "package_script_sha256": "88e67af4a44d0a711217bebc166800b6eba14665787a0086b7de64bec1692b02",
+  "review": "revision resolves to commit with end-of-options; original artifacts unchanged",
+  "revision": "bfea1d40adc401205ac67ec76d9ad411b9f78215",
+  "status": "passed",
+  "syntax": "passed"
+}

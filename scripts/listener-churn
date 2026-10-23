@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+# ABOUTME: Repeats two-listener MP3 churn cycles and samples /api/metrics internal largest-free after each (kata gcq8).
+# ABOUTME: Usage: scripts/listener-churn HOST --out DIR [--cycles N] [--seconds S] [--stream-port PORT] [--state-port PORT]; no root, UART or reset.
+set -euo pipefail
+repo="$(cd "$(dirname "$0")/.." && pwd)"
+exec uv run --quiet --project "$repo" --locked python3 "$repo/scripts/listener_churn.py" "$@"

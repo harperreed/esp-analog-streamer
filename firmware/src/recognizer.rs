@@ -8,7 +8,7 @@ use anyhow::Result;
 use esp_idf_svc::hal::cpu::Core;
 use esp_shazam_core::fingerprinting::algorithm::SignatureGenerator;
 use esp_shazam_core::policy::{Change, Decision, Outcome, Policy, PolicyConfig};
-use esp_shazam_core::shazam::{self, RequestContext, Song};
+use esp_shazam_core::shazam::{self, RequestContext};
 use esp_shazam_core::store::SongStore;
 use esp_shazam_core::time::rfc3339_utc;
 
@@ -16,18 +16,15 @@ use crate::audio_in::{SharedRing, WINDOW_SAMPLES};
 use crate::threads::ThreadSpec;
 use crate::{net, shazam_http};
 
+#[path = "recognition_admission.rs"]
+mod recognition_admission;
+
 pub type SharedStore = Arc<Mutex<SongStore>>;
 
 const TICK: Duration = Duration::from_millis(250);
 
 /// Runs on core 1, leaving core 0 to Wi-Fi and audio while a fingerprint takes seconds.
-/// `on_change` runs after every change to "now" (a new song or a clear).
-pub fn spawn(
-    ring: SharedRing,
-    store: SharedStore,
-    config: PolicyConfig,
-    on_change: impl Fn() + Send + 'static,
-) -> Result<()> {
+pub fn spawn(ring: SharedRing, store: SharedStore, config: PolicyConfig) -> Result<()> {
     ThreadSpec {
         name: c"recognizer",
         core: Core::Core1,
@@ -35,10 +32,10 @@ pub fn spawn(
         // Fingerprint, JSON and the TLS handshake all run on this stack.
         stack_bytes: 32 * 1024,
     }
-    .spawn(move || run(ring, store, config, on_change))
+    .spawn(move || run(ring, store, config))
 }
 
-fn run(ring: SharedRing, store: SharedStore, config: PolicyConfig, on_change: impl Fn()) {
+fn run(ring: SharedRing, store: SharedStore, config: PolicyConfig) {
     let boot = Instant::now();
     let now_ms = || boot.elapsed().as_millis() as u64;
     let mut policy = Policy::new(config);
@@ -62,40 +59,37 @@ fn run(ring: SharedRing, store: SharedStore, config: PolicyConfig, on_change: im
             Decision::ClearNow => {
                 if store.lock().expect("store lock").clear_now() {
                     log::info!("now playing: cleared after quiet");
-                    on_change();
                 }
             }
             Decision::Ask => {
                 let snapshot_ms = snapshot(&ring, &mut window);
-                let (outcome, song) = ask_shazam(&window, snapshot_ms);
-                let current_key = store
-                    .lock()
-                    .expect("store lock")
-                    .now_key()
-                    .map(str::to_owned);
-                match (
-                    policy.on_outcome(now_ms(), &outcome, current_key.as_deref()),
-                    song,
-                ) {
-                    (Change::SetNow, Some(song)) => {
-                        let playing = format!("{} — {}", song.title, song.artist);
-                        let identified_at = rfc3339_utc(net::unix_secs());
-                        if store
-                            .lock()
-                            .expect("store lock")
-                            .set_now(song, identified_at)
-                        {
-                            log::info!("now playing: {playing}");
-                            on_change();
+                if recognition_admission::admit(&mut policy, config, window.len()) {
+                    let outcome = ask_shazam(&window, snapshot_ms);
+                    let current_key = store
+                        .lock()
+                        .expect("store lock")
+                        .now_key()
+                        .map(str::to_owned);
+                    let change = policy.on_outcome(now_ms(), &outcome, current_key.as_deref());
+                    match (change, outcome) {
+                        (Change::SetNow, Outcome::Match(song)) => {
+                            let playing = format!("{} — {}", song.title, song.artist);
+                            let identified_at = rfc3339_utc(net::unix_secs());
+                            if store
+                                .lock()
+                                .expect("store lock")
+                                .set_now(song, identified_at)
+                            {
+                                log::info!("now playing: {playing}");
+                            }
                         }
-                    }
-                    (Change::ClearNow, _) => {
-                        if store.lock().expect("store lock").clear_now() {
-                            log::info!("now playing: cleared after misses");
-                            on_change();
+                        (Change::ClearNow, _) => {
+                            if store.lock().expect("store lock").clear_now() {
+                                log::info!("now playing: cleared after misses");
+                            }
                         }
+                        _ => {}
                     }
-                    _ => {}
                 }
             }
         }
@@ -119,14 +113,14 @@ fn snapshot(ring: &SharedRing, window: &mut Vec<i16>) -> u128 {
     started.elapsed().as_millis()
 }
 
-fn ask_shazam(window: &[i16], snapshot_ms: u128) -> (Outcome, Option<Song>) {
+fn ask_shazam(window: &[i16], snapshot_ms: u128) -> Outcome {
     let started = Instant::now();
     let signature = SignatureGenerator::make_signature_from_buffer(window);
     let uri = match signature.encode_to_uri() {
         Ok(uri) => uri,
         Err(e) => {
             log::error!("shazam: encoding the signature failed: {e}");
-            return (Outcome::Failed, None);
+            return Outcome::Failed;
         }
     };
     let fingerprint_ms = started.elapsed().as_millis();
@@ -148,9 +142,13 @@ fn ask_shazam(window: &[i16], snapshot_ms: u128) -> (Outcome, Option<Song>) {
     drop(signature);
     drop(uri);
     let answer = shazam_http::recognize(&request);
+    // The key alone identifies a match; the song's other fields are the "now playing:" line's job.
+    let label = match &answer {
+        Outcome::Match(song) => format!("Match {{ key: {:?} }}", song.key),
+        other => format!("{other:?}"),
+    };
     log::info!(
-        "shazam: {:?} (snapshot {snapshot_ms} ms, fingerprint {fingerprint_ms} ms, total {} ms)",
-        answer.0,
+        "shazam: {label} (snapshot {snapshot_ms} ms, fingerprint {fingerprint_ms} ms, total {} ms)",
         started.elapsed().as_millis()
     );
     answer

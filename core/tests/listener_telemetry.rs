@@ -1,0 +1,1170 @@
+// ABOUTME: Checks bounded listener reporting against real socket and admission ownership.
+// ABOUTME: A stalled exporter must never retain listener capacity or delay peer EOF.
+#![cfg(not(any(feature = "capture-loom", feature = "listener-loom")))]
+#[allow(dead_code)]
+#[path = "../../firmware/src/listener_telemetry.rs"]
+mod listener_telemetry;
+#[allow(dead_code)]
+#[path = "../../firmware/src/stream_codec.rs"]
+mod stream_codec;
+#[allow(dead_code)]
+#[path = "../../firmware/src/stream_pipeline.rs"]
+mod stream_pipeline;
+#[allow(dead_code)]
+#[path = "../../firmware/src/stream_runtime.rs"]
+mod stream_runtime;
+
+use esp_shazam_core::{
+    stream_buffer::OutputFormat, stream_http::ListenerPolicy, stream_wait::Slot,
+};
+use listener_telemetry::{Payload, Queue, Record};
+use std::{
+    io::Read,
+    net::{TcpListener, TcpStream},
+    sync::{Arc, Barrier},
+    time::Duration,
+};
+use stream_pipeline::ConnectionResources;
+use stream_runtime::{Runtime, SwitchPoll, SwitchStart};
+
+fn record(n: u64) -> Record {
+    Record {
+        event_us: n,
+        peer: Some("127.0.0.1:1234".parse().unwrap()),
+        payload: Payload::Closed {
+            elapsed_ms: n,
+            held: 1,
+            owner_id: n,
+            sonos_intent: 0,
+            released_us: n,
+            reaper_stack_free_bytes: 0,
+        },
+    }
+}
+
+#[test]
+fn startup_initialization_preserves_records_and_loss_counters() {
+    let queue = Queue::new();
+    queue.initialize();
+    assert!(queue.take().is_none());
+    for n in 0..8 {
+        assert!(queue.publish(record(n)));
+    }
+    assert!(!queue.publish(record(8)));
+    queue.initialize();
+    assert_eq!(queue.dropped(), 1);
+    assert_eq!(queue.dropped_full(), 1);
+    assert!(queue.loss_occurred());
+    for n in 0..8 {
+        assert_eq!(queue.take().unwrap().event_us, n);
+    }
+    assert!(queue.take().is_none());
+}
+
+#[test]
+fn bounded_fifo_loses_excess_without_overwriting_retained_events() {
+    let q = Queue::new();
+    for n in 0..8 {
+        assert!(q.publish(record(n)));
+    }
+    assert!(!q.publish(record(99)));
+    assert_eq!(q.dropped(), 1);
+    for n in 0..8 {
+        assert_eq!(q.take().unwrap().event_us, n);
+    }
+    assert!(q.take().is_none());
+    for n in 8..24 {
+        assert!(q.publish(record(n)));
+        assert_eq!(q.take().unwrap().event_us, n);
+    }
+}
+
+#[test]
+fn blocked_exporter_cannot_delay_real_close_slot_or_format_lease_release() {
+    let q = Arc::new(Queue::new());
+    assert!(q.publish(record(1)));
+    let entered = Arc::new(Barrier::new(2));
+    let release = Arc::new(Barrier::new(2));
+    let consumer = {
+        let q = q.clone();
+        let entered = entered.clone();
+        let release = release.clone();
+        std::thread::spawn(move || {
+            assert_eq!(q.take().unwrap().event_us, 1);
+            entered.wait();
+            release.wait();
+        })
+    };
+    entered.wait();
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let mut peer = TcpStream::connect(listener.local_addr().unwrap()).unwrap();
+    peer.set_read_timeout(Some(Duration::from_secs(1))).unwrap();
+    let (socket, _) = listener.accept().unwrap();
+    let slots = Arc::new(esp_shazam_core::stream_wait::Capacity::default());
+    let (runtime, mut worker) = Runtime::new(OutputFormat::Flac, false).unwrap();
+    let (_, lease) = runtime.admit_line("GET /stream.flac HTTP/1.1");
+    let resources = ConnectionResources::new(socket, Slot::take(&slots, 2).unwrap(), lease);
+    // A full queue is deliberately not drained while actual cleanup runs.
+    for n in 2..10 {
+        assert!(q.publish(record(n)));
+    }
+    let close = listener_telemetry::close_and_report(
+        resources.release(|| 9),
+        &q,
+        record(10).peer,
+        || 10,
+        || 0,
+        |socket| {
+            let start = std::time::Instant::now();
+            socket.shutdown(std::net::Shutdown::Both)?;
+            drop(socket);
+            Ok::<_, std::io::Error>(start.elapsed())
+        },
+    );
+    assert!(close.is_ok());
+    assert_eq!(peer.read(&mut [0]).unwrap(), 0);
+    assert_eq!(slots.held(), 0);
+    assert_eq!(q.dropped(), 1);
+    let SwitchStart::Pending(pending) = runtime.begin_switch(
+        OutputFormat::Mp3,
+        false,
+        Arc::new(std::sync::Mutex::new(true)),
+        Duration::from_secs(1),
+    ) else {
+        panic!("switch must enqueue");
+    };
+    worker.service(&runtime);
+    assert!(matches!(pending.poll(), SwitchPoll::Finished(Ok(true))));
+    release.wait();
+    consumer.join().unwrap();
+}
+
+#[test]
+fn admitted_refusal_sends_original_response_and_records_numeric_write_failure() {
+    use esp_shazam_core::stream_http::Status;
+    use listener_telemetry::RefusalReason;
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let mut peer = TcpStream::connect(listener.local_addr().unwrap()).unwrap();
+    peer.set_read_timeout(Some(Duration::from_secs(1))).unwrap();
+    let (socket, address) = listener.accept().unwrap();
+    let q = Queue::new();
+    let response = Status::ServiceUnavailable.response();
+    listener_telemetry::send_admitted_refusal(
+        &socket,
+        &q,
+        Some(address),
+        RefusalReason::BufferedStartup,
+        Duration::from_millis(50),
+        &response,
+        || 44,
+    );
+    drop(socket);
+    let mut got = String::new();
+    peer.read_to_string(&mut got).unwrap();
+    assert_eq!(got, response);
+    assert!(matches!(
+        q.take().unwrap().payload,
+        Payload::Refusal {
+            reason: RefusalReason::BufferedStartup,
+            response_error: None,
+            ..
+        }
+    ));
+    assert!(q.take().is_none());
+}
+
+#[test]
+fn instant_write_budget_starts_at_original_origin_without_claiming_boot_deadline() {
+    let timing = listener_telemetry::WriteTiming::for_instant_limit(Duration::from_secs(2));
+    assert_eq!(timing.nominal_limit_ms, 2000);
+    assert_eq!(timing.remaining_budget_us, 2_000_000);
+    assert_eq!(timing.deadline_us, None);
+}
+
+#[test]
+fn timeout_receipt_keeps_clipped_budget_separate_from_nominal_limit() {
+    let q = Queue::new();
+    let started_us = 28_843_291;
+    let deadline_us = esp_shazam_core::media_age::MediaAge::for_stream(None, OutputFormat::Flac)
+        .deadline(started_us, 25_625_291, started_us + 8_021_000)
+        .unwrap();
+    let timing = listener_telemetry::WriteTiming::new(started_us, deadline_us, 8021);
+    let result = Err(std::io::Error::from(std::io::ErrorKind::TimedOut));
+    listener_telemetry::report_timeout(&q, record(1).peer, &result, 782, timing, 9073, || {
+        29_625_291
+    });
+    assert!(matches!(
+        q.take().unwrap().payload,
+        Payload::Timeout {
+            elapsed_ms: 782,
+            nominal_limit_ms: 8021,
+            remaining_budget_us: 782_000,
+            deadline_us: Some(29_625_291),
+            bytes: 9073,
+        }
+    ));
+    let expired = listener_telemetry::WriteTiming::new(100, 99, 8021);
+    assert_eq!(expired.remaining_budget_us, 0);
+    assert_eq!(expired.deadline_us, Some(99));
+}
+
+#[test]
+fn timeout_result_is_reported_without_consuming_or_changing_terminal_error() {
+    let q = Queue::new();
+    let result = Err(std::io::Error::from(std::io::ErrorKind::TimedOut));
+    listener_telemetry::report_timeout(
+        &q,
+        record(1).peer,
+        &result,
+        2500,
+        listener_telemetry::WriteTiming::new(0, 2_400_000, 2400),
+        99,
+        || 45,
+    );
+    assert!(matches!(
+        q.take().unwrap().payload,
+        Payload::Timeout {
+            elapsed_ms: 2500,
+            nominal_limit_ms: 2400,
+            remaining_budget_us: 2_400_000,
+            deadline_us: Some(2_400_000),
+            bytes: 99
+        }
+    ));
+    assert!(matches!(&result, Err(error) if error.kind() == std::io::ErrorKind::TimedOut));
+    listener_telemetry::report_timeout(
+        &q,
+        record(1).peer,
+        &Ok(()),
+        1,
+        listener_telemetry::WriteTiming::new(0, 2_400_000, 2400),
+        2,
+        || 46,
+    );
+    assert!(q.take().is_none());
+}
+
+#[test]
+fn real_failed_close_retains_socket_without_false_success_event_after_release() {
+    let q = Queue::new();
+    let slots = Arc::new(esp_shazam_core::stream_wait::Capacity::default());
+    let (runtime, mut worker) = Runtime::new(OutputFormat::Flac, false).unwrap();
+    let (_, lease) = runtime.admit_line("GET /stream.flac HTTP/1.1");
+    let socket = socket2::Socket::new(
+        socket2::Domain::IPV4,
+        socket2::Type::STREAM,
+        Some(socket2::Protocol::TCP),
+    )
+    .unwrap();
+    let resources = ConnectionResources::new(
+        TcpStream::from(socket),
+        Slot::take(&slots, 2).unwrap(),
+        lease,
+    );
+    let draining = resources.release(|| 19);
+    assert_eq!(slots.held(), 0, "the slot is released at hand-off");
+    let failed = listener_telemetry::close_and_report(
+        draining,
+        &q,
+        None,
+        || 20,
+        || 0,
+        |socket| {
+            // An unconnected real TCP socket fails shutdown; retain its owned handle.
+            match socket.shutdown(std::net::Shutdown::Both) {
+                Ok(()) => {
+                    drop(socket);
+                    Ok(Duration::ZERO)
+                }
+                Err(error) => Err((socket, error)),
+            }
+        },
+    )
+    .expect_err("actual OS shutdown must fail");
+    assert!(q.take().is_none(), "a failed close publishes no receipt");
+    let SwitchStart::Pending(pending) = runtime.begin_switch(
+        OutputFormat::Mp3,
+        false,
+        Arc::new(std::sync::Mutex::new(true)),
+        Duration::from_secs(1),
+    ) else {
+        panic!("switch must enqueue");
+    };
+    worker.service(&runtime);
+    assert!(
+        matches!(pending.poll(), SwitchPoll::Finished(Ok(true))),
+        "the lease was released at hand-off"
+    );
+    drop(failed);
+    assert_eq!(slots.held(), 0);
+}
+
+#[test]
+fn real_socket_timeout_and_refusal_reach_close_with_full_queue_and_blocked_exporter() {
+    use esp_shazam_core::stream_http::{DeadlineWriter, Status};
+    use listener_telemetry::RefusalReason;
+    let q = Arc::new(Queue::new());
+    q.publish(record(1));
+    let (entered_tx, entered_rx) = std::sync::mpsc::channel();
+    let (release_tx, release_rx) = std::sync::mpsc::channel();
+    let exporter = {
+        let q = q.clone();
+        std::thread::spawn(move || {
+            q.take().unwrap();
+            entered_tx.send(()).unwrap();
+            release_rx.recv().unwrap();
+        })
+    };
+    entered_rx.recv_timeout(Duration::from_secs(1)).unwrap();
+    for n in 0..8 {
+        assert!(q.publish(record(n)));
+    }
+    for refusal in [false, true] {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let mut peer = TcpStream::connect(listener.local_addr().unwrap()).unwrap();
+        peer.set_read_timeout(Some(Duration::from_secs(1))).unwrap();
+        let (socket, address) = listener.accept().unwrap();
+        let slots = Arc::new(esp_shazam_core::stream_wait::Capacity::default());
+        let (runtime, _worker) = Runtime::new(OutputFormat::Flac, false).unwrap();
+        let (_, lease) = runtime.admit_line("GET /stream.flac HTTP/1.1");
+        let resources = ConnectionResources::new(socket, Slot::take(&slots, 2).unwrap(), lease);
+        if refusal {
+            let epoch = &resources.lease.as_ref().unwrap().epoch;
+            let mut actor = stream_pipeline::CompressedListener::new(
+                epoch,
+                Some(esp_shazam_core::stream_buffer::BufferPreset::Medium),
+                false,
+                ListenerPolicy::Live,
+                &mut || Duration::ZERO,
+            );
+            assert!(matches!(
+                actor.step(epoch, &mut [], &mut || Duration::from_secs(8), &mut || true),
+                stream_pipeline::ListenerStep::End(stream_pipeline::End::CaptureStalled)
+            ));
+            assert!(actor.refuse_buffered);
+            listener_telemetry::send_admitted_refusal(
+                &resources.socket,
+                &q,
+                Some(address),
+                RefusalReason::BufferedStartup,
+                Duration::from_millis(50),
+                &Status::ServiceUnavailable.response(),
+                || 30,
+            );
+        } else {
+            socket2::SockRef::from(&resources.socket)
+                .set_send_buffer_size(4096)
+                .unwrap();
+            socket2::SockRef::from(&peer)
+                .set_recv_buffer_size(4096)
+                .unwrap();
+            let mut writer = DeadlineWriter::new(&resources.socket);
+            let result = writer.write_all_before(
+                &vec![5; 4 * 1024 * 1024],
+                std::time::Instant::now() + Duration::from_millis(30),
+            );
+            assert!(
+                matches!(&result,Err(error) if matches!(error.kind(),std::io::ErrorKind::TimedOut | std::io::ErrorKind::WouldBlock))
+            );
+            let epoch = &resources.lease.as_ref().unwrap().epoch;
+            let mut actor = stream_pipeline::CompressedListener::new(
+                epoch,
+                None,
+                false,
+                ListenerPolicy::Live,
+                &mut || Duration::ZERO,
+            );
+            assert!(matches!(
+                actor.step(epoch, &mut [], &mut || Duration::ZERO, &mut || true),
+                stream_pipeline::ListenerStep::Progress
+            ));
+            assert!(matches!(
+                actor.step(epoch, &mut [], &mut || Duration::ZERO, &mut || true),
+                stream_pipeline::ListenerStep::Write { header: true, .. }
+            ));
+            let result = writer.write_all_before(
+                actor.write_bytes(&[]),
+                std::time::Instant::now() + Duration::from_millis(30),
+            );
+            assert!(
+                matches!(&result,Err(error) if matches!(error.kind(),std::io::ErrorKind::TimedOut | std::io::ErrorKind::WouldBlock))
+            );
+            listener_telemetry::report_timeout(
+                &q,
+                Some(address),
+                &result,
+                30,
+                listener_telemetry::WriteTiming::new(0, 30_000, 30),
+                actor.write_bytes(&[]).len(),
+                || 30,
+            );
+            assert!(matches!(
+                actor.write_finished(result, &mut || Duration::ZERO),
+                stream_pipeline::ListenerStep::End(stream_pipeline::End::StoppedReading)
+            ));
+        }
+        assert!(listener_telemetry::close_and_report(
+            resources.release(|| 39),
+            &q,
+            Some(address),
+            || 40,
+            || 0,
+            |socket| {
+                let start = std::time::Instant::now();
+                socket.shutdown(std::net::Shutdown::Both)?;
+                drop(socket);
+                Ok::<_, std::io::Error>(start.elapsed())
+            }
+        )
+        .is_ok());
+        assert_eq!(slots.held(), 0);
+        let mut bytes = Vec::new();
+        peer.read_to_end(&mut bytes).unwrap();
+        if refusal {
+            assert_eq!(bytes, Status::ServiceUnavailable.response().as_bytes());
+        }
+    }
+    assert_eq!(q.dropped(), 4);
+    release_tx.send(()).unwrap();
+    exporter.join().unwrap();
+}
+
+#[test]
+fn fixed_departure_keeps_sender_counters_and_error_identity_without_heap_messages() {
+    use esp_shazam_core::stream_http::WriterDiagnostics;
+    use listener_telemetry::{Departure, EndCode, ErrorCode};
+    let q = Queue::new();
+    let error = std::io::Error::from_raw_os_error(32);
+    let record = Record {
+        event_us: 123,
+        peer: None,
+        payload: Payload::Departure {
+            metrics: Some(Departure {
+                media: Default::default(),
+                elapsed_us: 20,
+                task_runtime_us: 7,
+                runtime_valid: true,
+                frames_sent: 2,
+                bytes_sent: 1234,
+                frame_write_wall_total_us: 9,
+                frame_write_wall_max_us: 8,
+                frame_read_wait_wall_total_us: 3,
+                payload_elapsed_us: 18,
+                block_samples: 1152,
+                socket: WriterDiagnostics {
+                    accepted_bytes: 1234,
+                    send_calls: 5,
+                    poll_calls: 2,
+                    ..Default::default()
+                },
+                skips: 0,
+                frames_skipped: 0,
+                last_skip_us: 0,
+            }),
+            tenths: 1,
+            end: EndCode::Failed(ErrorCode::from(&error)),
+            owner_stack_free_bytes: 512,
+        },
+    };
+    assert!(q.publish(record));
+    let got = q.take().unwrap();
+    assert_eq!(got.event_us, 123);
+    let Payload::Departure {
+        metrics: Some(metrics),
+        end: EndCode::Failed(error),
+        ..
+    } = got.payload
+    else {
+        panic!("departure fields lost");
+    };
+    assert_eq!(
+        (
+            metrics.frames_sent,
+            metrics.bytes_sent,
+            metrics.block_samples
+        ),
+        (2, 1234, 1152)
+    );
+    assert_eq!(
+        (
+            metrics.socket.send_calls,
+            metrics.socket.poll_calls,
+            metrics.socket.accepted_bytes
+        ),
+        (5, 2, 1234)
+    );
+    assert_eq!(error.raw_os_error, Some(32));
+    assert_eq!(error.kind, std::io::ErrorKind::BrokenPipe);
+    println!(
+        "record_bytes={} queue_bytes={}",
+        std::mem::size_of::<Record>(),
+        std::mem::size_of::<Queue>()
+    );
+}
+
+#[test]
+fn delayed_actual_close_holds_neither_slot_nor_lease_after_hand_off() {
+    let q = Arc::new(Queue::new());
+    for n in 0..8 {
+        assert!(q.publish(record(n)));
+    }
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let mut peer = TcpStream::connect(listener.local_addr().unwrap()).unwrap();
+    peer.set_read_timeout(Some(Duration::from_millis(30)))
+        .unwrap();
+    let (socket, address) = listener.accept().unwrap();
+    let slots = Arc::new(esp_shazam_core::stream_wait::Capacity::default());
+    let (runtime, mut worker) = Runtime::new(OutputFormat::Flac, false).unwrap();
+    let (_, lease) = runtime.admit_line("GET /stream.flac HTTP/1.1");
+    let resources = ConnectionResources::new(socket, Slot::take(&slots, 2).unwrap(), lease);
+    let (started_tx, started_rx) = std::sync::mpsc::channel();
+    let (finish_tx, finish_rx) = std::sync::mpsc::channel();
+    let closer = {
+        let q = q.clone();
+        std::thread::spawn(move || {
+            listener_telemetry::close_and_report(
+                resources.release(|| 49),
+                &q,
+                Some(address),
+                || 50,
+                || 0,
+                |socket| {
+                    let started = std::time::Instant::now();
+                    started_tx.send(()).unwrap();
+                    finish_rx.recv().unwrap();
+                    socket.shutdown(std::net::Shutdown::Both)?;
+                    drop(socket);
+                    Ok::<_, std::io::Error>(started.elapsed())
+                },
+            )
+            .is_ok()
+        })
+    };
+    started_rx.recv_timeout(Duration::from_secs(1)).unwrap();
+    // The close is in progress; both admission guards are already free.
+    assert_eq!(slots.held(), 0);
+    let SwitchStart::Pending(pending) = runtime.begin_switch(
+        OutputFormat::Mp3,
+        false,
+        Arc::new(std::sync::Mutex::new(true)),
+        Duration::from_secs(1),
+    ) else {
+        panic!("switch must enqueue");
+    };
+    worker.service(&runtime);
+    assert!(matches!(pending.poll(), SwitchPoll::Finished(Ok(true))));
+    assert!(
+        matches!(peer.read(&mut [0]),Err(error) if matches!(error.kind(),std::io::ErrorKind::WouldBlock | std::io::ErrorKind::TimedOut)),
+        "the socket is still open while it drains"
+    );
+    finish_tx.send(()).unwrap();
+    assert!(closer.join().unwrap());
+    assert_eq!(peer.read(&mut [0]).unwrap(), 0);
+    assert_eq!(slots.held(), 0);
+    assert_eq!(q.dropped(), 1);
+}
+
+#[test]
+fn admitted_allocation_refusal_preserves_real_response_write_error() {
+    use esp_shazam_core::stream_http::Status;
+    use listener_telemetry::{ErrorCode, RefusalReason};
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let peer = TcpStream::connect(listener.local_addr().unwrap()).unwrap();
+    let (socket, address) = listener.accept().unwrap();
+    socket.shutdown(std::net::Shutdown::Write).unwrap();
+    let q = Queue::new();
+    let allocation = Vec::<u8>::new().try_reserve(usize::MAX).unwrap_err();
+    let allocation = std::io::Error::other(allocation);
+    listener_telemetry::send_admitted_refusal(
+        &socket,
+        &q,
+        Some(address),
+        RefusalReason::BufferAllocation(ErrorCode::from(&allocation)),
+        Duration::from_millis(50),
+        &Status::ServiceUnavailable.response(),
+        || 88,
+    );
+    let Payload::Refusal {
+        reason: RefusalReason::BufferAllocation(error),
+        response_error: Some(write),
+        status,
+    } = q.take().unwrap().payload
+    else {
+        panic!("numeric errors must survive refusal");
+    };
+    assert_eq!(status, 503);
+    assert_eq!(error.kind, std::io::ErrorKind::Other);
+    assert_eq!(write.kind, std::io::ErrorKind::BrokenPipe);
+    assert!(write.raw_os_error.is_some());
+    drop(socket);
+    drop(peer);
+}
+
+fn socket_flags(socket: &TcpStream) -> i32 {
+    use std::os::fd::AsRawFd;
+    // SAFETY: F_GETFL only reads flags from this live, borrowed descriptor.
+    unsafe { libc::fcntl(socket.as_raw_fd(), libc::F_GETFL) }
+}
+
+// Real peer progress keeps the legacy blocking write alive past a whole-response budget.
+fn with_bursty_refusal_peer(send: impl FnOnce(&TcpStream), response_len: usize) -> Duration {
+    use std::{net::Shutdown, sync::mpsc, thread, time::Instant};
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let client = socket2::Socket::new(socket2::Domain::IPV4, socket2::Type::STREAM, None).unwrap();
+    client.set_recv_buffer_size(64 << 10).unwrap();
+    client
+        .connect(&listener.local_addr().unwrap().into())
+        .unwrap();
+    let (server, _) = listener.accept().unwrap();
+    socket2::SockRef::from(&server)
+        .set_send_buffer_size(64 << 10)
+        .unwrap();
+    let mut client: TcpStream = client.into();
+    client
+        .set_read_timeout(Some(Duration::from_millis(100)))
+        .unwrap();
+    let flags = socket_flags(&server);
+    let (ready_tx, ready_rx) = mpsc::channel();
+    let (stop_tx, stop_rx) = mpsc::channel();
+    let reader = thread::spawn(move || {
+        let horizon = Instant::now() + Duration::from_secs(4);
+        let mut total = 0;
+        let mut buffer = [0; 64 << 10];
+        ready_tx.send(()).unwrap();
+        while Instant::now() < horizon {
+            if stop_rx.recv_timeout(Duration::from_millis(300)).is_ok() {
+                break;
+            }
+            let mut burst = 0;
+            while burst < buffer.len() && Instant::now() < horizon {
+                match client.read(&mut buffer[burst..]) {
+                    Ok(0) => return total + burst,
+                    Ok(n) => burst += n,
+                    Err(error)
+                        if matches!(
+                            error.kind(),
+                            std::io::ErrorKind::TimedOut | std::io::ErrorKind::WouldBlock
+                        ) =>
+                    {
+                        break
+                    }
+                    Err(_) => return total + burst,
+                }
+            }
+            total += burst;
+        }
+        // Leave the peer open without progress until the legacy send timeout expires.
+        let _ = stop_rx.recv_timeout(Duration::from_secs(1));
+        total
+    });
+    ready_rx.recv().unwrap();
+    let started = Instant::now();
+    send(&server);
+    let took = started.elapsed();
+    let restored_flags = socket_flags(&server);
+    let shutdown = server.shutdown(Shutdown::Both);
+    let _ = stop_tx.send(());
+    let received = reader.join().unwrap();
+    shutdown.unwrap();
+    assert!(flags >= 0);
+    assert_eq!(restored_flags, flags);
+    assert!(
+        received > 0 && received < response_len,
+        "peer received {received} bytes"
+    );
+    took
+}
+
+#[test]
+fn admitted_refusal_uses_one_budget_while_peer_keeps_reading() {
+    use listener_telemetry::RefusalReason;
+    let response = "x".repeat(8 << 20);
+    let queue = Queue::new();
+    let took = with_bursty_refusal_peer(
+        |socket| {
+            listener_telemetry::send_admitted_refusal(
+                socket,
+                &queue,
+                record(1).peer,
+                RefusalReason::BufferedStartup,
+                Duration::from_millis(400),
+                &response,
+                || 55,
+            );
+        },
+        response.len(),
+    );
+    let event = queue.take().unwrap();
+    assert_eq!(event.event_us, 55);
+    assert_eq!(event.peer, record(1).peer);
+    let Payload::Refusal {
+        reason,
+        status,
+        response_error: Some(error),
+    } = event.payload
+    else {
+        panic!("pressure must record the actual response-write failure");
+    };
+    assert!(matches!(reason, RefusalReason::BufferedStartup));
+    assert_eq!(status, 503);
+    assert!(
+        matches!(
+            error.kind,
+            std::io::ErrorKind::TimedOut | std::io::ErrorKind::WouldBlock
+        ),
+        "{error:?}"
+    );
+    assert!(queue.take().is_none());
+    assert!(
+        took >= Duration::from_millis(350) && took < Duration::from_millis(700),
+        "whole refusal write took {took:?}"
+    );
+    assert_eq!(error.kind, std::io::ErrorKind::TimedOut);
+    assert_eq!(error.raw_os_error, None);
+}
+
+#[test]
+fn shared_response_write_preserves_exact_bytes_and_socket_flags() {
+    use esp_shazam_core::stream_http::write_response;
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let mut peer = TcpStream::connect(listener.local_addr().unwrap()).unwrap();
+    peer.set_read_timeout(Some(Duration::from_secs(1))).unwrap();
+    let (socket, _) = listener.accept().unwrap();
+    let flags = socket_flags(&socket);
+    let response =
+        b"HTTP/1.1 503 Service Unavailable\r\nConnection: close\r\nContent-Length: 0\r\n\r\n";
+    let result = write_response(&socket, response, Duration::from_millis(400));
+    let restored_flags = socket_flags(&socket);
+    socket.shutdown(std::net::Shutdown::Write).unwrap();
+    let mut received = Vec::new();
+    peer.read_to_end(&mut received).unwrap();
+    result.unwrap();
+    assert!(flags >= 0);
+    assert_eq!(restored_flags, flags);
+    assert_eq!(received, response);
+}
+
+#[test]
+fn shared_response_write_times_out_with_original_socket_flags() {
+    use esp_shazam_core::stream_http::write_response;
+    let response = vec![b'x'; 8 << 20];
+    let mut result = Ok(());
+    let took = with_bursty_refusal_peer(
+        |socket| {
+            result = write_response(socket, &response, Duration::from_millis(400));
+        },
+        response.len(),
+    );
+    let error = result.expect_err("large response must exceed the write budget");
+    assert_eq!(error.kind(), std::io::ErrorKind::TimedOut);
+    assert_eq!(error.raw_os_error(), None);
+    assert!(
+        took >= Duration::from_millis(350) && took < Duration::from_millis(700),
+        "whole response write took {took:?}"
+    );
+}
+
+#[test]
+fn encoded_terminal_identity_survives_deferred_queue_export() {
+    use listener_telemetry::EndCode;
+    use stream_pipeline::End;
+    for end in [
+        End::EncodedReset,
+        End::InvalidCursor,
+        End::Retired,
+        End::FellBehind,
+    ] {
+        let expected = format!("{end:?}");
+        let queue = Queue::new();
+        let mut event = record(42);
+        event.payload = Payload::Departure {
+            metrics: None,
+            tenths: 3,
+            end: EndCode::from(&end),
+            owner_stack_free_bytes: 512,
+        };
+        assert!(queue.publish(event));
+        let exported = queue.take().unwrap();
+        let Payload::Departure {
+            end,
+            tenths,
+            owner_stack_free_bytes,
+            ..
+        } = exported.payload
+        else {
+            panic!("departure")
+        };
+        assert_eq!(format!("{end:?}"), expected);
+        assert_eq!((tenths, owner_stack_free_bytes), (3, 512));
+        assert_eq!(exported.event_us, event.event_us);
+        assert!(queue.take().is_none());
+    }
+}
+
+#[test]
+fn actual_listener_launch_failure_closes_captured_resources() {
+    // This host owner exercises the existing close seam on closure destruction;
+    // ESP checked-close and ListenerConnection itself remain target acceptance work.
+    struct ClosingOwner {
+        resources: Option<ConnectionResources<TcpStream>>,
+        queue: Arc<Queue>,
+    }
+    impl Drop for ClosingOwner {
+        fn drop(&mut self) {
+            let closed = listener_telemetry::close_and_report(
+                self.resources.take().unwrap().release(|| 29),
+                &self.queue,
+                None,
+                || 30,
+                || 0,
+                |socket| {
+                    socket.shutdown(std::net::Shutdown::Both)?;
+                    drop(socket);
+                    Ok::<_, std::io::Error>(Duration::ZERO)
+                },
+            );
+            assert!(closed.is_ok());
+        }
+    }
+
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let mut peer = TcpStream::connect(listener.local_addr().unwrap()).unwrap();
+    peer.set_read_timeout(Some(Duration::from_secs(1))).unwrap();
+    let (socket, _) = listener.accept().unwrap();
+    let slots = Arc::new(esp_shazam_core::stream_wait::Capacity::default());
+    let queue = Arc::new(Queue::new());
+    let (runtime, mut worker) = Runtime::new(OutputFormat::Flac, false).unwrap();
+    let (_, lease) = runtime.admit_line("GET /stream.flac HTTP/1.1");
+    let owner = ClosingOwner {
+        resources: Some(ConnectionResources::new(
+            socket,
+            Slot::take(&slots, 2).unwrap(),
+            lease,
+        )),
+        queue: queue.clone(),
+    };
+    let launched = std::thread::Builder::new()
+        .stack_size(usize::MAX)
+        .spawn(move || drop(owner));
+    assert!(launched.is_err());
+    assert_eq!(slots.held(), 0);
+    assert_eq!(peer.read(&mut [0]).unwrap(), 0);
+    assert!(
+        queue.take().is_some(),
+        "close publishes after releasing resources"
+    );
+    assert!(
+        queue.take().is_none(),
+        "the captured owner closes exactly once"
+    );
+    let SwitchStart::Pending(pending) = runtime.begin_switch(
+        OutputFormat::Mp3,
+        false,
+        Arc::new(std::sync::Mutex::new(true)),
+        Duration::from_secs(1),
+    ) else {
+        panic!("switch must enqueue");
+    };
+    worker.service(&runtime);
+    assert!(matches!(pending.poll(), SwitchPoll::Finished(Ok(true))));
+}
+
+#[test]
+fn sonos_replacement_sends_success_while_the_old_socket_still_drains() {
+    use esp_shazam_core::{network_lifecycle::Network, stream_wait::Capacity};
+    use std::{
+        io,
+        sync::{mpsc, Mutex},
+        time::Instant,
+    };
+    for reconnect in [false, true] {
+        let network = Network::new();
+        network.observe(network.snapshot(), Some("192.0.2.10".parse().unwrap()));
+        let lease = network.lease().unwrap();
+        let slots = Arc::new(Capacity::default());
+        let diagnostic = Slot::take(&slots, 2).unwrap();
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let old_peer = TcpStream::connect(listener.local_addr().unwrap()).unwrap();
+        let (old_socket, peer) = listener.accept().unwrap();
+        let token = Arc::new(Mutex::new(true));
+        let (intent, old_slot) = if reconnect {
+            let id = slots
+                .reserve(
+                    peer.ip(),
+                    network.clone(),
+                    lease,
+                    token.clone(),
+                    OutputFormat::Flac,
+                    None,
+                    Instant::now(),
+                )
+                .unwrap();
+            (
+                id,
+                Capacity::admit(
+                    &slots,
+                    id,
+                    peer.ip(),
+                    lease.generation,
+                    OutputFormat::Flac,
+                    None,
+                )
+                .unwrap(),
+            )
+        } else {
+            let old = Slot::take(&slots, 2).unwrap();
+            let id = slots
+                .reserve(
+                    peer.ip(),
+                    network.clone(),
+                    lease,
+                    token.clone(),
+                    OutputFormat::Flac,
+                    None,
+                    Instant::now(),
+                )
+                .unwrap();
+            (id, old)
+        };
+        let mut replacement_peer = TcpStream::connect(listener.local_addr().unwrap()).unwrap();
+        replacement_peer
+            .set_read_timeout(Some(Duration::from_secs(1)))
+            .unwrap();
+        let (replacement_socket, peer) = listener.accept().unwrap();
+        let line = format!(
+            "GET /stream.flac?network_generation={}&sonos_intent={intent} HTTP/1.1",
+            lease.generation
+        );
+        let request = esp_shazam_core::stream_http::StreamRequest::parse(&line).unwrap();
+        // First attempt revokes only the owned Sonos connection on reconnect.
+        assert!(
+            Capacity::admit_request(&slots, &request, peer.ip(), lease.generation)
+                .unwrap()
+                .is_none()
+        );
+        assert!(old_slot.revoked());
+        assert!(!diagnostic.revoked());
+        let resources = ConnectionResources::new(old_socket, old_slot, None);
+        let mut old_peer_reader = old_peer.try_clone().unwrap();
+        old_peer_reader
+            .set_read_timeout(Some(Duration::from_secs(1)))
+            .unwrap();
+        let (closing, entered) = mpsc::channel();
+        let (release, released) = mpsc::channel();
+        let closer = std::thread::spawn(move || {
+            let queue = Queue::new();
+            assert!(listener_telemetry::close_and_report(
+                resources.release(|| 0),
+                &queue,
+                Some(peer),
+                || 1,
+                || 0,
+                |socket| {
+                    closing.send(()).unwrap();
+                    released.recv().unwrap();
+                    socket.shutdown(std::net::Shutdown::Both)?;
+                    drop(socket);
+                    Ok::<_, io::Error>(Duration::ZERO)
+                }
+            )
+            .is_ok());
+        });
+        entered.recv_timeout(Duration::from_secs(1)).unwrap();
+        let capacity = slots.clone();
+        let replacement_line = line.clone();
+        let replacement = std::thread::spawn(move || {
+            let request =
+                esp_shazam_core::stream_http::StreamRequest::parse(&replacement_line).unwrap();
+            let deadline = Instant::now() + Duration::from_secs(1);
+            let slot = loop {
+                if let Some(slot) =
+                    Capacity::admit_request(&capacity, &request, peer.ip(), lease.generation)
+                        .unwrap()
+                {
+                    break slot;
+                }
+                assert!(Instant::now() < deadline);
+                std::thread::yield_now();
+            };
+            let resources = ConnectionResources::new(replacement_socket, slot, None);
+            esp_shazam_core::stream_http::DeadlineWriter::new(&resources.socket)
+                .write_all_before(b"HTTP/1.1 200 OK\r\n\r\n", deadline)
+                .unwrap();
+            assert!(resources
+                .release(|| 2)
+                .close(|socket| {
+                    socket.shutdown(std::net::Shutdown::Both)?;
+                    drop(socket);
+                    Ok::<_, io::Error>(())
+                })
+                .is_ok());
+        });
+        // The old close is still in progress, yet the replacement is admitted and answers.
+        let mut first = [0; 1];
+        assert_eq!(replacement_peer.read(&mut first).unwrap(), 1);
+        assert_eq!(first, *b"H");
+        assert!(
+            matches!(old_peer_reader.read(&mut [0]), Err(ref error) if matches!(error.kind(), io::ErrorKind::WouldBlock | io::ErrorKind::TimedOut)),
+            "the old socket still drains"
+        );
+        assert!(
+            (1..=2).contains(&slots.held()),
+            "the diagnostic slot stays held"
+        );
+        release.send(()).unwrap();
+        closer.join().unwrap();
+        replacement.join().unwrap();
+        assert_eq!(old_peer_reader.read(&mut [0]).unwrap(), 0);
+        let mut response = Vec::new();
+        replacement_peer.read_to_end(&mut response).unwrap();
+        assert!(response.starts_with(b"TTP/1.1 200"));
+        assert_eq!(slots.held(), 1);
+        assert!(!diagnostic.revoked());
+        drop(old_peer);
+        slots.clear(intent);
+        assert!(Slot::take(&slots, 2).is_some());
+    }
+}
+
+#[test]
+fn departure_line_carries_skip_tokens_between_end_text_and_stack_watermark() {
+    use listener_telemetry::{Departure, DepartureLine};
+    let metrics = Departure {
+        media: Default::default(),
+        elapsed_us: 20,
+        task_runtime_us: 7,
+        runtime_valid: true,
+        frames_sent: 2,
+        bytes_sent: 1234,
+        frame_write_wall_total_us: 9,
+        frame_write_wall_max_us: 8,
+        frame_read_wait_wall_total_us: 3,
+        payload_elapsed_us: 18,
+        block_samples: 1152,
+        socket: Default::default(),
+        skips: 2,
+        frames_skipped: 333,
+        last_skip_us: 81_000_000,
+    };
+    // The shape `scripts/network_fault.py` LEFT and SKIP_TOKEN parse: tokens inside the end
+    // capture, which `without_skip_tokens` strips back to the end text.
+    let line = DepartureLine {
+        peer: "192.168.23.153:52582",
+        tenths: 601,
+        end: "media age exceeded",
+        metrics: Some(&metrics),
+        owner_stack_free_bytes: 1148,
+        event_us: 81_182_401,
+    }
+    .to_string();
+    assert_eq!(
+        line,
+        "stream: 192.168.23.153:52582 left after 60.1 s: media age exceeded skips=2 frames_skipped=333 last_skip_us=81000000 listener_stack_free_bytes=1148 event_us=81182401"
+    );
+    // A departure without listener metrics (the WAV path) keeps the retained shape, no tokens.
+    let bare = DepartureLine {
+        peer: "unknown peer",
+        tenths: 3,
+        end: "stopped reading",
+        metrics: None,
+        owner_stack_free_bytes: 512,
+        event_us: 9,
+    }
+    .to_string();
+    assert_eq!(
+        bare,
+        "stream: unknown peer left after 0.3 s: stopped reading listener_stack_free_bytes=512 event_us=9"
+    );
+}
+
+/// Encodes one block of silence and publishes it to the epoch's ring at `at` microseconds.
+fn publish_silence(worker: &mut stream_runtime::Worker, epoch: &stream_runtime::Epoch, at: u64) {
+    let pcm = vec![0i32; 2 * epoch.format.block_frames()];
+    for chunk in pcm.chunks(480) {
+        worker.encoder.push(chunk);
+    }
+    worker.encoder.encode_block(0, &mut worker.bytes).unwrap();
+    let source = esp_shazam_core::flac_ring::SourceMetadata {
+        raw_generation: 0,
+        source_start: 0,
+        source_end: 1,
+        oldest_accepted_us: at,
+        raw_publication_us: at,
+    };
+    epoch
+        .ring
+        .lock()
+        .unwrap()
+        .push(&worker.bytes, source, || at)
+        .unwrap();
+}
+
+#[test]
+fn timeout_receipt_labels_the_budget_the_listener_gave_the_write() {
+    use stream_pipeline::{CompressedListener, ListenerStep};
+    // The header keeps the fixed limit under both policies; a live frame gets the ring depth
+    // (contract point 2) and the receipt must say so, not quote the exact reader's limit.
+    for (policy, frame_limit_ms) in [
+        (
+            ListenerPolicy::Live,
+            OutputFormat::Mp3.live_write_limit_ms(false),
+        ),
+        (
+            ListenerPolicy::Exact,
+            OutputFormat::Mp3.write_limit_ms(false),
+        ),
+    ] {
+        assert_eq!(OutputFormat::Mp3.write_limit_ms(false), 8_016);
+        let (_runtime, mut worker) = Runtime::new(OutputFormat::Mp3, false).unwrap();
+        let epoch = worker.epoch.clone();
+        let time = Duration::from_secs(1);
+        let mut scratch = vec![0; OutputFormat::Mp3.max_frame_bytes()];
+        let mut listener = CompressedListener::new(&epoch, None, false, policy, &mut || time);
+        assert!(matches!(
+            listener.step(&epoch, &mut scratch, &mut || time, &mut || true),
+            ListenerStep::Progress
+        ));
+        let ListenerStep::Write {
+            deadline,
+            header: true,
+        } = listener.step(&epoch, &mut scratch, &mut || time, &mut || true)
+        else {
+            panic!("header write");
+        };
+        assert_eq!(listener.pending_write_limit(), Duration::from_millis(8_016));
+        assert_eq!(deadline, time + listener.pending_write_limit());
+        listener.write_finished(Ok(()), &mut || time);
+        publish_silence(&mut worker, &epoch, 1_000_000);
+        let ListenerStep::Write {
+            deadline,
+            header: false,
+        } = listener.step(&epoch, &mut scratch, &mut || time, &mut || true)
+        else {
+            panic!("frame write under {policy:?}");
+        };
+        let limit = listener.pending_write_limit();
+        assert_eq!(limit, Duration::from_millis(frame_limit_ms), "{policy:?}");
+        let q = Queue::new();
+        let timing = listener_telemetry::WriteTiming::new(
+            time.as_micros() as u64,
+            deadline.as_micros() as u64,
+            limit.as_millis() as u64,
+        );
+        let result = Err(std::io::Error::from(std::io::ErrorKind::TimedOut));
+        listener_telemetry::report_timeout(&q, None, &result, 12_001, timing, 9, || 7);
+        let Payload::Timeout {
+            nominal_limit_ms,
+            remaining_budget_us,
+            ..
+        } = q.take().unwrap().payload
+        else {
+            panic!("timeout receipt");
+        };
+        assert_eq!(nominal_limit_ms, frame_limit_ms, "{policy:?}");
+        if policy == ListenerPolicy::Live {
+            assert_eq!(remaining_budget_us, frame_limit_ms * 1_000);
+        } else {
+            assert!(remaining_budget_us <= frame_limit_ms * 1_000);
+        }
+    }
+}

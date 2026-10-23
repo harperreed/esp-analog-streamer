@@ -1,0 +1,174 @@
+{
+  "schema_version": 1,
+  "date": "2026-10-10",
+  "implementation_commit": "5460cac",
+  "collector_commit": "26d21c1",
+  "artifact_directory": "target/kata-hardening/encoder-probe-device/trial-1",
+  "source_sha256": {
+    "aplay.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "errors.jsonl": "7463304c3f84dbce3f9be849aa409f864bae4e0a6d8f9e56d999fdb21cbdb129",
+    "events.jsonl": "e38e9bbb96e81c322f387c68ab4a6d6bf54d22bd1074f8ce58a353a90938ba52",
+    "result.json": "e11e04b9dc73f67474010a320cd033685be9896b02da63c7a446f59fccc3e6bf",
+    "source-liveness.jsonl": "32f6380ee211f7537d30e3ad71e5e11958af9cf926d9b99965e372d55293697b",
+    "source-recipe.json": "d9b0336acf98c67713ba8f6f3f81f9b61d4489cbc07bc3aa0f6f39591a9f62b5",
+    "status.jsonl": "8ecb16986c23c8527baf5674a2ac3a56d1e52b28b1630413d0daa8d0e1a303b9",
+    "stopped-sonos.json": "b26e4f4f88016df7eb633ff63f84e26e041a22be01038d264dcc6e369d0975dc",
+    "stopped-state.json": "3cbac33f010c678092417d0ca97f56f65fce8ea127d41a41680a228c5904c14c",
+    "uart-arrival.jsonl": "f85ea7cfdffdba0669dee94b26fd86af9f6a05646e1615816fad68a7a7fcfb22",
+    "uart.log": "f20c7956be6c96b0e8cf8c6f44fb5931beeb600a79253e8ad8c36cfaa72463d7",
+    "unified.elf": "d5607b7f1e513987dd6031f9130d36fd27f044ad66e33c8b94032fa48752d66e"
+  },
+  "probe_elf_sha256": "d5607b7f1e513987dd6031f9130d36fd27f044ad66e33c8b94032fa48752d66e",
+  "device_attestation": false,
+  "source_recipe": {
+    "algorithm": "PCG64",
+    "distribution": "discrete uniform integers, inclusive [-3277, 3277]",
+    "duration_seconds": 420,
+    "format": {
+      "channels": 2,
+      "encoding": "PCM signed 16-bit little-endian",
+      "sample_rate": 48000,
+      "sample_width_bytes": 2
+    },
+    "frames": 20160000,
+    "numpy_version": "2.4.4",
+    "peak_amplitude": 3277,
+    "seed": 20261010,
+    "sha256": "9311d9ca5dfe1a5f9269631afe22647834207f2b3239571474acc8ac15f3228d"
+  },
+  "collection_budget_seconds": 360,
+  "source_settle_seconds": 12.003655,
+  "source_loop": false,
+  "completed": false,
+  "acquisition_complete": false,
+  "valid_sequence": false,
+  "collector_exit_code": 1,
+  "errors": [
+    {
+      "error": "TimeoutError('fixed global collection budget exhausted; invalid sequences retained')",
+      "host_monotonic": 1118635.055098779
+    }
+  ],
+  "invalidations": [
+    {
+      "sequence": 1,
+      "device_ms": 166116,
+      "phase": "OFF2",
+      "interval": 1,
+      "lifetime_frames": 6597,
+      "resets": 1
+    },
+    {
+      "sequence": 2,
+      "device_ms": 346626,
+      "phase": "OFF2",
+      "interval": 3,
+      "lifetime_frames": 14025,
+      "resets": 2
+    }
+  ],
+  "retained_phase_diagnostics": [
+    {
+      "sequence": 1,
+      "phase": "OFF1",
+      "retained_windows": 6,
+      "encoded_frame_delta": 2487,
+      "elapsed_us": 60065156,
+      "generated_seconds": 59.688,
+      "generated_to_elapsed": 0.993720885366551,
+      "encode_wall_total_us": 54488758,
+      "codec_wall_us_per_frame": 21909.43224768798
+    },
+    {
+      "sequence": 1,
+      "phase": "ON",
+      "retained_windows": 6,
+      "encoded_frame_delta": 2455,
+      "elapsed_us": 60094815,
+      "generated_seconds": 58.92,
+      "generated_to_elapsed": 0.9804506428716022,
+      "encode_wall_total_us": 53905144,
+      "codec_wall_us_per_frame": 21957.28879837067
+    },
+    {
+      "sequence": 2,
+      "phase": "OFF1",
+      "retained_windows": 6,
+      "encoded_frame_delta": 2477,
+      "elapsed_us": 60070344,
+      "generated_seconds": 59.448,
+      "generated_to_elapsed": 0.989639746361366,
+      "encode_wall_total_us": 54324351,
+      "codec_wall_us_per_frame": 21931.510294711345
+    },
+    {
+      "sequence": 2,
+      "phase": "ON",
+      "retained_windows": 6,
+      "encoded_frame_delta": 2467,
+      "elapsed_us": 60081749,
+      "generated_seconds": 59.208,
+      "generated_to_elapsed": 0.9854573308110587,
+      "encode_wall_total_us": 54083073,
+      "codec_wall_us_per_frame": 21922.60762059181
+    }
+  ],
+  "storage_bytes": {
+    "raw_payload": 768000,
+    "raw_stamps": 1600,
+    "chunk_len": 1920,
+    "chunk_capacity": 1920,
+    "output_capacity": 960,
+    "output_required": 960,
+    "output_len_sequence_1": 0,
+    "output_len_sequence_2_and_3": 960,
+    "pcm": 4608,
+    "shine_config": 95888,
+    "shine_bitstream": 4096
+  },
+  "capture_startup": {
+    "queue_overflows": 15,
+    "software_dropped_frames": 480,
+    "restarts": 2,
+    "overflow_restarts": 2,
+    "discontinuities": 2
+  },
+  "retained_capture_fault_deltas": 0,
+  "final_state": {
+    "output_format": "mp3",
+    "buffer_preset": "med",
+    "state": "stopped",
+    "autoplay": false,
+    "shazam_enabled": false,
+    "source_and_uart_released": "parent verified"
+  },
+  "timing_limits": {
+    "max_liveness_sampling_gap_ms": 205.211,
+    "requested_sampling_ms": 200,
+    "deadline_observation_late_ms": 89.136,
+    "cleanup_end_since_source_seconds": 372.781236
+  },
+  "performance_issue": {
+    "severity": "P1",
+    "id": "wbz6",
+    "state": "open"
+  },
+  "limitations": [
+    "RTS reset is not a physical power cycle.",
+    "Source liveness/routing do not prove samples at ADC.",
+    "Arrival stamps are host read times, not device execution.",
+    "Zero listener endpoints cannot exclude brief churn.",
+    "No overhead tolerance or release performance acceptance is inferred.",
+    "No valid complete 24-window sequence; no OFF2 retained windows, overhead estimate or repeatability claim.",
+    "No historical cache-causation or exclusive codec CPU attribution.",
+    "Startup capture faults are nonzero; later zero fault deltas do not establish a clean boot.",
+    "Saved ELF hash identifies host artifact; device attestation is false.",
+    "Default-ELF same-source control is planned separately; no outcome is claimed."
+  ],
+  "tool_sha256": {
+    "scripts/encoder_probe_check.py": "eb577ee191291ec010091e0fb6e3449d997d6f9c1899f5772ab2f39b23823865",
+    "scripts/encoder-probe-check": "7f42374e3a6179933317ebdca0a293b164b21e8de8b735818f449f88de7ff582"
+  },
+  "replay_fixture": "scripts/fixtures/encoder-probe/device-rejected",
+  "independent_review": "target/kata-hardening/encoder-probe-trial-1-review.md"
+}

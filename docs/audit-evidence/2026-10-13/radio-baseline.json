@@ -1,0 +1,149 @@
+{
+  "date": "2026-10-13",
+  "issue": "hv4x",
+  "status": "diagnostic_restoration_subcriterion_passed",
+  "scope": "Throwaway diagnostic-to-production protocol restoration; no permanent firmware change.",
+  "elf_sha256": {
+    "seed": "b90e859149867a38a471e85a1ecef2cee125af5a192a7c214f45e7ef8ace1639",
+    "observation": "4e10e035b6cda05fd099e9f7dfa75a926b49105dc591546fe750c69ed67345f0",
+    "ordinary": "e93f8f72692c1630d082de42b3d1ae8d11d8c106c2ef6e978e96b74a83cb5eea"
+  },
+  "route": {
+    "interface": "wlp6s0",
+    "source": "target/kata-hardening/oct13-next/route.json"
+  },
+  "seed_first": {
+    "capture_seconds": 30,
+    "collector_exit": 0,
+    "reset_reason": 1,
+    "protocol_before_setter": 7,
+    "protocol_after_setter": 3,
+    "complete_phase_sequence": true
+  },
+  "seed_reset": {
+    "capture_seconds": 30,
+    "collector_exit": 0,
+    "reset_reason": 1,
+    "protocol_before_setter": 3,
+    "protocol_after_setter": 3,
+    "complete_phase_sequence": true
+  },
+  "observation": {
+    "capture_budget_seconds": 45,
+    "collector_completion": "complete",
+    "protocol_after_driver_construction": 3,
+    "protocol_before_production_setter": 3,
+    "started_protocol": 7,
+    "started_power_save": 0,
+    "connected_protocol": 7,
+    "connected_power_save": 0,
+    "channel": 11,
+    "rssi_dbm": -42,
+    "negotiated_phy": 4,
+    "image_attestation": "verified",
+    "collector_exit": 0,
+    "boot_id": "be9ae87a3a7088e54d864daf0376a949",
+    "saved_configuration_matches": true,
+    "stopped_mp3_medium_idle_autoplay_recognition_off": true,
+    "sonos_stopped": true
+  },
+  "builds": {
+    "seed": "passed_parent_report",
+    "observation": "passed_parent_report",
+    "observation_iram_check": {
+      "status": "passed_parent_report",
+      "linked_symbols_checked": 11002
+    }
+  },
+  "checks": {
+    "canonical": "27 checks passed in prior run YkqTJGio on unchanged retained source; no new run claimed"
+  },
+  "review": {
+    "initial": "blocked: default NVS take() can erase on initialization failure",
+    "corrected": "approved before build: temporary seed and observation use take_with(false)"
+  },
+  "cleanup": {
+    "temporary_production_patch": "reverted_parent_report",
+    "temporary_example": "removed_parent_report",
+    "ordinary_image_restore": "passed",
+    "source_and_credentials_preservation": "passed_parent_receipts",
+    "saved_settings": "stopped MP3/Medium; autoplay and recognition off; listeners idle; remote STOPPED/OK",
+    "independent_runtime_audit": "passed",
+    "ordinary_observed_policy": {
+      "protocol": 7,
+      "power_save": 0,
+      "channel": 6,
+      "rssi_dbm": -47,
+      "negotiated_phy": 4,
+      "collector_completion": "complete"
+    },
+    "ordinary_collector_exit": 0,
+    "ordinary_capture_seconds": 45,
+    "ordinary_boot_id": "74e77947d416e3544fe599b07175b5a7",
+    "compiled_configuration_matches": true,
+    "saved_configuration_matches": true
+  },
+  "raw_evidence_root": "target/kata-hardening/oct13-next",
+  "remaining_acceptance": "hv4x remains open: current 16-bit FLAC transport controls with correlated sender/AP evidence; no AP access available.",
+  "limitations": [
+    "Independent audit passed this restoration subcriterion; parent process-exit receipts were not independently observed.",
+    "No buffer change, AP control or mixer change.",
+    "Ordinary production retains original NVS take() error behavior; do not claim unconditional no-erase protection.",
+    "Association channel changed from observation 11 to ordinary 6; same-channel conditions were not established."
+  ],
+  "credential_handling": "Seed has no credential setter. Observation patch adds reads and a non-erasing NVS initialization guard; existing production still reapplies its unchanged configured credentials.",
+  "flash_exit_codes": {
+    "seed": 0,
+    "observation": 0,
+    "ordinary": 0
+  },
+  "source_archives_byte_equal": true,
+  "raw_artifact_sha256": {
+    "target/kata-hardening/oct13-next/radio-seed.elf": "b90e859149867a38a471e85a1ecef2cee125af5a192a7c214f45e7ef8ace1639",
+    "target/kata-hardening/oct13-next/radio-observe.elf": "4e10e035b6cda05fd099e9f7dfa75a926b49105dc591546fe750c69ed67345f0",
+    "target/kata-hardening/oct13-next/production.elf": "e93f8f72692c1630d082de42b3d1ae8d11d8c106c2ef6e978e96b74a83cb5eea",
+    "target/kata-hardening/oct13-next/radio-seed-sdkconfig": "5a0652685fb55be50214dd788b30fc33b3113c15f371c26ffad321a7c003c33b",
+    "target/kata-hardening/oct13-next/radio-observe-sdkconfig": "5a0652685fb55be50214dd788b30fc33b3113c15f371c26ffad321a7c003c33b",
+    "target/kata-hardening/oct13-next/radio-seed.rs": "1f90e7b32a62e2e877954c8d4bec84dbcc63db440a6bb6fa3c729132d7a24f12",
+    "target/kata-hardening/oct13-next/radio-observe.patch": "f1314a4ac39bd15ecb4bb25335416611c6f2597eff769544cef3931cf94b365c",
+    "target/kata-hardening/oct13-next/preservation.json": "31c1e16abc12e1d026c444057ec98081adbb9398f7e316cbbdd860f2517236f9",
+    "target/kata-hardening/oct13-next/route.json": "8fc73ebede9764883fc31915a6eceed2d1920f612e9668be05335c2d96ddabc9",
+    "target/kata-hardening/oct13-next/preflight/verified.json": "f3f59abf2f7c213db271b3be206a40dfb41577e281c431d5e016962a20af5555",
+    "target/kata-hardening/oct13-next/observation-state/verified.json": "b734780aaf0e6859e6aba5c618d4bd6595559c55bc3445c53bfb7519ff12a1a9",
+    "target/kata-hardening/oct13-next/production-final-check/verified.json": "381d79fcc80c72e3fe547b2e1cc5ac2d480275b0459f278e080d5b3f709feec1",
+    "target/kata-hardening/oct13-next/radio-seed-first.uart": "815409fad316ef48a41db943db3e56d18e9043c2f59dcd9d955de92e87af9e85",
+    "target/kata-hardening/oct13-next/radio-seed-reset.uart": "918fcd8f2d7fbf2e5001a493845e0df715d1f7e728093504b27557f358d67f8a",
+    "target/kata-hardening/oct13-next/radio-observe.uart": "b9eef334c92901ac00a6165fdfa79b0bc4402a7b762ce188afb6a1e480cc60c8",
+    "target/kata-hardening/oct13-next/production.uart": "7627fa98ae1deb13e53a42d2b82ebdd9b488339cc6bf397f533e66aace2def08",
+    "target/kata-hardening/oct13-next/radio-seed-flash.log": "0f2ead6e2605388ca80b90aad7ed6b1bd97e2922445aff9cf2864124f7714f50",
+    "target/kata-hardening/oct13-next/radio-observe-flash.log": "73bfa4cff38a65dda3370d72d4129a7093b2e9d0a565a7cdc0877287e5c2ad81",
+    "target/kata-hardening/oct13-next/production-flash.log": "8ebf5814ce8453627b1e94767e11d51e4491bc73f8bf86bf4d5c68e25e63edbf",
+    "target/kata-hardening/oct13-next/radio-evidence.json": "0e5f128bc0ea0b38e150e1f8b927dc14da94e1128a1d1bbad7beb124ece475f5",
+    "target/kata-hardening/oct13-next/radio-evidence.md": "d5f6e347e0c6239d9d79e13ae15d8297352c24fcb6bc54d7727d289a30d30c88",
+    "target/kata-hardening/oct13-next/radio-seed-build.log": "b98bc698d1c3c938c67e04c141e57fcb2e43b75dff7d6c0ab2f6481eb8db8792",
+    "target/kata-hardening/oct13-next/radio-observe-build.log": "effffa446080100b624e2947872a71d81eaf32b0f8a639849a84731980ba7f6b",
+    "target/kata-hardening/oct13-next/radio-observe-iram.log": "31753e2ae6a710de172f407c2a355c2d3424ade2941abaad01c12a5f53b91dce"
+  },
+  "runtime_audit": {
+    "passed": true,
+    "scope": "hv4x diagnostic-to-production radio restoration subcriterion only",
+    "boot_counts": {
+      "seed_first": 1,
+      "seed_reset": 1,
+      "observation": 1,
+      "ordinary": 1
+    },
+    "fatal_lines": {
+      "seed_first": 0,
+      "seed_reset": 0,
+      "observation": 0,
+      "ordinary": 0
+    },
+    "limits": [
+      "No sender/AP correlation, throughput, audible continuity or Sonos recovery acceptance.",
+      "UART app metadata is not independent Rust ELF attestation; external hashes and HTTP build identity are retained.",
+      "Collector and flash process exit statuses are parent receipts, not independently observed process exits.",
+      "Route receipt describes acquisition-time host routing, not an AP trace or a final live route query."
+    ]
+  }
+}

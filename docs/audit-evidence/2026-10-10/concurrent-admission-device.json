@@ -1,0 +1,1182 @@
+{
+  "date": "2026-10-10",
+  "verdict": "failed; incomplete admission acceptance",
+  "audio_acceptance": false,
+  "device_attestation": false,
+  "production": {
+    "commit": "81df0833477debb2ede0d76b13ce74be9017f75a",
+    "canonical": "target/check-logs/run.QSVJJTto",
+    "features": [],
+    "admission_workers": 2,
+    "admission_priority": 7,
+    "listener_priority": 7,
+    "source_hashes": {
+      "firmware/src/stream.rs": "9baa52a70bf10e0e06d890779dc9df9e94b06709803d148726626080c99d2f62",
+      "firmware/src/stream_admission.rs": "49010c48c0825d1200c4e306a29ffd8abcebe4f6e4f453a786d7b7a23942e7e9",
+      "firmware/src/lib.rs": "5eb9f616057a3c3f9d16ddbd9aef65a3f785a33a2ed0cf9a6f88e0d3b34dda06",
+      "firmware/src/threads.rs": "734594d603f60cef5927e312dcce2239e52cd5a88cf1ee0da45951f0f4bddfe0",
+      "firmware/Cargo.toml": "fa362453853b3bb77ea6216472993ded6581372e07583b266c47181297846ca9",
+      "firmware/Cargo.lock": "4250f6f33c4778fdf303b55fdf68bf19f53df92fa8d7282a5acfa6bca02caf66",
+      "firmware/sdkconfig.defaults": "9eb20b6d11512d972615ea79edf40f7638b1b5b3450cb47b09b2eca38da1d9f9"
+    },
+    "artifact_hashes": {
+      "esp-shazam": "01d2607f71524fc7b980fc37cc3516aa1f0e987f5ea0352bd2f3dca7bf113f04",
+      "bootloader.bin": "52fe6290545ac5b485807bcfb5ccc4a4e118f1686c0e6e952e1699440283a25b",
+      "partitions.csv": "0f19e8c75a43382ce745837a73839f39fb3a12f5ed90c6278e086bd1238d7dde"
+    },
+    "device_attestation": false,
+    "source_archive_sha256": "cd884d974bc257bbc060df6b4945fdb11d21a2340dc15b13cf2665d69a83ffa2"
+  },
+  "trials": [
+    {
+      "number": 1,
+      "result": {
+        "passed": false,
+        "audio_acceptance": false,
+        "ordering": "connection/send order only; device accepted order unknown",
+        "limitations": [
+          "nonempty payload only; no independent decoded audio frame",
+          "no UART accounting, heap/task/watermark or whole-device socket census",
+          "host close does not prove board resource reclamation"
+        ],
+        "error": "ConnectionResetError: [Errno 104] Connection reset by peer",
+        "cleanup_errors": [],
+        "all_owned_sockets_closed": true
+      },
+      "cases": [
+        {
+          "case": "final",
+          "started": 1144321.773430846,
+          "passed": true,
+          "finished": 1144322.319627673,
+          "peers": [
+            {
+              "id": 9,
+              "received": 360,
+              "retained": 360,
+              "eof": false,
+              "closed": true
+            },
+            {
+              "id": 10,
+              "received": 239,
+              "retained": 239,
+              "eof": false,
+              "closed": true
+            }
+          ]
+        },
+        {
+          "case": "initial",
+          "started": 1144312.526097246,
+          "passed": true,
+          "finished": 1144313.246658336,
+          "peers": [
+            {
+              "id": 1,
+              "received": 360,
+              "retained": 360,
+              "eof": false,
+              "closed": true
+            },
+            {
+              "id": 2,
+              "received": 239,
+              "retained": 239,
+              "eof": false,
+              "closed": true
+            }
+          ]
+        },
+        {
+          "case": "partial",
+          "started": 1144313.246922085,
+          "passed": true,
+          "finished": 1144315.577517687,
+          "peers": [
+            {
+              "id": 3,
+              "received": 0,
+              "retained": 0,
+              "eof": true,
+              "closed": true
+            },
+            {
+              "id": 4,
+              "received": 1049,
+              "retained": 1049,
+              "eof": false,
+              "closed": true
+            }
+          ]
+        },
+        {
+          "case": "silent",
+          "started": 1144315.57785651,
+          "passed": true,
+          "finished": 1144319.234110556,
+          "peers": [
+            {
+              "id": 5,
+              "received": 0,
+              "retained": 0,
+              "eof": true,
+              "closed": true
+            },
+            {
+              "id": 6,
+              "received": 1049,
+              "retained": 1049,
+              "eof": false,
+              "closed": true
+            }
+          ]
+        },
+        {
+          "case": "trickle",
+          "started": 1144319.23444493,
+          "passed": false,
+          "error": "ConnectionResetError: [Errno 104] Connection reset by peer",
+          "finished": 1144321.773075546,
+          "peers": [
+            {
+              "id": 7,
+              "received": 0,
+              "retained": 0,
+              "eof": false,
+              "closed": true
+            },
+            {
+              "id": 8,
+              "received": 1529,
+              "retained": 1529,
+              "eof": false,
+              "closed": true
+            }
+          ]
+        }
+      ],
+      "peer_timings": [
+        {
+          "peer": 1,
+          "milliseconds_after_connected": {
+            "sent": 0.063801,
+            "first_byte": 87.002437,
+            "header_complete": 120.315183,
+            "closed": 120.58564
+          },
+          "sent_event_count": 1,
+          "milliseconds_after_first_send": {
+            "first_byte": 86.938636,
+            "header_complete": 120.251382
+          }
+        },
+        {
+          "peer": 2,
+          "milliseconds_after_connected": {
+            "sent": 0.053602,
+            "first_byte": 250.336414,
+            "header_complete": 300.392135,
+            "closed": 300.521647
+          },
+          "sent_event_count": 1,
+          "milliseconds_after_first_send": {
+            "first_byte": 250.282812,
+            "header_complete": 300.338533
+          }
+        },
+        {
+          "peer": 3,
+          "milliseconds_after_connected": {
+            "sent": 0.04976,
+            "eof": 2133.218983,
+            "closed": 2133.313892
+          },
+          "sent_event_count": 1,
+          "milliseconds_after_first_send": {}
+        },
+        {
+          "peer": 4,
+          "milliseconds_after_connected": {
+            "sent": 0.040237,
+            "first_byte": 290.580244,
+            "header_complete": 290.59389,
+            "first_payload": 513.361834,
+            "closed": 513.403691
+          },
+          "sent_event_count": 1,
+          "milliseconds_after_first_send": {
+            "first_byte": 290.540007,
+            "header_complete": 290.553653,
+            "first_payload": 513.321597
+          }
+        },
+        {
+          "peer": 5,
+          "milliseconds_after_connected": {
+            "eof": 3636.052609,
+            "closed": 3636.12896
+          },
+          "sent_event_count": 0
+        },
+        {
+          "peer": 6,
+          "milliseconds_after_connected": {
+            "sent": 0.050755,
+            "first_byte": 644.509319,
+            "header_complete": 644.522409,
+            "first_payload": 857.84127,
+            "closed": 857.882797
+          },
+          "sent_event_count": 1,
+          "milliseconds_after_first_send": {
+            "first_byte": 644.458564,
+            "header_complete": 644.471654,
+            "first_payload": 857.790515
+          }
+        },
+        {
+          "peer": 7,
+          "milliseconds_after_connected": {
+            "sent": 0.047217,
+            "closed": 2514.045212
+          },
+          "sent_event_count": 11,
+          "milliseconds_after_first_send": {}
+        },
+        {
+          "peer": 8,
+          "milliseconds_after_connected": {
+            "sent": 0.039665,
+            "first_byte": 683.012459,
+            "header_complete": 683.025915,
+            "first_payload": 953.300323,
+            "closed": 953.338365
+          },
+          "sent_event_count": 1,
+          "milliseconds_after_first_send": {
+            "first_byte": 682.972794,
+            "header_complete": 682.98625,
+            "first_payload": 953.260658
+          }
+        },
+        {
+          "peer": 9,
+          "milliseconds_after_connected": {
+            "sent": 0.050387,
+            "first_byte": 18.840306,
+            "header_complete": 36.118553,
+            "closed": 36.242
+          },
+          "sent_event_count": 1,
+          "milliseconds_after_first_send": {
+            "first_byte": 18.789919,
+            "header_complete": 36.068166
+          }
+        },
+        {
+          "peer": 10,
+          "milliseconds_after_connected": {
+            "sent": 0.055717,
+            "first_byte": 126.53519,
+            "header_complete": 292.266441,
+            "closed": 292.378419
+          },
+          "sent_event_count": 1,
+          "milliseconds_after_first_send": {
+            "first_byte": 126.479473,
+            "header_complete": 292.210724
+          }
+        }
+      ]
+    },
+    {
+      "number": 2,
+      "result": {
+        "passed": false,
+        "audio_acceptance": false,
+        "ordering": "connection/send order only; device accepted order unknown",
+        "limitations": [
+          "nonempty payload only; no independent decoded audio frame",
+          "no UART accounting, heap/task/watermark or whole-device socket census",
+          "host close does not prove board resource reclamation"
+        ],
+        "error": "ValueError: exact MP3 head plus nonempty payload required",
+        "cleanup_errors": [],
+        "all_owned_sockets_closed": true
+      },
+      "cases": [
+        {
+          "case": "final",
+          "started": 1144747.497247404,
+          "passed": true,
+          "finished": 1144747.849379867,
+          "peers": [
+            {
+              "id": 31,
+              "received": 360,
+              "retained": 360,
+              "eof": false,
+              "terminal": null,
+              "closed": true
+            },
+            {
+              "id": 32,
+              "received": 239,
+              "retained": 239,
+              "eof": false,
+              "terminal": null,
+              "closed": true
+            }
+          ]
+        },
+        {
+          "case": "fragmented",
+          "started": 1144725.277894574,
+          "passed": true,
+          "finished": 1144725.897390718,
+          "peers": [
+            {
+              "id": 9,
+              "received": 1049,
+              "retained": 1049,
+              "eof": false,
+              "terminal": null,
+              "closed": true
+            }
+          ]
+        },
+        {
+          "case": "full",
+          "started": 1144728.217843668,
+          "passed": true,
+          "finished": 1144732.838153035,
+          "peers": [
+            {
+              "id": 13,
+              "received": 26969,
+              "retained": 26969,
+              "eof": false,
+              "terminal": null,
+              "closed": true
+            },
+            {
+              "id": 14,
+              "received": 9689,
+              "retained": 9689,
+              "eof": false,
+              "terminal": null,
+              "closed": true
+            },
+            {
+              "id": 15,
+              "received": 163,
+              "retained": 163,
+              "eof": false,
+              "terminal": null,
+              "closed": true
+            }
+          ]
+        },
+        {
+          "case": "halfclose",
+          "started": 1144725.897602381,
+          "passed": true,
+          "finished": 1144726.588330451,
+          "peers": [
+            {
+              "id": 10,
+              "received": 1049,
+              "retained": 1049,
+              "eof": false,
+              "terminal": null,
+              "closed": true
+            }
+          ]
+        },
+        {
+          "case": "initial",
+          "started": 1144717.15271064,
+          "passed": true,
+          "finished": 1144717.73807328,
+          "peers": [
+            {
+              "id": 1,
+              "received": 360,
+              "retained": 360,
+              "eof": false,
+              "terminal": null,
+              "closed": true
+            },
+            {
+              "id": 2,
+              "received": 239,
+              "retained": 239,
+              "eof": false,
+              "terminal": null,
+              "closed": true
+            }
+          ]
+        },
+        {
+          "case": "invalid-utf8",
+          "started": 1144726.588552636,
+          "passed": true,
+          "finished": 1144727.048547337,
+          "peers": [
+            {
+              "id": 11,
+              "received": 121,
+              "retained": 121,
+              "eof": false,
+              "terminal": null,
+              "closed": true
+            }
+          ]
+        },
+        {
+          "case": "oversized",
+          "started": 1144727.048830625,
+          "passed": true,
+          "finished": 1144728.21763914,
+          "peers": [
+            {
+              "id": 12,
+              "received": 121,
+              "retained": 121,
+              "eof": false,
+              "terminal": null,
+              "closed": true
+            }
+          ]
+        },
+        {
+          "case": "partial",
+          "started": 1144717.738286955,
+          "passed": true,
+          "finished": 1144720.031933908,
+          "peers": [
+            {
+              "id": 3,
+              "received": 0,
+              "retained": 0,
+              "eof": true,
+              "terminal": "fin",
+              "closed": true
+            },
+            {
+              "id": 4,
+              "received": 1049,
+              "retained": 1049,
+              "eof": false,
+              "terminal": null,
+              "closed": true
+            }
+          ]
+        },
+        {
+          "case": "pending-natural",
+          "started": 1144734.317990812,
+          "passed": true,
+          "finished": 1144737.896369139,
+          "peers": [
+            {
+              "id": 19,
+              "received": 0,
+              "retained": 0,
+              "eof": true,
+              "terminal": "fin",
+              "closed": true
+            },
+            {
+              "id": 20,
+              "received": 0,
+              "retained": 0,
+              "eof": true,
+              "terminal": "fin",
+              "closed": true
+            },
+            {
+              "id": 21,
+              "received": 1049,
+              "retained": 1049,
+              "eof": false,
+              "terminal": null,
+              "closed": true
+            }
+          ]
+        },
+        {
+          "case": "pending-release",
+          "started": 1144732.838493118,
+          "passed": true,
+          "finished": 1144734.317591042,
+          "peers": [
+            {
+              "id": 16,
+              "received": 0,
+              "retained": 0,
+              "eof": false,
+              "terminal": null,
+              "closed": true
+            },
+            {
+              "id": 17,
+              "received": 0,
+              "retained": 0,
+              "eof": false,
+              "terminal": null,
+              "closed": true
+            },
+            {
+              "id": 18,
+              "received": 1049,
+              "retained": 1049,
+              "eof": false,
+              "terminal": null,
+              "closed": true
+            }
+          ]
+        },
+        {
+          "case": "recovery-1",
+          "started": 1144737.896927973,
+          "passed": true,
+          "finished": 1144744.57124028,
+          "peers": [
+            {
+              "id": 22,
+              "received": 0,
+              "retained": 0,
+              "eof": false,
+              "terminal": null,
+              "closed": true
+            },
+            {
+              "id": 23,
+              "received": 1049,
+              "retained": 1049,
+              "eof": false,
+              "terminal": null,
+              "closed": true
+            },
+            {
+              "id": 24,
+              "received": 24089,
+              "retained": 24089,
+              "eof": false,
+              "terminal": null,
+              "closed": true
+            },
+            {
+              "id": 25,
+              "received": 11609,
+              "retained": 11609,
+              "eof": false,
+              "terminal": null,
+              "closed": true
+            },
+            {
+              "id": 26,
+              "received": 163,
+              "retained": 163,
+              "eof": false,
+              "terminal": null,
+              "closed": true
+            }
+          ]
+        },
+        {
+          "case": "recovery-2",
+          "started": 1144744.571640307,
+          "passed": false,
+          "error": "ValueError: exact MP3 head plus nonempty payload required",
+          "finished": 1144747.4968004,
+          "peers": [
+            {
+              "id": 27,
+              "received": 0,
+              "retained": 0,
+              "eof": false,
+              "terminal": null,
+              "closed": true
+            },
+            {
+              "id": 28,
+              "received": 1049,
+              "retained": 1049,
+              "eof": false,
+              "terminal": null,
+              "closed": true
+            },
+            {
+              "id": 29,
+              "received": 22649,
+              "retained": 22649,
+              "eof": false,
+              "terminal": null,
+              "closed": true
+            },
+            {
+              "id": 30,
+              "received": 89,
+              "retained": 89,
+              "eof": true,
+              "terminal": "fin",
+              "closed": true
+            }
+          ]
+        },
+        {
+          "case": "silent",
+          "started": 1144720.032321888,
+          "passed": true,
+          "finished": 1144722.725053974,
+          "peers": [
+            {
+              "id": 5,
+              "received": 0,
+              "retained": 0,
+              "eof": true,
+              "terminal": "fin",
+              "closed": true
+            },
+            {
+              "id": 6,
+              "received": 1049,
+              "retained": 1049,
+              "eof": false,
+              "terminal": null,
+              "closed": true
+            }
+          ]
+        },
+        {
+          "case": "trickle",
+          "started": 1144722.725381882,
+          "passed": true,
+          "finished": 1144725.277626855,
+          "peers": [
+            {
+              "id": 7,
+              "received": 0,
+              "retained": 0,
+              "eof": true,
+              "terminal": "fin",
+              "closed": true
+            },
+            {
+              "id": 8,
+              "received": 1529,
+              "retained": 1529,
+              "eof": false,
+              "terminal": null,
+              "closed": true
+            }
+          ]
+        }
+      ],
+      "peer_timings": [
+        {
+          "peer": 1,
+          "milliseconds_after_connected": {
+            "sent": 0.056096,
+            "first_byte": 132.246374,
+            "header_complete": 239.73638,
+            "closed": 239.93174
+          },
+          "sent_event_count": 1,
+          "milliseconds_after_first_send": {
+            "first_byte": 132.190278,
+            "header_complete": 239.680284
+          }
+        },
+        {
+          "peer": 2,
+          "milliseconds_after_connected": {
+            "sent": 0.04457,
+            "first_byte": 173.212014,
+            "header_complete": 209.317357,
+            "closed": 209.412893
+          },
+          "sent_event_count": 1,
+          "milliseconds_after_first_send": {
+            "first_byte": 173.167444,
+            "header_complete": 209.272787
+          }
+        },
+        {
+          "peer": 3,
+          "milliseconds_after_connected": {
+            "sent": 0.043912,
+            "terminal": 2214.48391,
+            "closed": 2214.580639
+          },
+          "sent_event_count": 1,
+          "milliseconds_after_first_send": {}
+        },
+        {
+          "peer": 4,
+          "milliseconds_after_connected": {
+            "sent": 0.047042,
+            "first_byte": 491.390841,
+            "header_complete": 491.401784,
+            "first_payload": 810.823036,
+            "closed": 810.862131
+          },
+          "sent_event_count": 1,
+          "milliseconds_after_first_send": {
+            "first_byte": 491.343799,
+            "header_complete": 491.354742,
+            "first_payload": 810.775994
+          }
+        },
+        {
+          "peer": 5,
+          "milliseconds_after_connected": {
+            "terminal": 2658.97707,
+            "closed": 2659.077986
+          },
+          "sent_event_count": 0
+        },
+        {
+          "peer": 6,
+          "milliseconds_after_connected": {
+            "sent": 0.041357,
+            "first_byte": 447.780738,
+            "header_complete": 447.795494,
+            "first_payload": 566.458486,
+            "closed": 566.492947
+          },
+          "sent_event_count": 1,
+          "milliseconds_after_first_send": {
+            "first_byte": 447.739381,
+            "header_complete": 447.754137,
+            "first_payload": 566.417129
+          }
+        },
+        {
+          "peer": 7,
+          "milliseconds_after_connected": {
+            "sent": 0.039818,
+            "terminal": 2523.350624,
+            "closed": 2523.414081
+          },
+          "sent_event_count": 10,
+          "milliseconds_after_first_send": {}
+        },
+        {
+          "peer": 8,
+          "milliseconds_after_connected": {
+            "sent": 0.040422,
+            "first_byte": 777.378358,
+            "header_complete": 777.390188,
+            "first_payload": 787.54694,
+            "closed": 787.581757
+          },
+          "sent_event_count": 1,
+          "milliseconds_after_first_send": {
+            "first_byte": 777.337936,
+            "header_complete": 777.349766,
+            "first_payload": 787.506518
+          }
+        },
+        {
+          "peer": 9,
+          "milliseconds_after_connected": {
+            "sent": 0.042125,
+            "first_byte": 314.423763,
+            "header_complete": 314.436752,
+            "first_payload": 540.45502,
+            "closed": 540.507682
+          },
+          "sent_event_count": 2,
+          "milliseconds_after_first_send": {
+            "first_byte": 314.381638,
+            "header_complete": 314.394627,
+            "first_payload": 540.412895
+          }
+        },
+        {
+          "peer": 10,
+          "milliseconds_after_connected": {
+            "sent": 0.04763,
+            "write_halfclosed": 0.056913,
+            "first_byte": 404.322831,
+            "header_complete": 404.333481,
+            "first_payload": 623.713832,
+            "closed": 623.753456
+          },
+          "sent_event_count": 1,
+          "milliseconds_after_first_send": {
+            "first_byte": 404.275201,
+            "header_complete": 404.285851,
+            "first_payload": 623.666202
+          }
+        },
+        {
+          "peer": 11,
+          "milliseconds_after_connected": {
+            "sent": 0.041274,
+            "first_byte": 399.05122,
+            "header_complete": 399.07519,
+            "closed": 399.132673
+          },
+          "sent_event_count": 1,
+          "milliseconds_after_first_send": {
+            "first_byte": 399.009946,
+            "header_complete": 399.033916
+          }
+        },
+        {
+          "peer": 12,
+          "milliseconds_after_connected": {
+            "sent": 0.075612,
+            "first_byte": 1122.083262,
+            "header_complete": 1122.09529,
+            "closed": 1122.142696
+          },
+          "sent_event_count": 1,
+          "milliseconds_after_first_send": {
+            "first_byte": 1122.00765,
+            "header_complete": 1122.019678
+          }
+        },
+        {
+          "peer": 13,
+          "milliseconds_after_connected": {
+            "sent": 0.045881,
+            "first_byte": 722.198008,
+            "header_complete": 722.21301,
+            "first_payload": 949.283499,
+            "closed": 4420.992724
+          },
+          "sent_event_count": 1,
+          "milliseconds_after_first_send": {
+            "first_byte": 722.152127,
+            "header_complete": 722.167129,
+            "first_payload": 949.237618
+          }
+        },
+        {
+          "peer": 14,
+          "milliseconds_after_connected": {
+            "sent": 0.075397,
+            "first_byte": 1827.575591,
+            "header_complete": 1827.590156,
+            "first_payload": 2053.582646,
+            "closed": 3454.104836
+          },
+          "sent_event_count": 1,
+          "milliseconds_after_first_send": {
+            "first_byte": 1827.500194,
+            "header_complete": 1827.514759,
+            "first_payload": 2053.507249
+          }
+        },
+        {
+          "peer": 15,
+          "milliseconds_after_connected": {
+            "sent": 0.049296,
+            "first_byte": 1381.690482,
+            "header_complete": 1381.695916,
+            "closed": 1381.770042
+          },
+          "sent_event_count": 1,
+          "milliseconds_after_first_send": {
+            "first_byte": 1381.641186,
+            "header_complete": 1381.64662
+          }
+        },
+        {
+          "peer": 16,
+          "milliseconds_after_connected": {
+            "sent": 22.271141,
+            "closed": 338.042576
+          },
+          "sent_event_count": 1,
+          "milliseconds_after_first_send": {}
+        },
+        {
+          "peer": 17,
+          "milliseconds_after_connected": {
+            "sent": 0.051831,
+            "closed": 1439.748301
+          },
+          "sent_event_count": 1,
+          "milliseconds_after_first_send": {}
+        },
+        {
+          "peer": 18,
+          "milliseconds_after_connected": {
+            "sent": 0.042905,
+            "first_byte": 838.976369,
+            "header_complete": 838.986886,
+            "first_payload": 1385.182491,
+            "closed": 1385.237787
+          },
+          "sent_event_count": 1,
+          "milliseconds_after_first_send": {
+            "first_byte": 838.933464,
+            "header_complete": 838.943981,
+            "first_payload": 1385.139586
+          }
+        },
+        {
+          "peer": 19,
+          "milliseconds_after_connected": {
+            "sent": 74.309264,
+            "terminal": 2766.172522,
+            "closed": 3511.196566
+          },
+          "sent_event_count": 1,
+          "milliseconds_after_first_send": {}
+        },
+        {
+          "peer": 20,
+          "milliseconds_after_connected": {
+            "sent": 0.090409,
+            "terminal": 2916.456874,
+            "closed": 3437.000282
+          },
+          "sent_event_count": 1,
+          "milliseconds_after_first_send": {}
+        },
+        {
+          "peer": 21,
+          "milliseconds_after_connected": {
+            "sent": 0.052314,
+            "first_byte": 3177.452499,
+            "header_complete": 3177.467696,
+            "first_payload": 3399.096812,
+            "closed": 3399.239735
+          },
+          "sent_event_count": 1,
+          "milliseconds_after_first_send": {
+            "first_byte": 3177.400185,
+            "header_complete": 3177.415382,
+            "first_payload": 3399.044498
+          }
+        },
+        {
+          "peer": 22,
+          "milliseconds_after_connected": {
+            "sent": 0.040065,
+            "closed": 0.060013
+          },
+          "sent_event_count": 1,
+          "milliseconds_after_first_send": {}
+        },
+        {
+          "peer": 23,
+          "milliseconds_after_connected": {
+            "sent": 0.148453,
+            "first_byte": 270.906447,
+            "header_complete": 270.917434,
+            "first_payload": 1234.97749,
+            "closed": 1235.027688
+          },
+          "sent_event_count": 1,
+          "milliseconds_after_first_send": {
+            "first_byte": 270.757994,
+            "header_complete": 270.768981,
+            "first_payload": 1234.829037
+          }
+        },
+        {
+          "peer": 24,
+          "milliseconds_after_connected": {
+            "sent": 0.046813,
+            "first_byte": 1241.368323,
+            "header_complete": 1241.382726,
+            "first_payload": 1469.708914,
+            "closed": 4721.812938
+          },
+          "sent_event_count": 1,
+          "milliseconds_after_first_send": {
+            "first_byte": 1241.32151,
+            "header_complete": 1241.335913,
+            "first_payload": 1469.662101
+          }
+        },
+        {
+          "peer": 25,
+          "milliseconds_after_connected": {
+            "sent": 0.05602,
+            "first_byte": 916.258999,
+            "header_complete": 916.272931,
+            "first_payload": 1121.068041,
+            "closed": 3206.155417
+          },
+          "sent_event_count": 1,
+          "milliseconds_after_first_send": {
+            "first_byte": 916.202979,
+            "header_complete": 916.216911,
+            "first_payload": 1121.012021
+          }
+        },
+        {
+          "peer": 26,
+          "milliseconds_after_connected": {
+            "sent": 0.049876,
+            "first_byte": 1984.937086,
+            "header_complete": 1984.942169,
+            "closed": 1985.014053
+          },
+          "sent_event_count": 1,
+          "milliseconds_after_first_send": {
+            "first_byte": 1984.88721,
+            "header_complete": 1984.892293
+          }
+        },
+        {
+          "peer": 27,
+          "milliseconds_after_connected": {
+            "sent": 0.055683,
+            "closed": 0.074964
+          },
+          "sent_event_count": 1,
+          "milliseconds_after_first_send": {}
+        },
+        {
+          "peer": 28,
+          "milliseconds_after_connected": {
+            "sent": 0.045886,
+            "first_byte": 1118.438992,
+            "header_complete": 1118.45003,
+            "first_payload": 1312.158114,
+            "closed": 1312.199307
+          },
+          "sent_event_count": 1,
+          "milliseconds_after_first_send": {
+            "first_byte": 1118.393106,
+            "header_complete": 1118.404144,
+            "first_payload": 1312.112228
+          }
+        },
+        {
+          "peer": 29,
+          "milliseconds_after_connected": {
+            "sent": 0.047388,
+            "first_byte": 365.713725,
+            "header_complete": 365.728362,
+            "first_payload": 609.952072,
+            "closed": 1219.877605
+          },
+          "sent_event_count": 1,
+          "milliseconds_after_first_send": {
+            "first_byte": 365.666337,
+            "header_complete": 365.680974,
+            "first_payload": 609.904684
+          }
+        },
+        {
+          "peer": 30,
+          "milliseconds_after_connected": {
+            "sent": 0.051467,
+            "first_byte": 367.943028,
+            "header_complete": 367.948108,
+            "terminal": 502.284187,
+            "closed": 502.382079
+          },
+          "sent_event_count": 1,
+          "milliseconds_after_first_send": {
+            "first_byte": 367.891561,
+            "header_complete": 367.896641
+          }
+        },
+        {
+          "peer": 31,
+          "milliseconds_after_connected": {
+            "sent": 0.047346,
+            "first_byte": 128.968408,
+            "header_complete": 223.33103,
+            "closed": 223.421756
+          },
+          "sent_event_count": 1,
+          "milliseconds_after_first_send": {
+            "first_byte": 128.921062,
+            "header_complete": 223.283684
+          }
+        },
+        {
+          "peer": 32,
+          "milliseconds_after_connected": {
+            "sent": 0.058699,
+            "first_byte": 29.038303,
+            "header_complete": 69.24753,
+            "closed": 69.36855
+          },
+          "sent_event_count": 1,
+          "milliseconds_after_first_send": {
+            "first_byte": 28.979604,
+            "header_complete": 69.188831
+          }
+        }
+      ]
+    }
+  ],
+  "artifact_sha256": {
+    "production/receipt.json": "6145c80f374e3e9137248952d360f32bbed95e45152b2c1b1a47f9011c6a8846",
+    "production/esp-shazam": "01d2607f71524fc7b980fc37cc3516aa1f0e987f5ea0352bd2f3dca7bf113f04",
+    "admission_check.trial-1.py": "8e5778c37372526f3fe440a37002efbffc80f1134e4d4af34e63acf30d51da35",
+    "admission_check.py": "cd4c257930b92d1f047fdd209ab57256a3639e9d08a554ded358dbb356c243be",
+    "test_admission_check.py": "79997a4745c297ce062f25e6716fa6ab794d05236862db49353501c2b6a2d0d4",
+    "implementation-report.md": "c2e85a0cd0bfe66142b7015e3bdd44d0400f28d29a1cac7629f22b3ad5daed28",
+    "reset-review.md": "4d8efb48e2ff01c3df75de1b5474dc8bb4e4e9943d3daf7c8eae7fdde8c792ec",
+    "green-reset.log": "cb911b310ccb3daadcab815b43af6edf4c098f9348c2c9dd39e6de244666d0ae",
+    "production-trial-1/parent-result.json": "ff4b09126938c649efd22de5cb160562b51384f341ce6bc32c491fff184c4c12",
+    "production-trial-1/uart.log": "c8ead24d05c9a560c8113224696dcff9edc1c4f7f8b1cd84569ab76a05b25fa6",
+    "production-trial-1/admission/events.json": "e7c37a5eca4171ed16402696b0aae5ded4817a35ef345326a12a22b6ee05b0a7",
+    "production-trial-1/admission/result.json": "b3619bff89e03660fec41573f4a645fe9f6f66dda688750c9f78edfe66a44abe",
+    "production-trial-2/result.json": "3dbb85a55a5de31b843cd5d9830a956cdc8f13d3c7bc66348bd6563301a3192a",
+    "production-trial-2/events.json": "5ec599eae82c8d033051ae50674612129230939475a8a86f388f6dd3f14ad6c7",
+    "production-trial-2/recovery-2.json": "3dd7eaa701401b65b8604f40895d4fc1e9a9582c38a4d5bc26ea6769e680adb2",
+    "production-trial-2/peer-030.wire": "90a088a1753887216a8a13ee4226536639d90145535167936cb513027796706d"
+  },
+  "trial_1_uart": {
+    "capture_seconds": 150.18645025906153,
+    "overrun_boundary_count": 12,
+    "overrun_event_us": [
+      16534893,
+      28273058,
+      40155418,
+      52255811,
+      64184582,
+      76186132,
+      88139734,
+      100238066,
+      112340427,
+      124175332,
+      136148586,
+      148250003
+    ],
+    "first_audio_counters": {
+      "queue_overflows": 15,
+      "software_dropped_frames": 480,
+      "read_errors": 0,
+      "restarts": 2,
+      "supervisor_restarts": 0,
+      "overflow_restarts": 2,
+      "discontinuities": 2
+    },
+    "last_audio_counters": {
+      "queue_overflows": 15,
+      "software_dropped_frames": 480,
+      "read_errors": 0,
+      "restarts": 2,
+      "supervisor_restarts": 0,
+      "overflow_restarts": 2,
+      "discontinuities": 2
+    }
+  },
+  "limitations": [
+    "No decoded audio or sustained delivery acceptance.",
+    "No trial-2 UART: header-only FIN cause is unassigned.",
+    "Host connection/send order does not establish device acceptance order.",
+    "Host owned-socket cleanup is not a whole-device socket census or resource-reclamation proof.",
+    "No complete heap/task/watermark accounting, TLS overlap, fault injection, long soak or device image attestation.",
+    "The separate resource diagnostic was not flashed and is not the source of either trial.",
+    "Task 3/Kata remains open; no automatic retry follows."
+  ]
+}
