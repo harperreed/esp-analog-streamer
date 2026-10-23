@@ -64,6 +64,28 @@ def answer_line(status, body):
     return f'FAIL  board refused ({status}): {error}'
 
 
+def refusal_before_upload(ota_status_body):
+    """Why not to start the upload, from the board's GET /api/ota body, or None. The firmware refuses an upload
+    while its running image is still pending verification (409, Refusal::Pending) before reading the body, and a
+    client still sending the image then sees a connection reset instead of the answer; asking first avoids that."""
+    try:
+        state = json.loads(ota_status_body).get('running_state')
+    except (ValueError, AttributeError, TypeError):
+        return None
+    if state == 'pending_verify':
+        return 'running image not yet validated (pending_verify); retry after the health mark'
+    return None
+
+
+def ota_status(host):
+    """The board's GET /api/ota body, or None when it cannot be read (the upload then decides)."""
+    try:
+        with urllib.request.urlopen(f'http://{host}/api/ota', timeout=3) as response:
+            return response.read(4096).decode('utf-8', 'replace')
+    except Exception:
+        return None
+
+
 def identity(host):
     """The board's (elf sha, boot token) from /api/metrics."""
     with urllib.request.urlopen(f'http://{host}/api/metrics', timeout=3) as response:
@@ -113,6 +135,10 @@ def main(argv=None):
         _, boot_before = identity(args.host)
     except Exception:
         boot_before = None
+    refusal = refusal_before_upload(ota_status(args.host))
+    if refusal:
+        print(f'FAIL  board refused before the upload: {refusal}', file=sys.stderr)
+        return 1
     print(f"pushing {len(image)} bytes, version {description['version']}, elf {description['elf_sha256'][:16]}… to {args.host}")
     try:
         status, body = push(args.host, image, token, args.timeout)

@@ -56,6 +56,21 @@ class MainTests(unittest.TestCase):
         self.assertIn('unreachable', err.getvalue())
 
 
+class PrecheckTests(unittest.TestCase):
+    # GET /api/ota from the office board 2026-10-23 20:30 UTC, 55 s into a boot: the state the firmware answers 409 to.
+    PENDING = '{"running":"ota_1","boot":"ota_1","running_state":"pending_verify","validated":false,"enabled":true,"update_slot":"ota_0","update_slot_bytes":2031616}'
+    VALID = '{"running":"ota_1","boot":"ota_1","running_state":"valid","validated":true,"enabled":true,"update_slot":"ota_0","update_slot_bytes":2031616}'
+
+    def test_a_pending_running_slot_is_refused_before_any_byte_is_sent(self):
+        # The board answers 409 before reading the body, and a client still sending 1.6 MB sees a reset instead of
+        # the answer (office board 2026-10-23 20:30 UTC), so the pusher asks first.
+        self.assertEqual(ota_push.refusal_before_upload(self.PENDING),
+                         'running image not yet validated (pending_verify); retry after the health mark')
+        self.assertIsNone(ota_push.refusal_before_upload(self.VALID))
+        self.assertIsNone(ota_push.refusal_before_upload('not json'))
+        self.assertIsNone(ota_push.refusal_before_upload(None))
+
+
 class AnswerTests(unittest.TestCase):
     # The board's 409 while its running image is still pending verification (firmware/src/web.rs, Refusal::Pending).
     PENDING = '{"error":"running image not yet validated; retry after the health mark"}'
