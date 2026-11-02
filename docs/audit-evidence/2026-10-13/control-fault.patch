@@ -1,0 +1,182 @@
+--- a/core/src/sonos_upnp.rs
++++ b/core/src/sonos_upnp.rs
+@@ -204,0 +205,58 @@
++
++// Throwaway device acceptance probe; archive and remove after the bounded trials.
++#[cfg(target_os = "espidf")]
++pub mod control_fault {
++    use std::{sync::Mutex, time::Instant};
++
++    #[derive(Clone, Copy, PartialEq, Eq)]
++    pub struct Identity {
++        pub command_generation: u64,
++        pub sonos_intent: u64,
++        pub network_generation: u32,
++    }
++
++    type Receipt = fn(&str, Identity);
++    struct Gate {
++        spent: bool,
++        armed: Option<(Identity, Receipt)>,
++    }
++    static GATE: Mutex<Gate> = Mutex::new(Gate {
++        spent: false,
++        armed: None,
++    });
++
++    pub fn arm(identity: Identity, receipt: Receipt) -> bool {
++        let mut gate = GATE.lock().unwrap();
++        if gate.spent {
++            return false;
++        }
++        gate.spent = true;
++        gate.armed = Some((identity, receipt));
++        drop(gate);
++        receipt("armed", identity);
++        true
++    }
++
++    pub fn disarm() {
++        let armed = GATE.lock().unwrap().armed.take();
++        if let Some((identity, receipt)) = armed {
++            receipt("disarmed", identity);
++        }
++    }
++
++    pub(super) fn stall_description_read(get: bool, path: &str, deadline: Instant) {
++        if !get || path != "/xml/device_description.xml" {
++            return;
++        }
++        let armed = GATE.lock().unwrap().armed.take();
++        if let Some((identity, receipt)) = armed {
++            receipt("stall-start", identity);
++            std::thread::sleep(
++                (deadline + std::time::Duration::from_millis(50))
++                    .saturating_duration_since(Instant::now()),
++            );
++            receipt("stall-end", identity);
++        }
++    }
++}
++
+@@ -215,0 +274,2 @@
++    #[cfg(target_os = "espidf")]
++    control_fault::stall_description_read(action.is_none(), path, deadline);
+--- a/firmware/src/sonos.rs
++++ b/firmware/src/sonos.rs
+@@ -864 +864 @@
+-    use esp_shazam_core::sonos_upnp::Client;
++    use esp_shazam_core::sonos_upnp::{control_fault, Client};
+@@ -873,0 +874,12 @@
++
++    // Throwaway probe receipts use the same boot clock as the device diagnostics.
++    fn control_fault_receipt(phase: &str, identity: control_fault::Identity) {
++        log::info!(
++            "control-fault: phase={} event_us={} command_generation={} sonos_intent={} network_generation={}",
++            phase,
++            unsafe { sys::esp_timer_get_time() },
++            identity.command_generation,
++            identity.sonos_intent,
++            identity.network_generation,
++        );
++    }
+@@ -966,0 +979,2 @@
++                        control_fault_candidate: None,
++                        control_fault_state: None,
+@@ -1681,0 +1696,2 @@
++        control_fault_candidate: Option<(control_fault::Identity, Instant)>,
++        control_fault_state: Option<(control_fault::Identity, State)>,
+@@ -1694,0 +1711,66 @@
++        }
++
++        fn arm_control_fault(&mut self, now: Instant) {
++            if self.control_fault_state.is_some() {
++                return;
++            }
++            let state = self.status.lock().unwrap().state;
++            let snapshot = self.queue.snapshot();
++            if self.recovery.is_some()
++                || state != State::Playing
++                || self.socket.is_none()
++                || !snapshot.as_ref().is_some_and(|snapshot| {
++                    self.owned_uri.as_deref() == Some(sonos_queue::media_url(snapshot).as_str())
++                })
++            {
++                self.control_fault_candidate = None;
++                return;
++            }
++            let snapshot = snapshot.unwrap();
++            let identity = control_fault::Identity {
++                command_generation: self.generation,
++                sonos_intent: snapshot.sonos_intent,
++                network_generation: snapshot.network_generation,
++            };
++            let since = match self.control_fault_candidate {
++                Some((candidate, since)) if candidate == identity => since,
++                _ => {
++                    self.control_fault_candidate = Some((identity, now));
++                    return;
++                }
++            };
++            if now.duration_since(since) >= Duration::from_secs(15)
++                && control_fault::arm(identity, control_fault_receipt)
++            {
++                self.control_fault_state = Some((identity, state));
++                log::info!(
++                    "control-fault: phase=identity event_us={} command_generation={} sonos_intent={} network_generation={} queue_item_id={}",
++                    unsafe { sys::esp_timer_get_time() },
++                    identity.command_generation,
++                    identity.sonos_intent,
++                    identity.network_generation,
++                    snapshot.item_id,
++                );
++            }
++        }
++
++        fn record_control_fault_state(&mut self, state: State) {
++            if state != State::Playing {
++                self.control_fault_candidate = None;
++            }
++            if let Some((identity, previous)) = self.control_fault_state.as_mut() {
++                if *previous != state {
++                    *previous = state;
++                    control_fault_receipt(
++                        match state {
++                            State::Degraded => "Degraded",
++                            State::Recovering => "Recovering",
++                            State::Playing => "Playing",
++                            State::Stopped => "Stopped",
++                            State::Error => "Error",
++                            _ => "other-state",
++                        },
++                        *identity,
++                    );
++                }
++            }
+@@ -1828,0 +1911,2 @@
++            drop(status);
++            self.record_control_fault_state(State::Error);
+@@ -2130,0 +2215,2 @@
++            drop(status);
++            self.record_control_fault_state(State::Stopped);
+@@ -2152,0 +2239 @@
++                self.record_control_fault_state(State::Stopped);
+@@ -2178,0 +2266 @@
++            self.arm_control_fault(now);
+@@ -2189,0 +2278 @@
++                self.record_control_fault_state(State::Recovering);
+@@ -2204,0 +2294,12 @@
++            // An unconsumed arm cannot escape this observation into checked Stop or setup.
++            control_fault::disarm();
++            if let (Some((identity, _)), Err(error)) = (self.control_fault_state, &observed) {
++                log::info!(
++                    "control-fault: phase=observation-error event_us={} command_generation={} sonos_intent={} network_generation={} error_kind={:?}",
++                    unsafe { sys::esp_timer_get_time() },
++                    identity.command_generation,
++                    identity.sonos_intent,
++                    identity.network_generation,
++                    error.kind(),
++                );
++            }
+@@ -2221,0 +2323 @@
++            self.record_control_fault_state(state);

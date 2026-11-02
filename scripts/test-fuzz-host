@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+# ABOUTME: Checks runner argument validation before any expensive diagnostic work.
+# ABOUTME: Uses the real wrapper without substituting cargo or encoder tools.
+set -euo pipefail
+cd "$(dirname "$0")/.."
+if scripts/fuzz-host --seconds 0 >/dev/null 2>&1; then
+  echo 'zero budget accepted' >&2; exit 1
+fi
+if scripts/fuzz-host --unknown >/dev/null 2>&1; then
+  echo 'unknown option accepted' >&2; exit 1
+fi
+scripts/fuzz-host --help | rg -q '60|600'
+scratch=$(mktemp -d)
+trap 'rm -rf "$scratch"' EXIT
+mkdir -p "$scratch/scripts"
+cp scripts/fuzz-host "$scratch/scripts/"
+git -C "$scratch" init -q
+git -C "$scratch" -c user.name=Test -c user.email=test@example.invalid add scripts/fuzz-host
+git -C "$scratch" -c user.name=Test -c user.email=test@example.invalid commit -qm fixture
+printf '\n' >> "$scratch/scripts/fuzz-host"
+if "$scratch/scripts/fuzz-host" > "$scratch/dirty.log" 2>&1; then echo 'dirty source accepted' >&2; exit 1; fi
+rg -q 'tracked source must be clean' "$scratch/dirty.log"
+git -C "$scratch" checkout -- scripts/fuzz-host
+if "$scratch/scripts/fuzz-host" > "$scratch/missing.log" 2>&1; then echo 'missing committed source accepted' >&2; exit 1; fi
+rg -q 'required committed file missing' "$scratch/missing.log"
+mkdir -p "$scratch/fuzz/fuzz_targets" "$scratch/fuzz/src" "$scratch/core"
+for file in fuzz/supervise fuzz/Cargo.toml fuzz/Cargo.lock fuzz/mise.toml fuzz/src/lib.rs fuzz/fuzz_targets/flac_frames.rs fuzz/fuzz_targets/http_head.rs fuzz/fuzz_targets/stream_ops.rs core/Cargo.toml; do
+  touch "$scratch/$file"
+done
+git -C "$scratch" add fuzz core
+git -C "$scratch" -c user.name=Test -c user.email=test@example.invalid commit -qm 'required file fixture'
+if CARGO_BUILD_TARGET=xtensa-esp32-espidf "$scratch/scripts/fuzz-host" > "$scratch/environment.log" 2>&1; then echo 'cross target accepted' >&2; exit 1; fi
+rg -q 'conflicting build environment: CARGO_BUILD_TARGET' "$scratch/environment.log"
+echo 'host fuzz wrapper guard checks passed'
+
+bash fuzz/test-supervise

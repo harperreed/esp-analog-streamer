@@ -1,0 +1,517 @@
+{
+  "source_sha256": {
+    "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/encoder-telemetry-device/probe-trial-1/aplay.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/encoder-telemetry-device/probe-trial-1/errors.jsonl": "6ab55764c003882f5355b373b0737253592654f77bcd738c373c28344adc704a",
+    "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/encoder-telemetry-device/probe-trial-1/events.jsonl": "71622eeff26006a51f50c13f084112438ad094ee17d59f483c64ce42fc618c15",
+    "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/encoder-telemetry-device/probe-trial-1/result.json": "d026923923999bbcab8381f34cee6df8c92c22e749082c22e2562791b47cff1e",
+    "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/encoder-telemetry-device/probe-trial-1/source-liveness.jsonl": "4803760e6a0c29e799ec6a6eb6a3db8c7560c679c19d52f2b32d40e973f46cb0",
+    "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/encoder-telemetry-device/probe-trial-1/status.jsonl": "2fd2785bc6ceab5298d142cc6031a1a2980511e7e81f2b414817b34b9b3189c6",
+    "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/encoder-telemetry-device/probe-trial-1/uart-arrival.jsonl": "05013359dc174829941bfbab842965db796c27d38e59bc7e8796d22ca31eca3f",
+    "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/encoder-telemetry-device/probe-trial-1/uart.log": "345a31c90ba087d771b0299d10161f13b89c2dccea92a199a8fffbce325874a2",
+    "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/encoder-telemetry-device/probe-trial-1/unified.elf": "d3d435b39c98991c9c4715f5abf35b850abeae0ab3fcc18332274e6093416653",
+    "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/encoder-telemetry-device/probe-trial-1-parent-stop.json": "62f22a62c37896229c84ff24d8f3ce609b4ca3d8be9b2e3ac76eb4d5780adbf4"
+  },
+  "originals_unchanged": true,
+  "parent_stop": {
+    "reason": "Repeated actual raw overruns and observed metrics stack free 428 bytes; stop diagnostic after sufficient failure evidence. Not a completed probe sequence.",
+    "pid": 1493240,
+    "signal": "SIGTERM",
+    "host_monotonic": 1125376.463071166
+  },
+  "reset_release_host_monotonic": 1125283.136577071,
+  "arrival_line_counts": {
+    "total": 228,
+    "post_reset": 216,
+    "excluded_pre_reset": 12
+  },
+  "replay_matches_saved_analysis": true,
+  "completed": false,
+  "acquisition_complete": false,
+  "errors": [
+    {
+      "error": "SystemExit(15)",
+      "host_monotonic": 1125376.46324638
+    }
+  ],
+  "copied_elf_sha256": "d3d435b39c98991c9c4715f5abf35b850abeae0ab3fcc18332274e6093416653",
+  "fixture_sha256": "9311d9ca5dfe1a5f9269631afe22647834207f2b3239571474acc8ac15f3228d",
+  "generation": [
+    {
+      "window": 1,
+      "sequence": 1,
+      "frames": 363,
+      "span_us": 10018257,
+      "ratio": 0.8696123487349147
+    },
+    {
+      "window": 2,
+      "sequence": 2,
+      "frames": 362,
+      "span_us": 10002525,
+      "ratio": 0.8685806833774472
+    },
+    {
+      "window": 3,
+      "sequence": 3,
+      "frames": 363,
+      "span_us": 10007830,
+      "ratio": 0.8705183841052455
+    },
+    {
+      "window": 4,
+      "sequence": 4,
+      "frames": 363,
+      "span_us": 10017143,
+      "ratio": 0.869709057762278
+    },
+    {
+      "window": 5,
+      "sequence": 5,
+      "frames": 366,
+      "span_us": 10007453,
+      "ratio": 0.877745816043303
+    }
+  ],
+  "overrun_boundaries": [
+    {
+      "raw": "I (21418) esp_shazam_firmware::stream: encoder-boundary: prior_epoch=1 reason=Overrun frames=570 resets=1 raw_overruns=1 raw_wait_us=195491 raw_attempts=1400 telemetry_epoch=1 telemetry_window=1 event_us=20185962 baseline_us=20185962 format=Mp3\r",
+      "host_arrival": 1125304.668346876,
+      "prior_epoch": 1,
+      "frames": 570,
+      "resets": 1,
+      "raw_overruns": 1,
+      "raw_wait_us": 195491,
+      "raw_attempts": 1400,
+      "telemetry_epoch": 1,
+      "telemetry_window": 1,
+      "event_us": 20185962,
+      "baseline_us": 20185962
+    },
+    {
+      "raw": "I (37168) esp_shazam_firmware::stream: encoder-boundary: prior_epoch=1 reason=Overrun frames=1138 resets=2 raw_overruns=1 raw_wait_us=191033 raw_attempts=1266 telemetry_epoch=1 telemetry_window=2 event_us=35935124 baseline_us=35935124 format=Mp3\r",
+      "host_arrival": 1125320.501483811,
+      "prior_epoch": 1,
+      "frames": 1138,
+      "resets": 2,
+      "raw_overruns": 1,
+      "raw_wait_us": 191033,
+      "raw_attempts": 1266,
+      "telemetry_epoch": 1,
+      "telemetry_window": 2,
+      "event_us": 35935124,
+      "baseline_us": 35935124
+    },
+    {
+      "raw": "I (53108) esp_shazam_firmware::stream: encoder-boundary: prior_epoch=1 reason=Overrun frames=1714 resets=3 raw_overruns=1 raw_wait_us=197352 raw_attempts=1341 telemetry_epoch=1 telemetry_window=3 event_us=51875292 baseline_us=51875292 format=Mp3\r",
+      "host_arrival": 1125336.340837627,
+      "prior_epoch": 1,
+      "frames": 1714,
+      "resets": 3,
+      "raw_overruns": 1,
+      "raw_wait_us": 197352,
+      "raw_attempts": 1341,
+      "telemetry_epoch": 1,
+      "telemetry_window": 3,
+      "event_us": 51875292,
+      "baseline_us": 51875292
+    },
+    {
+      "raw": "I (68798) esp_shazam_firmware::stream: encoder-boundary: prior_epoch=1 reason=Overrun frames=2280 resets=4 raw_overruns=1 raw_wait_us=192678 raw_attempts=1301 telemetry_epoch=1 telemetry_window=4 event_us=67571368 baseline_us=67571368 format=Mp3\r",
+      "host_arrival": 1125351.981480397,
+      "prior_epoch": 1,
+      "frames": 2280,
+      "resets": 4,
+      "raw_overruns": 1,
+      "raw_wait_us": 192678,
+      "raw_attempts": 1301,
+      "telemetry_epoch": 1,
+      "telemetry_window": 4,
+      "event_us": 67571368,
+      "baseline_us": 67571368
+    },
+    {
+      "raw": "I (85638) esp_shazam_firmware::stream: encoder-boundary: prior_epoch=1 reason=Overrun frames=2871 resets=5 raw_overruns=1 raw_wait_us=208885 raw_attempts=1433 telemetry_epoch=1 telemetry_window=5 event_us=83865172 baseline_us=83865172 format=Mp3\r",
+      "host_arrival": 1125369.031588636,
+      "prior_epoch": 1,
+      "frames": 2871,
+      "resets": 5,
+      "raw_overruns": 1,
+      "raw_wait_us": 208885,
+      "raw_attempts": 1433,
+      "telemetry_epoch": 1,
+      "telemetry_window": 5,
+      "event_us": 83865172,
+      "baseline_us": 83865172
+    }
+  ],
+  "capture_fault_values": {
+    "queue_overflows": [
+      15,
+      15,
+      15,
+      15,
+      15,
+      15,
+      15,
+      15
+    ],
+    "software_dropped_frames": [
+      480,
+      480,
+      480,
+      480,
+      480,
+      480,
+      480,
+      480
+    ],
+    "read_errors": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "restarts": [
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2
+    ],
+    "supervisor_restarts": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "overflow_restarts": [
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2
+    ],
+    "settling_discarded_frames": [
+      26400,
+      26400,
+      26400,
+      26400,
+      26400,
+      26400,
+      26400,
+      26400
+    ],
+    "discontinuities": [
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2
+    ],
+    "health_restart_requests": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  "window_capture_coverage": [
+    {
+      "window": 1,
+      "bracketed": false,
+      "left_end_us": null,
+      "right_begin_us": 21525551
+    },
+    {
+      "window": 2,
+      "bracketed": true,
+      "left_end_us": 10187085,
+      "right_begin_us": 31875725
+    },
+    {
+      "window": 3,
+      "bracketed": true,
+      "left_end_us": 31875745,
+      "right_begin_us": 53205492
+    },
+    {
+      "window": 4,
+      "bracketed": true,
+      "left_end_us": 41886069,
+      "right_begin_us": 63344739
+    },
+    {
+      "window": 5,
+      "bracketed": true,
+      "left_end_us": 63344760,
+      "right_begin_us": 83613943
+    }
+  ],
+  "receipts": {
+    "encoder": {
+      "count": 12,
+      "values": [
+        {
+          "dropped": 0,
+          "observed_event_min_us": 4233761,
+          "observed_event_max_us": 4233761,
+          "record_bytes": 296,
+          "queue_bytes": 632,
+          "metrics_stack_free_bytes": 1164,
+          "export_us": 4367020,
+          "loss_occurred": false,
+          "observed_event_range_valid": true,
+          "dropped_full": 0,
+          "dropped_contended": 0,
+          "dropped_poisoned": 0
+        },
+        {
+          "dropped": 0,
+          "observed_event_min_us": 4435667,
+          "observed_event_max_us": 4435667,
+          "record_bytes": 296,
+          "queue_bytes": 632,
+          "metrics_stack_free_bytes": 428,
+          "export_us": 5786940,
+          "loss_occurred": false,
+          "observed_event_range_valid": true,
+          "dropped_full": 0,
+          "dropped_contended": 0,
+          "dropped_poisoned": 0
+        },
+        {
+          "dropped": 0,
+          "observed_event_min_us": 14453924,
+          "observed_event_max_us": 14453924,
+          "record_bytes": 296,
+          "queue_bytes": 632,
+          "metrics_stack_free_bytes": 428,
+          "export_us": 15683721,
+          "loss_occurred": false,
+          "observed_event_range_valid": true,
+          "dropped_full": 0,
+          "dropped_contended": 0,
+          "dropped_poisoned": 0
+        },
+        {
+          "dropped": 0,
+          "observed_event_min_us": 20185962,
+          "observed_event_max_us": 20185962,
+          "record_bytes": 296,
+          "queue_bytes": 632,
+          "metrics_stack_free_bytes": 428,
+          "export_us": 21085814,
+          "loss_occurred": false,
+          "observed_event_range_valid": true,
+          "dropped_full": 0,
+          "dropped_contended": 0,
+          "dropped_poisoned": 0
+        },
+        {
+          "dropped": 0,
+          "observed_event_min_us": 30188487,
+          "observed_event_max_us": 30188487,
+          "record_bytes": 296,
+          "queue_bytes": 632,
+          "metrics_stack_free_bytes": 428,
+          "export_us": 31436339,
+          "loss_occurred": false,
+          "observed_event_range_valid": true,
+          "dropped_full": 0,
+          "dropped_contended": 0,
+          "dropped_poisoned": 0
+        },
+        {
+          "dropped": 0,
+          "observed_event_min_us": 35935124,
+          "observed_event_max_us": 35935124,
+          "record_bytes": 296,
+          "queue_bytes": 632,
+          "metrics_stack_free_bytes": 428,
+          "export_us": 36834583,
+          "loss_occurred": false,
+          "observed_event_range_valid": true,
+          "dropped_full": 0,
+          "dropped_contended": 0,
+          "dropped_poisoned": 0
+        },
+        {
+          "dropped": 0,
+          "observed_event_min_us": 45942954,
+          "observed_event_max_us": 45942954,
+          "record_bytes": 296,
+          "queue_bytes": 632,
+          "metrics_stack_free_bytes": 428,
+          "export_us": 46958506,
+          "loss_occurred": false,
+          "observed_event_range_valid": true,
+          "dropped_full": 0,
+          "dropped_contended": 0,
+          "dropped_poisoned": 0
+        },
+        {
+          "dropped": 0,
+          "observed_event_min_us": 51875292,
+          "observed_event_max_us": 51875292,
+          "record_bytes": 296,
+          "queue_bytes": 632,
+          "metrics_stack_free_bytes": 428,
+          "export_us": 52765300,
+          "loss_occurred": false,
+          "observed_event_range_valid": true,
+          "dropped_full": 0,
+          "dropped_contended": 0,
+          "dropped_poisoned": 0
+        },
+        {
+          "dropped": 0,
+          "observed_event_min_us": 61892435,
+          "observed_event_max_us": 61892435,
+          "record_bytes": 296,
+          "queue_bytes": 632,
+          "metrics_stack_free_bytes": 428,
+          "export_us": 62906723,
+          "loss_occurred": false,
+          "observed_event_range_valid": true,
+          "dropped_full": 0,
+          "dropped_contended": 0,
+          "dropped_poisoned": 0
+        },
+        {
+          "dropped": 0,
+          "observed_event_min_us": 67571368,
+          "observed_event_max_us": 67571368,
+          "record_bytes": 296,
+          "queue_bytes": 632,
+          "metrics_stack_free_bytes": 428,
+          "export_us": 68514642,
+          "loss_occurred": false,
+          "observed_event_range_valid": true,
+          "dropped_full": 0,
+          "dropped_contended": 0,
+          "dropped_poisoned": 0
+        },
+        {
+          "dropped": 0,
+          "observed_event_min_us": 77578821,
+          "observed_event_max_us": 77578821,
+          "record_bytes": 296,
+          "queue_bytes": 632,
+          "metrics_stack_free_bytes": 428,
+          "export_us": 78560240,
+          "loss_occurred": false,
+          "observed_event_range_valid": true,
+          "dropped_full": 0,
+          "dropped_contended": 0,
+          "dropped_poisoned": 0
+        },
+        {
+          "dropped": 0,
+          "observed_event_min_us": 83865172,
+          "observed_event_max_us": 83865172,
+          "record_bytes": 296,
+          "queue_bytes": 632,
+          "metrics_stack_free_bytes": 428,
+          "export_us": 85504621,
+          "loss_occurred": false,
+          "observed_event_range_valid": true,
+          "dropped_full": 0,
+          "dropped_contended": 0,
+          "dropped_poisoned": 0
+        }
+      ],
+      "observed_loss": false,
+      "final_delivery_certified": false
+    },
+    "listener": {
+      "count": 0,
+      "values": [],
+      "observed_loss": "no receipt",
+      "final_delivery_certified": false
+    }
+  },
+  "stack": {
+    "metrics": 428,
+    "encoder": 4936,
+    "capture": "not reported",
+    "listener": "not exercised"
+  },
+  "heap_minima": {
+    "internal_free": 66783,
+    "internal_largest": 65536,
+    "psram_free": 2770828,
+    "psram_largest": 2359296,
+    "internal_min_sum": 65803,
+    "psram_min_sum": 363584
+  },
+  "source_cleanup": [
+    {
+      "kind": "final_before_source_cleanup",
+      "host_monotonic": 1125377.171665794,
+      "utc": "2026-10-10T21:31:54Z",
+      "sonos": {
+        "config": {
+          "player_id": "RINCON_38420B8F3F0C01400",
+          "autoplay": false,
+          "buffer_preset": "med",
+          "output_format": "mp3"
+        },
+        "buffer_available": true,
+        "active_format": "mp3",
+        "groups": [],
+        "active_player_id": null,
+        "state": "stopped",
+        "last_error": null
+      },
+      "app_state": {
+        "state": "quiet",
+        "shazam_enabled": false,
+        "level_dbfs": -23.6,
+        "rate_limited_until": null,
+        "now": null,
+        "history": []
+      },
+      "source_returncode": null
+    },
+    {
+      "kind": "source_cleanup_begin",
+      "host_monotonic": 1125377.171879888,
+      "utc": "2026-10-10T21:31:54Z",
+      "returncode": null,
+      "aplay_log_bytes": 0
+    },
+    {
+      "kind": "source_cleanup_end",
+      "host_monotonic": 1125377.2856621,
+      "utc": "2026-10-10T21:31:54Z",
+      "returncode": 0,
+      "aplay_log_bytes": 0
+    }
+  ],
+  "verdict": "canceled partial diagnostic; real raw overruns and inadequate observed stack margin",
+  "source_commit": "05cf802",
+  "harness_commit": "c2ba29a",
+  "image_device_attestation": false,
+  "analysis_sha256": "887face858b860c0415164f3ce0b05c6e3175b6fc4c3844ece9e3b8f44c8520f"
+}

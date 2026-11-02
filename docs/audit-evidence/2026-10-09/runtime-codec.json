@@ -1,0 +1,682 @@
+{
+  "elf_sha256": "c3bf69b149b9386b27346cfe26e023c191054a490374a7d5f480c9b8d40159d9",
+  "source_base": "a45d881",
+  "image_provenance": "First run flashed this ELF; second run used the same deployed image without reflashing. Hash is host artifact provenance, not device attestation.",
+  "runs": [
+    {
+      "run": {
+        "passed": false,
+        "errors": [
+          {
+            "field": "error",
+            "category": "AssertionError",
+            "private_detail_withheld": true
+          }
+        ],
+        "command_returncodes": {
+          "flash": 0,
+          "switches": 1
+        },
+        "before": {
+          "state": "stopped",
+          "buffer_preset": "med",
+          "autoplay": false
+        },
+        "after": {
+          "state": "stopped",
+          "active_format": "mp3",
+          "output_format": "mp3",
+          "buffer_preset": "med",
+          "autoplay": false
+        },
+        "firmware_rollback": false
+      },
+      "decoding": {
+        "switches": {
+          "passed": false,
+          "errors": [
+            {
+              "field": "error",
+              "category": "ValueError",
+              "private_detail_withheld": true
+            }
+          ],
+          "captures": [
+            {
+              "index": 0,
+              "returncode": 0,
+              "decoded_audio_frames": 96000,
+              "decoded_seconds": 2.0,
+              "decoded_packets": 84,
+              "skipped_source_audio_frames": 0,
+              "duplicate_audio_frames": 0,
+              "decoded_discontinuities": 0,
+              "format": "mp3",
+              "buffer": null,
+              "exact_two_second_samples": true
+            }
+          ],
+          "before": {
+            "state": "stopped",
+            "active_format": "flac",
+            "output_format": "flac",
+            "buffer_preset": "med",
+            "autoplay": false
+          },
+          "after": {}
+        },
+        "persistence": {
+          "passed": null,
+          "errors": [],
+          "captures": [],
+          "before": {},
+          "after": {}
+        }
+      },
+      "browser": {
+        "passed": null,
+        "errors": [],
+        "pageerror_count": 0,
+        "request_failure_count": 0,
+        "aborted_request_count": 0,
+        "asset_statuses": [],
+        "ui_action_count": 0,
+        "after_reload": {},
+        "elapsed_seconds": null
+      },
+      "sonos": {
+        "passed": null,
+        "errors": [],
+        "queue_snapshot_receipts": 0,
+        "queue_profiles": [],
+        "pending_preserves_playback": [],
+        "manual_stop_remains_stopped_receipt": false,
+        "after": {}
+      },
+      "blocked_retry": {
+        "passed": null,
+        "errors": [],
+        "inconclusive": false,
+        "two_initial_http200": 0,
+        "initial_third_status": null,
+        "payload_read_bytes": null,
+        "edge_established": false,
+        "retired_capacity_probe_status": null,
+        "retry_state": {},
+        "retry_queue_flac_medium": false,
+        "limitation": "Unread payload and HTTP slot capacity prove admission/retirement state, not a blocked sender write.",
+        "http_probe_proves_sender_blocking": false
+      },
+      "run_id_utc": "20261010T033710Z",
+      "capture_and_memory": {
+        "initial_boot": {
+          "boot_first_observed": {
+            "line": 133,
+            "device_log_ms": 11402,
+            "counters": {
+              "frames": 475680,
+              "queue_overflows": 13,
+              "software_dropped_frames": 480,
+              "read_errors": 0,
+              "restarts": 2,
+              "supervisor_restarts": 0,
+              "overflow_restarts": 2,
+              "discontinuities": 2,
+              "health_restart_requests": 0
+            }
+          },
+          "last_capture": {
+            "line": 165,
+            "device_log_ms": 46912,
+            "counters": {
+              "frames": 2180400,
+              "queue_overflows": 13,
+              "software_dropped_frames": 480,
+              "read_errors": 0,
+              "restarts": 2,
+              "supervisor_restarts": 0,
+              "overflow_restarts": 2,
+              "discontinuities": 2,
+              "health_restart_requests": 0
+            }
+          },
+          "post_settled_baseline": {
+            "baseline": {
+              "line": 140,
+              "counters": {
+                "frames": 960960,
+                "queue_overflows": 13,
+                "software_dropped_frames": 480,
+                "read_errors": 0,
+                "restarts": 2,
+                "supervisor_restarts": 0,
+                "overflow_restarts": 2,
+                "discontinuities": 2,
+                "health_restart_requests": 0
+              }
+            },
+            "subsequent_sample_count": 2,
+            "counter_reset_detected": false,
+            "counter_deltas": {
+              "queue_overflows": 0,
+              "software_dropped_frames": 0,
+              "read_errors": 0,
+              "restarts": 0,
+              "supervisor_restarts": 0,
+              "overflow_restarts": 0,
+              "discontinuities": 0,
+              "health_restart_requests": 0
+            },
+            "sample_frame_delta": 1219440,
+            "missing_counter_fields": [],
+            "nonzero_postbaseline_faults": {},
+            "incomplete": false
+          },
+          "heap": {
+            "sample_count": 4,
+            "minimum_observed": {
+              "internal_free": 46963,
+              "internal_largest": 43008,
+              "psram_free": 363492,
+              "psram_largest": 360448,
+              "internal_min_sum": 44663,
+              "psram_min_sum": 359392
+            }
+          }
+        },
+        "persistence_boot": {
+          "boot_first_observed": null,
+          "last_capture": null,
+          "post_settled_baseline": null,
+          "heap": null
+        }
+      },
+      "encoder": {
+        "initial_boot": {
+          "minimum_stack_free_bytes": 5496,
+          "maximum_encode_call_us": 29286,
+          "raw_read_overruns_sum_of_observed_windows": 0
+        },
+        "persistence_boot": {
+          "minimum_stack_free_bytes": null,
+          "maximum_encode_call_us": null,
+          "raw_read_overruns_sum_of_observed_windows": null
+        }
+      }
+    },
+    {
+      "run": {
+        "passed": true,
+        "errors": [],
+        "command_returncodes": {
+          "switches": 0,
+          "browser": 0,
+          "persistence": 0,
+          "sonos": 0,
+          "blocked-switch": 0
+        },
+        "before": {
+          "state": "stopped",
+          "active_format": "mp3",
+          "output_format": "mp3",
+          "buffer_preset": "med",
+          "autoplay": false
+        },
+        "after": {
+          "state": "stopped",
+          "active_format": "mp3",
+          "output_format": "mp3",
+          "buffer_preset": "med",
+          "autoplay": false
+        },
+        "firmware_rollback": false
+      },
+      "decoding": {
+        "switches": {
+          "passed": true,
+          "errors": [],
+          "captures": [
+            {
+              "index": 0,
+              "returncode": 0,
+              "decoded_audio_frames": 96000,
+              "decoded_seconds": 2.0,
+              "decoded_packets": 84,
+              "skipped_source_audio_frames": 0,
+              "duplicate_audio_frames": 0,
+              "decoded_discontinuities": 0,
+              "format": "mp3",
+              "buffer": null,
+              "exact_two_second_samples": true
+            },
+            {
+              "index": 1,
+              "returncode": 0,
+              "decoded_audio_frames": 96000,
+              "decoded_seconds": 2.0,
+              "decoded_packets": 84,
+              "skipped_source_audio_frames": 0,
+              "duplicate_audio_frames": 0,
+              "decoded_discontinuities": 0,
+              "format": "mp3",
+              "buffer": "high",
+              "exact_two_second_samples": true
+            },
+            {
+              "index": 2,
+              "returncode": 0,
+              "decoded_audio_frames": 96000,
+              "decoded_seconds": 2.0,
+              "decoded_packets": 24,
+              "skipped_source_audio_frames": 0,
+              "duplicate_audio_frames": 0,
+              "decoded_discontinuities": 0,
+              "format": "flac",
+              "buffer": null,
+              "exact_two_second_samples": true
+            },
+            {
+              "index": 3,
+              "returncode": 0,
+              "decoded_audio_frames": 96000,
+              "decoded_seconds": 2.0,
+              "decoded_packets": 24,
+              "skipped_source_audio_frames": 0,
+              "duplicate_audio_frames": 0,
+              "decoded_discontinuities": 0,
+              "format": "flac",
+              "buffer": "high",
+              "exact_two_second_samples": true
+            },
+            {
+              "index": 4,
+              "returncode": 0,
+              "decoded_audio_frames": 96000,
+              "decoded_seconds": 2.0,
+              "decoded_packets": 84,
+              "skipped_source_audio_frames": 0,
+              "duplicate_audio_frames": 0,
+              "decoded_discontinuities": 0,
+              "format": "mp3",
+              "buffer": null,
+              "exact_two_second_samples": true
+            },
+            {
+              "index": 5,
+              "returncode": 0,
+              "decoded_audio_frames": 96000,
+              "decoded_seconds": 2.0,
+              "decoded_packets": 84,
+              "skipped_source_audio_frames": 0,
+              "duplicate_audio_frames": 0,
+              "decoded_discontinuities": 0,
+              "format": "mp3",
+              "buffer": null,
+              "exact_two_second_samples": true
+            },
+            {
+              "index": 6,
+              "returncode": 0,
+              "decoded_audio_frames": 96000,
+              "decoded_seconds": 2.0,
+              "decoded_packets": 24,
+              "skipped_source_audio_frames": 0,
+              "duplicate_audio_frames": 0,
+              "decoded_discontinuities": 0,
+              "format": "flac",
+              "buffer": null,
+              "exact_two_second_samples": true
+            },
+            {
+              "index": 7,
+              "returncode": 0,
+              "decoded_audio_frames": 96000,
+              "decoded_seconds": 2.0,
+              "decoded_packets": 84,
+              "skipped_source_audio_frames": 0,
+              "duplicate_audio_frames": 0,
+              "decoded_discontinuities": 0,
+              "format": "mp3",
+              "buffer": null,
+              "exact_two_second_samples": true
+            }
+          ],
+          "before": {
+            "state": "stopped",
+            "active_format": "mp3",
+            "output_format": "mp3",
+            "buffer_preset": "med",
+            "autoplay": false
+          },
+          "after": {
+            "state": "stopped",
+            "active_format": "mp3",
+            "output_format": "mp3",
+            "buffer_preset": "med",
+            "autoplay": false
+          }
+        },
+        "persistence": {
+          "passed": true,
+          "errors": [],
+          "captures": [
+            {
+              "index": 0,
+              "returncode": 0,
+              "decoded_audio_frames": 96000,
+              "decoded_seconds": 2.0,
+              "decoded_packets": 84,
+              "skipped_source_audio_frames": 0,
+              "duplicate_audio_frames": 0,
+              "decoded_discontinuities": 0,
+              "format": "mp3",
+              "buffer": null,
+              "exact_two_second_samples": true
+            }
+          ],
+          "before": {
+            "state": "stopped",
+            "active_format": "mp3",
+            "output_format": "mp3",
+            "buffer_preset": "med",
+            "autoplay": false
+          },
+          "after": {
+            "state": "stopped",
+            "active_format": "mp3",
+            "output_format": "mp3",
+            "buffer_preset": "med",
+            "autoplay": false
+          }
+        }
+      },
+      "browser": {
+        "passed": true,
+        "errors": [],
+        "pageerror_count": 0,
+        "request_failure_count": 0,
+        "aborted_request_count": 0,
+        "asset_statuses": [
+          200,
+          200,
+          200,
+          200,
+          200,
+          200,
+          200,
+          200
+        ],
+        "ui_action_count": 6,
+        "after_reload": {
+          "state": "stopped",
+          "active_format": "mp3",
+          "output_format": "mp3",
+          "buffer_preset": "med",
+          "autoplay": false
+        },
+        "elapsed_seconds": 22.984
+      },
+      "sonos": {
+        "passed": true,
+        "errors": [],
+        "queue_snapshot_receipts": 5,
+        "queue_profiles": [
+          {
+            "format": "mp3",
+            "buffer": "med",
+            "content_type_matches": true
+          },
+          {
+            "format": "mp3",
+            "buffer": "med",
+            "content_type_matches": true
+          },
+          {
+            "format": "flac",
+            "buffer": "low",
+            "content_type_matches": true
+          },
+          {
+            "format": "flac",
+            "buffer": "low",
+            "content_type_matches": true
+          },
+          {
+            "format": "mp3",
+            "buffer": "med",
+            "content_type_matches": true
+          }
+        ],
+        "pending_preserves_playback": [
+          {
+            "current": "mp3",
+            "selected": "flac"
+          },
+          {
+            "current": "flac",
+            "selected": "mp3"
+          }
+        ],
+        "manual_stop_remains_stopped_receipt": true,
+        "after": {
+          "state": "stopped",
+          "active_format": "mp3",
+          "output_format": "mp3",
+          "buffer_preset": "med",
+          "autoplay": false
+        }
+      },
+      "blocked_retry": {
+        "passed": true,
+        "errors": [],
+        "inconclusive": false,
+        "two_initial_http200": 2,
+        "initial_third_status": 503,
+        "payload_read_bytes": 0,
+        "edge_established": true,
+        "retired_capacity_probe_status": 503,
+        "retry_state": {
+          "state": "playing",
+          "active_format": "flac",
+          "output_format": "flac",
+          "buffer_preset": "med",
+          "autoplay": false
+        },
+        "retry_queue_flac_medium": true,
+        "limitation": "Unread payload and HTTP slot capacity prove admission/retirement state, not a blocked sender write.",
+        "elapsed_seconds": 26.794491,
+        "http_probe_proves_sender_blocking": false,
+        "uart_frame_write_stall_observed": {
+          "observed": true,
+          "deadline_ms": 8016,
+          "elapsed_ms": [
+            8021,
+            8030
+          ],
+          "format": "mp3",
+          "frame_bytes": 960,
+          "old_slots_release_device_ms": 161792,
+          "format_commit_device_ms": 152432,
+          "interpretation": "Nonblocking deadline-writer progress stalled across retirement; not a claim that libc send blocked or that the network failure hop is known."
+        },
+        "host_observed_commit_to_stop_request_seconds": 5.8440957218408585e-05,
+        "host_observed_commit_to_stop_accepted_seconds": 0.20392420794814825
+      },
+      "run_id_utc": "20261010T034411Z",
+      "capture_and_memory": {
+        "initial_boot": {
+          "boot_first_observed": {
+            "line": 132,
+            "device_log_ms": 11382,
+            "counters": {
+              "frames": 474960,
+              "queue_overflows": 14,
+              "software_dropped_frames": 480,
+              "read_errors": 0,
+              "restarts": 2,
+              "supervisor_restarts": 0,
+              "overflow_restarts": 2,
+              "discontinuities": 2,
+              "health_restart_requests": 0
+            }
+          },
+          "last_capture": {
+            "line": 259,
+            "device_log_ms": 118812,
+            "counters": {
+              "frames": 5631360,
+              "queue_overflows": 14,
+              "software_dropped_frames": 480,
+              "read_errors": 0,
+              "restarts": 2,
+              "supervisor_restarts": 0,
+              "overflow_restarts": 2,
+              "discontinuities": 2,
+              "health_restart_requests": 0
+            }
+          },
+          "post_settled_baseline": {
+            "baseline": {
+              "line": 139,
+              "counters": {
+                "frames": 957840,
+                "queue_overflows": 14,
+                "software_dropped_frames": 480,
+                "read_errors": 0,
+                "restarts": 2,
+                "supervisor_restarts": 0,
+                "overflow_restarts": 2,
+                "discontinuities": 2,
+                "health_restart_requests": 0
+              }
+            },
+            "subsequent_sample_count": 9,
+            "counter_reset_detected": false,
+            "counter_deltas": {
+              "queue_overflows": 0,
+              "software_dropped_frames": 0,
+              "read_errors": 0,
+              "restarts": 0,
+              "supervisor_restarts": 0,
+              "overflow_restarts": 0,
+              "discontinuities": 0,
+              "health_restart_requests": 0
+            },
+            "sample_frame_delta": 4673520,
+            "missing_counter_fields": [],
+            "nonzero_postbaseline_faults": {},
+            "incomplete": false
+          },
+          "heap": {
+            "sample_count": 11,
+            "minimum_observed": {
+              "internal_free": 46963,
+              "internal_largest": 40960,
+              "psram_free": 900940,
+              "psram_largest": 573440,
+              "internal_min_sum": 44387,
+              "psram_min_sum": 351936
+            }
+          }
+        },
+        "persistence_boot": {
+          "boot_first_observed": {
+            "line": 132,
+            "device_log_ms": 11432,
+            "counters": {
+              "frames": 476880,
+              "queue_overflows": 15,
+              "software_dropped_frames": 480,
+              "read_errors": 0,
+              "restarts": 2,
+              "supervisor_restarts": 0,
+              "overflow_restarts": 2,
+              "discontinuities": 2,
+              "health_restart_requests": 0
+            }
+          },
+          "last_capture": {
+            "line": 317,
+            "device_log_ms": 173232,
+            "counters": {
+              "frames": 8243280,
+              "queue_overflows": 15,
+              "software_dropped_frames": 480,
+              "read_errors": 0,
+              "restarts": 2,
+              "supervisor_restarts": 0,
+              "overflow_restarts": 2,
+              "discontinuities": 2,
+              "health_restart_requests": 0
+            }
+          },
+          "post_settled_baseline": {
+            "baseline": {
+              "line": 139,
+              "counters": {
+                "frames": 965520,
+                "queue_overflows": 15,
+                "software_dropped_frames": 480,
+                "read_errors": 0,
+                "restarts": 2,
+                "supervisor_restarts": 0,
+                "overflow_restarts": 2,
+                "discontinuities": 2,
+                "health_restart_requests": 0
+              }
+            },
+            "subsequent_sample_count": 13,
+            "counter_reset_detected": false,
+            "counter_deltas": {
+              "queue_overflows": 0,
+              "software_dropped_frames": 0,
+              "read_errors": 0,
+              "restarts": 0,
+              "supervisor_restarts": 0,
+              "overflow_restarts": 0,
+              "discontinuities": 0,
+              "health_restart_requests": 0
+            },
+            "sample_frame_delta": 7277760,
+            "missing_counter_fields": [],
+            "nonzero_postbaseline_faults": {},
+            "incomplete": false
+          },
+          "heap": {
+            "sample_count": 23,
+            "minimum_observed": {
+              "internal_free": 18379,
+              "internal_largest": 10752,
+              "psram_free": 343312,
+              "psram_largest": 237568,
+              "internal_min_sum": 4375,
+              "psram_min_sum": 241504
+            }
+          }
+        }
+      },
+      "encoder": {
+        "initial_boot": {
+          "minimum_stack_free_bytes": 5496,
+          "maximum_encode_call_us": 115334,
+          "raw_read_overruns_sum_of_observed_windows": 0
+        },
+        "persistence_boot": {
+          "minimum_stack_free_bytes": 5496,
+          "maximum_encode_call_us": 118643,
+          "raw_read_overruns_sum_of_observed_windows": 0
+        }
+      }
+    }
+  ],
+  "limitations": [
+    "Short feature checks do not clear sustained transport reliability.",
+    "Decoded sample counts are frames per channel; MP3 is lossy and finite-prefix counts do not establish sample-exact analog continuity.",
+    "Capture counters include startup faults; only settled-baseline deltas are zero.",
+    "Memory figures are sampled; per-region low-water sums are not simultaneous free memory or a long-term leak bound.",
+    "Blocked-retry HTTP proof is augmented by the UART write-timeout observations in the companion markdown.",
+    "Raw logs and identifiers remain private under target/runtime-codec.",
+    "Stop timing starts when the host observed active format, not at the actual firmware commit; host and UART clocks are unsynchronized.",
+    "Empty helper errors means assertions passed; UART retains external MQTT/TLS connection timeouts."
+  ]
+}

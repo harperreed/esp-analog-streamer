@@ -1,30 +1,17 @@
 <!doctype html>
 <!-- ABOUTME: The now-playing page the board serves at /: current song with cover art, state, loudness, history. -->
-<!-- ABOUTME: Self-contained (no external scripts or styles); polls /api/state every 3 s and writes song fields as text. -->
+<!-- ABOUTME: Uses board-local shared scripts and styles; polls /api/state every 3 s and writes song fields as text. -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>esp-shazam</title>
 <link rel="icon" href="data:,">
-<style>
-  :root { color-scheme: light dark; --bg: #f6f5f2; --fg: #1b1b1b; --muted: #6b6b6b; --card: #ffffff; --accent: #0a66d8; }
-  @media (prefers-color-scheme: dark) { :root { --bg: #121212; --fg: #ececec; --muted: #9a9a9a; --card: #1d1d1d; --accent: #6aa8ff; } }
-  [hidden] { display: none !important; }
-  body { margin: 0; font: 16px/1.45 system-ui, sans-serif; background: var(--bg); color: var(--fg); }
-  main { max-width: 34rem; margin: 0 auto; padding: 1.5rem 1rem; }
-  .now { display: flex; gap: 1rem; align-items: center; background: var(--card); border-radius: 12px; padding: 1rem; }
-  .now img { width: 96px; height: 96px; border-radius: 8px; object-fit: cover; background: var(--muted); flex: none; }
-  .title { font-size: 1.3rem; font-weight: 600; }
-  .muted { color: var(--muted); font-size: .9rem; }
-  h2 { font-size: 1rem; margin-top: 2rem; }
-  ol { padding-left: 1.2rem; }
-  li { margin: .35rem 0; }
-  a { color: var(--accent); }
-</style>
+<link rel="stylesheet" href="/style.css">
 </head>
 <body>
 <main>
+  <nav><a href="/settings">Settings</a> · <a href="/system">System</a></nav>
   <p class="muted" id="status">connecting…</p>
   <section class="now" id="now" hidden>
     <img id="cover" alt="">
@@ -36,43 +23,32 @@
     </div>
   </section>
   <p class="muted" id="idle">Nothing playing.</p>
-  <h2 class="muted">History</h2>
-  <ol id="history"></ol>
+  <section class="listen" aria-labelledby="listen-heading">
+    <h2 id="listen-heading">Listen</h2>
+    <audio id="player" controls preload="none"></audio>
+    <p>Stream: <a id="stream-link" rel="noopener"></a></p>
+    <p class="muted">Any player that takes a URL works: VLC, mpv, a browser, a radio app. Add <code>?exact=1</code> for a recorder that must get every byte.</p>
+  </section>
+  <section class="sonos" id="sonos-section" aria-labelledby="sonos-heading" hidden>
+    <h2 id="sonos-heading">Sonos</h2>
+    <label for="sonos-destination">Destination</label>
+    <select id="sonos-destination" disabled><option value="">Choose a destination</option></select>
+    <div class="controls">
+      <button id="sonos-discover" type="button" disabled>Discover</button>
+      <button id="sonos-select" type="button" disabled>Select</button>
+      <button id="sonos-play" type="button" disabled>Play</button>
+      <button id="sonos-stop" type="button" disabled>Stop</button>
+    </div>
+    <p>Status: <span id="sonos-status" role="status">connecting…</span></p>
+    <p class="muted" id="sonos-active"></p>
+    <p class="error" id="sonos-error" role="status"></p>
+    <p class="muted" id="sonos-action-status" role="status"></p>
+  </section>
+  <section id="history-section">
+    <h2 class="muted">History</h2>
+    <ol id="history"></ol>
+  </section>
 </main>
-<script>
-const $ = (id) => document.getElementById(id);
-// The URLs come from Shazam's response: only https ones reach src or href, so no javascript: links.
-const https = (u) => typeof u === 'string' && /^https:\/\//.test(u);
-async function refresh() {
-  try {
-    const s = await (await fetch('/api/state', { cache: 'no-store', signal: AbortSignal.timeout(2500) })).json();
-    const paused = s.rate_limited_until ? ` · paused until ${s.rate_limited_until}` : '';
-    // A board built without Shazam runs no listen policy: its state and "Nothing playing." would mislead.
-    const off = s.shazam_enabled === false;
-    const label = off ? 'Shazam is off' : s.state.replace('_', ' ');
-    $('status').textContent = `${label} · ${s.level_dbfs.toFixed(1)} dBFS${paused}`;
-    const n = s.now;
-    $('now').hidden = !n;
-    $('idle').hidden = Boolean(n) || off;
-    if (n) {
-      $('title').textContent = n.title;
-      $('artist').textContent = n.artist;
-      $('album').textContent = n.album || '';
-      if (https(n.cover_url)) { $('cover').src = n.cover_url; } else { $('cover').removeAttribute('src'); }
-      $('link').hidden = !https(n.shazam_url);
-      if (https(n.shazam_url)) { $('link').href = n.shazam_url; }
-    }
-    $('history').replaceChildren(...s.history.map((h) => {
-      const li = document.createElement('li');
-      li.textContent = `${h.title} — ${h.artist} (${h.identified_at.replace('T', ' ').replace('Z', ' UTC')})`;
-      return li;
-    }));
-  } catch (e) {
-    $('status').textContent = 'board unreachable, retrying…';
-  }
-}
-refresh();
-setInterval(refresh, 3000);
-</script>
+<script src="/app.js" defer></script>
 </body>
 </html>

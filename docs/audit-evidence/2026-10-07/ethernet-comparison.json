@@ -1,0 +1,41 @@
+{
+  "date": "2026-10-07",
+  "route": {
+    "interface": "enp5s0",
+    "source": "192.168.23.153",
+    "destination": "192.168.23.217",
+    "checked_before_and_after": true
+  },
+  "workload": "Same 210-second music fixture, production firmware unchanged, two listeners requesting 120 seconds; board reset by canonical soak.",
+  "result": {
+    "passed": false,
+    "error": "timed out",
+    "elapsed_seconds": 50.99,
+    "decoded_seconds": [
+      17.493333,
+      16.725333
+    ],
+    "state_polls": 10,
+    "counter_deltas": {
+      "queue_overflows": 0,
+      "software_dropped_frames": 0,
+      "read_errors": 0,
+      "restarts": 0,
+      "discontinuities": 0
+    },
+    "minimums": {
+      "internal_min_sum": 75707,
+      "psram_min_sum": 758368
+    }
+  },
+  "failure_at_seconds": 49.424,
+  "failure_kind": "Three-second status HTTP request timed out; harness cleaned up streams. UART peer reset is cleanup, not a natural ring-lag failure.",
+  "conclusion": "Removing the workstation Wi-Fi leg did not restore two-listener acceptance. This does not locate the remaining ESP32/2.4GHz/AP path failure.",
+  "limits": [
+    "Sampled capture counters end before test cleanup.",
+    "No packet capture collected for this wired run.",
+    "One wired comparison does not establish exact cause or endurance."
+  ],
+  "private_logs": "target/ethernet-validation/soak/20261007T164042.298364Z",
+  "ethernet_setup": "eno1 has link-local-only profile; moving cable to enp5s0 acquired DHCP and routed board traffic over Ethernet."
+}

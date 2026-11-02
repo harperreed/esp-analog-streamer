@@ -1,0 +1,48 @@
+{
+  "date": "2026-10-07",
+  "purpose": "Real music retry after physical audio device ACL restoration",
+  "playback": "ALSA plughw:CARD=PCH,DEV=0; 48kHz24-bit stereo fixture; physical PCM device RUNNING, board level about -43dBFS during test. PipeWire still exposes only Dummy Output in remote session.",
+  "firmware": "Unchanged normal production; bgn association, RSSI -48dBm at boot; original2.4GHz network.",
+  "network": "Workstation Ethernet enp5s0; workstation Wi-Fi disconnected.",
+  "result": {
+    "passed": true,
+    "requested_seconds": 120.0,
+    "listeners": 2,
+    "elapsed_seconds": 153.173,
+    "decoded_seconds": [
+      120.0,
+      120.0
+    ],
+    "counter_deltas": {
+      "queue_overflows": 0,
+      "software_dropped_frames": 0,
+      "read_errors": 0,
+      "restarts": 0,
+      "discontinuities": 0
+    },
+    "error": null
+  },
+  "interpretation": "Both listeners completed120s successfully. No firmware streaming fix was made; one passing run does not resolve earlier intermittent failures. Direct ALSA restores actual music playback, but does not establish why network delivery improved.",
+  "sources": [
+    {
+      "private_path": "target/wired-investigation/production-music-retry/soak/20261007T193610.050530Z/summary.json",
+      "sha256": "d30041f4724dcc3e249083a6a19ae7db21d4957fd98e873f6d26602b423a2502"
+    },
+    {
+      "private_path": "target/wired-investigation/production-music-retry/soak/20261007T193610.050530Z/uart.log",
+      "sha256": "2474d8379a4acd9fb1ff7a9c29717960218d1c7e3b392092d974d43077133fe8"
+    },
+    {
+      "private_path": "target/wired-investigation/production-music-retry/alsa-status.txt",
+      "sha256": "b6cf0ce6af368fa152e130843b5aec27fdc290a8024b458282bff3848c426e01"
+    },
+    {
+      "private_path": "target/wired-investigation/production-music-retry/playback.log",
+      "sha256": "36d864ca0f5f180d07ed43b051058a6a36d9faa6133b5a8224e367ca6a77e5fe"
+    },
+    {
+      "private_path": "target/wired-investigation/production-music-retry/tcp-snapshot.txt",
+      "sha256": "b33828ab2ef8b4b2bc745610c9a0bfdf4bff3b0ffa78aa8a69919f5fe5c99ed7"
+    }
+  ]
+}

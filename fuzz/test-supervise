@@ -1,0 +1,75 @@
+#!/usr/bin/env bash
+# ABOUTME: Verifies bounded supervision against ordinary parent and child processes.
+# ABOUTME: Checks timeout status and descendant cleanup without compiler substitutes.
+set -euo pipefail
+cd "$(dirname "$0")/.."
+scratch=$(mktemp -d)
+trap '[[ -z ${unrelated-} ]] || kill "$unrelated" 2>/dev/null || true; rm -rf "$scratch"' EXIT
+set +e
+bash fuzz/supervise --seconds 0.2 --status "$scratch/status" bash -c '
+  trap "" TERM
+  sleep 5 &
+  echo "$!" > "$1/child"
+  wait
+' -- "$scratch"
+status=$?
+set -e
+[[ $status == 124 && $(cat "$scratch/status") == 124 ]] || { echo 'timeout status was not 124' >&2; exit 1; }
+child=$(cat "$scratch/child")
+# A killed orphan can briefly remain as a zombie until init reaps it; it cannot run.
+if [[ -r /proc/$child/stat ]] && [[ $(awk '{print $3}' "/proc/$child/stat") != Z ]]; then
+  echo 'timeout left a live descendant' >&2; exit 1
+fi
+set +e
+bash fuzz/supervise --seconds 2 --status "$scratch/status" bash -c 'exit 7'
+status=$?
+set -e
+[[ $status == 7 && $(cat "$scratch/status") == 7 ]] || { echo 'child failure status lost' >&2; exit 1; }
+bash fuzz/supervise --seconds 2 --status "$scratch/status" bash -c 'exit 0'
+[[ $(cat "$scratch/status") == 0 ]]
+echo 'process group supervision checks passed'
+
+# Stage timeouts must stay inside the supervised process group.
+sleep 5 & unrelated=$!
+if rg '^  timeout ' scripts/fuzz-host | rg -v -- '--foreground' >/dev/null; then
+  echo 'stage timeout creates a separate process group' >&2; exit 1
+fi
+set +e
+bash fuzz/supervise --seconds 0.2 --status "$scratch/status" timeout --foreground --kill-after=2s 4 bash -c '
+  sleep 5 &
+  echo "$!" > "$1/nested-child"
+  wait
+' -- "$scratch"
+status=$?
+set -e
+[[ $status == 124 && $(cat "$scratch/status") == 124 ]]
+child=$(cat "$scratch/nested-child")
+if [[ -r /proc/$child/stat ]] && [[ $(awk '{print $3}' "/proc/$child/stat") != Z ]]; then
+  echo 'nested timeout left a live descendant' >&2; exit 1
+fi
+echo 'nested timeout cleanup checks passed'
+
+kill -0 "$unrelated" || { echo "unrelated process was affected" >&2; exit 1; }
+echo "unrelated process preserved"
+
+# Exercise the actual runner function's child-shell invocation with ordinary commands.
+invocation=$(sed -n 's/.*--status "$run\/status.txt" \(bash .*\)$/\1/p' scripts/fuzz-host)
+[[ -n $invocation ]] || { echo 'runner child invocation missing' >&2; exit 1; }
+run_fuzz() {
+  printf 'retained evidence\n' > "$2/evidence"
+  false
+  touch "$2/continued"
+}
+export -f run_fuzz
+root=$PWD
+run=$scratch
+seconds=60
+revision=fixture
+export root run seconds revision
+set +e
+bash fuzz/supervise --seconds 2 --status "$scratch/status" bash -c "exec $invocation"
+status=$?
+set -e
+[[ $status != 0 && $(cat "$scratch/status") == "$status" ]] || { echo 'runner child failure recorded success' >&2; exit 1; }
+[[ -f $scratch/evidence && ! -e $scratch/continued ]] || { echo 'runner continued after failure or lost evidence' >&2; exit 1; }
+echo 'runner child strict failure propagation passed'

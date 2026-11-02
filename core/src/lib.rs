@@ -5,8 +5,11 @@ pub mod audio;
 pub mod capture_buffer;
 pub mod capture_health;
 pub mod decimate;
+pub mod encoder_health;
 pub mod flac;
 pub mod flac_ring;
+pub mod input_gain;
+pub mod media_age;
 
 /// Shazam signature generation, copied from songrec-lib 0.5.4 (GPL-3.0-or-later, by marin-m).
 /// Kept as close to upstream as possible so the golden tests can demand identical bytes,
@@ -19,12 +22,22 @@ pub mod fingerprinting {
     pub mod signature_format;
     pub mod user_agent;
 }
+pub mod network_lifecycle;
+pub mod ota_image;
 pub mod policy;
 pub mod shazam;
 pub mod signal;
+pub mod sonos;
+pub mod sonos_queue;
+pub mod sonos_web;
 pub mod store;
+pub mod stream_buffer;
 pub mod stream_http;
 pub mod stream_ring;
 pub mod stream_wait;
+pub mod stream_write;
+pub mod task_observation;
 pub mod time;
 pub mod wav;
+
+pub mod sonos_upnp;

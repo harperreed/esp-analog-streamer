@@ -1,0 +1,11 @@
+{
+  "archive_sha256": "9f8ca3d84b3d369844800d938e7d596a5e36eeec766c5f2ee2b5cd561158690f",
+  "source_revision": "bfea1d40adc401205ac67ec76d9ad411b9f78215",
+  "members": 232,
+  "public_config_sha256": "a161693e2fc39ba0a86aa663b9ac26bf6a145bb88a2325f0a89dcc47ced1fb30",
+  "original_target_reused": false,
+  "initial_git_diff_check_exit": 2,
+  "initial_git_diff_check_limit": "Initial import exposes existing LICENSE, upstream fingerprinting and Shine COPYING whitespace; source preserved byte-for-byte.",
+  "verified_manifest_files": 231,
+  "verified_tracked_source_files": 230
+}

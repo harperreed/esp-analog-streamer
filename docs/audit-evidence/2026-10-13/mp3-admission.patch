@@ -1,0 +1,23 @@
+--- a/firmware/src/stream.rs
++++ b/firmware/src/stream.rs
+@@ -1108,0 +1109,11 @@
++        if let (Some(peer), Some((at, (generation, sequence), cursor))) =
++            (peer, listener.admission_probe.take())
++        {
++            log::info!(
++                "buffer-admission: peer={} format={:?} preset={} event_us={} head_generation={} head_sequence={} cursor={:?}",
++                peer,
++                epoch.format,
++                preset.map_or("live", BufferPreset::query_value),
++                at.as_micros(), generation, sequence, cursor,
++            );
++        }
+--- a/firmware/src/stream_pipeline.rs
++++ b/firmware/src/stream_pipeline.rs
+@@ -420,0 +421,2 @@
++    // Throwaway admission evidence; rendered by the wrapper after releasing the ring.
++    pub(crate) admission_probe: Option<(Duration, (u64, u64), flac_ring::Cursor)>,
+@@ -465,0 +468 @@
++            admission_probe: None,
+@@ -540,0 +544 @@
++                            self.admission_probe = Some((now(), ring.progress(), cursor));

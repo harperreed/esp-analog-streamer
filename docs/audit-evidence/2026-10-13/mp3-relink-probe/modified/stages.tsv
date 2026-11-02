@@ -1,0 +1,6 @@
+stage	exit_code	log
+firmware-fmt	0	firmware-fmt.log
+firmware-build	0	firmware-build.log
+i2s-iram-tests	0	i2s-iram-tests.log
+i2s-iram	0	i2s-iram.log
+firmware-warnings	0	firmware-warnings.log

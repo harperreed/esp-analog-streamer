@@ -1,0 +1,2 @@
+ok I2S IRAM configuration and 11023 linked symbols checked
+Placement check covers pinned normal ISR helpers; allocation capabilities and full hardware continuity require separate evidence.

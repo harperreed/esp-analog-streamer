@@ -1,0 +1,15 @@
+{
+  "archive_sha256": "9f8ca3d84b3d369844800d938e7d596a5e36eeec766c5f2ee2b5cd561158690f",
+  "corrupted_manifest_error": "verification failed: .github/workflows/check.yml",
+  "corrupted_manifest_exit": 1,
+  "files": {
+    "README.md": "a6b9717b5137934eb2be9875247a2fb449098a173a573948372cc2eacac3bb93",
+    "package.py": "6557f93492430fac45ccf81274fab62454daba2228da141a00a450e2ef35f18f",
+    "verify.py": "492835e0ab6604ee6ad6f1a66bb156a63e11e1feeb6520714aa4b4caf722d639"
+  },
+  "fresh_eyes_review": "three probe files reviewed; no remaining blocker",
+  "limits": "no target build or offline dependency proof; parent owns recipient builds",
+  "python_syntax": "passed",
+  "repeat_archive_identical": true,
+  "status": "passed"
+}

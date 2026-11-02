@@ -61,6 +61,12 @@ pub fn setup_line_in(i2c: &mut I2cDriver<'_>, pga_gain: u8) -> Result<()> {
     Ok(())
 }
 
+/// Changes the PGA at runtime: register 0x09 takes effect immediately, and the read-back proves it took.
+pub fn set_pga_gain(i2c: &mut I2cDriver<'_>, pga_gain: u8) -> Result<()> {
+    write(i2c, 0x09, pga_gain)?;
+    expect(i2c, 0x09, pga_gain)
+}
+
 fn expect(i2c: &mut I2cDriver<'_>, reg: u8, want: u8) -> Result<()> {
     let got = read(i2c, reg)?;
     if got != want {

@@ -1,0 +1,258 @@
+{
+  "scope": "Conditional one-listener MP3 passive reconnect after normal sender checked close; quiet ADC; no continuity or recovery-policy pass",
+  "verdict": "failed",
+  "kata": {
+    "parent": "wmsy",
+    "recovery": "pqqq",
+    "closed_children": 23,
+    "open_children": 15,
+    "closures_this_phase": 0
+  },
+  "checks": {
+    "first_probe": {
+      "run": "run.uD339GKt",
+      "stages_passed": 27
+    },
+    "established_probe": {
+      "run": "run.W81DFkwg",
+      "firmware_stages_passed": 5
+    },
+    "focused_host_tests_passed": 18,
+    "actual_event_writer_red_green": true
+  },
+  "first": {
+    "image_sha256": "bc67008fc7eb1788d28766828e42a460ce718c10c8b88506fb9e429cb9af396d",
+    "boot": "95d298751248d1a1f5f50c855649b798",
+    "verdict": "failed_before_injection",
+    "driver_snapshots": 0,
+    "error": "duplicate monotonic keyword in Trial.event",
+    "natural_first_owner": {
+      "frames_sent": 122,
+      "bytes_sent": 117120,
+      "departure_us": 25093311,
+      "checked_close_us": 25094837
+    },
+    "startup_replacement": {
+      "joined_us": 25101183,
+      "frames_sent": 3374
+    },
+    "separate_checked_cleanup_verified": true
+  },
+  "established": {
+    "image_sha256": "15f28aacd54fd377299795b8f62b251e4714344c6d4d3649ebe5ffe29f812fa4",
+    "boot": "bc295eab4e9e7ff9a94a50440e06ceda",
+    "verdict": "failed_no_admitted_replacement_and_driver_ownership_failure",
+    "first_payload_us": 31062475,
+    "injection_us": 41206014,
+    "threshold_interval_us": 10143539,
+    "frames_sent": 584,
+    "bytes_sent": 560640,
+    "departure_us": 41206442,
+    "checked_close_us": 41478215,
+    "last_recorded_export_us": 145013866,
+    "postclose_observation_us": 103535651,
+    "replacement_admissions": 0,
+    "raw_head_405_count": 1,
+    "preinjection_position_seconds": [
+      0,
+      6
+    ],
+    "position_six_bracket_us": [
+      39669733,
+      40978027
+    ],
+    "position_seven_bracket_straddles_injection": true,
+    "first_stopped_snapshot_metrics_us": 47659492,
+    "driver_snapshots": 60,
+    "metrics_responses": 64,
+    "ownership_deadline_errors": 40,
+    "driver_cleanup_refused": true,
+    "separate_readonly_stopped_check_verified": true,
+    "uri_repeated_across_boots": true
+  },
+  "restoration": {
+    "passed": true,
+    "saved_sonos_config_unchanged": true,
+    "compiled_config_unchanged": true,
+    "image_sha256": "e93f8f72692c1630d082de42b3d1ae8d11d8c106c2ef6e978e96b74a83cb5eea",
+    "boot_token": "4741a15f17af22e1871dfa19523aec1b",
+    "state": "stopped",
+    "format": "mp3",
+    "buffer": "med",
+    "autoplay": false,
+    "recognition": false,
+    "listeners_idle": true,
+    "remote_state": "STOPPED",
+    "remote_status": "OK",
+    "strict_capture_rows": {
+      "diagnostic.uart": 17,
+      "v2/diagnostic.uart": 14,
+      "production.uart": 3
+    },
+    "collector_exit_codes": {
+      "first": 0,
+      "established": 0,
+      "ordinary": 0
+    },
+    "driver_exit_codes": {
+      "first": 1,
+      "established": 1
+    },
+    "flash_exit_codes": {
+      "first": 0,
+      "established": 0,
+      "ordinary": 0
+    }
+  },
+  "limits": [
+    "No known audio source, decoder sample accounting, audibility or fidelity gate.",
+    "No AP control or packet trace; absence of admitted replacement does not prove absence of all requests.",
+    "Read-only SOAP observations are sequential and bracketed, not atomic.",
+    "Both aggregate driver failures remain failures; no third acquisition.",
+    "No boot-independent URI uniqueness established; fix this harness assumption before reuse.",
+    "Device-reported ELF/boot identities are not secure-boot attestations.",
+    "Original interruption/takeover/two-listener and endurance criteria remain open."
+  ],
+  "artifacts": [
+    {
+      "path": "target/kata-hardening/oct13-passive/passive-media-close.patch",
+      "sha256": "160424128480e8a9c1524df7bbec94bc62dbe1a5244868165fb1f92e814c39da",
+      "bytes": 6425
+    },
+    {
+      "path": "target/kata-hardening/oct13-passive/v2/passive-established-close.patch",
+      "sha256": "55ab155adfd07b2295d5fe53bf8aa246cfff9c1c1b80e014b098b29a525b9564",
+      "bytes": 7079
+    },
+    {
+      "path": "target/kata-hardening/oct13-passive/passive-check-trial-one.py",
+      "sha256": "1afbdf9a7f6d8f063f1a5fe9af5a8cf6107ad510cbd06a983b79d317141ff547",
+      "bytes": 11164
+    },
+    {
+      "path": "target/kata-hardening/oct13-passive/passive-check.py",
+      "sha256": "57744075f73c3ea0c090ad2e4642cd911c47d68c2329ad03c5ff8c5739686f0c",
+      "bytes": 11179
+    },
+    {
+      "path": "target/kata-hardening/oct13-passive/event-regression.py",
+      "sha256": "785608e82b4d3847554f85954291b1e571ad0891f68fb4c6f97c31772319f28c",
+      "bytes": 2002
+    },
+    {
+      "path": "target/kata-hardening/oct13-passive/event-regression-before.log",
+      "sha256": "05d876cd2259866db3855cea57dc6d4f84f3e5cb66964c22eeb8bb3e183834b0",
+      "bytes": 565
+    },
+    {
+      "path": "target/kata-hardening/oct13-passive/event-regression-after.log",
+      "sha256": "1a621e6eaef97f37a135684377c6e16f0d74ff99df389b8519f6bf1a9062b1f9",
+      "bytes": 149
+    },
+    {
+      "path": "target/kata-hardening/oct13-passive/event-regression-parent.log",
+      "sha256": "1a621e6eaef97f37a135684377c6e16f0d74ff99df389b8519f6bf1a9062b1f9",
+      "bytes": 149
+    },
+    {
+      "path": "target/kata-hardening/oct13-passive/build-receipt.json",
+      "sha256": "d2e2bc2c1b28ee630b5619f6bc572ef39991c914a2851045ca8cd2eddfb0255b",
+      "bytes": 283
+    },
+    {
+      "path": "target/kata-hardening/oct13-passive/v2/build-receipt.json",
+      "sha256": "2d0744d0d290c5844c9e6e0a8022c2fd4bc70f8b2bbf0a86c0d06b4f0bf8bf0f",
+      "bytes": 282
+    },
+    {
+      "path": "target/kata-hardening/oct13-passive/diagnostic.uart",
+      "sha256": "4a16b526f265b35bf3db5fda8c01e1a0b5918e51aea1a84508d44058c7e1145c",
+      "bytes": 90828
+    },
+    {
+      "path": "target/kata-hardening/oct13-passive/diagnostic-serial.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": "target/kata-hardening/oct13-passive/trial-one/events.jsonl",
+      "sha256": "cb05d9b29c36bd7afbdacacb15aa53aaffdf23245ff93b0ca8be3092841dc643",
+      "bytes": 36796
+    },
+    {
+      "path": "target/kata-hardening/oct13-passive/trial-one/result.json",
+      "sha256": "a959be7796046fc1cfdebf6b72449a341efe2ce7c365d59b78c90df395402383",
+      "bytes": 1677
+    },
+    {
+      "path": "target/kata-hardening/oct13-passive/trial-one/analysis-reviewed-final.json",
+      "sha256": "e9b7062cbb471d33ed3c09ad37d18fbb690dab7f867c84bba3de0301e3cf11db",
+      "bytes": 7374
+    },
+    {
+      "path": "target/kata-hardening/oct13-passive/cleanup.log",
+      "sha256": "7e90c98e5a697422214bef098ca9a35d428d39b18ade42e15e9b86ce38fb4694",
+      "bytes": 634
+    },
+    {
+      "path": "target/kata-hardening/oct13-passive/trial-one-cleanup-verified/verified.json",
+      "sha256": "c763d07c01ebb7676bf592a051b63dfc853459378307260be8830448b7e1abb1",
+      "bytes": 4868
+    },
+    {
+      "path": "target/kata-hardening/oct13-passive/v2/diagnostic.uart",
+      "sha256": "e3e08544407f9ccaf35865693b4c845000302ec9d169cc7f3b76b73cefd44d44",
+      "bytes": 75055
+    },
+    {
+      "path": "target/kata-hardening/oct13-passive/v2/serial.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": "target/kata-hardening/oct13-passive/v2/trial/events.jsonl",
+      "sha256": "c4784967e4d4833076cad6c5f2154868a6004d59ef39a472a4f873d4af7da0a8",
+      "bytes": 972366
+    },
+    {
+      "path": "target/kata-hardening/oct13-passive/v2/trial/result.json",
+      "sha256": "74eddd84e9304c78c31d0f42d3eb2b330c729fd2239c9918eae6c8c12ca4a6ff",
+      "bytes": 7355
+    },
+    {
+      "path": "target/kata-hardening/oct13-passive/v2/trial/analysis-reviewed-final.json",
+      "sha256": "d6b807691bd7053568fd571cfc3caed752990b2fb48b8524fafb3be635dc27d3",
+      "bytes": 7081
+    },
+    {
+      "path": "target/kata-hardening/oct13-passive/v2/stopped-check/verified.json",
+      "sha256": "dbce4bd472a4665ea4b4a39117acfaf06cebfc1ad6a577861468563371f3e007",
+      "bytes": 4754
+    },
+    {
+      "path": "target/kata-hardening/oct13-passive/v2/runtime-review.md",
+      "sha256": "b68415812c722bceea2db80971d392c59f621fac9531747503e7128c3b9559fb",
+      "bytes": 4078
+    },
+    {
+      "path": "target/kata-hardening/oct13-passive/production-build.jsonl",
+      "sha256": "706552c332eb821314fa1815b877f2ec4cc819daa09737ab3a7953881132a25d",
+      "bytes": 307631
+    },
+    {
+      "path": "target/kata-hardening/oct13-passive/production.uart",
+      "sha256": "8e9ed652629cc53dc47a691d29ebfd4c9a50be71530d2886d9ad05022b9a241d",
+      "bytes": 21970
+    },
+    {
+      "path": "target/kata-hardening/oct13-passive/production-final-check/verified.json",
+      "sha256": "1e0b14526dee304c0fbdd8e4cea87c048dce2a40107030db58dd30621572553e",
+      "bytes": 4119
+    },
+    {
+      "path": "target/kata-hardening/oct13-passive/preservation.json",
+      "sha256": "1a9f8e67155a7d5f78089cc554d9982237cf10b2d5224b3ae8935a9c9a87d5da",
+      "bytes": 776
+    }
+  ]
+}

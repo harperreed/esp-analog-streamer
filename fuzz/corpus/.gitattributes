@@ -1,0 +1,5 @@
+# ABOUTME: Keeps exact fuzzer input bytes intact across checkout and diff tools.
+# ABOUTME: HTTP line endings and trailing bytes are test data, not source whitespace.
+flac_frames/* binary
+http_head/* binary
+stream_ops/* binary

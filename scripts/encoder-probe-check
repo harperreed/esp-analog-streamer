@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+# ABOUTME: Runs one bounded encoder probe trial using the project's locked Python environment.
+# ABOUTME: Leaves hardware ownership and the exact flashed diagnostic ELF to the parent operator.
+set -euo pipefail
+repo="$(cd "$(dirname "$0")/.." && pwd)"
+exec uv run --quiet --project "$repo" --locked python3 "$repo/scripts/encoder_probe_check.py" "$@"

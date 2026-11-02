@@ -1,0 +1,7 @@
+Traceback (most recent call last):
+  File "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-quant-target-impl/verify.py", line 78, in <module>
+    main()
+  File "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-quant-target-impl/verify.py", line 57, in main
+    assert reference == want, f"independent quantizer oracle: {stem}"
+           ^^^^^^^^^^^^^^^^^
+AssertionError: independent quantizer oracle: silence-trunc-warmup

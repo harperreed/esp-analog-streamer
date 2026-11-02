@@ -1,0 +1,257 @@
+{
+  "verdict": "Original uninstrumented rate/codec-wall separation did not reproduce; phase timing gate fails.",
+  "trials": {
+    "archived": {
+      "reconstructed": {
+        "windows": 8,
+        "frames": 3336,
+        "elapsed_us": 80105467,
+        "weighted_rate": 0.9994823449440723,
+        "rate_range": [
+          0.996740725713904,
+          1.0008181528779656
+        ],
+        "weighted_codec_wall_us_per_frame": 21762.753896882496,
+        "codec_wall_range_us": [
+          21731.520383693045,
+          21825.446043165466
+        ]
+      },
+      "frozen_original": {
+        "windows": 8,
+        "frames": 3208,
+        "elapsed_us": 80090231,
+        "weighted_rate": 0.9613157439888018,
+        "rate_range": [
+          0.9530606647258898,
+          0.975116753460177
+        ],
+        "weighted_codec_wall_us_per_frame": 22302.87624688279,
+        "codec_wall_range_us": [
+          22266.481296758106,
+          22336.8775
+        ]
+      },
+      "acquisition_valid": true,
+      "image_sha256": "fc1ec48175736d2063de9a786589cfefcc0de931265d47ca1b863eca7be71b55",
+      "actual_overruns": 0,
+      "final_resets": 0,
+      "capture_fault_values": {
+        "queue_overflows": [
+          16
+        ],
+        "software_dropped_frames": [
+          480
+        ],
+        "read_errors": [
+          0
+        ],
+        "restarts": [
+          2
+        ],
+        "supervisor_restarts": [
+          0
+        ],
+        "overflow_restarts": [
+          2
+        ],
+        "settling_discarded_frames": [
+          26400
+        ],
+        "discontinuities": [
+          2
+        ],
+        "health_restart_requests": [
+          0
+        ]
+      },
+      "export_loss": false,
+      "stack_minima_bytes": {
+        "metrics_stack_free_bytes": 1468,
+        "listener_stack_free_bytes": null,
+        "supervisor_stack_min_bytes": null,
+        "encoder_stack_free_bytes": 5188
+      }
+    },
+    "current": {
+      "reconstructed": {
+        "windows": 8,
+        "frames": 3336,
+        "elapsed_us": 80093702,
+        "weighted_rate": 0.9996291593563749,
+        "rate_range": [
+          0.9969159908560117,
+          1.0014423684990474
+        ],
+        "weighted_codec_wall_us_per_frame": 21442.324040767387,
+        "codec_wall_range_us": [
+          21402.745803357313,
+          21506.191846522783
+        ]
+      },
+      "frozen_original": {
+        "windows": 8,
+        "frames": 2627,
+        "elapsed_us": 80159375,
+        "weighted_rate": 0.786533078632412,
+        "rate_range": [
+          0.7831666276813078,
+          0.7890221201991661
+        ],
+        "weighted_codec_wall_us_per_frame": 27889.09021697754,
+        "codec_wall_range_us": [
+          27842.750759878418,
+          27973.162079510705
+        ]
+      },
+      "acquisition_valid": true,
+      "image_sha256": "626456a35e462d049a4f5bdacbff1421f04ae0223332eed9d0bdbacef32a6621",
+      "actual_overruns": 0,
+      "final_resets": 0,
+      "capture_fault_values": {
+        "queue_overflows": [
+          15
+        ],
+        "software_dropped_frames": [
+          480
+        ],
+        "read_errors": [
+          0
+        ],
+        "restarts": [
+          2
+        ],
+        "supervisor_restarts": [
+          0
+        ],
+        "overflow_restarts": [
+          2
+        ],
+        "settling_discarded_frames": [
+          26400
+        ],
+        "discontinuities": [
+          2
+        ],
+        "health_restart_requests": [
+          0
+        ]
+      },
+      "export_loss": false,
+      "stack_minima_bytes": {
+        "metrics_stack_free_bytes": 1436,
+        "listener_stack_free_bytes": null,
+        "supervisor_stack_min_bytes": 3092,
+        "encoder_stack_free_bytes": 5196
+      }
+    }
+  },
+  "individual_reports": {
+    "archived": "target/kata-hardening/metrics-state/reconstructed-archived-observation-1-device-analysis.json",
+    "current": "target/kata-hardening/metrics-state/reconstructed-current-observation-1-device-analysis.json"
+  },
+  "individual_report_sha256": {
+    "archived": "adccc636b8852afa5bb37957e207bd5fe2a0a0b4cfd7cdf36083bd84c71ada36",
+    "current": "16cb1c07d4167531ea90a64e53c2fd60243e4bac97e554fe013db551a30a1c91"
+  },
+  "frozen_helpers_identical": true,
+  "original_artifact_sha256": {
+    "target/kata-hardening/metrics-state/archived-default-observation-1/aplay.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "target/kata-hardening/metrics-state/archived-default-observation-1/build-receipt.json": "f6155e41f49c807d01e5d44f7a506667f19c3ad580e2d1013ea7c8f535141e40",
+    "target/kata-hardening/metrics-state/archived-default-observation-1/events.jsonl": "5af3cef907585552b6aa9da8bcc5ec85fc964a6c9f6f68d3679b5a2f769e40aa",
+    "target/kata-hardening/metrics-state/archived-default-observation-1/helpers/crossover-analyze.py": "34d6b1e6db0ea3f6fc20c61a26af3d9ff852bf90421b22957ba249a2a8648aaa",
+    "target/kata-hardening/metrics-state/archived-default-observation-1/helpers/crossover-uart.py": "ddccebf880a1cc501d33756e7ed6d0a93b8139a1e05d88d02ec2fbeca0588fae",
+    "target/kata-hardening/metrics-state/archived-default-observation-1/helpers/encoder_fault_check.py": "c918af5d1becb4ec97473f8cac14dd0b1a71208ce5a70f4b4f6a72549f4d9c34",
+    "target/kata-hardening/metrics-state/archived-default-observation-1/helpers/encoder_probe_check.py": "20f9722db3f545bb00e82561899f47fa8ae8ae2c26ba90cf3a484247750330d6",
+    "target/kata-hardening/metrics-state/archived-default-observation-1/helpers/listener-device-trial.py": "efe3b603a867583978ec76f400b8ecb92b7c0333c9e8835857dfd5ec587e2f82",
+    "target/kata-hardening/metrics-state/archived-default-observation-1/helpers/test_crossover.py": "c7abd352f76fdc77757459bf285d097be8c85442043ccfdd2dbed7b485e8e731",
+    "target/kata-hardening/metrics-state/archived-default-observation-1/image.elf": "d88a65965ff456c7500df1ae05d5ac548ef4290b35524215bf3e27175378b991",
+    "target/kata-hardening/metrics-state/archived-default-observation-1/observe/collector-result.json": "050daef26a344c41634d8763a145f833a2d79e1a42026af6c78563173fc7ab1f",
+    "target/kata-hardening/metrics-state/archived-default-observation-1/observe/events.jsonl": "ad03609ed2de65e41442a8a99826452eab2fcd081d2e050c34302b3611b4ff9d",
+    "target/kata-hardening/metrics-state/archived-default-observation-1/observe/uart-arrival.jsonl": "3cc6a022dcfbc616b4b44dfa6bc7081da15b35ab4c5f7c7c42d827d7c83284c0",
+    "target/kata-hardening/metrics-state/archived-default-observation-1/observe/uart.log": "c79b206ac0282d6c7a88c3fb4d6e8a1bbe85c24381c0c3945dedf1aa86698c64",
+    "target/kata-hardening/metrics-state/archived-default-observation-1/observe-cleanup.json": "b375dc6004a5e5b897d505841783b185b20eedb074799548a5f3b15077d13798",
+    "target/kata-hardening/metrics-state/archived-default-observation-1/observe.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "target/kata-hardening/metrics-state/archived-default-observation-1/result.json": "9e92d87ebae38deefe916f17636e82906196831f7bd8e648e7e1c758426f12b7",
+    "target/kata-hardening/metrics-state/archived-default-observation-1/source-liveness.jsonl": "32cb4eb8d535d8251d77c8544386a8d2877d917617fd151c2a000ed9140a3403",
+    "target/kata-hardening/metrics-state/current-default-observation-1/aplay.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "target/kata-hardening/metrics-state/current-default-observation-1/build-receipt.json": "593ceb1001212951fea6f0007f854fb0192a94cb5915a3191db8a8aa6378593e",
+    "target/kata-hardening/metrics-state/current-default-observation-1/events.jsonl": "c28ae138fad3755ba9d2c8e5ee01883fb92deeef7c310356554878800c0a1e14",
+    "target/kata-hardening/metrics-state/current-default-observation-1/helpers/crossover-analyze.py": "34d6b1e6db0ea3f6fc20c61a26af3d9ff852bf90421b22957ba249a2a8648aaa",
+    "target/kata-hardening/metrics-state/current-default-observation-1/helpers/crossover-uart.py": "ddccebf880a1cc501d33756e7ed6d0a93b8139a1e05d88d02ec2fbeca0588fae",
+    "target/kata-hardening/metrics-state/current-default-observation-1/helpers/encoder_fault_check.py": "c918af5d1becb4ec97473f8cac14dd0b1a71208ce5a70f4b4f6a72549f4d9c34",
+    "target/kata-hardening/metrics-state/current-default-observation-1/helpers/encoder_probe_check.py": "20f9722db3f545bb00e82561899f47fa8ae8ae2c26ba90cf3a484247750330d6",
+    "target/kata-hardening/metrics-state/current-default-observation-1/helpers/listener-device-trial.py": "efe3b603a867583978ec76f400b8ecb92b7c0333c9e8835857dfd5ec587e2f82",
+    "target/kata-hardening/metrics-state/current-default-observation-1/helpers/test_crossover.py": "c7abd352f76fdc77757459bf285d097be8c85442043ccfdd2dbed7b485e8e731",
+    "target/kata-hardening/metrics-state/current-default-observation-1/image.elf": "d78be640ac61d83383872e5b11a2e2e72d33bbb22cce6a64f58acf7888ed3d77",
+    "target/kata-hardening/metrics-state/current-default-observation-1/observe/collector-result.json": "372995bc23996669ff1385febb81b6e90dff57172911e5a3e3c5c5c721071d0e",
+    "target/kata-hardening/metrics-state/current-default-observation-1/observe/events.jsonl": "6b89a768bbd0a36d9c5362fec092772a55ae060f204027acef0353f86e2eb242",
+    "target/kata-hardening/metrics-state/current-default-observation-1/observe/uart-arrival.jsonl": "b42224f220b6094adb95789eafc4196ea97dc795a1d32e72c3d22e0e871719e7",
+    "target/kata-hardening/metrics-state/current-default-observation-1/observe/uart.log": "70c39cb473eba2c47f2569992edd834d5eb2dcac30a110cd1b2166fc6384ba25",
+    "target/kata-hardening/metrics-state/current-default-observation-1/observe-cleanup.json": "7200e7e759e687588a35c40253131c7dce1459c19a5d7889ed50a67a7e4979a0",
+    "target/kata-hardening/metrics-state/current-default-observation-1/observe.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "target/kata-hardening/metrics-state/current-default-observation-1/result.json": "d6f6e1ae7e80535295b07d33184ccd70af05678a2bbf58b17cf526d6d4f35dd1",
+    "target/kata-hardening/metrics-state/current-default-observation-1/source-liveness.jsonl": "e552ac48d9a01e52f213ea9bd3c2233d39af90dcf70d72cc059fcfa10a926d42",
+    "target/kata-hardening/metrics-state/reconstructed-archived-observation-1/aplay.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "target/kata-hardening/metrics-state/reconstructed-archived-observation-1/build-receipt.json": "32d880600da7c94ba1d44cb36706c2d3e74861ffe811877c339fe468bf8b98a7",
+    "target/kata-hardening/metrics-state/reconstructed-archived-observation-1/events.jsonl": "6e420d6a8a0204034667ac640965d61c97851ac769bab40ef1666b9a732fa58d",
+    "target/kata-hardening/metrics-state/reconstructed-archived-observation-1/helpers/crossover-analyze.py": "4dfc24af9739b3ad878de093d5f2adce478573a5444bf8165f8ccf3c67a903f1",
+    "target/kata-hardening/metrics-state/reconstructed-archived-observation-1/helpers/crossover-uart.py": "ddccebf880a1cc501d33756e7ed6d0a93b8139a1e05d88d02ec2fbeca0588fae",
+    "target/kata-hardening/metrics-state/reconstructed-archived-observation-1/helpers/encoder_fault_check.py": "180e3c7ad3dd61cda06e39f69ffd728b4c40caea6b4acfcbdbf4f70b40c6a290",
+    "target/kata-hardening/metrics-state/reconstructed-archived-observation-1/helpers/encoder_probe_check.py": "a0af53f0d982bf7c10d43aec85eeaed0b1fbc347b5d2194468bbdb7e0e7c60dc",
+    "target/kata-hardening/metrics-state/reconstructed-archived-observation-1/helpers/listener-device-trial.py": "e0d6a0099078e4c32f127df5c02e59680d27479c0d520c336110c5bcd0a25331",
+    "target/kata-hardening/metrics-state/reconstructed-archived-observation-1/helpers/test_crossover.py": "c7abd352f76fdc77757459bf285d097be8c85442043ccfdd2dbed7b485e8e731",
+    "target/kata-hardening/metrics-state/reconstructed-archived-observation-1/helpers/wav_input_check.py": "23620ea888f40bf315073c6fd0af830a0152b17d5662e1d7d3d852dd255b61c7",
+    "target/kata-hardening/metrics-state/reconstructed-archived-observation-1/image.elf": "fc1ec48175736d2063de9a786589cfefcc0de931265d47ca1b863eca7be71b55",
+    "target/kata-hardening/metrics-state/reconstructed-archived-observation-1/observe/collector-result.json": "a09e3cd20f6b4a33b21255ad0852791a26b4e53ba328bddd5defef661a477c1f",
+    "target/kata-hardening/metrics-state/reconstructed-archived-observation-1/observe/events.jsonl": "0bd2e976701a255559e00aefcd64459cd033944f333518e29e87811646b0844f",
+    "target/kata-hardening/metrics-state/reconstructed-archived-observation-1/observe/uart-arrival.jsonl": "dcbf6b49d2f8f796bb5b08ba3b748ab7405389155c5cc7fbfd423ec69f82f0c5",
+    "target/kata-hardening/metrics-state/reconstructed-archived-observation-1/observe/uart.log": "5248a66d5cdbd659a1ed133b1b886026b90af897d7e3b58a98c8127f6312d627",
+    "target/kata-hardening/metrics-state/reconstructed-archived-observation-1/observe-cleanup.json": "b2448e9ea3454061b7f1d6aff1224779c3727259e202acd0c3b2e4027295b8fc",
+    "target/kata-hardening/metrics-state/reconstructed-archived-observation-1/observe.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "target/kata-hardening/metrics-state/reconstructed-archived-observation-1/result.json": "ac1efaff883064558564ee3d38dac1b8a3dfe84d5410e07dc3c361b3a6925ae2",
+    "target/kata-hardening/metrics-state/reconstructed-archived-observation-1/source-liveness.jsonl": "a876a0386d8f453f36e2c4e1147c87ed6073c56da46aa0314c8cbea028bf2c72",
+    "target/kata-hardening/metrics-state/reconstructed-current-observation-1/aplay.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "target/kata-hardening/metrics-state/reconstructed-current-observation-1/build-receipt.json": "0b27f5167f8c8bee0da8d55bdfe6928fe7cf7628f9982187ef36e15396a13d43",
+    "target/kata-hardening/metrics-state/reconstructed-current-observation-1/events.jsonl": "c6f9c9d87d0d8fec6217f5b85eb42b3fcf92ecf81b71000e17bd169fbf8c6f48",
+    "target/kata-hardening/metrics-state/reconstructed-current-observation-1/helpers/crossover-analyze.py": "4dfc24af9739b3ad878de093d5f2adce478573a5444bf8165f8ccf3c67a903f1",
+    "target/kata-hardening/metrics-state/reconstructed-current-observation-1/helpers/crossover-uart.py": "ddccebf880a1cc501d33756e7ed6d0a93b8139a1e05d88d02ec2fbeca0588fae",
+    "target/kata-hardening/metrics-state/reconstructed-current-observation-1/helpers/encoder_fault_check.py": "180e3c7ad3dd61cda06e39f69ffd728b4c40caea6b4acfcbdbf4f70b40c6a290",
+    "target/kata-hardening/metrics-state/reconstructed-current-observation-1/helpers/encoder_probe_check.py": "a0af53f0d982bf7c10d43aec85eeaed0b1fbc347b5d2194468bbdb7e0e7c60dc",
+    "target/kata-hardening/metrics-state/reconstructed-current-observation-1/helpers/listener-device-trial.py": "e0d6a0099078e4c32f127df5c02e59680d27479c0d520c336110c5bcd0a25331",
+    "target/kata-hardening/metrics-state/reconstructed-current-observation-1/helpers/test_crossover.py": "c7abd352f76fdc77757459bf285d097be8c85442043ccfdd2dbed7b485e8e731",
+    "target/kata-hardening/metrics-state/reconstructed-current-observation-1/helpers/wav_input_check.py": "23620ea888f40bf315073c6fd0af830a0152b17d5662e1d7d3d852dd255b61c7",
+    "target/kata-hardening/metrics-state/reconstructed-current-observation-1/image.elf": "626456a35e462d049a4f5bdacbff1421f04ae0223332eed9d0bdbacef32a6621",
+    "target/kata-hardening/metrics-state/reconstructed-current-observation-1/observe/collector-result.json": "7d4fa8c8633935119d2a6994175a3831c2991dcf1d5525473e5d17ab475453ed",
+    "target/kata-hardening/metrics-state/reconstructed-current-observation-1/observe/events.jsonl": "22852b20f4ad6dffe926fb7057dd2baea8432becfbdf5ad2a20686e1e70a10fd",
+    "target/kata-hardening/metrics-state/reconstructed-current-observation-1/observe/uart-arrival.jsonl": "72b88b83a09a0e9ea9b46a5d91a021c382eea9e9129735de2d9c988cc02b7473",
+    "target/kata-hardening/metrics-state/reconstructed-current-observation-1/observe/uart.log": "bede1cfd797329bf809e705d2db69665fd34203bb21918f52c94dd6410439ac2",
+    "target/kata-hardening/metrics-state/reconstructed-current-observation-1/observe-cleanup.json": "73d46f3484853c8f0088b250f5e8ea80abf9577aa13e47b4df70e3a3236e0d70",
+    "target/kata-hardening/metrics-state/reconstructed-current-observation-1/observe.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "target/kata-hardening/metrics-state/reconstructed-current-observation-1/result.json": "ab6869f6fc50c7cdc87a0e8c319c7858008a5dad463f3fcd85eb1acaaa85eb60",
+    "target/kata-hardening/metrics-state/reconstructed-current-observation-1/source-liveness.jsonl": "c1ea916be8d3490addde0d2412ed00b6ef2788fbccb167e0b4bbbdd371d0c484"
+  },
+  "originals_verified_unchanged": true,
+  "original_public_report_sha256": {
+    "docs/audit-evidence/2026-10-10/metrics-state-default-controls.json": "106631828bffc8d6fb1d6305a1898cb69899edce57cd83cb0ad12ef990211791",
+    "docs/audit-evidence/2026-10-10/metrics-state-default-controls.md": "409ce09db472cc2664946d36346a68ece75fc3646a1dc7e9f51a1cbc49b382a0"
+  },
+  "limits": [
+    "Reconstructed builds are new images, not historical binary attestations.",
+    "Only eight complete naturally acquired zero-listener windows per image are compared; terminal tails remain unreported.",
+    "No listeners or delivery exercised; observed counters retain startup capture faults.",
+    "No cause established; no phase timing implementation authorized by this failed gate."
+  ],
+  "device_image_attestation": {
+    "archived": false,
+    "current": false
+  },
+  "nonarchived_import_dependency_sha256": {
+    "archived": {
+      "scripts/stream_format.py": "4d0e8a606729c00512deca848d316670fa644f54d6789af9f0132a0a5f352f71"
+    },
+    "current": {
+      "scripts/stream_format.py": "4d0e8a606729c00512deca848d316670fa644f54d6789af9f0132a0a5f352f71"
+    }
+  }
+}

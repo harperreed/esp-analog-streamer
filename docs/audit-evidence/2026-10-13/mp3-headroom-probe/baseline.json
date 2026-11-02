@@ -1,0 +1,3583 @@
+{
+  "scope": "Throwaway offline actual production bridge headroom characterization; no production edits or playback.",
+  "reproduce": [
+    "uv",
+    "run",
+    "--quiet",
+    "--locked",
+    "python3",
+    "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/probe.py"
+  ],
+  "versions": {
+    "ffmpeg": "ffmpeg version 8.0.1-3ubuntu2 Copyright (c) 2000-2025 the FFmpeg developers\nbuilt with gcc 15 (Ubuntu 15.2.0-13ubuntu3)\nconfiguration: --prefix=/usr --extra-version=3ubuntu2 --toolchain=hardened --libdir=/usr/lib/x86_64-linux-gnu --incdir=/usr/include/x86_64-linux-gnu --arch=amd64 --enable-gpl --disable-stripping --disable-pocketsphinx --disable-libcaca --disable-libmfx --disable-omx --enable-gnutls --enable-libaom --enable-libass --enable-libbs2b --enable-libcdio --enable-libcodec2 --enable-libdav1d --enable-libflite --enable-libfontconfig --enable-libfreetype --enable-libfribidi --enable-libglslang --enable-libgme --enable-libgsm --enable-libharfbuzz --enable-libmp3lame --enable-libmysofa --enable-libopenjpeg --enable-libopenmpt --enable-libopus --enable-librubberband --enable-libshine --enable-libsnappy --enable-libsoxr --enable-libspeex --enable-libtheora --enable-libtwolame --enable-libvidstab --enable-libvorbis --enable-libvpx --enable-libwebp --enable-libx265 --enable-libxml2 --enable-libxvid --enable-libzimg --enable-openal --enable-opencl --enable-opengl --disable-sndio --enable-libvpl --enable-libdc1394 --enable-libdrm --enable-libiec61883 --enable-chromaprint --enable-frei0r --enable-ladspa --enable-libbluray --enable-libdvdnav --enable-libdvdread --enable-libjack --enable-libjxl --enable-libpulse --enable-librabbitmq --enable-librist --enable-libsrt --enable-libssh --enable-libsvtav1 --enable-libx264 --enable-libzmq --enable-libzvbi --enable-lv2 --enable-sdl2 --enable-libplacebo --enable-librav1e --enable-librsvg --enable-shared\nlibavutil      60.  8.100 / 60.  8.100\nlibavcodec     62. 11.100 / 62. 11.100\nlibavformat    62.  3.100 / 62.  3.100\nlibavdevice    62.  1.100 / 62.  1.100\nlibavfilter    11.  4.100 / 11.  4.100\nlibswscale      9.  1.100 /  9.  1.100\nlibswresample   6.  1.100 /  6.  1.100\n\nExiting with exit code 0\n",
+    "cc": "cc (Ubuntu 15.2.0-16ubuntu1) 15.2.0\nCopyright (C) 2025 Free Software Foundation, Inc.\nThis is free software; see the source for copying conditions.  There is NO\nwarranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n",
+    "git_head": "db8a0868ef66cbd354a05bc7e89ca937cec75446",
+    "numpy": "2.4.4",
+    "python": "3.12.14 (main, Sep 24 2026, 17:57:43) [Clang 22.1.3 ]"
+  },
+  "ffmpeg_binary": "/usr/bin/ffmpeg",
+  "ffmpeg_binary_sha256": "bdf6aabffdba7411edff8d36c389d695257fcdf823d196020176e117612862f6",
+  "sources_sha256": {
+    "docs/audit-evidence/2026-10-13/mp3-gain-probe/current-bridge.c": "0d685f7cfecafa6823b7544442c5ac584dddfb3963c2bf586c92e60d9b4094d8",
+    "target/kata-hardening/oct13-mp3-headroom/baseline-source/mp3/src/bridge.c": "abc352b6740f607e9fa22c7761e7e63d9963d0feca0a0f7bb0c2afed17524d6a",
+    "target/kata-hardening/oct13-mp3-headroom/baseline-source/mp3/vendor/shine/bitstream.c": "44665c9d1516e4a48ebb459064c81d7bd828fe84a522adb0d38fc1546cf8526e",
+    "target/kata-hardening/oct13-mp3-headroom/baseline-source/mp3/vendor/shine/huffman.c": "3cbd7f3a410870493b0bf68a42913b53c54eb8bbfc2e4c37f8a09c920b972df3",
+    "target/kata-hardening/oct13-mp3-headroom/baseline-source/mp3/vendor/shine/l3bitstream.c": "6b8d01088f823b2d4c7d926bdb9e078faf3d0a93ef976df3da141f5a2e08fe60",
+    "target/kata-hardening/oct13-mp3-headroom/baseline-source/mp3/vendor/shine/l3loop.c": "b04698af9b65b9fd136bf5580634011b46a6092ef5c40582f8a73664e04fa611",
+    "target/kata-hardening/oct13-mp3-headroom/baseline-source/mp3/vendor/shine/l3mdct.c": "2176af94bbc8c66cb73229e4a114cd5a9a8fcf91c3ab99609d50bd01b1437acf",
+    "target/kata-hardening/oct13-mp3-headroom/baseline-source/mp3/vendor/shine/l3subband.c": "b57f91616a2de613b837fead48d66d63bc5eda9b4470583c5f64c5077f2d7ba2",
+    "target/kata-hardening/oct13-mp3-headroom/baseline-source/mp3/vendor/shine/layer3.c": "6d41c15cf6a2d57ac2969f848c445004eea37727efa011007f19cce0e7c26c38",
+    "target/kata-hardening/oct13-mp3-headroom/baseline-source/mp3/vendor/shine/reservoir.c": "5754e370cc3dae68a02adf049fdf30a55628fe113191407d82ba32f8352c7770",
+    "target/kata-hardening/oct13-mp3-headroom/baseline-source/mp3/vendor/shine/tables.c": "94af116b5aa89c21116a7874f2d66b893dc8ec8342a19e03711c3a38a9bdd261",
+    "target/kata-hardening/oct13-mp3-headroom/baseline-source/mp3/vendor/shine/types.h": "764b52f72375f0e2648b51ba69148e493e94a85e4e4785575ed7d4f7e781f615",
+    "target/kata-hardening/oct13-mp3-headroom/baseline-source/mp3/vendor/shine/l3loop.h": "1e4cc8d8200b1e7ab7445dcb2c8ccdc41f55873f2bc921e2b281b66f18502716",
+    "target/kata-hardening/oct13-mp3-headroom/baseline-source/mp3/vendor/shine/reservoir.h": "6a24ddb678f635b1d97703468c91d7209a76d47b8d5265d195b95f3222734b92",
+    "target/kata-hardening/oct13-mp3-headroom/baseline-source/mp3/vendor/shine/huffman.h": "5c0daa50a28c8ac836fd3e7be61df75d3e0506267e8e79b4f63b955c04a656d4",
+    "target/kata-hardening/oct13-mp3-headroom/baseline-source/mp3/vendor/shine/mult_mips_gcc.h": "3b69725742c3303ed2e899e92670373ecbcbee33605cf590e84e6a5fa1f4b56b",
+    "target/kata-hardening/oct13-mp3-headroom/baseline-source/mp3/vendor/shine/l3mdct.h": "acf6ce1571ebee244044a68b24dd03777b789df7be733ea27e21a35d54530e6b",
+    "target/kata-hardening/oct13-mp3-headroom/baseline-source/mp3/vendor/shine/tables.h": "c6e3872b6b480cea63989f6ddefe20409deb21b9207cde1e0616143981a3cd55",
+    "target/kata-hardening/oct13-mp3-headroom/baseline-source/mp3/vendor/shine/bitstream.h": "041a4afa73d1d3be06ef0825dffcc3d7ce1140d480cba97ea2d23587bc3cbf57",
+    "target/kata-hardening/oct13-mp3-headroom/baseline-source/mp3/vendor/shine/l3subband.h": "d25f8a66fdc2401eb6d6f571d69594fae6a8fb34728d4efddf1d0b1212de4251",
+    "target/kata-hardening/oct13-mp3-headroom/baseline-source/mp3/vendor/shine/layer3.h": "80bf1187280edf4886ca24e27c62393023b5a7ed227f694ff3cf4138f00f3f90",
+    "target/kata-hardening/oct13-mp3-headroom/baseline-source/mp3/vendor/shine/l3bitstream.h": "7d09cbf7107191de7692e4d9d07d261a7f8ab9bcc40df2b887658c83642bb880",
+    "target/kata-hardening/oct13-mp3-headroom/baseline-source/mp3/vendor/shine/mult_sarm_gcc.h": "39b8c8166614b0b53bf8e63392ace988813dfe520149af5596a038f34af552e5",
+    "target/kata-hardening/oct13-mp3-headroom/baseline-source/mp3/vendor/shine/mult_noarch_gcc.h": "f6094c3ab0ad58130a027867ed8d1a646d63dd4c83ecddd751adec07c6c4e60a"
+  },
+  "source_tree": "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/baseline-source",
+  "encoder_sha256": "6e24278d37ee2b0155a2d979f182db8dfba9bcb501e1a2c41a25e420e031a950",
+  "script_sha256": "f1145986f39c9d59c75b3fbfa6038c0a4efc79230cc9352ff29c2cd6595c62de",
+  "sample_rate": 48000,
+  "channels": 2,
+  "bitrate_kbps": 320,
+  "frames_per_case": 110592,
+  "design": "Seven patterns at half and 0.98 scale: unequal tones cover both channel frequencies; same/opposite and each hard-pan cover stereo extremes; silence-separated impulse and abrupt tone gates cover transients; PCG64(seed0xD0C70B12) uniform independent noise covers broadband quantization. This is a bounded set, not a Cartesian sweep.",
+  "fixtures": [
+    {
+      "name": "tones_independent_half",
+      "pattern": "tones_independent",
+      "nominal_amplitude": 0.5,
+      "input_frames": 110592,
+      "encoded_frames": 96,
+      "decoded_sample_frames": 110592,
+      "alignment_samples": 1057,
+      "aligned_source_start": 0,
+      "aligned_source_stop": 109535,
+      "steady_source_start": 4608,
+      "steady_source_stop": 104927,
+      "aligned": [
+        {
+          "channel": 0,
+          "frames": 109535,
+          "input_rms": 0.3535463558041192,
+          "decoded_rms": 0.3534957971601802,
+          "rms_ratio": 0.9998569957146808,
+          "least_squares_gain": 0.999856978531396,
+          "error_rms": 8.277576172546299e-05,
+          "relative_error_rms": 0.00023412986830876722,
+          "snr_db": 72.6108635830312,
+          "input_peak": 0.5,
+          "decoded_peak": 0.5004093050956726,
+          "decoded_min": -0.5004093050956726,
+          "decoded_max": 0.5003117918968201,
+          "outside_unit_interval": 0,
+          "nonfinite": 0
+        },
+        {
+          "channel": 1,
+          "frames": 109535,
+          "input_rms": 0.3535501504724718,
+          "decoded_rms": 0.3534970915810836,
+          "rms_ratio": 0.9998499254170384,
+          "least_squares_gain": 0.9998498832962012,
+          "error_rms": 0.00011552169618401779,
+          "relative_error_rms": 0.00032674769344501404,
+          "snr_db": 69.71574938957045,
+          "input_peak": 0.5,
+          "decoded_peak": 0.5024027824401855,
+          "decoded_min": -0.5009331107139587,
+          "decoded_max": 0.5024027824401855,
+          "outside_unit_interval": 0,
+          "nonfinite": 0
+        }
+      ],
+      "steady": [
+        {
+          "channel": 0,
+          "frames": 100319,
+          "input_rms": 0.3535633243941153,
+          "decoded_rms": 0.35351336550952606,
+          "rms_ratio": 0.999858698905847,
+          "least_squares_gain": 0.9998586943735053,
+          "error_rms": 6.024150779865722e-05,
+          "relative_error_rms": 0.00017038392741071273,
+          "snr_db": 75.3714275066511,
+          "input_peak": 0.5,
+          "decoded_peak": 0.5000149011611938,
+          "decoded_min": -0.5000138282775879,
+          "decoded_max": 0.5000149011611938,
+          "outside_unit_interval": 0,
+          "nonfinite": 0
+        },
+        {
+          "channel": 1,
+          "frames": 100319,
+          "input_rms": 0.3535497677452678,
+          "decoded_rms": 0.35349683257373565,
+          "rms_ratio": 0.9998502751907611,
+          "least_squares_gain": 0.9998502699739948,
+          "error_rms": 6.40803961473588e-05,
+          "relative_error_rms": 0.00018124858787498525,
+          "snr_db": 74.83450736746939,
+          "input_peak": 0.5,
+          "decoded_peak": 0.500041663646698,
+          "decoded_min": -0.500041663646698,
+          "decoded_max": 0.5000239610671997,
+          "outside_unit_interval": 0,
+          "nonfinite": 0
+        }
+      ],
+      "all_decoded": [
+        {
+          "channel": 0,
+          "frames": 110592,
+          "decoded_rms": 0.3518024508812414,
+          "decoded_peak": 0.5004093050956726,
+          "decoded_min": -0.5004093050956726,
+          "decoded_max": 0.5003117918968201,
+          "outside_unit_interval": 0,
+          "nonfinite": 0
+        },
+        {
+          "channel": 1,
+          "frames": 110592,
+          "decoded_rms": 0.3518037468538213,
+          "decoded_peak": 0.5024027824401855,
+          "decoded_min": -0.5009331107139587,
+          "decoded_max": 0.5024027824401855,
+          "outside_unit_interval": 0,
+          "nonfinite": 0
+        }
+      ],
+      "artifacts": {
+        "tones_independent_half.s16le": {
+          "sha256": "4a0a1300c0208bcc6fe1fd6b6a1d92f0ea045b9aec49eafa25582d2e9746a35f",
+          "bytes": 442368
+        },
+        "tones_independent_half.mp3": {
+          "sha256": "591e504bb16d731c0eb08780e0c713ed2a2a7618833bf3fb5158e3c34102e6bb",
+          "bytes": 92160
+        },
+        "tones_independent_half.f32le": {
+          "sha256": "ff3ea8928838e792264fd386ae76e63cb0e85adf6d9b4c03781d68efec42b889",
+          "bytes": 884736
+        }
+      },
+      "errors": {
+        "encode_exit": 0,
+        "decode_exit": 0,
+        "encoder_log_bytes": 0,
+        "decoder_log_bytes": 0
+      }
+    },
+    {
+      "name": "tones_independent_nearfull",
+      "pattern": "tones_independent",
+      "nominal_amplitude": 0.98,
+      "input_frames": 110592,
+      "encoded_frames": 96,
+      "decoded_sample_frames": 110592,
+      "alignment_samples": 1057,
+      "aligned_source_start": 0,
+      "aligned_source_stop": 109535,
+      "steady_source_start": 4608,
+      "steady_source_stop": 104927,
+      "aligned": [
+        {
+          "channel": 0,
+          "frames": 109535,
+          "input_rms": 0.6929510310090513,
+          "decoded_rms": 0.6846953691369808,
+          "rms_ratio": 0.9880862261507154,
+          "least_squares_gain": 0.6267990610894245,
+          "error_rms": 0.5890965245991773,
+          "relative_error_rms": 0.8501272070284033,
+          "snr_db": 1.410321693313446,
+          "input_peak": 0.980010986328125,
+          "decoded_peak": 1.1433089971542358,
+          "decoded_min": -1.1433089971542358,
+          "decoded_max": 1.1317315101623535,
+          "outside_unit_interval": 1856,
+          "nonfinite": 0
+        },
+        {
+          "channel": 1,
+          "frames": 109535,
+          "input_rms": 0.6929584701220688,
+          "decoded_rms": 0.6693271961040324,
+          "rms_ratio": 0.9658979938381101,
+          "least_squares_gain": 0.40720054634986325,
+          "error_rms": 0.7328860090404867,
+          "relative_error_rms": 1.0576189492443673,
+          "snr_db": -0.48658446837102265,
+          "input_peak": 0.980010986328125,
+          "decoded_peak": 1.2805423736572266,
+          "decoded_min": -1.2805423736572266,
+          "decoded_max": 1.2805423736572266,
+          "outside_unit_interval": 3614,
+          "nonfinite": 0
+        }
+      ],
+      "steady": [
+        {
+          "channel": 0,
+          "frames": 100319,
+          "input_rms": 0.692984289867837,
+          "decoded_rms": 0.6839775821641495,
+          "rms_ratio": 0.98700301314853,
+          "least_squares_gain": 0.5925703624565207,
+          "error_rms": 0.6155613017058698,
+          "relative_error_rms": 0.8882759836060166,
+          "snr_db": 1.0290415957895147,
+          "input_peak": 0.980010986328125,
+          "decoded_peak": 1.1433089971542358,
+          "decoded_min": -1.1433089971542358,
+          "decoded_max": 1.1317315101623535,
+          "outside_unit_interval": 1856,
+          "nonfinite": 0
+        },
+        {
+          "channel": 1,
+          "frames": 100319,
+          "input_rms": 0.6929577014062164,
+          "decoded_rms": 0.669169431456245,
+          "rms_ratio": 0.9656713968230701,
+          "least_squares_gain": 0.40342677731515014,
+          "error_rms": 0.735210712795097,
+          "relative_error_rms": 1.060974878124793,
+          "snr_db": -0.5141020150495462,
+          "input_peak": 0.980010986328125,
+          "decoded_peak": 1.2805423736572266,
+          "decoded_min": -1.2805423736572266,
+          "decoded_max": 1.2805423736572266,
+          "outside_unit_interval": 3343,
+          "nonfinite": 0
+        }
+      ],
+      "all_decoded": [
+        {
+          "channel": 0,
+          "frames": 110592,
+          "decoded_rms": 0.6814154813392393,
+          "decoded_peak": 1.1433089971542358,
+          "decoded_min": -1.1433089971542358,
+          "decoded_max": 1.1317315101623535,
+          "outside_unit_interval": 1856,
+          "nonfinite": 0
+        },
+        {
+          "channel": 1,
+          "frames": 110592,
+          "decoded_rms": 0.6661209362163307,
+          "decoded_peak": 1.2805423736572266,
+          "decoded_min": -1.2805423736572266,
+          "decoded_max": 1.2805423736572266,
+          "outside_unit_interval": 3614,
+          "nonfinite": 0
+        }
+      ],
+      "artifacts": {
+        "tones_independent_nearfull.s16le": {
+          "sha256": "9ce0c335840e05bd80a5d2fd0f93de931e0148bac7d79f79ec1b9ad76e49582f",
+          "bytes": 442368
+        },
+        "tones_independent_nearfull.mp3": {
+          "sha256": "67bef2c700d5ecf3fe4096549bbc64b1719e4f3200c891adde0bc52cfa8e96b0",
+          "bytes": 92160
+        },
+        "tones_independent_nearfull.f32le": {
+          "sha256": "065e8a5b3851a356e516a595898e830b4b77d6bb4c59bb1c738a8c674d771dde",
+          "bytes": 884736
+        }
+      },
+      "errors": {
+        "encode_exit": 0,
+        "decode_exit": 0,
+        "encoder_log_bytes": 0,
+        "decoder_log_bytes": 0
+      }
+    },
+    {
+      "name": "tones_same_half",
+      "pattern": "tones_same",
+      "nominal_amplitude": 0.5,
+      "input_frames": 110592,
+      "encoded_frames": 96,
+      "decoded_sample_frames": 110592,
+      "alignment_samples": 1057,
+      "aligned_source_start": 0,
+      "aligned_source_stop": 109535,
+      "steady_source_start": 4608,
+      "steady_source_stop": 104927,
+      "aligned": [
+        {
+          "channel": 0,
+          "frames": 109535,
+          "input_rms": 0.3535463558041192,
+          "decoded_rms": 0.3534957971601802,
+          "rms_ratio": 0.9998569957146808,
+          "least_squares_gain": 0.999856978531396,
+          "error_rms": 8.277576172546299e-05,
+          "relative_error_rms": 0.00023412986830876722,
+          "snr_db": 72.6108635830312,
+          "input_peak": 0.5,
+          "decoded_peak": 0.5004093050956726,
+          "decoded_min": -0.5004093050956726,
+          "decoded_max": 0.5003117918968201,
+          "outside_unit_interval": 0,
+          "nonfinite": 0
+        },
+        {
+          "channel": 1,
+          "frames": 109535,
+          "input_rms": 0.3535463558041192,
+          "decoded_rms": 0.3534957971601802,
+          "rms_ratio": 0.9998569957146808,
+          "least_squares_gain": 0.999856978531396,
+          "error_rms": 8.277576172546299e-05,
+          "relative_error_rms": 0.00023412986830876722,
+          "snr_db": 72.6108635830312,
+          "input_peak": 0.5,
+          "decoded_peak": 0.5004093050956726,
+          "decoded_min": -0.5004093050956726,
+          "decoded_max": 0.5003117918968201,
+          "outside_unit_interval": 0,
+          "nonfinite": 0
+        }
+      ],
+      "steady": [
+        {
+          "channel": 0,
+          "frames": 100319,
+          "input_rms": 0.3535633243941153,
+          "decoded_rms": 0.35351336550952606,
+          "rms_ratio": 0.999858698905847,
+          "least_squares_gain": 0.9998586943735053,
+          "error_rms": 6.024150779865722e-05,
+          "relative_error_rms": 0.00017038392741071273,
+          "snr_db": 75.3714275066511,
+          "input_peak": 0.5,
+          "decoded_peak": 0.5000149011611938,
+          "decoded_min": -0.5000138282775879,
+          "decoded_max": 0.5000149011611938,
+          "outside_unit_interval": 0,
+          "nonfinite": 0
+        },
+        {
+          "channel": 1,
+          "frames": 100319,
+          "input_rms": 0.3535633243941153,
+          "decoded_rms": 0.35351336550952606,
+          "rms_ratio": 0.999858698905847,
+          "least_squares_gain": 0.9998586943735053,
+          "error_rms": 6.024150779865722e-05,
+          "relative_error_rms": 0.00017038392741071273,
+          "snr_db": 75.3714275066511,
+          "input_peak": 0.5,
+          "decoded_peak": 0.5000149011611938,
+          "decoded_min": -0.5000138282775879,
+          "decoded_max": 0.5000149011611938,
+          "outside_unit_interval": 0,
+          "nonfinite": 0
+        }
+      ],
+      "all_decoded": [
+        {
+          "channel": 0,
+          "frames": 110592,
+          "decoded_rms": 0.3518024508812414,
+          "decoded_peak": 0.5004093050956726,
+          "decoded_min": -0.5004093050956726,
+          "decoded_max": 0.5003117918968201,
+          "outside_unit_interval": 0,
+          "nonfinite": 0
+        },
+        {
+          "channel": 1,
+          "frames": 110592,
+          "decoded_rms": 0.3518024508812414,
+          "decoded_peak": 0.5004093050956726,
+          "decoded_min": -0.5004093050956726,
+          "decoded_max": 0.5003117918968201,
+          "outside_unit_interval": 0,
+          "nonfinite": 0
+        }
+      ],
+      "artifacts": {
+        "tones_same_half.s16le": {
+          "sha256": "692199d75228daf0eb5d7832f8fcba805d05222e3d62a2c3f605c0cbf3ae2962",
+          "bytes": 442368
+        },
+        "tones_same_half.mp3": {
+          "sha256": "a7d2f36456b5ed7fc0ee501d6edc36e3a98bb43062ed4c016bda0a33ed296ec5",
+          "bytes": 92160
+        },
+        "tones_same_half.f32le": {
+          "sha256": "0b88104d6cc720f7b8e6b54270703e6362e74f55ad557505c637cb40692771ac",
+          "bytes": 884736
+        }
+      },
+      "errors": {
+        "encode_exit": 0,
+        "decode_exit": 0,
+        "encoder_log_bytes": 0,
+        "decoder_log_bytes": 0
+      }
+    },
+    {
+      "name": "tones_same_nearfull",
+      "pattern": "tones_same",
+      "nominal_amplitude": 0.98,
+      "input_frames": 110592,
+      "encoded_frames": 96,
+      "decoded_sample_frames": 110592,
+      "alignment_samples": 1057,
+      "aligned_source_start": 0,
+      "aligned_source_stop": 109535,
+      "steady_source_start": 4608,
+      "steady_source_stop": 104927,
+      "aligned": [
+        {
+          "channel": 0,
+          "frames": 109535,
+          "input_rms": 0.6929510310090513,
+          "decoded_rms": 0.6846953691369808,
+          "rms_ratio": 0.9880862261507154,
+          "least_squares_gain": 0.6267990610894245,
+          "error_rms": 0.5890965245991773,
+          "relative_error_rms": 0.8501272070284033,
+          "snr_db": 1.410321693313446,
+          "input_peak": 0.980010986328125,
+          "decoded_peak": 1.1433089971542358,
+          "decoded_min": -1.1433089971542358,
+          "decoded_max": 1.1317315101623535,
+          "outside_unit_interval": 1856,
+          "nonfinite": 0
+        },
+        {
+          "channel": 1,
+          "frames": 109535,
+          "input_rms": 0.6929510310090513,
+          "decoded_rms": 0.6846953691369808,
+          "rms_ratio": 0.9880862261507154,
+          "least_squares_gain": 0.6267990610894245,
+          "error_rms": 0.5890965245991773,
+          "relative_error_rms": 0.8501272070284033,
+          "snr_db": 1.410321693313446,
+          "input_peak": 0.980010986328125,
+          "decoded_peak": 1.1433089971542358,
+          "decoded_min": -1.1433089971542358,
+          "decoded_max": 1.1317315101623535,
+          "outside_unit_interval": 1856,
+          "nonfinite": 0
+        }
+      ],
+      "steady": [
+        {
+          "channel": 0,
+          "frames": 100319,
+          "input_rms": 0.692984289867837,
+          "decoded_rms": 0.6839775821641495,
+          "rms_ratio": 0.98700301314853,
+          "least_squares_gain": 0.5925703624565207,
+          "error_rms": 0.6155613017058698,
+          "relative_error_rms": 0.8882759836060166,
+          "snr_db": 1.0290415957895147,
+          "input_peak": 0.980010986328125,
+          "decoded_peak": 1.1433089971542358,
+          "decoded_min": -1.1433089971542358,
+          "decoded_max": 1.1317315101623535,
+          "outside_unit_interval": 1856,
+          "nonfinite": 0
+        },
+        {
+          "channel": 1,
+          "frames": 100319,
+          "input_rms": 0.692984289867837,
+          "decoded_rms": 0.6839775821641495,
+          "rms_ratio": 0.98700301314853,
+          "least_squares_gain": 0.5925703624565207,
+          "error_rms": 0.6155613017058698,
+          "relative_error_rms": 0.8882759836060166,
+          "snr_db": 1.0290415957895147,
+          "input_peak": 0.980010986328125,
+          "decoded_peak": 1.1433089971542358,
+          "decoded_min": -1.1433089971542358,
+          "decoded_max": 1.1317315101623535,
+          "outside_unit_interval": 1856,
+          "nonfinite": 0
+        }
+      ],
+      "all_decoded": [
+        {
+          "channel": 0,
+          "frames": 110592,
+          "decoded_rms": 0.6814154813392393,
+          "decoded_peak": 1.1433089971542358,
+          "decoded_min": -1.1433089971542358,
+          "decoded_max": 1.1317315101623535,
+          "outside_unit_interval": 1856,
+          "nonfinite": 0
+        },
+        {
+          "channel": 1,
+          "frames": 110592,
+          "decoded_rms": 0.6814154813392393,
+          "decoded_peak": 1.1433089971542358,
+          "decoded_min": -1.1433089971542358,
+          "decoded_max": 1.1317315101623535,
+          "outside_unit_interval": 1856,
+          "nonfinite": 0
+        }
+      ],
+      "artifacts": {
+        "tones_same_nearfull.s16le": {
+          "sha256": "31dd1b1933320d61cdf56c83f0d58b4f789d3a9a082174a41e012be5356525a5",
+          "bytes": 442368
+        },
+        "tones_same_nearfull.mp3": {
+          "sha256": "f66312baf0d0e395f96de6ca4ee8c9595bbc3a3c180d3ab6794695babb98e015",
+          "bytes": 92160
+        },
+        "tones_same_nearfull.f32le": {
+          "sha256": "4b64c7f201728afe251f70174296d218108186d75979240dd0148eeda3bd08ae",
+          "bytes": 884736
+        }
+      },
+      "errors": {
+        "encode_exit": 0,
+        "decode_exit": 0,
+        "encoder_log_bytes": 0,
+        "decoder_log_bytes": 0
+      }
+    },
+    {
+      "name": "tones_opposite_half",
+      "pattern": "tones_opposite",
+      "nominal_amplitude": 0.5,
+      "input_frames": 110592,
+      "encoded_frames": 96,
+      "decoded_sample_frames": 110592,
+      "alignment_samples": 1057,
+      "aligned_source_start": 0,
+      "aligned_source_stop": 109535,
+      "steady_source_start": 4608,
+      "steady_source_stop": 104927,
+      "aligned": [
+        {
+          "channel": 0,
+          "frames": 109535,
+          "input_rms": 0.3535463558041192,
+          "decoded_rms": 0.3534957971601802,
+          "rms_ratio": 0.9998569957146808,
+          "least_squares_gain": 0.999856978531396,
+          "error_rms": 8.277576172546299e-05,
+          "relative_error_rms": 0.00023412986830876722,
+          "snr_db": 72.6108635830312,
+          "input_peak": 0.5,
+          "decoded_peak": 0.5004093050956726,
+          "decoded_min": -0.5004093050956726,
+          "decoded_max": 0.5003117918968201,
+          "outside_unit_interval": 0,
+          "nonfinite": 0
+        },
+        {
+          "channel": 1,
+          "frames": 109535,
+          "input_rms": 0.3535463558041192,
+          "decoded_rms": 0.35349579731957653,
+          "rms_ratio": 0.9998569961655306,
+          "least_squares_gain": 0.9998569789814354,
+          "error_rms": 8.277688823093056e-05,
+          "relative_error_rms": 0.00023413305461078698,
+          "snr_db": 72.61074537650089,
+          "input_peak": 0.5,
+          "decoded_peak": 0.5004093050956726,
+          "decoded_min": -0.5003117322921753,
+          "decoded_max": 0.5004093050956726,
+          "outside_unit_interval": 0,
+          "nonfinite": 0
+        }
+      ],
+      "steady": [
+        {
+          "channel": 0,
+          "frames": 100319,
+          "input_rms": 0.3535633243941153,
+          "decoded_rms": 0.35351336550952606,
+          "rms_ratio": 0.999858698905847,
+          "least_squares_gain": 0.9998586943735053,
+          "error_rms": 6.024150779865722e-05,
+          "relative_error_rms": 0.00017038392741071273,
+          "snr_db": 75.3714275066511,
+          "input_peak": 0.5,
+          "decoded_peak": 0.5000149011611938,
+          "decoded_min": -0.5000138282775879,
+          "decoded_max": 0.5000149011611938,
+          "outside_unit_interval": 0,
+          "nonfinite": 0
+        },
+        {
+          "channel": 1,
+          "frames": 100319,
+          "input_rms": 0.3535633243941153,
+          "decoded_rms": 0.353513365840576,
+          "rms_ratio": 0.9998586998421715,
+          "least_squares_gain": 0.9998586953100892,
+          "error_rms": 6.0240694266913686e-05,
+          "relative_error_rms": 0.00017038162646011235,
+          "snr_db": 75.37154480608322,
+          "input_peak": 0.5,
+          "decoded_peak": 0.5000149011611938,
+          "decoded_min": -0.5000138282775879,
+          "decoded_max": 0.5000149011611938,
+          "outside_unit_interval": 0,
+          "nonfinite": 0
+        }
+      ],
+      "all_decoded": [
+        {
+          "channel": 0,
+          "frames": 110592,
+          "decoded_rms": 0.3518024508812414,
+          "decoded_peak": 0.5004093050956726,
+          "decoded_min": -0.5004093050956726,
+          "decoded_max": 0.5003117918968201,
+          "outside_unit_interval": 0,
+          "nonfinite": 0
+        },
+        {
+          "channel": 1,
+          "frames": 110592,
+          "decoded_rms": 0.3518024510398741,
+          "decoded_peak": 0.5004093050956726,
+          "decoded_min": -0.5003117322921753,
+          "decoded_max": 0.5004093050956726,
+          "outside_unit_interval": 0,
+          "nonfinite": 0
+        }
+      ],
+      "artifacts": {
+        "tones_opposite_half.s16le": {
+          "sha256": "30963b8e645a3ed780e469a991720dbe2780b8d73e0450cdf68a40e5e1fa053c",
+          "bytes": 442368
+        },
+        "tones_opposite_half.mp3": {
+          "sha256": "19eee7d81bc5e939bbff4b843fd43b17483f4ebf31787615b8a55eae37d85138",
+          "bytes": 92160
+        },
+        "tones_opposite_half.f32le": {
+          "sha256": "b7e91a87e05f6a17e8b8819f2345f05c3fa30a9abba77b7cf4326e31bd6a5dfc",
+          "bytes": 884736
+        }
+      },
+      "errors": {
+        "encode_exit": 0,
+        "decode_exit": 0,
+        "encoder_log_bytes": 0,
+        "decoder_log_bytes": 0
+      }
+    },
+    {
+      "name": "tones_opposite_nearfull",
+      "pattern": "tones_opposite",
+      "nominal_amplitude": 0.98,
+      "input_frames": 110592,
+      "encoded_frames": 96,
+      "decoded_sample_frames": 110592,
+      "alignment_samples": 1057,
+      "aligned_source_start": 0,
+      "aligned_source_stop": 109535,
+      "steady_source_start": 4608,
+      "steady_source_stop": 104927,
+      "aligned": [
+        {
+          "channel": 0,
+          "frames": 109535,
+          "input_rms": 0.6929510310090513,
+          "decoded_rms": 0.6846953691369808,
+          "rms_ratio": 0.9880862261507154,
+          "least_squares_gain": 0.6267990610894245,
+          "error_rms": 0.5890965245991773,
+          "relative_error_rms": 0.8501272070284033,
+          "snr_db": 1.410321693313446,
+          "input_peak": 0.980010986328125,
+          "decoded_peak": 1.1433089971542358,
+          "decoded_min": -1.1433089971542358,
+          "decoded_max": 1.1317315101623535,
+          "outside_unit_interval": 1856,
+          "nonfinite": 0
+        },
+        {
+          "channel": 1,
+          "frames": 109535,
+          "input_rms": 0.6929510310090513,
+          "decoded_rms": 0.6846953692444264,
+          "rms_ratio": 0.9880862263057705,
+          "least_squares_gain": 0.6267990612707025,
+          "error_rms": 0.5890965245762968,
+          "relative_error_rms": 0.8501272069953845,
+          "snr_db": 1.410321693650805,
+          "input_peak": 0.980010986328125,
+          "decoded_peak": 1.1433089971542358,
+          "decoded_min": -1.1317315101623535,
+          "decoded_max": 1.1433089971542358,
+          "outside_unit_interval": 1856,
+          "nonfinite": 0
+        }
+      ],
+      "steady": [
+        {
+          "channel": 0,
+          "frames": 100319,
+          "input_rms": 0.692984289867837,
+          "decoded_rms": 0.6839775821641495,
+          "rms_ratio": 0.98700301314853,
+          "least_squares_gain": 0.5925703624565207,
+          "error_rms": 0.6155613017058698,
+          "relative_error_rms": 0.8882759836060166,
+          "snr_db": 1.0290415957895147,
+          "input_peak": 0.980010986328125,
+          "decoded_peak": 1.1433089971542358,
+          "decoded_min": -1.1433089971542358,
+          "decoded_max": 1.1317315101623535,
+          "outside_unit_interval": 1856,
+          "nonfinite": 0
+        },
+        {
+          "channel": 1,
+          "frames": 100319,
+          "input_rms": 0.692984289867837,
+          "decoded_rms": 0.6839775823310913,
+          "rms_ratio": 0.9870030133894329,
+          "least_squares_gain": 0.5925703627242606,
+          "error_rms": 0.6155613016824902,
+          "relative_error_rms": 0.888275983572279,
+          "snr_db": 1.0290415961194135,
+          "input_peak": 0.980010986328125,
+          "decoded_peak": 1.1433089971542358,
+          "decoded_min": -1.1317315101623535,
+          "decoded_max": 1.1433089971542358,
+          "outside_unit_interval": 1856,
+          "nonfinite": 0
+        }
+      ],
+      "all_decoded": [
+        {
+          "channel": 0,
+          "frames": 110592,
+          "decoded_rms": 0.6814154813392393,
+          "decoded_peak": 1.1433089971542358,
+          "decoded_min": -1.1433089971542358,
+          "decoded_max": 1.1317315101623535,
+          "outside_unit_interval": 1856,
+          "nonfinite": 0
+        },
+        {
+          "channel": 1,
+          "frames": 110592,
+          "decoded_rms": 0.6814154814461703,
+          "decoded_peak": 1.1433089971542358,
+          "decoded_min": -1.1317315101623535,
+          "decoded_max": 1.1433089971542358,
+          "outside_unit_interval": 1856,
+          "nonfinite": 0
+        }
+      ],
+      "artifacts": {
+        "tones_opposite_nearfull.s16le": {
+          "sha256": "34b2008578485923859a39f4cf97696c0e0b8be3b46dc46bd0ebecb3f0edcc0f",
+          "bytes": 442368
+        },
+        "tones_opposite_nearfull.mp3": {
+          "sha256": "23fca559c1d1f3917c5c2a3d36229fb39393828133f7d0993d0370edb5c247aa",
+          "bytes": 92160
+        },
+        "tones_opposite_nearfull.f32le": {
+          "sha256": "f18c39288fc70a79a1c27f9dcc8359d3838e3586433251bb4dcd14a29b56b2c2",
+          "bytes": 884736
+        }
+      },
+      "errors": {
+        "encode_exit": 0,
+        "decode_exit": 0,
+        "encoder_log_bytes": 0,
+        "decoder_log_bytes": 0
+      }
+    },
+    {
+      "name": "tone_left_only_half",
+      "pattern": "tone_left_only",
+      "nominal_amplitude": 0.5,
+      "input_frames": 110592,
+      "encoded_frames": 96,
+      "decoded_sample_frames": 110592,
+      "alignment_samples": 1057,
+      "aligned_source_start": 0,
+      "aligned_source_stop": 109535,
+      "steady_source_start": 4608,
+      "steady_source_stop": 104927,
+      "aligned": [
+        {
+          "channel": 0,
+          "frames": 109535,
+          "input_rms": 0.3535463558041192,
+          "decoded_rms": 0.3534957971601802,
+          "rms_ratio": 0.9998569957146808,
+          "least_squares_gain": 0.999856978531396,
+          "error_rms": 8.277576172546299e-05,
+          "relative_error_rms": 0.00023412986830876722,
+          "snr_db": 72.6108635830312,
+          "input_peak": 0.5,
+          "decoded_peak": 0.5004093050956726,
+          "decoded_min": -0.5004093050956726,
+          "decoded_max": 0.5003117918968201,
+          "outside_unit_interval": 0,
+          "nonfinite": 0
+        },
+        {
+          "channel": 1,
+          "frames": 109535,
+          "input_rms": 0.0,
+          "decoded_rms": 0.0,
+          "rms_ratio": null,
+          "least_squares_gain": null,
+          "error_rms": 0.0,
+          "relative_error_rms": null,
+          "snr_db": null,
+          "input_peak": 0.0,
+          "decoded_peak": 0.0,
+          "decoded_min": 0.0,
+          "decoded_max": 0.0,
+          "outside_unit_interval": 0,
+          "nonfinite": 0
+        }
+      ],
+      "steady": [
+        {
+          "channel": 0,
+          "frames": 100319,
+          "input_rms": 0.3535633243941153,
+          "decoded_rms": 0.35351336550952606,
+          "rms_ratio": 0.999858698905847,
+          "least_squares_gain": 0.9998586943735053,
+          "error_rms": 6.024150779865722e-05,
+          "relative_error_rms": 0.00017038392741071273,
+          "snr_db": 75.3714275066511,
+          "input_peak": 0.5,
+          "decoded_peak": 0.5000149011611938,
+          "decoded_min": -0.5000138282775879,
+          "decoded_max": 0.5000149011611938,
+          "outside_unit_interval": 0,
+          "nonfinite": 0
+        },
+        {
+          "channel": 1,
+          "frames": 100319,
+          "input_rms": 0.0,
+          "decoded_rms": 0.0,
+          "rms_ratio": null,
+          "least_squares_gain": null,
+          "error_rms": 0.0,
+          "relative_error_rms": null,
+          "snr_db": null,
+          "input_peak": 0.0,
+          "decoded_peak": 0.0,
+          "decoded_min": 0.0,
+          "decoded_max": 0.0,
+          "outside_unit_interval": 0,
+          "nonfinite": 0
+        }
+      ],
+      "all_decoded": [
+        {
+          "channel": 0,
+          "frames": 110592,
+          "decoded_rms": 0.3518024508812414,
+          "decoded_peak": 0.5004093050956726,
+          "decoded_min": -0.5004093050956726,
+          "decoded_max": 0.5003117918968201,
+          "outside_unit_interval": 0,
+          "nonfinite": 0
+        },
+        {
+          "channel": 1,
+          "frames": 110592,
+          "decoded_rms": 0.0,
+          "decoded_peak": 0.0,
+          "decoded_min": 0.0,
+          "decoded_max": 0.0,
+          "outside_unit_interval": 0,
+          "nonfinite": 0
+        }
+      ],
+      "artifacts": {
+        "tone_left_only_half.s16le": {
+          "sha256": "6d7e191456bd0e4f6e48c7f20533b5efa4737527d76ad06ecd487262f17769bd",
+          "bytes": 442368
+        },
+        "tone_left_only_half.mp3": {
+          "sha256": "c02b0186b8906d5b923510adfffdb3af6a49e1bad1451d0755cd5ffeb0a54830",
+          "bytes": 92160
+        },
+        "tone_left_only_half.f32le": {
+          "sha256": "f795dfe92b5e2345c1490a61e1cf36a327ca595d386adcb8219af2c6cc6c3329",
+          "bytes": 884736
+        }
+      },
+      "errors": {
+        "encode_exit": 0,
+        "decode_exit": 0,
+        "encoder_log_bytes": 0,
+        "decoder_log_bytes": 0
+      }
+    },
+    {
+      "name": "tone_left_only_nearfull",
+      "pattern": "tone_left_only",
+      "nominal_amplitude": 0.98,
+      "input_frames": 110592,
+      "encoded_frames": 96,
+      "decoded_sample_frames": 110592,
+      "alignment_samples": 1057,
+      "aligned_source_start": 0,
+      "aligned_source_stop": 109535,
+      "steady_source_start": 4608,
+      "steady_source_stop": 104927,
+      "aligned": [
+        {
+          "channel": 0,
+          "frames": 109535,
+          "input_rms": 0.6929510310090513,
+          "decoded_rms": 0.6846953691369808,
+          "rms_ratio": 0.9880862261507154,
+          "least_squares_gain": 0.6267990610894245,
+          "error_rms": 0.5890965245991773,
+          "relative_error_rms": 0.8501272070284033,
+          "snr_db": 1.410321693313446,
+          "input_peak": 0.980010986328125,
+          "decoded_peak": 1.1433089971542358,
+          "decoded_min": -1.1433089971542358,
+          "decoded_max": 1.1317315101623535,
+          "outside_unit_interval": 1856,
+          "nonfinite": 0
+        },
+        {
+          "channel": 1,
+          "frames": 109535,
+          "input_rms": 0.0,
+          "decoded_rms": 0.0,
+          "rms_ratio": null,
+          "least_squares_gain": null,
+          "error_rms": 0.0,
+          "relative_error_rms": null,
+          "snr_db": null,
+          "input_peak": 0.0,
+          "decoded_peak": 0.0,
+          "decoded_min": 0.0,
+          "decoded_max": 0.0,
+          "outside_unit_interval": 0,
+          "nonfinite": 0
+        }
+      ],
+      "steady": [
+        {
+          "channel": 0,
+          "frames": 100319,
+          "input_rms": 0.692984289867837,
+          "decoded_rms": 0.6839775821641495,
+          "rms_ratio": 0.98700301314853,
+          "least_squares_gain": 0.5925703624565207,
+          "error_rms": 0.6155613017058698,
+          "relative_error_rms": 0.8882759836060166,
+          "snr_db": 1.0290415957895147,
+          "input_peak": 0.980010986328125,
+          "decoded_peak": 1.1433089971542358,
+          "decoded_min": -1.1433089971542358,
+          "decoded_max": 1.1317315101623535,
+          "outside_unit_interval": 1856,
+          "nonfinite": 0
+        },
+        {
+          "channel": 1,
+          "frames": 100319,
+          "input_rms": 0.0,
+          "decoded_rms": 0.0,
+          "rms_ratio": null,
+          "least_squares_gain": null,
+          "error_rms": 0.0,
+          "relative_error_rms": null,
+          "snr_db": null,
+          "input_peak": 0.0,
+          "decoded_peak": 0.0,
+          "decoded_min": 0.0,
+          "decoded_max": 0.0,
+          "outside_unit_interval": 0,
+          "nonfinite": 0
+        }
+      ],
+      "all_decoded": [
+        {
+          "channel": 0,
+          "frames": 110592,
+          "decoded_rms": 0.6814154813392393,
+          "decoded_peak": 1.1433089971542358,
+          "decoded_min": -1.1433089971542358,
+          "decoded_max": 1.1317315101623535,
+          "outside_unit_interval": 1856,
+          "nonfinite": 0
+        },
+        {
+          "channel": 1,
+          "frames": 110592,
+          "decoded_rms": 0.0,
+          "decoded_peak": 0.0,
+          "decoded_min": 0.0,
+          "decoded_max": 0.0,
+          "outside_unit_interval": 0,
+          "nonfinite": 0
+        }
+      ],
+      "artifacts": {
+        "tone_left_only_nearfull.s16le": {
+          "sha256": "3dfd5c56f59de4bab27de1a99fa335e70ee3ccc737277f905012d921bf3200c3",
+          "bytes": 442368
+        },
+        "tone_left_only_nearfull.mp3": {
+          "sha256": "2ef89701a3df377ba19bfd0ebcc292b9bc171a24da7ed89b3ccf905469ed91d5",
+          "bytes": 92160
+        },
+        "tone_left_only_nearfull.f32le": {
+          "sha256": "aa705f0c5c3b4585cdffcb4600895fbb8604a7e1167ee9d5b450b6015f628244",
+          "bytes": 884736
+        }
+      },
+      "errors": {
+        "encode_exit": 0,
+        "decode_exit": 0,
+        "encoder_log_bytes": 0,
+        "decoder_log_bytes": 0
+      }
+    },
+    {
+      "name": "tone_right_only_half",
+      "pattern": "tone_right_only",
+      "nominal_amplitude": 0.5,
+      "input_frames": 110592,
+      "encoded_frames": 96,
+      "decoded_sample_frames": 110592,
+      "alignment_samples": 1057,
+      "aligned_source_start": 0,
+      "aligned_source_stop": 109535,
+      "steady_source_start": 4608,
+      "steady_source_stop": 104927,
+      "aligned": [
+        {
+          "channel": 0,
+          "frames": 109535,
+          "input_rms": 0.0,
+          "decoded_rms": 0.0,
+          "rms_ratio": null,
+          "least_squares_gain": null,
+          "error_rms": 0.0,
+          "relative_error_rms": null,
+          "snr_db": null,
+          "input_peak": 0.0,
+          "decoded_peak": 0.0,
+          "decoded_min": 0.0,
+          "decoded_max": 0.0,
+          "outside_unit_interval": 0,
+          "nonfinite": 0
+        },
+        {
+          "channel": 1,
+          "frames": 109535,
+          "input_rms": 0.3535501504724718,
+          "decoded_rms": 0.3534970915810836,
+          "rms_ratio": 0.9998499254170384,
+          "least_squares_gain": 0.9998498832962012,
+          "error_rms": 0.00011552169618401779,
+          "relative_error_rms": 0.00032674769344501404,
+          "snr_db": 69.71574938957045,
+          "input_peak": 0.5,
+          "decoded_peak": 0.5024027824401855,
+          "decoded_min": -0.5009331107139587,
+          "decoded_max": 0.5024027824401855,
+          "outside_unit_interval": 0,
+          "nonfinite": 0
+        }
+      ],
+      "steady": [
+        {
+          "channel": 0,
+          "frames": 100319,
+          "input_rms": 0.0,
+          "decoded_rms": 0.0,
+          "rms_ratio": null,
+          "least_squares_gain": null,
+          "error_rms": 0.0,
+          "relative_error_rms": null,
+          "snr_db": null,
+          "input_peak": 0.0,
+          "decoded_peak": 0.0,
+          "decoded_min": 0.0,
+          "decoded_max": 0.0,
+          "outside_unit_interval": 0,
+          "nonfinite": 0
+        },
+        {
+          "channel": 1,
+          "frames": 100319,
+          "input_rms": 0.3535497677452678,
+          "decoded_rms": 0.35349683257373565,
+          "rms_ratio": 0.9998502751907611,
+          "least_squares_gain": 0.9998502699739948,
+          "error_rms": 6.40803961473588e-05,
+          "relative_error_rms": 0.00018124858787498525,
+          "snr_db": 74.83450736746939,
+          "input_peak": 0.5,
+          "decoded_peak": 0.500041663646698,
+          "decoded_min": -0.500041663646698,
+          "decoded_max": 0.5000239610671997,
+          "outside_unit_interval": 0,
+          "nonfinite": 0
+        }
+      ],
+      "all_decoded": [
+        {
+          "channel": 0,
+          "frames": 110592,
+          "decoded_rms": 0.0,
+          "decoded_peak": 0.0,
+          "decoded_min": 0.0,
+          "decoded_max": 0.0,
+          "outside_unit_interval": 0,
+          "nonfinite": 0
+        },
+        {
+          "channel": 1,
+          "frames": 110592,
+          "decoded_rms": 0.3518037468538213,
+          "decoded_peak": 0.5024027824401855,
+          "decoded_min": -0.5009331107139587,
+          "decoded_max": 0.5024027824401855,
+          "outside_unit_interval": 0,
+          "nonfinite": 0
+        }
+      ],
+      "artifacts": {
+        "tone_right_only_half.s16le": {
+          "sha256": "dca109cd0d56f0cf794dae47761c48be2194ae673cc45f1915050137bca094b6",
+          "bytes": 442368
+        },
+        "tone_right_only_half.mp3": {
+          "sha256": "c04411fad6a582106bb56e9e7db4f3371c7b0b1deb60331a185ad703c424d865",
+          "bytes": 92160
+        },
+        "tone_right_only_half.f32le": {
+          "sha256": "d6bbfafc4e287d3a759d8cd8daf21b0597197608a10478cb953c7f6697764058",
+          "bytes": 884736
+        }
+      },
+      "errors": {
+        "encode_exit": 0,
+        "decode_exit": 0,
+        "encoder_log_bytes": 0,
+        "decoder_log_bytes": 0
+      }
+    },
+    {
+      "name": "tone_right_only_nearfull",
+      "pattern": "tone_right_only",
+      "nominal_amplitude": 0.98,
+      "input_frames": 110592,
+      "encoded_frames": 96,
+      "decoded_sample_frames": 110592,
+      "alignment_samples": 1057,
+      "aligned_source_start": 0,
+      "aligned_source_stop": 109535,
+      "steady_source_start": 4608,
+      "steady_source_stop": 104927,
+      "aligned": [
+        {
+          "channel": 0,
+          "frames": 109535,
+          "input_rms": 0.0,
+          "decoded_rms": 0.0,
+          "rms_ratio": null,
+          "least_squares_gain": null,
+          "error_rms": 0.0,
+          "relative_error_rms": null,
+          "snr_db": null,
+          "input_peak": 0.0,
+          "decoded_peak": 0.0,
+          "decoded_min": 0.0,
+          "decoded_max": 0.0,
+          "outside_unit_interval": 0,
+          "nonfinite": 0
+        },
+        {
+          "channel": 1,
+          "frames": 109535,
+          "input_rms": 0.6929584701220688,
+          "decoded_rms": 0.6693271961040324,
+          "rms_ratio": 0.9658979938381101,
+          "least_squares_gain": 0.40720054634986325,
+          "error_rms": 0.7328860090404867,
+          "relative_error_rms": 1.0576189492443673,
+          "snr_db": -0.48658446837102265,
+          "input_peak": 0.980010986328125,
+          "decoded_peak": 1.2805423736572266,
+          "decoded_min": -1.2805423736572266,
+          "decoded_max": 1.2805423736572266,
+          "outside_unit_interval": 3614,
+          "nonfinite": 0
+        }
+      ],
+      "steady": [
+        {
+          "channel": 0,
+          "frames": 100319,
+          "input_rms": 0.0,
+          "decoded_rms": 0.0,
+          "rms_ratio": null,
+          "least_squares_gain": null,
+          "error_rms": 0.0,
+          "relative_error_rms": null,
+          "snr_db": null,
+          "input_peak": 0.0,
+          "decoded_peak": 0.0,
+          "decoded_min": 0.0,
+          "decoded_max": 0.0,
+          "outside_unit_interval": 0,
+          "nonfinite": 0
+        },
+        {
+          "channel": 1,
+          "frames": 100319,
+          "input_rms": 0.6929577014062164,
+          "decoded_rms": 0.669169431456245,
+          "rms_ratio": 0.9656713968230701,
+          "least_squares_gain": 0.40342677731515014,
+          "error_rms": 0.735210712795097,
+          "relative_error_rms": 1.060974878124793,
+          "snr_db": -0.5141020150495462,
+          "input_peak": 0.980010986328125,
+          "decoded_peak": 1.2805423736572266,
+          "decoded_min": -1.2805423736572266,
+          "decoded_max": 1.2805423736572266,
+          "outside_unit_interval": 3343,
+          "nonfinite": 0
+        }
+      ],
+      "all_decoded": [
+        {
+          "channel": 0,
+          "frames": 110592,
+          "decoded_rms": 0.0,
+          "decoded_peak": 0.0,
+          "decoded_min": 0.0,
+          "decoded_max": 0.0,
+          "outside_unit_interval": 0,
+          "nonfinite": 0
+        },
+        {
+          "channel": 1,
+          "frames": 110592,
+          "decoded_rms": 0.6661209362163307,
+          "decoded_peak": 1.2805423736572266,
+          "decoded_min": -1.2805423736572266,
+          "decoded_max": 1.2805423736572266,
+          "outside_unit_interval": 3614,
+          "nonfinite": 0
+        }
+      ],
+      "artifacts": {
+        "tone_right_only_nearfull.s16le": {
+          "sha256": "4c212c40c1f3386d4c80725032ebbb6121ddf7a3c7018fb91b70c29eae7156bb",
+          "bytes": 442368
+        },
+        "tone_right_only_nearfull.mp3": {
+          "sha256": "f8ce3a257afeeecd1a8a7840a7c95361918607fbedd1d0f522a989bc65bdc0c2",
+          "bytes": 92160
+        },
+        "tone_right_only_nearfull.f32le": {
+          "sha256": "1974711e1266a2b225b7221045782aaf87e4c47e6d45942b7c72a92e88a880e5",
+          "bytes": 884736
+        }
+      },
+      "errors": {
+        "encode_exit": 0,
+        "decode_exit": 0,
+        "encoder_log_bytes": 0,
+        "decoder_log_bytes": 0
+      }
+    },
+    {
+      "name": "impulse_and_gated_tones_half",
+      "pattern": "impulse_and_gated_tones",
+      "nominal_amplitude": 0.5,
+      "input_frames": 110592,
+      "encoded_frames": 96,
+      "decoded_sample_frames": 110592,
+      "alignment_samples": 1057,
+      "aligned_source_start": 0,
+      "aligned_source_stop": 109535,
+      "steady_source_start": 4608,
+      "steady_source_stop": 104927,
+      "aligned": [
+        {
+          "channel": 0,
+          "frames": 109535,
+          "input_rms": 0.08088633495490663,
+          "decoded_rms": 0.08085592350927276,
+          "rms_ratio": 0.9996240224550806,
+          "least_squares_gain": 0.9995418590975929,
+          "error_rms": 0.0010373276662064283,
+          "relative_error_rms": 0.012824510676429198,
+          "snr_db": 37.83918393107663,
+          "input_peak": 0.5,
+          "decoded_peak": 0.6211308240890503,
+          "decoded_min": -0.5106341242790222,
+          "decoded_max": 0.6211308240890503,
+          "outside_unit_interval": 0,
+          "nonfinite": 0
+        },
+        {
+          "channel": 1,
+          "frames": 109535,
+          "input_rms": 0.08094225134504372,
+          "decoded_rms": 0.0809250945501715,
+          "rms_ratio": 0.9997880365990921,
+          "least_squares_gain": 0.9996865822788245,
+          "error_rms": 0.0011531176675738189,
+          "relative_error_rms": 0.014246177347579136,
+          "snr_db": 36.92603307039534,
+          "input_peak": 0.5,
+          "decoded_peak": 0.6211308240890503,
+          "decoded_min": -0.6211308240890503,
+          "decoded_max": 0.508907675743103,
+          "outside_unit_interval": 0,
+          "nonfinite": 0
+        }
+      ],
+      "steady": [
+        {
+          "channel": 0,
+          "frames": 100319,
+          "input_rms": 0.0845201028044258,
+          "decoded_rms": 0.08448832514367705,
+          "rms_ratio": 0.9996240224550805,
+          "least_squares_gain": 0.9995418590975929,
+          "error_rms": 0.0010839289607882522,
+          "relative_error_rms": 0.0128245106764292,
+          "snr_db": 37.83918393107663,
+          "input_peak": 0.5,
+          "decoded_peak": 0.6211308240890503,
+          "decoded_min": -0.5106341242790222,
+          "decoded_max": 0.6211308240890503,
+          "outside_unit_interval": 0,
+          "nonfinite": 0
+        },
+        {
+          "channel": 1,
+          "frames": 100319,
+          "input_rms": 0.08457853120330769,
+          "decoded_rms": 0.08456060365019004,
+          "rms_ratio": 0.9997880365990921,
+          "least_squares_gain": 0.9996865822788245,
+          "error_rms": 0.0012049207553200773,
+          "relative_error_rms": 0.014246177347579136,
+          "snr_db": 36.92603307039534,
+          "input_peak": 0.5,
+          "decoded_peak": 0.6211308240890503,
+          "decoded_min": -0.6211308240890503,
+          "decoded_max": 0.508907675743103,
+          "outside_unit_interval": 0,
+          "nonfinite": 0
+        }
+      ],
+      "all_decoded": [
+        {
+          "channel": 0,
+          "frames": 110592,
+          "decoded_rms": 0.08046859936545762,
+          "decoded_peak": 0.6211308240890503,
+          "decoded_min": -0.5106341242790222,
+          "decoded_max": 0.6211308240890503,
+          "outside_unit_interval": 0,
+          "nonfinite": 0
+        },
+        {
+          "channel": 1,
+          "frames": 110592,
+          "decoded_rms": 0.08053743905630767,
+          "decoded_peak": 0.6211308240890503,
+          "decoded_min": -0.6211308240890503,
+          "decoded_max": 0.508907675743103,
+          "outside_unit_interval": 0,
+          "nonfinite": 0
+        }
+      ],
+      "artifacts": {
+        "impulse_and_gated_tones_half.s16le": {
+          "sha256": "5810de5dbb0f9e1bfad860c34c5f6a7761cbbb55e6ad1577869588df3e1a4411",
+          "bytes": 442368
+        },
+        "impulse_and_gated_tones_half.mp3": {
+          "sha256": "880ca608354c8ac2f058d049aeac2561784b1b846a8c1089b9c8abe312f3c223",
+          "bytes": 92160
+        },
+        "impulse_and_gated_tones_half.f32le": {
+          "sha256": "a8690a3a9f8776e78fc5da69b390ca9d427065e585ff33c3c6d691b85961bf0a",
+          "bytes": 884736
+        }
+      },
+      "errors": {
+        "encode_exit": 0,
+        "decode_exit": 0,
+        "encoder_log_bytes": 0,
+        "decoder_log_bytes": 0
+      },
+      "segments": {
+        "isolated_impulse": [
+          {
+            "channel": 0,
+            "frames": 10000,
+            "input_rms": 0.005,
+            "decoded_rms": 0.006369785163648441,
+            "rms_ratio": 1.273957032729688,
+            "least_squares_gain": 1.2422616481781006,
+            "error_rms": 0.0018603979741256343,
+            "relative_error_rms": 0.37207959482512687,
+            "snr_db": 8.58728292839712,
+            "input_peak": 0.5,
+            "decoded_peak": 0.6211308240890503,
+            "decoded_min": -0.03855635225772858,
+            "decoded_max": 0.6211308240890503,
+            "outside_unit_interval": 0,
+            "nonfinite": 0
+          },
+          {
+            "channel": 1,
+            "frames": 10000,
+            "input_rms": 0.005,
+            "decoded_rms": 0.006369785168354677,
+            "rms_ratio": 1.2739570336709352,
+            "least_squares_gain": 1.2422616481781006,
+            "error_rms": 0.001860397990239233,
+            "relative_error_rms": 0.3720795980478466,
+            "snr_db": 8.587282853165398,
+            "input_peak": 0.5,
+            "decoded_peak": 0.6211308240890503,
+            "decoded_min": -0.6211308240890503,
+            "decoded_max": 0.03855651244521141,
+            "outside_unit_interval": 0,
+            "nonfinite": 0
+          }
+        ],
+        "gated_tones": [
+          {
+            "channel": 0,
+            "frames": 43000,
+            "input_rms": 0.12907484771538794,
+            "decoded_rms": 0.12901226526497034,
+            "rms_ratio": 0.9995151460449089,
+            "least_squares_gain": 0.9994571571304794,
+            "error_rms": 0.0013914538717312386,
+            "relative_error_rms": 0.010780209284456537,
+            "snr_db": 39.34745615552299,
+            "input_peak": 0.5,
+            "decoded_peak": 0.5106341242790222,
+            "decoded_min": -0.5106341242790222,
+            "decoded_max": 0.5063564777374268,
+            "outside_unit_interval": 0,
+            "nonfinite": 0
+          },
+          {
+            "channel": 1,
+            "frames": 43000,
+            "input_rms": 0.12916410775334947,
+            "decoded_rms": 0.12912269588322725,
+            "rms_ratio": 0.9996793856215745,
+            "least_squares_gain": 0.9996020477736939,
+            "error_rms": 0.001606930707857153,
+            "relative_error_rms": 0.01244100033521489,
+            "snr_db": 38.10289396429059,
+            "input_peak": 0.5,
+            "decoded_peak": 0.508907675743103,
+            "decoded_min": -0.5073856711387634,
+            "decoded_max": 0.508907675743103,
+            "outside_unit_interval": 0,
+            "nonfinite": 0
+          }
+        ]
+      }
+    },
+    {
+      "name": "impulse_and_gated_tones_nearfull",
+      "pattern": "impulse_and_gated_tones",
+      "nominal_amplitude": 0.98,
+      "input_frames": 110592,
+      "encoded_frames": 96,
+      "decoded_sample_frames": 110592,
+      "alignment_samples": 1057,
+      "aligned_source_start": 0,
+      "aligned_source_stop": 109535,
+      "steady_source_start": 4608,
+      "steady_source_stop": 104927,
+      "aligned": [
+        {
+          "channel": 0,
+          "frames": 109535,
+          "input_rms": 0.1585372438007594,
+          "decoded_rms": 0.15577426132298208,
+          "rms_ratio": 0.9825720290605678,
+          "least_squares_gain": 0.5642332158558927,
+          "error_rms": 0.1450404694806528,
+          "relative_error_rms": 0.9148668540177942,
+          "snr_db": 0.7728421355656987,
+          "input_peak": 0.980010986328125,
+          "decoded_peak": 1.1662423610687256,
+          "decoded_min": -1.0730122327804565,
+          "decoded_max": 1.1662423610687256,
+          "outside_unit_interval": 89,
+          "nonfinite": 0
+        },
+        {
+          "channel": 1,
+          "frames": 109535,
+          "input_rms": 0.15864684769937254,
+          "decoded_rms": 0.15441323603589535,
+          "rms_ratio": 0.9733142402457332,
+          "least_squares_gain": 0.5557954002737189,
+          "error_rms": 0.14503392167166823,
+          "relative_error_rms": 0.9141935296848753,
+          "snr_db": 0.7792371361492259,
+          "input_peak": 0.980010986328125,
+          "decoded_peak": 1.2136449813842773,
+          "decoded_min": -1.2136449813842773,
+          "decoded_max": 1.202150583267212,
+          "outside_unit_interval": 135,
+          "nonfinite": 0
+        }
+      ],
+      "steady": [
+        {
+          "channel": 0,
+          "frames": 100319,
+          "input_rms": 0.16565943001176459,
+          "decoded_rms": 0.16277232227967667,
+          "rms_ratio": 0.9825720290605678,
+          "least_squares_gain": 0.5642332158558927,
+          "error_rms": 0.15155632157324403,
+          "relative_error_rms": 0.9148668540177942,
+          "snr_db": 0.7728421355656978,
+          "input_peak": 0.980010986328125,
+          "decoded_peak": 1.1662423610687256,
+          "decoded_min": -1.0730122327804565,
+          "decoded_max": 1.1662423610687256,
+          "outside_unit_interval": 89,
+          "nonfinite": 0
+        },
+        {
+          "channel": 1,
+          "frames": 100319,
+          "input_rms": 0.1657739577967571,
+          "decoded_rms": 0.16135015378547887,
+          "rms_ratio": 0.9733142402457331,
+          "least_squares_gain": 0.5557954002737189,
+          "error_rms": 0.15154947960804893,
+          "relative_error_rms": 0.9141935296848753,
+          "snr_db": 0.7792371361492267,
+          "input_peak": 0.980010986328125,
+          "decoded_peak": 1.2136449813842773,
+          "decoded_min": -1.2136449813842773,
+          "decoded_max": 1.202150583267212,
+          "outside_unit_interval": 135,
+          "nonfinite": 0
+        }
+      ],
+      "all_decoded": [
+        {
+          "channel": 0,
+          "frames": 110592,
+          "decoded_rms": 0.15502805585309543,
+          "decoded_peak": 1.1662423610687256,
+          "decoded_min": -1.0730122327804565,
+          "decoded_max": 1.1662423610687256,
+          "outside_unit_interval": 89,
+          "nonfinite": 0
+        },
+        {
+          "channel": 1,
+          "frames": 110592,
+          "decoded_rms": 0.15367355028566743,
+          "decoded_peak": 1.2136449813842773,
+          "decoded_min": -1.2136449813842773,
+          "decoded_max": 1.202150583267212,
+          "outside_unit_interval": 135,
+          "nonfinite": 0
+        }
+      ],
+      "artifacts": {
+        "impulse_and_gated_tones_nearfull.s16le": {
+          "sha256": "76cea4e670dd4ab07a1a7ddfe9c1ddf73333367271fd93d5c6edf1f7b5958e3d",
+          "bytes": 442368
+        },
+        "impulse_and_gated_tones_nearfull.mp3": {
+          "sha256": "0cf5acee1cdaa5be509f4f76deece99f54ab29094a7aa1e68dfa110be0474ca6",
+          "bytes": 92160
+        },
+        "impulse_and_gated_tones_nearfull.f32le": {
+          "sha256": "28f3998ae456ace7b7d3a88bec3f5455b24b8c2d66ac18db64c28d69d836955a",
+          "bytes": 884736
+        }
+      },
+      "errors": {
+        "encode_exit": 0,
+        "decode_exit": 0,
+        "encoder_log_bytes": 0,
+        "decoder_log_bytes": 0
+      },
+      "segments": {
+        "isolated_impulse": [
+          {
+            "channel": 0,
+            "frames": 10000,
+            "input_rms": 0.00980010986328125,
+            "decoded_rms": 0.011860594271365838,
+            "rms_ratio": 1.2102511540002985,
+            "least_squares_gain": 1.190029884704014,
+            "error_rms": 0.002851277694055416,
+            "relative_error_rms": 0.2909434418422691,
+            "snr_db": 10.723828555891151,
+            "input_peak": 0.980010986328125,
+            "decoded_peak": 1.1662423610687256,
+            "decoded_min": -0.06240513175725937,
+            "decoded_max": 1.1662423610687256,
+            "outside_unit_interval": 1,
+            "nonfinite": 0
+          },
+          {
+            "channel": 1,
+            "frames": 10000,
+            "input_rms": 0.00980010986328125,
+            "decoded_rms": 0.01186059426149283,
+            "rms_ratio": 1.2102511529928597,
+            "least_squares_gain": 1.190029884704014,
+            "error_rms": 0.002851277652986192,
+            "relative_error_rms": 0.290943437651579,
+            "snr_db": 10.72382868100094,
+            "input_peak": 0.980010986328125,
+            "decoded_peak": 1.1662423610687256,
+            "decoded_min": -1.1662423610687256,
+            "decoded_max": 0.06240683048963547,
+            "outside_unit_interval": 1,
+            "nonfinite": 0
+          }
+        ],
+        "gated_tones": [
+          {
+            "channel": 0,
+            "frames": 43000,
+            "input_rms": 0.25298674409444166,
+            "decoded_rms": 0.24855526751873816,
+            "rms_ratio": 0.982483364527395,
+            "least_squares_gain": 0.5640148266603178,
+            "error_rms": 0.2314854847864207,
+            "relative_error_rms": 0.9150103323200427,
+            "snr_db": 0.7714800368296244,
+            "input_peak": 0.980010986328125,
+            "decoded_peak": 1.084195613861084,
+            "decoded_min": -1.0730122327804565,
+            "decoded_max": 1.084195613861084,
+            "outside_unit_interval": 88,
+            "nonfinite": 0
+          },
+          {
+            "channel": 1,
+            "frames": 43000,
+            "input_rms": 0.2531617061791638,
+            "decoded_rms": 0.246382444298035,
+            "rms_ratio": 0.9732216140290543,
+            "least_squares_gain": 0.5555743722925603,
+            "error_rms": 0.23147503407424638,
+            "relative_error_rms": 0.9143366805658608,
+            "snr_db": 0.7778771446660104,
+            "input_peak": 0.980010986328125,
+            "decoded_peak": 1.2136449813842773,
+            "decoded_min": -1.2136449813842773,
+            "decoded_max": 1.202150583267212,
+            "outside_unit_interval": 134,
+            "nonfinite": 0
+          }
+        ]
+      }
+    },
+    {
+      "name": "noise_independent_half",
+      "pattern": "noise_independent",
+      "nominal_amplitude": 0.5,
+      "input_frames": 110592,
+      "encoded_frames": 96,
+      "decoded_sample_frames": 110592,
+      "alignment_samples": 1057,
+      "aligned_source_start": 0,
+      "aligned_source_stop": 109535,
+      "steady_source_start": 4608,
+      "steady_source_stop": 104927,
+      "aligned": [
+        {
+          "channel": 0,
+          "frames": 109535,
+          "input_rms": 0.28831459149776334,
+          "decoded_rms": 0.3031655896405531,
+          "rms_ratio": 1.0515097001009919,
+          "least_squares_gain": 1.0252624759691171,
+          "error_rms": 0.0677064922941502,
+          "relative_error_rms": 0.2348354689314274,
+          "snr_db": 12.584726155485697,
+          "input_peak": 0.5,
+          "decoded_peak": 0.7733212113380432,
+          "decoded_min": -0.7460511922836304,
+          "decoded_max": 0.7733212113380432,
+          "outside_unit_interval": 0,
+          "nonfinite": 0
+        },
+        {
+          "channel": 1,
+          "frames": 109535,
+          "input_rms": 0.28809613307830656,
+          "decoded_rms": 0.3031175441080487,
+          "rms_ratio": 1.0521402730027591,
+          "least_squares_gain": 1.0260377197860726,
+          "error_rms": 0.06751765957910597,
+          "relative_error_rms": 0.23435809032797458,
+          "snr_db": 12.602400990163765,
+          "input_peak": 0.5,
+          "decoded_peak": 0.7341922521591187,
+          "decoded_min": -0.7314120531082153,
+          "decoded_max": 0.7341922521591187,
+          "outside_unit_interval": 0,
+          "nonfinite": 0
+        }
+      ],
+      "steady": [
+        {
+          "channel": 0,
+          "frames": 100319,
+          "input_rms": 0.2882764643376027,
+          "decoded_rms": 0.3032953973294151,
+          "rms_ratio": 1.052099060623359,
+          "least_squares_gain": 1.0257736857198088,
+          "error_rms": 0.06783082228553977,
+          "relative_error_rms": 0.23529781538496528,
+          "snr_db": 12.567642099969504,
+          "input_peak": 0.5,
+          "decoded_peak": 0.7733212113380432,
+          "decoded_min": -0.7460511922836304,
+          "decoded_max": 0.7733212113380432,
+          "outside_unit_interval": 0,
+          "nonfinite": 0
+        },
+        {
+          "channel": 1,
+          "frames": 100319,
+          "input_rms": 0.2880918317971861,
+          "decoded_rms": 0.3029911947459713,
+          "rms_ratio": 1.0517174084938106,
+          "least_squares_gain": 1.0255708782232726,
+          "error_rms": 0.06754371264781422,
+          "relative_error_rms": 0.23445202255982167,
+          "snr_db": 12.59892032715002,
+          "input_peak": 0.5,
+          "decoded_peak": 0.7341922521591187,
+          "decoded_min": -0.7314120531082153,
+          "decoded_max": 0.7341922521591187,
+          "outside_unit_interval": 0,
+          "nonfinite": 0
+        }
+      ],
+      "all_decoded": [
+        {
+          "channel": 0,
+          "frames": 110592,
+          "decoded_rms": 0.3017187412574605,
+          "decoded_peak": 0.7733212113380432,
+          "decoded_min": -0.7460511922836304,
+          "decoded_max": 0.7733212113380432,
+          "outside_unit_interval": 0,
+          "nonfinite": 0
+        },
+        {
+          "channel": 1,
+          "frames": 110592,
+          "decoded_rms": 0.3016695305570773,
+          "decoded_peak": 0.7341922521591187,
+          "decoded_min": -0.7314120531082153,
+          "decoded_max": 0.7341922521591187,
+          "outside_unit_interval": 0,
+          "nonfinite": 0
+        }
+      ],
+      "artifacts": {
+        "noise_independent_half.s16le": {
+          "sha256": "83bfde1afb8e4b102f7c96cc50ff6bc1f24a47ec26b6534c8e105ee9b8a50bf8",
+          "bytes": 442368
+        },
+        "noise_independent_half.mp3": {
+          "sha256": "ee277bc56652d9421c0fdbdc4820344a13b98f5c69aefbddbe511e8685f7a4c4",
+          "bytes": 92160
+        },
+        "noise_independent_half.f32le": {
+          "sha256": "68cafc35cfaadc3b8fcaa4486f51ae9dc555a25c944e6ce7954ef1974e7d223d",
+          "bytes": 884736
+        }
+      },
+      "errors": {
+        "encode_exit": 0,
+        "decode_exit": 0,
+        "encoder_log_bytes": 0,
+        "decoder_log_bytes": 0
+      }
+    },
+    {
+      "name": "noise_independent_nearfull",
+      "pattern": "noise_independent",
+      "nominal_amplitude": 0.98,
+      "input_frames": 110592,
+      "encoded_frames": 96,
+      "decoded_sample_frames": 110592,
+      "alignment_samples": 1057,
+      "aligned_source_start": 0,
+      "aligned_source_stop": 109535,
+      "steady_source_start": 4608,
+      "steady_source_stop": 104927,
+      "aligned": [
+        {
+          "channel": 0,
+          "frames": 109535,
+          "input_rms": 0.5650965589098009,
+          "decoded_rms": 0.5954029587771914,
+          "rms_ratio": 1.0536304802950107,
+          "least_squares_gain": 1.0276057324564623,
+          "error_rms": 0.13243737319134732,
+          "relative_error_rms": 0.23436237772682417,
+          "snr_db": 12.602242090026985,
+          "input_peak": 0.980010986328125,
+          "decoded_peak": 1.5398921966552734,
+          "decoded_min": -1.4577714204788208,
+          "decoded_max": 1.5398921966552734,
+          "outside_unit_interval": 6072,
+          "nonfinite": 0
+        },
+        {
+          "channel": 1,
+          "frames": 109535,
+          "input_rms": 0.5646685002296313,
+          "decoded_rms": 0.5949871446803852,
+          "rms_ratio": 1.053692820545903,
+          "least_squares_gain": 1.027688626236128,
+          "error_rms": 0.13229558460084165,
+          "relative_error_rms": 0.2342889404084725,
+          "snr_db": 12.60496423514023,
+          "input_peak": 0.97998046875,
+          "decoded_peak": 1.5073351860046387,
+          "decoded_min": -1.5073351860046387,
+          "decoded_max": 1.3901854753494263,
+          "outside_unit_interval": 5990,
+          "nonfinite": 0
+        }
+      ],
+      "steady": [
+        {
+          "channel": 0,
+          "frames": 100319,
+          "input_rms": 0.5650218171000849,
+          "decoded_rms": 0.5957690908027953,
+          "rms_ratio": 1.0544178521468737,
+          "least_squares_gain": 1.0282945668793555,
+          "error_rms": 0.13275953598762252,
+          "relative_error_rms": 0.23496355710474484,
+          "snr_db": 12.579989833342456,
+          "input_peak": 0.980010986328125,
+          "decoded_peak": 1.5398921966552734,
+          "decoded_min": -1.4577714204788208,
+          "decoded_max": 1.5398921966552734,
+          "outside_unit_interval": 5581,
+          "nonfinite": 0
+        },
+        {
+          "channel": 1,
+          "frames": 100319,
+          "input_rms": 0.5646600869021996,
+          "decoded_rms": 0.5946665972985905,
+          "rms_ratio": 1.0531408383422505,
+          "least_squares_gain": 1.027124460502676,
+          "error_rms": 0.13225190824564662,
+          "relative_error_rms": 0.2342150814505027,
+          "snr_db": 12.607702870170414,
+          "input_peak": 0.97998046875,
+          "decoded_peak": 1.5073351860046387,
+          "decoded_min": -1.5073351860046387,
+          "decoded_max": 1.3901854753494263,
+          "outside_unit_interval": 5466,
+          "nonfinite": 0
+        }
+      ],
+      "all_decoded": [
+        {
+          "channel": 0,
+          "frames": 110592,
+          "decoded_rms": 0.5925604488302723,
+          "decoded_peak": 1.5398921966552734,
+          "decoded_min": -1.4577714204788208,
+          "decoded_max": 1.5398921966552734,
+          "outside_unit_interval": 6072,
+          "nonfinite": 0
+        },
+        {
+          "channel": 1,
+          "frames": 110592,
+          "decoded_rms": 0.5921450502022844,
+          "decoded_peak": 1.5073351860046387,
+          "decoded_min": -1.5073351860046387,
+          "decoded_max": 1.3901854753494263,
+          "outside_unit_interval": 5990,
+          "nonfinite": 0
+        }
+      ],
+      "artifacts": {
+        "noise_independent_nearfull.s16le": {
+          "sha256": "c9533374940ae3e78f7b6f314d6f13888c816f2e0d4f78617ea41a52cf5521eb",
+          "bytes": 442368
+        },
+        "noise_independent_nearfull.mp3": {
+          "sha256": "2286c20292f4984992b7af905ff93cd5b7bd379edd51e02da3ebfdbeb5e48e15",
+          "bytes": 92160
+        },
+        "noise_independent_nearfull.f32le": {
+          "sha256": "96e71060fd923991e85123e2487c64138f0191c57699448379a004785fe0b693",
+          "bytes": 884736
+        }
+      },
+      "errors": {
+        "encode_exit": 0,
+        "decode_exit": 0,
+        "encoder_log_bytes": 0,
+        "decoder_log_bytes": 0
+      }
+    }
+  ],
+  "limits": [
+    "Known1057sample lag is fixed from previous nonperiodic proof; no gain compensation applied.",
+    "All decoded float samples are checked before signed16 conversion; outside-unit counts indicate potential downstream clipping, not automatically integer overflow.",
+    "Steady metrics exclude4608source samples at both edges; isolated impulse and gate metrics retain transients.",
+    "This probe does not drain finite-stream tails or verify tail preservation.",
+    "No listening, music transparency, calibrated analog path, firmware timing, transport or endurance claim.",
+    "Finite fixtures cannot establish a worst-case all-input integer bound."
+  ],
+  "commands": [
+    {
+      "argv": [
+        "/usr/bin/ffmpeg",
+        "-version"
+      ],
+      "cwd": "/home/harper/workspace/personal/esp-analog-streamer",
+      "log": "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/ffmpeg-version.log",
+      "exit_code": 0,
+      "log_sha256": "a85f002a2266c5bfd7a5d1e5c72d18a0f9e8e60fd941327fa9a093d931687c17",
+      "log_bytes": 1866
+    },
+    {
+      "argv": [
+        "cc",
+        "--version"
+      ],
+      "cwd": "/home/harper/workspace/personal/esp-analog-streamer",
+      "log": "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/cc-version.log",
+      "exit_code": 0,
+      "log_sha256": "f6ab9d76ae8dcab3e133254944fbc77f41e0ba766287e289345c1ab77df09c45",
+      "log_bytes": 238
+    },
+    {
+      "argv": [
+        "git",
+        "rev-parse",
+        "HEAD"
+      ],
+      "cwd": "/home/harper/workspace/personal/esp-analog-streamer",
+      "log": "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/git-head.log",
+      "exit_code": 0,
+      "log_sha256": "ae929f1fe537a7c9e18ce15599991cd3f4a2357fc2324201851e21a23f40a551",
+      "log_bytes": 41
+    },
+    {
+      "argv": [
+        "cc",
+        "-O3",
+        "-fsigned-char",
+        "-Wall",
+        "-Wextra",
+        "-Werror",
+        "-I/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/baseline-source/mp3/vendor/shine",
+        "/home/harper/workspace/personal/esp-analog-streamer/docs/audit-evidence/2026-10-13/mp3-gain-probe/current-bridge.c",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/baseline-source/mp3/src/bridge.c",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/baseline-source/mp3/vendor/shine/bitstream.c",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/baseline-source/mp3/vendor/shine/huffman.c",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/baseline-source/mp3/vendor/shine/l3bitstream.c",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/baseline-source/mp3/vendor/shine/l3loop.c",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/baseline-source/mp3/vendor/shine/l3mdct.c",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/baseline-source/mp3/vendor/shine/l3subband.c",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/baseline-source/mp3/vendor/shine/layer3.c",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/baseline-source/mp3/vendor/shine/reservoir.c",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/baseline-source/mp3/vendor/shine/tables.c",
+        "-lm",
+        "-o",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/actual-bridge"
+      ],
+      "cwd": "/home/harper/workspace/personal/esp-analog-streamer",
+      "log": "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/compile.log",
+      "exit_code": 0,
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "log_bytes": 0
+    },
+    {
+      "argv": [
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/actual-bridge",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/tones_independent_half.s16le",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/tones_independent_half.mp3"
+      ],
+      "cwd": "/home/harper/workspace/personal/esp-analog-streamer",
+      "log": "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/tones_independent_half-encode.log",
+      "exit_code": 0,
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "log_bytes": 0
+    },
+    {
+      "argv": [
+        "/usr/bin/ffmpeg",
+        "-nostdin",
+        "-v",
+        "error",
+        "-c:a",
+        "mp3float",
+        "-i",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/tones_independent_half.mp3",
+        "-f",
+        "f32le",
+        "-c:a",
+        "pcm_f32le",
+        "-y",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/tones_independent_half.f32le"
+      ],
+      "cwd": "/home/harper/workspace/personal/esp-analog-streamer",
+      "log": "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/tones_independent_half-decode.log",
+      "exit_code": 0,
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "log_bytes": 0
+    },
+    {
+      "argv": [
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/actual-bridge",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/tones_independent_nearfull.s16le",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/tones_independent_nearfull.mp3"
+      ],
+      "cwd": "/home/harper/workspace/personal/esp-analog-streamer",
+      "log": "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/tones_independent_nearfull-encode.log",
+      "exit_code": 0,
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "log_bytes": 0
+    },
+    {
+      "argv": [
+        "/usr/bin/ffmpeg",
+        "-nostdin",
+        "-v",
+        "error",
+        "-c:a",
+        "mp3float",
+        "-i",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/tones_independent_nearfull.mp3",
+        "-f",
+        "f32le",
+        "-c:a",
+        "pcm_f32le",
+        "-y",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/tones_independent_nearfull.f32le"
+      ],
+      "cwd": "/home/harper/workspace/personal/esp-analog-streamer",
+      "log": "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/tones_independent_nearfull-decode.log",
+      "exit_code": 0,
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "log_bytes": 0
+    },
+    {
+      "argv": [
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/actual-bridge",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/tones_same_half.s16le",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/tones_same_half.mp3"
+      ],
+      "cwd": "/home/harper/workspace/personal/esp-analog-streamer",
+      "log": "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/tones_same_half-encode.log",
+      "exit_code": 0,
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "log_bytes": 0
+    },
+    {
+      "argv": [
+        "/usr/bin/ffmpeg",
+        "-nostdin",
+        "-v",
+        "error",
+        "-c:a",
+        "mp3float",
+        "-i",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/tones_same_half.mp3",
+        "-f",
+        "f32le",
+        "-c:a",
+        "pcm_f32le",
+        "-y",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/tones_same_half.f32le"
+      ],
+      "cwd": "/home/harper/workspace/personal/esp-analog-streamer",
+      "log": "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/tones_same_half-decode.log",
+      "exit_code": 0,
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "log_bytes": 0
+    },
+    {
+      "argv": [
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/actual-bridge",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/tones_same_nearfull.s16le",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/tones_same_nearfull.mp3"
+      ],
+      "cwd": "/home/harper/workspace/personal/esp-analog-streamer",
+      "log": "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/tones_same_nearfull-encode.log",
+      "exit_code": 0,
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "log_bytes": 0
+    },
+    {
+      "argv": [
+        "/usr/bin/ffmpeg",
+        "-nostdin",
+        "-v",
+        "error",
+        "-c:a",
+        "mp3float",
+        "-i",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/tones_same_nearfull.mp3",
+        "-f",
+        "f32le",
+        "-c:a",
+        "pcm_f32le",
+        "-y",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/tones_same_nearfull.f32le"
+      ],
+      "cwd": "/home/harper/workspace/personal/esp-analog-streamer",
+      "log": "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/tones_same_nearfull-decode.log",
+      "exit_code": 0,
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "log_bytes": 0
+    },
+    {
+      "argv": [
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/actual-bridge",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/tones_opposite_half.s16le",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/tones_opposite_half.mp3"
+      ],
+      "cwd": "/home/harper/workspace/personal/esp-analog-streamer",
+      "log": "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/tones_opposite_half-encode.log",
+      "exit_code": 0,
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "log_bytes": 0
+    },
+    {
+      "argv": [
+        "/usr/bin/ffmpeg",
+        "-nostdin",
+        "-v",
+        "error",
+        "-c:a",
+        "mp3float",
+        "-i",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/tones_opposite_half.mp3",
+        "-f",
+        "f32le",
+        "-c:a",
+        "pcm_f32le",
+        "-y",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/tones_opposite_half.f32le"
+      ],
+      "cwd": "/home/harper/workspace/personal/esp-analog-streamer",
+      "log": "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/tones_opposite_half-decode.log",
+      "exit_code": 0,
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "log_bytes": 0
+    },
+    {
+      "argv": [
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/actual-bridge",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/tones_opposite_nearfull.s16le",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/tones_opposite_nearfull.mp3"
+      ],
+      "cwd": "/home/harper/workspace/personal/esp-analog-streamer",
+      "log": "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/tones_opposite_nearfull-encode.log",
+      "exit_code": 0,
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "log_bytes": 0
+    },
+    {
+      "argv": [
+        "/usr/bin/ffmpeg",
+        "-nostdin",
+        "-v",
+        "error",
+        "-c:a",
+        "mp3float",
+        "-i",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/tones_opposite_nearfull.mp3",
+        "-f",
+        "f32le",
+        "-c:a",
+        "pcm_f32le",
+        "-y",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/tones_opposite_nearfull.f32le"
+      ],
+      "cwd": "/home/harper/workspace/personal/esp-analog-streamer",
+      "log": "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/tones_opposite_nearfull-decode.log",
+      "exit_code": 0,
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "log_bytes": 0
+    },
+    {
+      "argv": [
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/actual-bridge",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/tone_left_only_half.s16le",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/tone_left_only_half.mp3"
+      ],
+      "cwd": "/home/harper/workspace/personal/esp-analog-streamer",
+      "log": "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/tone_left_only_half-encode.log",
+      "exit_code": 0,
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "log_bytes": 0
+    },
+    {
+      "argv": [
+        "/usr/bin/ffmpeg",
+        "-nostdin",
+        "-v",
+        "error",
+        "-c:a",
+        "mp3float",
+        "-i",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/tone_left_only_half.mp3",
+        "-f",
+        "f32le",
+        "-c:a",
+        "pcm_f32le",
+        "-y",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/tone_left_only_half.f32le"
+      ],
+      "cwd": "/home/harper/workspace/personal/esp-analog-streamer",
+      "log": "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/tone_left_only_half-decode.log",
+      "exit_code": 0,
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "log_bytes": 0
+    },
+    {
+      "argv": [
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/actual-bridge",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/tone_left_only_nearfull.s16le",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/tone_left_only_nearfull.mp3"
+      ],
+      "cwd": "/home/harper/workspace/personal/esp-analog-streamer",
+      "log": "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/tone_left_only_nearfull-encode.log",
+      "exit_code": 0,
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "log_bytes": 0
+    },
+    {
+      "argv": [
+        "/usr/bin/ffmpeg",
+        "-nostdin",
+        "-v",
+        "error",
+        "-c:a",
+        "mp3float",
+        "-i",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/tone_left_only_nearfull.mp3",
+        "-f",
+        "f32le",
+        "-c:a",
+        "pcm_f32le",
+        "-y",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/tone_left_only_nearfull.f32le"
+      ],
+      "cwd": "/home/harper/workspace/personal/esp-analog-streamer",
+      "log": "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/tone_left_only_nearfull-decode.log",
+      "exit_code": 0,
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "log_bytes": 0
+    },
+    {
+      "argv": [
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/actual-bridge",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/tone_right_only_half.s16le",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/tone_right_only_half.mp3"
+      ],
+      "cwd": "/home/harper/workspace/personal/esp-analog-streamer",
+      "log": "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/tone_right_only_half-encode.log",
+      "exit_code": 0,
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "log_bytes": 0
+    },
+    {
+      "argv": [
+        "/usr/bin/ffmpeg",
+        "-nostdin",
+        "-v",
+        "error",
+        "-c:a",
+        "mp3float",
+        "-i",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/tone_right_only_half.mp3",
+        "-f",
+        "f32le",
+        "-c:a",
+        "pcm_f32le",
+        "-y",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/tone_right_only_half.f32le"
+      ],
+      "cwd": "/home/harper/workspace/personal/esp-analog-streamer",
+      "log": "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/tone_right_only_half-decode.log",
+      "exit_code": 0,
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "log_bytes": 0
+    },
+    {
+      "argv": [
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/actual-bridge",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/tone_right_only_nearfull.s16le",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/tone_right_only_nearfull.mp3"
+      ],
+      "cwd": "/home/harper/workspace/personal/esp-analog-streamer",
+      "log": "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/tone_right_only_nearfull-encode.log",
+      "exit_code": 0,
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "log_bytes": 0
+    },
+    {
+      "argv": [
+        "/usr/bin/ffmpeg",
+        "-nostdin",
+        "-v",
+        "error",
+        "-c:a",
+        "mp3float",
+        "-i",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/tone_right_only_nearfull.mp3",
+        "-f",
+        "f32le",
+        "-c:a",
+        "pcm_f32le",
+        "-y",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/tone_right_only_nearfull.f32le"
+      ],
+      "cwd": "/home/harper/workspace/personal/esp-analog-streamer",
+      "log": "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/tone_right_only_nearfull-decode.log",
+      "exit_code": 0,
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "log_bytes": 0
+    },
+    {
+      "argv": [
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/actual-bridge",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/impulse_and_gated_tones_half.s16le",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/impulse_and_gated_tones_half.mp3"
+      ],
+      "cwd": "/home/harper/workspace/personal/esp-analog-streamer",
+      "log": "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/impulse_and_gated_tones_half-encode.log",
+      "exit_code": 0,
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "log_bytes": 0
+    },
+    {
+      "argv": [
+        "/usr/bin/ffmpeg",
+        "-nostdin",
+        "-v",
+        "error",
+        "-c:a",
+        "mp3float",
+        "-i",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/impulse_and_gated_tones_half.mp3",
+        "-f",
+        "f32le",
+        "-c:a",
+        "pcm_f32le",
+        "-y",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/impulse_and_gated_tones_half.f32le"
+      ],
+      "cwd": "/home/harper/workspace/personal/esp-analog-streamer",
+      "log": "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/impulse_and_gated_tones_half-decode.log",
+      "exit_code": 0,
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "log_bytes": 0
+    },
+    {
+      "argv": [
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/actual-bridge",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/impulse_and_gated_tones_nearfull.s16le",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/impulse_and_gated_tones_nearfull.mp3"
+      ],
+      "cwd": "/home/harper/workspace/personal/esp-analog-streamer",
+      "log": "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/impulse_and_gated_tones_nearfull-encode.log",
+      "exit_code": 0,
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "log_bytes": 0
+    },
+    {
+      "argv": [
+        "/usr/bin/ffmpeg",
+        "-nostdin",
+        "-v",
+        "error",
+        "-c:a",
+        "mp3float",
+        "-i",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/impulse_and_gated_tones_nearfull.mp3",
+        "-f",
+        "f32le",
+        "-c:a",
+        "pcm_f32le",
+        "-y",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/impulse_and_gated_tones_nearfull.f32le"
+      ],
+      "cwd": "/home/harper/workspace/personal/esp-analog-streamer",
+      "log": "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/impulse_and_gated_tones_nearfull-decode.log",
+      "exit_code": 0,
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "log_bytes": 0
+    },
+    {
+      "argv": [
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/actual-bridge",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/noise_independent_half.s16le",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/noise_independent_half.mp3"
+      ],
+      "cwd": "/home/harper/workspace/personal/esp-analog-streamer",
+      "log": "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/noise_independent_half-encode.log",
+      "exit_code": 0,
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "log_bytes": 0
+    },
+    {
+      "argv": [
+        "/usr/bin/ffmpeg",
+        "-nostdin",
+        "-v",
+        "error",
+        "-c:a",
+        "mp3float",
+        "-i",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/noise_independent_half.mp3",
+        "-f",
+        "f32le",
+        "-c:a",
+        "pcm_f32le",
+        "-y",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/noise_independent_half.f32le"
+      ],
+      "cwd": "/home/harper/workspace/personal/esp-analog-streamer",
+      "log": "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/noise_independent_half-decode.log",
+      "exit_code": 0,
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "log_bytes": 0
+    },
+    {
+      "argv": [
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/actual-bridge",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/noise_independent_nearfull.s16le",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/noise_independent_nearfull.mp3"
+      ],
+      "cwd": "/home/harper/workspace/personal/esp-analog-streamer",
+      "log": "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/noise_independent_nearfull-encode.log",
+      "exit_code": 0,
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "log_bytes": 0
+    },
+    {
+      "argv": [
+        "/usr/bin/ffmpeg",
+        "-nostdin",
+        "-v",
+        "error",
+        "-c:a",
+        "mp3float",
+        "-i",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/noise_independent_nearfull.mp3",
+        "-f",
+        "f32le",
+        "-c:a",
+        "pcm_f32le",
+        "-y",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/noise_independent_nearfull.f32le"
+      ],
+      "cwd": "/home/harper/workspace/personal/esp-analog-streamer",
+      "log": "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/noise_independent_nearfull-decode.log",
+      "exit_code": 0,
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "log_bytes": 0
+    }
+  ],
+  "integer_diagnostics": {
+    "diagnostic": "Copied generic muladd records int64 before+product and parallel full accumulator; explicit modulo preserves original host output. Each observed MP3 is byte-equal to the production run. Wide sum final range distinguishes intermediate overflow from coefficient representability. No corrected output is produced.",
+    "int32_range": [
+      -2147483648,
+      2147483647
+    ],
+    "rows": [
+      {
+        "fixture": "tones_independent_half",
+        "byte_equal_to_production": true,
+        "mp3_sha256": "591e504bb16d731c0eb08780e0c713ed2a2a7618833bf3fb5158e3c34102e6bb",
+        "events": [
+          {
+            "stage": "subband",
+            "additions": 17031168,
+            "wrapped_additions": 0,
+            "finished_accumulators": 663552,
+            "unrepresentable_final": 0,
+            "true_partial_min": -270827772,
+            "true_partial_max": 269112455,
+            "original_addition_min": -270827772,
+            "original_addition_max": 269112455,
+            "true_final_min": -270827772,
+            "true_final_max": 269112455,
+            "minimum_final_context": null,
+            "maximum_final_context": null
+          },
+          {
+            "stage": "mdct",
+            "additions": 7741440,
+            "wrapped_additions": 0,
+            "finished_accumulators": 221184,
+            "unrepresentable_final": 0,
+            "true_partial_min": -1197917698,
+            "true_partial_max": 1197917668,
+            "original_addition_min": -1197917698,
+            "original_addition_max": 1197917668,
+            "true_final_min": -1196156695,
+            "true_final_max": 1196156664,
+            "minimum_final_context": {
+              "block": 25,
+              "channel": 1,
+              "granule": 0,
+              "band": 2,
+              "coefficient": 4,
+              "j": 7
+            },
+            "maximum_final_context": {
+              "block": 87,
+              "channel": 1,
+              "granule": 1,
+              "band": 2,
+              "coefficient": 4,
+              "j": 7
+            }
+          }
+        ]
+      },
+      {
+        "fixture": "tones_independent_nearfull",
+        "byte_equal_to_production": true,
+        "mp3_sha256": "67bef2c700d5ecf3fe4096549bbc64b1719e4f3200c891adde0bc52cfa8e96b0",
+        "events": [
+          {
+            "event": "overflow",
+            "stage": "mdct",
+            "line": 113,
+            "before": 2080071138,
+            "product": 127430234,
+            "sum": 2207501372,
+            "parallel_true_sum": 2207501372,
+            "context": {
+              "block": 1,
+              "channel": 1,
+              "granule": 1,
+              "band": 2,
+              "coefficient": 4,
+              "j": 14
+            }
+          },
+          {
+            "event": "overflow",
+            "stage": "mdct",
+            "line": 113,
+            "before": -2053065446,
+            "product": -104966853,
+            "sum": -2158032299,
+            "parallel_true_sum": -2158032299,
+            "context": {
+              "block": 2,
+              "channel": 1,
+              "granule": 0,
+              "band": 2,
+              "coefficient": 4,
+              "j": 14
+            }
+          },
+          {
+            "event": "overflow",
+            "stage": "mdct",
+            "line": 108,
+            "before": 2128072649,
+            "product": 28816378,
+            "sum": 2156889027,
+            "parallel_true_sum": -2138078269,
+            "context": {
+              "block": 2,
+              "channel": 1,
+              "granule": 0,
+              "band": 2,
+              "coefficient": 4,
+              "j": 7
+            }
+          },
+          {
+            "event": "overflow",
+            "stage": "mdct",
+            "line": 109,
+            "before": -2138078269,
+            "product": -34126498,
+            "sum": -2172204767,
+            "parallel_true_sum": -2172204767,
+            "context": {
+              "block": 2,
+              "channel": 1,
+              "granule": 0,
+              "band": 2,
+              "coefficient": 4,
+              "j": 7
+            }
+          },
+          {
+            "event": "overflow",
+            "stage": "mdct",
+            "line": 110,
+            "before": 2095241845,
+            "product": 63844059,
+            "sum": 2159085904,
+            "parallel_true_sum": 2159085904,
+            "context": {
+              "block": 5,
+              "channel": 1,
+              "granule": 0,
+              "band": 2,
+              "coefficient": 4,
+              "j": 7
+            }
+          },
+          {
+            "event": "overflow",
+            "stage": "mdct",
+            "line": 113,
+            "before": -2100897114,
+            "product": -124701172,
+            "sum": -2225598286,
+            "parallel_true_sum": -2225598286,
+            "context": {
+              "block": 5,
+              "channel": 1,
+              "granule": 1,
+              "band": 2,
+              "coefficient": 4,
+              "j": 14
+            }
+          },
+          {
+            "event": "overflow",
+            "stage": "mdct",
+            "line": 110,
+            "before": 2112320250,
+            "product": 36166489,
+            "sum": 2148486739,
+            "parallel_true_sum": 2148486739,
+            "context": {
+              "block": 6,
+              "channel": 1,
+              "granule": 0,
+              "band": 2,
+              "coefficient": 4,
+              "j": 7
+            }
+          },
+          {
+            "event": "overflow",
+            "stage": "mdct",
+            "line": 111,
+            "before": -2146480557,
+            "product": -11929828,
+            "sum": -2158410385,
+            "parallel_true_sum": 2136556911,
+            "context": {
+              "block": 6,
+              "channel": 1,
+              "granule": 0,
+              "band": 2,
+              "coefficient": 4,
+              "j": 7
+            }
+          },
+          {
+            "stage": "subband",
+            "additions": 17031168,
+            "wrapped_additions": 0,
+            "finished_accumulators": 663552,
+            "unrepresentable_final": 0,
+            "true_partial_min": -530823261,
+            "true_partial_max": 527459543,
+            "original_addition_min": -530823261,
+            "original_addition_max": 527459543,
+            "true_final_min": -530823261,
+            "true_final_max": 527459543,
+            "minimum_final_context": null,
+            "maximum_final_context": null
+          },
+          {
+            "stage": "mdct",
+            "additions": 7741440,
+            "wrapped_additions": 121,
+            "finished_accumulators": 221184,
+            "unrepresentable_final": 85,
+            "true_partial_min": -2347921131,
+            "true_partial_max": 2347921103,
+            "original_addition_min": -2231052637,
+            "original_addition_max": 2231052609,
+            "true_final_min": -2344469618,
+            "true_final_max": 2344469588,
+            "minimum_final_context": {
+              "block": 25,
+              "channel": 1,
+              "granule": 0,
+              "band": 2,
+              "coefficient": 4,
+              "j": 7
+            },
+            "maximum_final_context": {
+              "block": 87,
+              "channel": 1,
+              "granule": 1,
+              "band": 2,
+              "coefficient": 4,
+              "j": 7
+            }
+          }
+        ]
+      },
+      {
+        "fixture": "noise_independent_half",
+        "byte_equal_to_production": true,
+        "mp3_sha256": "ee277bc56652d9421c0fdbdc4820344a13b98f5c69aefbddbe511e8685f7a4c4",
+        "events": [
+          {
+            "stage": "subband",
+            "additions": 17031168,
+            "wrapped_additions": 0,
+            "finished_accumulators": 663552,
+            "unrepresentable_final": 0,
+            "true_partial_min": -111154713,
+            "true_partial_max": 124650676,
+            "original_addition_min": -111154713,
+            "original_addition_max": 124650676,
+            "true_final_min": -107999274,
+            "true_final_max": 123820334,
+            "minimum_final_context": null,
+            "maximum_final_context": null
+          },
+          {
+            "stage": "mdct",
+            "additions": 7741440,
+            "wrapped_additions": 0,
+            "finished_accumulators": 221184,
+            "unrepresentable_final": 0,
+            "true_partial_min": -166441494,
+            "true_partial_max": 175569094,
+            "original_addition_min": -166441494,
+            "original_addition_max": 175569094,
+            "true_final_min": -160665946,
+            "true_final_max": 170620752,
+            "minimum_final_context": {
+              "block": 56,
+              "channel": 1,
+              "granule": 1,
+              "band": 9,
+              "coefficient": 3,
+              "j": 7
+            },
+            "maximum_final_context": {
+              "block": 65,
+              "channel": 0,
+              "granule": 1,
+              "band": 11,
+              "coefficient": 8,
+              "j": 7
+            }
+          }
+        ]
+      },
+      {
+        "fixture": "noise_independent_nearfull",
+        "byte_equal_to_production": true,
+        "mp3_sha256": "2286c20292f4984992b7af905ff93cd5b7bd379edd51e02da3ebfdbeb5e48e15",
+        "events": [
+          {
+            "stage": "subband",
+            "additions": 17031168,
+            "wrapped_additions": 0,
+            "finished_accumulators": 663552,
+            "unrepresentable_final": 0,
+            "true_partial_min": -217862297,
+            "true_partial_max": 244315251,
+            "original_addition_min": -217862297,
+            "original_addition_max": 244315251,
+            "true_final_min": -211678425,
+            "true_final_max": 242687632,
+            "minimum_final_context": null,
+            "maximum_final_context": null
+          },
+          {
+            "stage": "mdct",
+            "additions": 7741440,
+            "wrapped_additions": 0,
+            "finished_accumulators": 221184,
+            "unrepresentable_final": 0,
+            "true_partial_min": -326224823,
+            "true_partial_max": 344116136,
+            "original_addition_min": -326224823,
+            "original_addition_max": 344116136,
+            "true_final_min": -314907307,
+            "true_final_max": 334418225,
+            "minimum_final_context": {
+              "block": 56,
+              "channel": 1,
+              "granule": 1,
+              "band": 9,
+              "coefficient": 3,
+              "j": 7
+            },
+            "maximum_final_context": {
+              "block": 65,
+              "channel": 0,
+              "granule": 1,
+              "band": 11,
+              "coefficient": 8,
+              "j": 7
+            }
+          }
+        ]
+      },
+      {
+        "fixture": "impulse_and_gated_tones_half",
+        "byte_equal_to_production": true,
+        "mp3_sha256": "880ca608354c8ac2f058d049aeac2561784b1b846a8c1089b9c8abe312f3c223",
+        "events": [
+          {
+            "stage": "subband",
+            "additions": 17031168,
+            "wrapped_additions": 0,
+            "finished_accumulators": 663552,
+            "unrepresentable_final": 0,
+            "true_partial_min": -271644354,
+            "true_partial_max": 269166093,
+            "original_addition_min": -271644354,
+            "original_addition_max": 269166093,
+            "true_final_min": -271644354,
+            "true_final_max": 269166093,
+            "minimum_final_context": null,
+            "maximum_final_context": null
+          },
+          {
+            "stage": "mdct",
+            "additions": 7741440,
+            "wrapped_additions": 0,
+            "finished_accumulators": 221184,
+            "unrepresentable_final": 0,
+            "true_partial_min": -1142374423,
+            "true_partial_max": 1194967089,
+            "original_addition_min": -1142374423,
+            "original_addition_max": 1194967089,
+            "true_final_min": -1142374423,
+            "true_final_max": 1192869037,
+            "minimum_final_context": {
+              "block": 27,
+              "channel": 0,
+              "granule": 1,
+              "band": 1,
+              "coefficient": 5,
+              "j": 7
+            },
+            "maximum_final_context": {
+              "block": 29,
+              "channel": 1,
+              "granule": 0,
+              "band": 2,
+              "coefficient": 4,
+              "j": 7
+            }
+          }
+        ]
+      },
+      {
+        "fixture": "impulse_and_gated_tones_nearfull",
+        "byte_equal_to_production": true,
+        "mp3_sha256": "0cf5acee1cdaa5be509f4f76deece99f54ab29094a7aa1e68dfa110be0474ca6",
+        "events": [
+          {
+            "event": "overflow",
+            "stage": "mdct",
+            "line": 109,
+            "before": -2147059711,
+            "product": -71464894,
+            "sum": -2218524605,
+            "parallel_true_sum": -2218524605,
+            "context": {
+              "block": 27,
+              "channel": 0,
+              "granule": 1,
+              "band": 1,
+              "coefficient": 5,
+              "j": 7
+            }
+          },
+          {
+            "event": "overflow",
+            "stage": "mdct",
+            "line": 110,
+            "before": -2138559418,
+            "product": -63197011,
+            "sum": -2201756429,
+            "parallel_true_sum": -2201756429,
+            "context": {
+              "block": 28,
+              "channel": 1,
+              "granule": 1,
+              "band": 2,
+              "coefficient": 4,
+              "j": 7
+            }
+          },
+          {
+            "event": "overflow",
+            "stage": "mdct",
+            "line": 113,
+            "before": -2064776560,
+            "product": -99285549,
+            "sum": -2164062109,
+            "parallel_true_sum": -2164062109,
+            "context": {
+              "block": 28,
+              "channel": 0,
+              "granule": 0,
+              "band": 1,
+              "coefficient": 5,
+              "j": 14
+            }
+          },
+          {
+            "event": "overflow",
+            "stage": "mdct",
+            "line": 107,
+            "before": 2130905187,
+            "product": 21329084,
+            "sum": 2152234271,
+            "parallel_true_sum": -2142733025,
+            "context": {
+              "block": 28,
+              "channel": 0,
+              "granule": 0,
+              "band": 1,
+              "coefficient": 5,
+              "j": 7
+            }
+          },
+          {
+            "event": "overflow",
+            "stage": "mdct",
+            "line": 108,
+            "before": -2142733025,
+            "product": -22440123,
+            "sum": -2165173148,
+            "parallel_true_sum": -2165173148,
+            "context": {
+              "block": 28,
+              "channel": 0,
+              "granule": 0,
+              "band": 1,
+              "coefficient": 5,
+              "j": 7
+            }
+          },
+          {
+            "event": "overflow",
+            "stage": "mdct",
+            "line": 113,
+            "before": 2109099894,
+            "product": 122486614,
+            "sum": 2231586508,
+            "parallel_true_sum": 2231586508,
+            "context": {
+              "block": 29,
+              "channel": 1,
+              "granule": 0,
+              "band": 2,
+              "coefficient": 4,
+              "j": 14
+            }
+          },
+          {
+            "stage": "subband",
+            "additions": 17031168,
+            "wrapped_additions": 0,
+            "finished_accumulators": 663552,
+            "unrepresentable_final": 0,
+            "true_partial_min": -532425168,
+            "true_partial_max": 527564809,
+            "original_addition_min": -532425168,
+            "original_addition_max": 527564809,
+            "true_final_min": -532425168,
+            "true_final_max": 527564809,
+            "minimum_final_context": null,
+            "maximum_final_context": null
+          },
+          {
+            "stage": "mdct",
+            "additions": 7741440,
+            "wrapped_additions": 6,
+            "finished_accumulators": 221184,
+            "unrepresentable_final": 4,
+            "true_partial_min": -2239057685,
+            "true_partial_max": 2342138395,
+            "original_addition_min": -2218524605,
+            "original_addition_max": 2231586508,
+            "true_final_min": -2239057685,
+            "true_final_max": 2338026276,
+            "minimum_final_context": {
+              "block": 27,
+              "channel": 0,
+              "granule": 1,
+              "band": 1,
+              "coefficient": 5,
+              "j": 7
+            },
+            "maximum_final_context": {
+              "block": 29,
+              "channel": 1,
+              "granule": 0,
+              "band": 2,
+              "coefficient": 4,
+              "j": 7
+            }
+          }
+        ]
+      }
+    ],
+    "sanitizers": [
+      {
+        "fixture": "tones_independent_half-sanitizer",
+        "exit_code": 0,
+        "log": "",
+        "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "fixture": "tones_independent_nearfull-sanitizer",
+        "exit_code": 1,
+        "log": "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/baseline-source/mp3/vendor/shine/l3mdct.c:111:13: runtime error: signed integer overflow: 127430234 + 2080071138 cannot be represented in type 'int'\n",
+        "log_sha256": "f23fb5e529f63afad912944b0a8058287c7a5f1231ae45a1593bd14f01447c7b"
+      },
+      {
+        "fixture": "noise_independent_half-sanitizer",
+        "exit_code": 0,
+        "log": "",
+        "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "fixture": "noise_independent_nearfull-sanitizer",
+        "exit_code": 0,
+        "log": "",
+        "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "fixture": "impulse_and_gated_tones_nearfull-sanitizer",
+        "exit_code": 1,
+        "log": "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/baseline-source/mp3/vendor/shine/l3mdct.c:107:13: runtime error: signed integer overflow: -71464894 + -2147059711 cannot be represented in type 'int'\n",
+        "log_sha256": "4073cc83a7f1637a9a60365c5b37e83f981a99635daabca0acf5450d256af7b8"
+      }
+    ],
+    "minimal_reproducer": [
+      {
+        "blocks": 1,
+        "input_frames": 1152,
+        "input_bytes": 4608,
+        "input_sha256": "06c2bc4db9a006d43f33bedd6c11a74c1d6c095d4f34e3c1c05ac340f61e1f28",
+        "fixture": "minimal-tones-nearfull-1-blocks-sanitizer",
+        "exit_code": 0,
+        "log": "",
+        "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "blocks": 2,
+        "input_frames": 2304,
+        "input_bytes": 9216,
+        "input_sha256": "58271271a412888108f73ca6a02ae094d49503d8979efe9420b9515399cd14e0",
+        "fixture": "minimal-tones-nearfull-2-blocks-sanitizer",
+        "exit_code": 1,
+        "log": "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/baseline-source/mp3/vendor/shine/l3mdct.c:111:13: runtime error: signed integer overflow: 127430234 + 2080071138 cannot be represented in type 'int'\n",
+        "log_sha256": "f23fb5e529f63afad912944b0a8058287c7a5f1231ae45a1593bd14f01447c7b"
+      }
+    ],
+    "upstream": {
+      "head": "ab5e3526b64af1a2eaa43aa6f441a7312e013519",
+      "source_diff_empty": true,
+      "decoded_frames": 110592,
+      "steady": [
+        {
+          "channel": 0,
+          "frames": 100319,
+          "input_rms": 0.692984289867837,
+          "decoded_rms": 0.7204354451191378,
+          "rms_ratio": 1.0396129546552002,
+          "least_squares_gain": 0.1507268341289677,
+          "error_rms": 0.9243853080352984,
+          "relative_error_rms": 1.3339195729986797,
+          "snr_db": -2.502592902617373,
+          "input_peak": 0.980010986328125,
+          "decoded_peak": 1.3541464805603027,
+          "decoded_min": -1.3541464805603027,
+          "decoded_max": 1.346520185470581,
+          "outside_unit_interval": 16704,
+          "nonfinite": 0
+        },
+        {
+          "channel": 1,
+          "frames": 100319,
+          "input_rms": 0.6929577014062164,
+          "decoded_rms": 0.698076813726175,
+          "rms_ratio": 1.0073873373649942,
+          "least_squares_gain": 0.2900594413559205,
+          "error_rms": 0.8300205475902606,
+          "relative_error_rms": 1.197793957561772,
+          "snr_db": -1.5676423578958618,
+          "input_peak": 0.980010986328125,
+          "decoded_peak": 1.370788812637329,
+          "decoded_min": -1.3497161865234375,
+          "decoded_max": 1.370788812637329,
+          "outside_unit_interval": 16511,
+          "nonfinite": 0
+        }
+      ],
+      "sanitizer": {
+        "fixture": "upstream-nearfull-sanitizer",
+        "exit_code": 1,
+        "log": "/home/harper/workspace/personal/esp-analog-streamer/target/mp3-benchmark/source/shine/src/lib/l3mdct.c:105:13: runtime error: signed integer overflow: -120660787 + -2141960039 cannot be represented in type 'int'\n",
+        "log_sha256": "5eb463ff64d4bbd8f2e8cbdf46d8284982b25dde1b762ea41f8a5c37c2454a4c"
+      }
+    },
+    "diagnostic_source_sha256": {
+      "diagnose.py": "799a87379a588c24806d8ccf1e4b46d88c8c7ecebebf1b709d29deb091642644",
+      "bounds.c": "f0a7147893ba92298722f05567a31cb0631fe593d1bba077dc687b417beaf6be",
+      "upstream-control.c": "573d0b26c67e8b4c6838be7a951eb7c7049c3cdc6a1398dd61c636e1af89cfc7",
+      "observed-shine/mult_noarch_gcc.h": "29def1c4a00876ca968ca8a13ed91329b39eedecf150f1198c55b3a9ca44e57b",
+      "observed-shine/l3mdct.c": "26cbe810944059a16e1f80a731ce057f5b913424d6e017bfde386387645040fd"
+    },
+    "upstream_source_sha256": {
+      "target/mp3-benchmark/source/shine/src/lib/bitstream.c": "8d1dafb8df778839820268a2b8dbe5a97e79592fa25d3819768748fede9e515f",
+      "target/mp3-benchmark/source/shine/src/lib/huffman.c": "3cbd7f3a410870493b0bf68a42913b53c54eb8bbfc2e4c37f8a09c920b972df3",
+      "target/mp3-benchmark/source/shine/src/lib/l3bitstream.c": "6b8d01088f823b2d4c7d926bdb9e078faf3d0a93ef976df3da141f5a2e08fe60",
+      "target/mp3-benchmark/source/shine/src/lib/l3loop.c": "ffea073349856b364e0decc1b0274fcc599a6b300d15e55fa7da2ad5dd8b8e8b",
+      "target/mp3-benchmark/source/shine/src/lib/l3mdct.c": "d6c16ec6712b2ca5b9d0daab65b59f25a51448555b21a26c10ca2367c5eb64dc",
+      "target/mp3-benchmark/source/shine/src/lib/l3subband.c": "b57f91616a2de613b837fead48d66d63bc5eda9b4470583c5f64c5077f2d7ba2",
+      "target/mp3-benchmark/source/shine/src/lib/layer3.c": "de1a5d00cadf3b1d1a34de1473e71a9242869b2beeb108407f68861a8e4d2119",
+      "target/mp3-benchmark/source/shine/src/lib/reservoir.c": "5754e370cc3dae68a02adf049fdf30a55628fe113191407d82ba32f8352c7770",
+      "target/mp3-benchmark/source/shine/src/lib/tables.c": "94af116b5aa89c21116a7874f2d66b893dc8ec8342a19e03711c3a38a9bdd261"
+    },
+    "commands": [
+      {
+        "argv": [
+          "cc",
+          "-O1",
+          "-g",
+          "-fsigned-char",
+          "-Wall",
+          "-Wextra",
+          "-Werror",
+          "-fsanitize=signed-integer-overflow",
+          "-fno-sanitize-recover=signed-integer-overflow",
+          "-I/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/baseline-source/mp3/vendor/shine",
+          "/home/harper/workspace/personal/esp-analog-streamer/docs/audit-evidence/2026-10-13/mp3-gain-probe/current-bridge.c",
+          "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/baseline-source/mp3/src/bridge.c",
+          "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/baseline-source/mp3/vendor/shine/bitstream.c",
+          "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/baseline-source/mp3/vendor/shine/huffman.c",
+          "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/baseline-source/mp3/vendor/shine/l3bitstream.c",
+          "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/baseline-source/mp3/vendor/shine/l3loop.c",
+          "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/baseline-source/mp3/vendor/shine/l3mdct.c",
+          "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/baseline-source/mp3/vendor/shine/l3subband.c",
+          "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/baseline-source/mp3/vendor/shine/layer3.c",
+          "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/baseline-source/mp3/vendor/shine/reservoir.c",
+          "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/baseline-source/mp3/vendor/shine/tables.c",
+          "-lm",
+          "-o",
+          "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/sanitized-bridge"
+        ],
+        "cwd": "/home/harper/workspace/personal/esp-analog-streamer",
+        "log": "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/sanitizer-compile.log",
+        "exit_code": 0,
+        "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "log_bytes": 0
+      },
+      {
+        "argv": [
+          "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/sanitized-bridge",
+          "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/tones_independent_half.s16le",
+          "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/tones_independent_half-sanitized.mp3"
+        ],
+        "cwd": "/home/harper/workspace/personal/esp-analog-streamer",
+        "exit_code": 0,
+        "log": "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/tones_independent_half-sanitizer.log",
+        "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "expected_exit": 0
+      },
+      {
+        "argv": [
+          "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/sanitized-bridge",
+          "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/tones_independent_nearfull.s16le",
+          "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/tones_independent_nearfull-sanitized.mp3"
+        ],
+        "cwd": "/home/harper/workspace/personal/esp-analog-streamer",
+        "exit_code": 1,
+        "log": "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/tones_independent_nearfull-sanitizer.log",
+        "log_sha256": "f23fb5e529f63afad912944b0a8058287c7a5f1231ae45a1593bd14f01447c7b",
+        "expected_exit": 1
+      },
+      {
+        "argv": [
+          "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/sanitized-bridge",
+          "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/noise_independent_half.s16le",
+          "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/noise_independent_half-sanitized.mp3"
+        ],
+        "cwd": "/home/harper/workspace/personal/esp-analog-streamer",
+        "exit_code": 0,
+        "log": "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/noise_independent_half-sanitizer.log",
+        "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "expected_exit": 0
+      },
+      {
+        "argv": [
+          "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/sanitized-bridge",
+          "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/noise_independent_nearfull.s16le",
+          "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/noise_independent_nearfull-sanitized.mp3"
+        ],
+        "cwd": "/home/harper/workspace/personal/esp-analog-streamer",
+        "exit_code": 0,
+        "log": "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/noise_independent_nearfull-sanitizer.log",
+        "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "expected_exit": 0
+      },
+      {
+        "argv": [
+          "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/sanitized-bridge",
+          "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/impulse_and_gated_tones_nearfull.s16le",
+          "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/impulse_and_gated_tones_nearfull-sanitized.mp3"
+        ],
+        "cwd": "/home/harper/workspace/personal/esp-analog-streamer",
+        "exit_code": 1,
+        "log": "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/impulse_and_gated_tones_nearfull-sanitizer.log",
+        "log_sha256": "4073cc83a7f1637a9a60365c5b37e83f981a99635daabca0acf5450d256af7b8",
+        "expected_exit": 1
+      },
+      {
+        "argv": [
+          "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/sanitized-bridge",
+          "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/minimal-tones-nearfull-1-blocks.s16le",
+          "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/minimal-tones-nearfull-1-blocks.mp3"
+        ],
+        "cwd": "/home/harper/workspace/personal/esp-analog-streamer",
+        "exit_code": 0,
+        "log": "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/minimal-tones-nearfull-1-blocks-sanitizer.log",
+        "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "expected_exit": 0
+      },
+      {
+        "argv": [
+          "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/sanitized-bridge",
+          "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/minimal-tones-nearfull-2-blocks.s16le",
+          "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/minimal-tones-nearfull-2-blocks.mp3"
+        ],
+        "cwd": "/home/harper/workspace/personal/esp-analog-streamer",
+        "exit_code": 1,
+        "log": "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/minimal-tones-nearfull-2-blocks-sanitizer.log",
+        "log_sha256": "f23fb5e529f63afad912944b0a8058287c7a5f1231ae45a1593bd14f01447c7b",
+        "expected_exit": 1
+      },
+      {
+        "argv": [
+          "cc",
+          "-O3",
+          "-fsigned-char",
+          "-Wall",
+          "-Wextra",
+          "-Werror",
+          "-I/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/observed-shine",
+          "/home/harper/workspace/personal/esp-analog-streamer/docs/audit-evidence/2026-10-13/mp3-gain-probe/current-bridge.c",
+          "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/baseline-source/mp3/src/bridge.c",
+          "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/observed-shine/bitstream.c",
+          "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/observed-shine/huffman.c",
+          "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/observed-shine/l3bitstream.c",
+          "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/observed-shine/l3loop.c",
+          "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/observed-shine/l3mdct.c",
+          "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/observed-shine/l3subband.c",
+          "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/observed-shine/layer3.c",
+          "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/observed-shine/reservoir.c",
+          "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/observed-shine/tables.c",
+          "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/bounds.c",
+          "-lm",
+          "-o",
+          "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/observed-bridge"
+        ],
+        "cwd": "/home/harper/workspace/personal/esp-analog-streamer",
+        "log": "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/observed-compile.log",
+        "exit_code": 0,
+        "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "log_bytes": 0
+      },
+      {
+        "argv": [
+          "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/observed-bridge",
+          "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/tones_independent_half.s16le",
+          "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/tones_independent_half-observed.mp3"
+        ],
+        "cwd": "/home/harper/workspace/personal/esp-analog-streamer",
+        "log": "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/tones_independent_half-bounds.log",
+        "exit_code": 0,
+        "log_sha256": "2353efe31c01df9a7147c62f3fbf289b4b19c93b215dc08795ba182e9bb0f746",
+        "log_bytes": 850
+      },
+      {
+        "argv": [
+          "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/observed-bridge",
+          "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/tones_independent_nearfull.s16le",
+          "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/tones_independent_nearfull-observed.mp3"
+        ],
+        "cwd": "/home/harper/workspace/personal/esp-analog-streamer",
+        "log": "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/tones_independent_nearfull-bounds.log",
+        "exit_code": 0,
+        "log_sha256": "7a46d9320f7420d28195c862e19d5d7849af63cae0810f2a71536f9c76337052",
+        "log_bytes": 2563
+      },
+      {
+        "argv": [
+          "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/observed-bridge",
+          "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/noise_independent_half.s16le",
+          "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/noise_independent_half-observed.mp3"
+        ],
+        "cwd": "/home/harper/workspace/personal/esp-analog-streamer",
+        "log": "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/noise_independent_half-bounds.log",
+        "exit_code": 0,
+        "log_sha256": "cd1902e9a576ae02fca5405f8e7ee4870e590cbcf08b7d78c0428673709e9a97",
+        "log_bytes": 845
+      },
+      {
+        "argv": [
+          "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/observed-bridge",
+          "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/noise_independent_nearfull.s16le",
+          "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/noise_independent_nearfull-observed.mp3"
+        ],
+        "cwd": "/home/harper/workspace/personal/esp-analog-streamer",
+        "log": "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/noise_independent_nearfull-bounds.log",
+        "exit_code": 0,
+        "log_sha256": "5f5adc3ba1729d272ca426835dbb981f10e0e850bbb5deb0ce4c95c2078e0b19",
+        "log_bytes": 845
+      },
+      {
+        "argv": [
+          "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/observed-bridge",
+          "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/impulse_and_gated_tones_half.s16le",
+          "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/impulse_and_gated_tones_half-observed.mp3"
+        ],
+        "cwd": "/home/harper/workspace/personal/esp-analog-streamer",
+        "log": "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/impulse_and_gated_tones_half-bounds.log",
+        "exit_code": 0,
+        "log_sha256": "bd81ee6abb7f68e5ff84ee64f2bed01c61f1e528a80a3b830872da417a4c106e",
+        "log_bytes": 850
+      },
+      {
+        "argv": [
+          "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/observed-bridge",
+          "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/impulse_and_gated_tones_nearfull.s16le",
+          "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/impulse_and_gated_tones_nearfull-observed.mp3"
+        ],
+        "cwd": "/home/harper/workspace/personal/esp-analog-streamer",
+        "log": "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/impulse_and_gated_tones_nearfull-bounds.log",
+        "exit_code": 0,
+        "log_sha256": "2f1ce26cc39cae3d41434d03bfba4c636db4f61546f157720c8b2fc0dbe548c9",
+        "log_bytes": 2142
+      },
+      {
+        "argv": [
+          "git",
+          "-C",
+          "/home/harper/workspace/personal/esp-analog-streamer/target/mp3-benchmark/source/shine",
+          "rev-parse",
+          "HEAD"
+        ],
+        "cwd": "/home/harper/workspace/personal/esp-analog-streamer",
+        "log": "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/upstream-head.log",
+        "exit_code": 0,
+        "log_sha256": "e6426ab5feb912355d90dbe0c64988567d63770108174e37431e564bb9fb5ec2",
+        "log_bytes": 41
+      },
+      {
+        "argv": [
+          "git",
+          "-C",
+          "/home/harper/workspace/personal/esp-analog-streamer/target/mp3-benchmark/source/shine",
+          "diff",
+          "--",
+          "src/lib"
+        ],
+        "cwd": "/home/harper/workspace/personal/esp-analog-streamer",
+        "log": "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/upstream-diff.log",
+        "exit_code": 0,
+        "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "log_bytes": 0
+      },
+      {
+        "argv": [
+          "cc",
+          "-O3",
+          "-fsigned-char",
+          "-Wall",
+          "-Wextra",
+          "-I/home/harper/workspace/personal/esp-analog-streamer/target/mp3-benchmark/source/shine/src/lib",
+          "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/upstream-control.c",
+          "/home/harper/workspace/personal/esp-analog-streamer/target/mp3-benchmark/source/shine/src/lib/bitstream.c",
+          "/home/harper/workspace/personal/esp-analog-streamer/target/mp3-benchmark/source/shine/src/lib/huffman.c",
+          "/home/harper/workspace/personal/esp-analog-streamer/target/mp3-benchmark/source/shine/src/lib/l3bitstream.c",
+          "/home/harper/workspace/personal/esp-analog-streamer/target/mp3-benchmark/source/shine/src/lib/l3loop.c",
+          "/home/harper/workspace/personal/esp-analog-streamer/target/mp3-benchmark/source/shine/src/lib/l3mdct.c",
+          "/home/harper/workspace/personal/esp-analog-streamer/target/mp3-benchmark/source/shine/src/lib/l3subband.c",
+          "/home/harper/workspace/personal/esp-analog-streamer/target/mp3-benchmark/source/shine/src/lib/layer3.c",
+          "/home/harper/workspace/personal/esp-analog-streamer/target/mp3-benchmark/source/shine/src/lib/reservoir.c",
+          "/home/harper/workspace/personal/esp-analog-streamer/target/mp3-benchmark/source/shine/src/lib/tables.c",
+          "-lm",
+          "-o",
+          "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/upstream"
+        ],
+        "cwd": "/home/harper/workspace/personal/esp-analog-streamer",
+        "log": "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/upstream-compile.log",
+        "exit_code": 0,
+        "log_sha256": "61b8ea94233fede1705924bf10d0caa066ae0d0b17f62aca564aad81fdba480b",
+        "log_bytes": 5196
+      },
+      {
+        "argv": [
+          "cc",
+          "-O3",
+          "-fsigned-char",
+          "-Wall",
+          "-Wextra",
+          "-g",
+          "-fsanitize=signed-integer-overflow",
+          "-fno-sanitize-recover=signed-integer-overflow",
+          "-I/home/harper/workspace/personal/esp-analog-streamer/target/mp3-benchmark/source/shine/src/lib",
+          "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/upstream-control.c",
+          "/home/harper/workspace/personal/esp-analog-streamer/target/mp3-benchmark/source/shine/src/lib/bitstream.c",
+          "/home/harper/workspace/personal/esp-analog-streamer/target/mp3-benchmark/source/shine/src/lib/huffman.c",
+          "/home/harper/workspace/personal/esp-analog-streamer/target/mp3-benchmark/source/shine/src/lib/l3bitstream.c",
+          "/home/harper/workspace/personal/esp-analog-streamer/target/mp3-benchmark/source/shine/src/lib/l3loop.c",
+          "/home/harper/workspace/personal/esp-analog-streamer/target/mp3-benchmark/source/shine/src/lib/l3mdct.c",
+          "/home/harper/workspace/personal/esp-analog-streamer/target/mp3-benchmark/source/shine/src/lib/l3subband.c",
+          "/home/harper/workspace/personal/esp-analog-streamer/target/mp3-benchmark/source/shine/src/lib/layer3.c",
+          "/home/harper/workspace/personal/esp-analog-streamer/target/mp3-benchmark/source/shine/src/lib/reservoir.c",
+          "/home/harper/workspace/personal/esp-analog-streamer/target/mp3-benchmark/source/shine/src/lib/tables.c",
+          "-lm",
+          "-o",
+          "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/upstream-sanitized"
+        ],
+        "cwd": "/home/harper/workspace/personal/esp-analog-streamer",
+        "log": "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/upstream-sanitized-compile.log",
+        "exit_code": 0,
+        "log_sha256": "61b8ea94233fede1705924bf10d0caa066ae0d0b17f62aca564aad81fdba480b",
+        "log_bytes": 5196
+      },
+      {
+        "argv": [
+          "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/upstream",
+          "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/tones_independent_nearfull.s16le",
+          "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/tones_independent_nearfull-upstream.mp3"
+        ],
+        "cwd": "/home/harper/workspace/personal/esp-analog-streamer",
+        "log": "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/upstream-nearfull-encode.log",
+        "exit_code": 0,
+        "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "log_bytes": 0
+      },
+      {
+        "argv": [
+          "ffmpeg",
+          "-nostdin",
+          "-v",
+          "error",
+          "-c:a",
+          "mp3float",
+          "-i",
+          "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/tones_independent_nearfull-upstream.mp3",
+          "-f",
+          "f32le",
+          "-c:a",
+          "pcm_f32le",
+          "-y",
+          "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/tones_independent_nearfull-upstream.f32le"
+        ],
+        "cwd": "/home/harper/workspace/personal/esp-analog-streamer",
+        "log": "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/upstream-nearfull-decode.log",
+        "exit_code": 0,
+        "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "log_bytes": 0
+      },
+      {
+        "argv": [
+          "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/upstream-sanitized",
+          "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/tones_independent_nearfull.s16le",
+          "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/tones_independent_nearfull-upstream-sanitized.mp3"
+        ],
+        "cwd": "/home/harper/workspace/personal/esp-analog-streamer",
+        "exit_code": 1,
+        "log": "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-headroom/upstream-nearfull-sanitizer.log",
+        "log_sha256": "5eb463ff64d4bbd8f2e8cbdf46d8284982b25dde1b762ea41f8a5c37c2454a4c",
+        "expected_exit": 1
+      }
+    ]
+  },
+  "acceptance_recommendation": {
+    "status": "Headroom acceptance blocked; do not call current MP3 full-range fidelity production-ready.",
+    "severity": "High: legal signed16 nearfull tonal PCM overflows MDCT intermediate sums and final stored coefficients; severe waveform damage.",
+    "fix_before_shipping": "Choose a representation that safely holds every legal PCM transform coefficient and accumulation prefix while preserving decoder unity gain, then verify derived all-input bounds and actual adversarial fixtures. Widening the accumulator alone is insufficient. Parent owns that design/fix decision.",
+    "separate_clipping_issue": "Nearfull independent noise has zero observed encoder addition wrap and no signed-overflow sanitizer error but decoded float peaks1.5399/1.5073. Define acceptable decoded overshoot/downstream clipping separately; do not mislabel this as the tone integer overflow.",
+    "half_scale_limit": "All seven half-scale float fixtures stay inside[-1,1]; this finite result is not a universal safe-input guarantee or an approved external attenuation policy.",
+    "preexisting": "Exact unmodified pinned upstream fails the same0.98tone sanitizer control; the8/9 normalization reduces coefficient magnitudes and did not introduce this measured class of defect."
+  }
+}

@@ -1,0 +1,759 @@
+{
+  "reporting_identity_acceptance": true,
+  "acquisition_valid": false,
+  "audio_delivery_passed": false,
+  "slow_scenario": "not run",
+  "result_errors": [
+    "RuntimeError('soak acquisition failure: ffmpeg integrity failure: [http @ 0x63f69de3d940] [error] Stream ends prematurely at 12480, should be 18446744073709551615')"
+  ],
+  "image_sha256": "fd8e747173c4933787e19f4f2c52e03f1837e402c2e7287e1e48d900a21f9ff1",
+  "device_image_attestation": false,
+  "build_receipt": {
+    "receipt_kind": "canonical_checked_working_source_build",
+    "source_commit_context": "21fcda88953864fbdd54fc166886ed749cd86b61",
+    "features": [],
+    "image_sha256": "fd8e747173c4933787e19f4f2c52e03f1837e402c2e7287e1e48d900a21f9ff1",
+    "image_path": "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/listener-end-reasons/build-evidence/esp-shazam",
+    "build_command": "cargo +esp build --release",
+    "check_run": "target/check-logs/run.OwbY8PAR",
+    "build_exit": 0,
+    "artifacts": {
+      "esp-shazam": {
+        "source": "firmware/target/xtensa-esp32-espidf/release/esp-shazam",
+        "sha256": "fd8e747173c4933787e19f4f2c52e03f1837e402c2e7287e1e48d900a21f9ff1"
+      },
+      "bootloader.bin": {
+        "source": "firmware/target/xtensa-esp32-espidf/release/bootloader.bin",
+        "sha256": "52fe6290545ac5b485807bcfb5ccc4a4e118f1686c0e6e952e1699440283a25b"
+      },
+      "partitions.csv": {
+        "source": "firmware/partitions.csv",
+        "sha256": "0f19e8c75a43382ce745837a73839f39fb3a12f5ed90c6278e086bd1238d7dde"
+      },
+      "sdkconfig": {
+        "source": "firmware/target/xtensa-esp32-espidf/release/build/esp-idf-sys-f1224fba55564b99/out/sdkconfig",
+        "sha256": "dc90112a3f0ecbeb69627a3e1011152a9af9f364a329305a092143d261a6f66b"
+      }
+    },
+    "source_before_build_receipt_sha256": "516fca2c58da7d3c0e0b5f3a3cda1f5c4fc1d10c65725b07c8cde8bff2dc031d",
+    "post_build_test_only_delta": [
+      "scripts/test_harness_modules.py"
+    ],
+    "limits": [
+      "Device image attestation unavailable.",
+      "Full effective compiler invocations not archived; canonical invocation and generated config retained.",
+      "Untracked user files omitted from tracked-source archive; private firmware configuration retained separately."
+    ]
+  },
+  "build_receipt_sha256": "843d2ca0e95490bcbd6cad2c20d3af82b2c055e8f7db363fa9b88d36f3e0a514",
+  "final_decoded": [
+    {
+      "path": "target/kata-hardening/listener-end-reasons/device-trial-1/soak/20261011T003553.850685Z/listener-1.framehash",
+      "packets": 13,
+      "decoded_frames": 14976,
+      "decoded_seconds": 0.312
+    },
+    {
+      "path": "target/kata-hardening/listener-end-reasons/device-trial-1/soak/20261011T003553.850685Z/listener-2.framehash",
+      "packets": 29,
+      "decoded_frames": 33408,
+      "decoded_seconds": 0.696
+    }
+  ],
+  "summary_decoded": [
+    0.312,
+    0.0
+  ],
+  "departure_close_release_pairs": [
+    {
+      "peer": "192.168.23.153:33034",
+      "departure_us": 25642826,
+      "close_release_us": 25644530,
+      "after_raw_reset_us": 1484,
+      "close_elapsed_us": 1704,
+      "departure_line": "I (31617) esp_shazam_firmware::stream: stream: 192.168.23.153:33034 left after 2.7 s: encoded ring generation changed listener_stack_free_bytes=1752 event_us=25642826",
+      "close_release_line": "I (31827) esp_shazam_firmware::stream: stream: 192.168.23.153:33034 socket closed in 1 ms; releasing slot (2 held) event_us=25644530"
+    },
+    {
+      "peer": "192.168.23.153:33036",
+      "departure_us": 25645405,
+      "close_release_us": 25646238,
+      "after_raw_reset_us": 4063,
+      "close_elapsed_us": 833,
+      "departure_line": "I (35197) esp_shazam_firmware::stream: stream: 192.168.23.153:33036 left after 1.7 s: encoded ring generation changed listener_stack_free_bytes=1752 event_us=25645405",
+      "close_release_line": "I (35407) esp_shazam_firmware::stream: stream: 192.168.23.153:33036 socket closed in 0 ms; releasing slot (1 held) event_us=25646238"
+    }
+  ],
+  "telemetry": {
+    "windows": [
+      {
+        "elapsed_us": 10018143,
+        "task_runtime_us": 9685145,
+        "runtime_valid": true,
+        "encoded_frames": 377,
+        "resets": 0,
+        "listeners_start": 0,
+        "listeners_end": 0,
+        "encode_max_us": 28590,
+        "stack_free_bytes": 5196,
+        "block_samples": 1152,
+        "raw_read_calls": 2111,
+        "raw_read_attempts": 2471,
+        "raw_read_successes": 2111,
+        "raw_read_frames": 434304,
+        "raw_read_retries": 358,
+        "raw_read_empty": 2,
+        "raw_read_overruns": 0,
+        "raw_wait_total_us": 388647,
+        "raw_wait_max_us": 19774,
+        "encode_wall_total_us": 9153996,
+        "encoded_lock_wait_wall_total_us": 19984,
+        "encoded_push_held_wall_total_us": 26884,
+        "telemetry_epoch": 1,
+        "telemetry_window": 1,
+        "window_start_us": 4423364,
+        "window_end_us": 14441507,
+        "sequence": 0,
+        "baseline_frames": 0,
+        "frame_delta": 377,
+        "ratio": 0.9031613942823535,
+        "codec_wall_us_per_frame": 24281.15649867374
+      },
+      {
+        "elapsed_us": 10001243,
+        "task_runtime_us": 9690039,
+        "runtime_valid": true,
+        "encoded_frames": 755,
+        "resets": 0,
+        "listeners_start": 0,
+        "listeners_end": 2,
+        "encode_max_us": 32529,
+        "stack_free_bytes": 5196,
+        "block_samples": 1152,
+        "raw_read_calls": 2117,
+        "raw_read_attempts": 2395,
+        "raw_read_successes": 2117,
+        "raw_read_frames": 435456,
+        "raw_read_retries": 278,
+        "raw_read_empty": 0,
+        "raw_read_overruns": 0,
+        "raw_wait_total_us": 356337,
+        "raw_wait_max_us": 13195,
+        "encode_wall_total_us": 9166315,
+        "encoded_lock_wait_wall_total_us": 19902,
+        "encoded_push_held_wall_total_us": 26807,
+        "telemetry_epoch": 1,
+        "telemetry_window": 2,
+        "window_start_us": 14441507,
+        "window_end_us": 24442750,
+        "sequence": 0,
+        "baseline_frames": 377,
+        "frame_delta": 378,
+        "ratio": 0.9070872490549424,
+        "codec_wall_us_per_frame": 24249.510582010582
+      },
+      {
+        "elapsed_us": 10002238,
+        "task_runtime_us": 9708747,
+        "runtime_valid": true,
+        "encoded_frames": 1130,
+        "resets": 1,
+        "listeners_start": 2,
+        "listeners_end": 0,
+        "encode_max_us": 28373,
+        "stack_free_bytes": 5196,
+        "block_samples": 1152,
+        "raw_read_calls": 2101,
+        "raw_read_attempts": 2403,
+        "raw_read_successes": 2100,
+        "raw_read_frames": 432000,
+        "raw_read_retries": 300,
+        "raw_read_empty": 2,
+        "raw_read_overruns": 1,
+        "raw_wait_total_us": 364318,
+        "raw_wait_max_us": 19794,
+        "encode_wall_total_us": 9052158,
+        "encoded_lock_wait_wall_total_us": 19567,
+        "encoded_push_held_wall_total_us": 27317,
+        "telemetry_epoch": 1,
+        "telemetry_window": 3,
+        "window_start_us": 24442750,
+        "window_end_us": 34444988,
+        "sequence": 0,
+        "baseline_frames": 755,
+        "frame_delta": 375,
+        "ratio": 0.8997986250677098,
+        "codec_wall_us_per_frame": 24139.088
+      }
+    ],
+    "boundaries": [
+      {
+        "prior_epoch": 0,
+        "frames": 0,
+        "resets": 0,
+        "raw_overruns": 0,
+        "raw_wait_us": 0,
+        "raw_attempts": 0,
+        "telemetry_epoch": 0,
+        "telemetry_window": 0,
+        "event_us": 4225032,
+        "baseline_us": 4225032,
+        "reason": "Startup"
+      },
+      {
+        "prior_epoch": 0,
+        "frames": 2,
+        "resets": 0,
+        "raw_overruns": 0,
+        "raw_wait_us": 140781,
+        "raw_attempts": 46,
+        "telemetry_epoch": 1,
+        "telemetry_window": 0,
+        "event_us": 4423364,
+        "baseline_us": 4423364,
+        "reason": "Switched"
+      },
+      {
+        "prior_epoch": 1,
+        "frames": 796,
+        "resets": 1,
+        "raw_overruns": 1,
+        "raw_wait_us": 36315,
+        "raw_attempts": 239,
+        "telemetry_epoch": 1,
+        "telemetry_window": 2,
+        "event_us": 25641342,
+        "baseline_us": 24442750,
+        "reason": "Overrun"
+      }
+    ],
+    "captures": [
+      {
+        "frames": 474480,
+        "capture_begin_us": 10160054,
+        "capture_end_us": 10160070,
+        "callbacks": 2018,
+        "queue_overflows": 16,
+        "software_dropped_frames": 480,
+        "read_errors": 0,
+        "restarts": 2,
+        "supervisor_restarts": 0,
+        "overflow_restarts": 2,
+        "settling_discarded_frames": 26400,
+        "discontinuities": 2,
+        "health_restart_requests": 0,
+        "capture_runtime_window_us": 9906206,
+        "capture_task_runtime_us": 897916,
+        "capture_runtime_valid": true,
+        "read_service_delay_estimate_max_us": 74979,
+        "raw_work_max_us": 1601,
+        "meter_work_max_us": 938,
+        "store_work_max_us": 232,
+        "raw_read_max_us": 1890,
+        "staged_frames": 0,
+        "staged_max_frames": 0,
+        "staging_pending_attempts": 0,
+        "staging_pending_max_attempts": 0,
+        "staging_pending_us": 0,
+        "staging_pending_max_us": 0,
+        "timing_deficit_estimate_frames": 3636,
+        "internal_free": 67035,
+        "internal_largest": 65536,
+        "psram_free": 2770836,
+        "psram_largest": 2359296,
+        "internal_min_sum": 65819,
+        "psram_min_sum": 363380,
+        "internal_window_start_free": 193395,
+        "psram_window_start_free": 3421712
+      },
+      {
+        "frames": 962640,
+        "capture_begin_us": 20330429,
+        "capture_end_us": 20330443,
+        "callbacks": 4052,
+        "queue_overflows": 16,
+        "software_dropped_frames": 480,
+        "read_errors": 0,
+        "restarts": 2,
+        "supervisor_restarts": 0,
+        "overflow_restarts": 2,
+        "settling_discarded_frames": 26400,
+        "discontinuities": 2,
+        "health_restart_requests": 0,
+        "capture_runtime_window_us": 10170394,
+        "capture_task_runtime_us": 1003739,
+        "capture_runtime_valid": true,
+        "read_service_delay_estimate_max_us": 3982,
+        "raw_work_max_us": 8728,
+        "meter_work_max_us": 1389,
+        "store_work_max_us": 282,
+        "raw_read_max_us": 933,
+        "staged_frames": 0,
+        "staged_max_frames": 0,
+        "staging_pending_attempts": 0,
+        "staging_pending_max_attempts": 0,
+        "staging_pending_us": 0,
+        "staging_pending_max_us": 0,
+        "timing_deficit_estimate_frames": 3654,
+        "internal_free": 67011,
+        "internal_largest": 65536,
+        "psram_free": 2771416,
+        "psram_largest": 2359296,
+        "internal_min_sum": 66223,
+        "psram_min_sum": 2762280,
+        "internal_window_start_free": 67035,
+        "psram_window_start_free": 2770836
+      },
+      {
+        "frames": 1486560,
+        "capture_begin_us": 31242548,
+        "capture_end_us": 31242564,
+        "callbacks": 6235,
+        "queue_overflows": 16,
+        "software_dropped_frames": 480,
+        "read_errors": 0,
+        "restarts": 2,
+        "supervisor_restarts": 0,
+        "overflow_restarts": 2,
+        "settling_discarded_frames": 26400,
+        "discontinuities": 2,
+        "health_restart_requests": 0,
+        "capture_runtime_window_us": 10912107,
+        "capture_task_runtime_us": 1070432,
+        "capture_runtime_valid": true,
+        "read_service_delay_estimate_max_us": 3243,
+        "raw_work_max_us": 2977,
+        "meter_work_max_us": 1704,
+        "store_work_max_us": 1060,
+        "raw_read_max_us": 1859,
+        "staged_frames": 0,
+        "staged_max_frames": 0,
+        "staging_pending_attempts": 0,
+        "staging_pending_max_attempts": 0,
+        "staging_pending_us": 0,
+        "staging_pending_max_us": 0,
+        "timing_deficit_estimate_frames": 3516,
+        "internal_free": 66271,
+        "internal_largest": 59392,
+        "psram_free": 2770384,
+        "psram_largest": 2359296,
+        "internal_min_sum": 56103,
+        "psram_min_sum": 2750624,
+        "internal_window_start_free": 67011,
+        "psram_window_start_free": 2771416
+      }
+    ],
+    "encoder_exports": [
+      {
+        "dropped": 0,
+        "loss_occurred": false,
+        "observed_event_range_valid": true,
+        "observed_event_min_us": 4225032,
+        "observed_event_max_us": 4225032,
+        "record_bytes": 200,
+        "queue_bytes": 440,
+        "metrics_stack_free_bytes": 1740,
+        "export_us": 4299650,
+        "dropped_full": 0,
+        "dropped_contended": 0,
+        "dropped_poisoned": 0
+      },
+      {
+        "dropped": 0,
+        "loss_occurred": false,
+        "observed_event_range_valid": true,
+        "observed_event_min_us": 4423364,
+        "observed_event_max_us": 4423364,
+        "record_bytes": 200,
+        "queue_bytes": 440,
+        "metrics_stack_free_bytes": 1708,
+        "export_us": 5091477,
+        "dropped_full": 0,
+        "dropped_contended": 0,
+        "dropped_poisoned": 0
+      },
+      {
+        "dropped": 0,
+        "loss_occurred": false,
+        "observed_event_range_valid": true,
+        "observed_event_min_us": 14441507,
+        "observed_event_max_us": 14441507,
+        "record_bytes": 200,
+        "queue_bytes": 440,
+        "metrics_stack_free_bytes": 1436,
+        "export_us": 15479310,
+        "dropped_full": 0,
+        "dropped_contended": 0,
+        "dropped_poisoned": 0
+      },
+      {
+        "dropped": 0,
+        "loss_occurred": false,
+        "observed_event_range_valid": true,
+        "observed_event_min_us": 24442750,
+        "observed_event_max_us": 25641342,
+        "record_bytes": 200,
+        "queue_bytes": 440,
+        "metrics_stack_free_bytes": 1260,
+        "export_us": 28713055,
+        "dropped_full": 0,
+        "dropped_contended": 0,
+        "dropped_poisoned": 0
+      },
+      {
+        "dropped": 0,
+        "loss_occurred": false,
+        "observed_event_range_valid": true,
+        "observed_event_min_us": 34444988,
+        "observed_event_max_us": 34444988,
+        "record_bytes": 200,
+        "queue_bytes": 440,
+        "metrics_stack_free_bytes": 1084,
+        "export_us": 35443055,
+        "dropped_full": 0,
+        "dropped_contended": 0,
+        "dropped_poisoned": 0
+      }
+    ],
+    "listener_exports": [
+      {
+        "dropped": 0,
+        "loss_occurred": false,
+        "observed_event_range_valid": true,
+        "observed_event_min_us": 22662867,
+        "observed_event_max_us": 23714030,
+        "record_bytes": 248,
+        "queue_bytes": 2024,
+        "metrics_stack_free_bytes": 1436,
+        "export_us": 27029688,
+        "dropped_full": 0,
+        "dropped_contended": 0,
+        "dropped_poisoned": 0
+      },
+      {
+        "dropped": 0,
+        "loss_occurred": false,
+        "observed_event_range_valid": true,
+        "observed_event_min_us": 25642826,
+        "observed_event_max_us": 25644530,
+        "record_bytes": 248,
+        "queue_bytes": 2024,
+        "metrics_stack_free_bytes": 1084,
+        "export_us": 30814559,
+        "dropped_full": 0,
+        "dropped_contended": 0,
+        "dropped_poisoned": 0
+      },
+      {
+        "dropped": 0,
+        "loss_occurred": false,
+        "observed_event_range_valid": true,
+        "observed_event_min_us": 25645405,
+        "observed_event_max_us": 25646238,
+        "record_bytes": 248,
+        "queue_bytes": 2024,
+        "metrics_stack_free_bytes": 1084,
+        "export_us": 34391097,
+        "dropped_full": 0,
+        "dropped_contended": 0,
+        "dropped_poisoned": 0
+      }
+    ],
+    "senders": [
+      {
+        "payload_elapsed_us": 2769514,
+        "send_calls": 29,
+        "accepted_bytes": 27840,
+        "short_sends": 0,
+        "send_would_block": 0,
+        "send_interrupted": 0,
+        "send_errors": 0,
+        "send_wall_total_us": 2338954,
+        "send_wall_max_us": 416756,
+        "event_us": 25642826,
+        "peer": "192.168.23.153:33034"
+      },
+      {
+        "payload_elapsed_us": 1506902,
+        "send_calls": 13,
+        "accepted_bytes": 12480,
+        "short_sends": 0,
+        "send_would_block": 0,
+        "send_interrupted": 0,
+        "send_errors": 0,
+        "send_wall_total_us": 1074087,
+        "send_wall_max_us": 417037,
+        "event_us": 25645405,
+        "peer": "192.168.23.153:33036"
+      }
+    ],
+    "listeners": [
+      {
+        "elapsed_us": 2771949,
+        "task_runtime_us": 19559,
+        "runtime_valid": true,
+        "frames_sent": 29,
+        "bytes_sent": 27840,
+        "frame_write_wall_total_us": 2553861,
+        "frame_write_wall_max_us": 417098,
+        "frame_read_wait_wall_total_us": 213770,
+        "block_samples": 1152,
+        "listener_stack_free_bytes": 1752,
+        "event_us": 25642826,
+        "peer": "192.168.23.153:33034"
+      },
+      {
+        "elapsed_us": 1721082,
+        "task_runtime_us": 9625,
+        "runtime_valid": true,
+        "frames_sent": 13,
+        "bytes_sent": 12480,
+        "frame_write_wall_total_us": 1078268,
+        "frame_write_wall_max_us": 417427,
+        "frame_read_wait_wall_total_us": 427779,
+        "block_samples": 1152,
+        "listener_stack_free_bytes": 1752,
+        "event_us": 25645405,
+        "peer": "192.168.23.153:33036"
+      }
+    ]
+  },
+  "lifecycle": [
+    "I (28047) esp_shazam_firmware::stream: stream: 192.168.23.153:33034 joined /stream.mp3 (1 of 2) event_us=22662867",
+    "I (28047) esp_shazam_firmware::stream: stream: 192.168.23.153:33036 joined /stream.mp3 (2 of 2) event_us=23714030",
+    "I (31617) esp_shazam_firmware::stream: stream: 192.168.23.153:33034 left after 2.7 s: encoded ring generation changed listener_stack_free_bytes=1752 event_us=25642826",
+    "I (31827) esp_shazam_firmware::stream: stream: 192.168.23.153:33034 socket closed in 1 ms; releasing slot (2 held) event_us=25644530",
+    "I (35197) esp_shazam_firmware::stream: stream: 192.168.23.153:33036 left after 1.7 s: encoded ring generation changed listener_stack_free_bytes=1752 event_us=25645405",
+    "I (35407) esp_shazam_firmware::stream: stream: 192.168.23.153:33036 socket closed in 0 ms; releasing slot (1 held) event_us=25646238"
+  ],
+  "cleanup": {
+    "cleaned": true,
+    "root_pid": 2002578,
+    "root_returncode": 1,
+    "errors": []
+  },
+  "source_cleanup": [
+    {
+      "kind": "source_cleanup_begin",
+      "monotonic": 1136461.060312588,
+      "returncode": null,
+      "aplay_log_bytes": 0
+    },
+    {
+      "kind": "source_cleanup_end",
+      "monotonic": 1136461.174137789,
+      "returncode": 0,
+      "aplay_log_bytes": 0
+    }
+  ],
+  "source_argv": [
+    [
+      "aplay",
+      "-q",
+      "-D",
+      "plughw:CARD=PCH,DEV=0",
+      "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/encoder-probe-device/stereo-noise-420s.wav"
+    ]
+  ],
+  "routing": [
+    {
+      "kind": "routing",
+      "monotonic": 1136404.338942838,
+      "label": "before_source",
+      "control": "Headphone",
+      "stdout": "Simple mixer control 'Headphone',0\n  Capabilities: pvolume pswitch\n  Playback channels: Front Left - Front Right\n  Limits: Playback 0 - 87\n  Mono:\n  Front Left: Playback 87 [100%] [0.00dB] [on]\n  Front Right: Playback 87 [100%] [0.00dB] [on]\n",
+      "stderr": "",
+      "returncode": 0
+    },
+    {
+      "kind": "routing",
+      "monotonic": 1136404.342626705,
+      "label": "before_source",
+      "control": "Line Out",
+      "stdout": "Simple mixer control 'Line Out',0\n  Capabilities: pvolume pswitch\n  Playback channels: Front Left - Front Right\n  Limits: Playback 0 - 87\n  Mono:\n  Front Left: Playback 87 [100%] [0.00dB] [off]\n  Front Right: Playback 87 [100%] [0.00dB] [off]\n",
+      "stderr": "",
+      "returncode": 0
+    },
+    {
+      "kind": "routing",
+      "monotonic": 1136404.346150068,
+      "label": "before_source",
+      "control": "Master",
+      "stdout": "Simple mixer control 'Master',0\n  Capabilities: pvolume pvolume-joined pswitch pswitch-joined\n  Playback channels: Mono\n  Limits: Playback 0 - 87\n  Mono: Playback 87 [100%] [0.00dB] [on]\n",
+      "stderr": "",
+      "returncode": 0
+    },
+    {
+      "kind": "routing",
+      "monotonic": 1136404.349288833,
+      "label": "before_source",
+      "control": "PCM",
+      "stdout": "Simple mixer control 'PCM',0\n  Capabilities: pvolume\n  Playback channels: Front Left - Front Right\n  Limits: Playback 0 - 255\n  Mono:\n  Front Left: Playback 255 [100%] [0.00dB]\n  Front Right: Playback 255 [100%] [0.00dB]\n",
+      "stderr": "",
+      "returncode": 0
+    },
+    {
+      "kind": "routing",
+      "monotonic": 1136461.049932184,
+      "label": "final_before_source_cleanup",
+      "control": "Headphone",
+      "stdout": "Simple mixer control 'Headphone',0\n  Capabilities: pvolume pswitch\n  Playback channels: Front Left - Front Right\n  Limits: Playback 0 - 87\n  Mono:\n  Front Left: Playback 87 [100%] [0.00dB] [on]\n  Front Right: Playback 87 [100%] [0.00dB] [on]\n",
+      "stderr": "",
+      "returncode": 0
+    },
+    {
+      "kind": "routing",
+      "monotonic": 1136461.053455938,
+      "label": "final_before_source_cleanup",
+      "control": "Line Out",
+      "stdout": "Simple mixer control 'Line Out',0\n  Capabilities: pvolume pswitch\n  Playback channels: Front Left - Front Right\n  Limits: Playback 0 - 87\n  Mono:\n  Front Left: Playback 87 [100%] [0.00dB] [off]\n  Front Right: Playback 87 [100%] [0.00dB] [off]\n",
+      "stderr": "",
+      "returncode": 0
+    },
+    {
+      "kind": "routing",
+      "monotonic": 1136461.056782205,
+      "label": "final_before_source_cleanup",
+      "control": "Master",
+      "stdout": "Simple mixer control 'Master',0\n  Capabilities: pvolume pvolume-joined pswitch pswitch-joined\n  Playback channels: Mono\n  Limits: Playback 0 - 87\n  Mono: Playback 87 [100%] [0.00dB] [on]\n",
+      "stderr": "",
+      "returncode": 0
+    },
+    {
+      "kind": "routing",
+      "monotonic": 1136461.060081755,
+      "label": "final_before_source_cleanup",
+      "control": "PCM",
+      "stdout": "Simple mixer control 'PCM',0\n  Capabilities: pvolume\n  Playback channels: Front Left - Front Right\n  Limits: Playback 0 - 255\n  Mono:\n  Front Left: Playback 255 [100%] [0.00dB]\n  Front Right: Playback 255 [100%] [0.00dB]\n",
+      "stderr": "",
+      "returncode": 0
+    }
+  ],
+  "state_observations": [
+    {
+      "label": "before_source",
+      "path": "/api/sonos",
+      "monotonic": 1136403.250733082,
+      "http_status": 200,
+      "raw": "{\"config\":{\"player_id\":\"RINCON_38420B8F3F0C01400\",\"autoplay\":false,\"buffer_preset\":\"med\",\"output_format\":\"mp3\"},\"buffer_available\":true,\"active_format\":\"mp3\",\"groups\":[],\"active_player_id\":null,\"state\":\"stopped\",\"last_error\":null}",
+      "value": {
+        "config": {
+          "player_id": "RINCON_38420B8F3F0C01400",
+          "autoplay": false,
+          "buffer_preset": "med",
+          "output_format": "mp3"
+        },
+        "buffer_available": true,
+        "active_format": "mp3",
+        "groups": [],
+        "active_player_id": null,
+        "state": "stopped",
+        "last_error": null
+      }
+    },
+    {
+      "label": "before_source",
+      "path": "/api/state",
+      "monotonic": 1136403.870336593,
+      "http_status": 200,
+      "raw": "{\"state\":\"quiet\",\"shazam_enabled\":false,\"level_dbfs\":-64.9,\"rate_limited_until\":null,\"now\":null,\"history\":[]}",
+      "value": {
+        "state": "quiet",
+        "shazam_enabled": false,
+        "level_dbfs": -64.9,
+        "rate_limited_until": null,
+        "now": null,
+        "history": []
+      }
+    },
+    {
+      "label": "final_before_source_cleanup",
+      "path": "/api/sonos",
+      "monotonic": 1136459.383375924,
+      "http_status": 200,
+      "raw": "{\"config\":{\"player_id\":\"RINCON_38420B8F3F0C01400\",\"autoplay\":false,\"buffer_preset\":\"med\",\"output_format\":\"mp3\"},\"buffer_available\":true,\"active_format\":\"mp3\",\"groups\":[],\"active_player_id\":null,\"state\":\"stopped\",\"last_error\":null}",
+      "value": {
+        "config": {
+          "player_id": "RINCON_38420B8F3F0C01400",
+          "autoplay": false,
+          "buffer_preset": "med",
+          "output_format": "mp3"
+        },
+        "buffer_available": true,
+        "active_format": "mp3",
+        "groups": [],
+        "active_player_id": null,
+        "state": "stopped",
+        "last_error": null
+      }
+    },
+    {
+      "label": "final_before_source_cleanup",
+      "path": "/api/state",
+      "monotonic": 1136459.838264859,
+      "http_status": 200,
+      "raw": "{\"state\":\"quiet\",\"shazam_enabled\":false,\"level_dbfs\":-23.6,\"rate_limited_until\":null,\"now\":null,\"history\":[]}",
+      "value": {
+        "state": "quiet",
+        "shazam_enabled": false,
+        "level_dbfs": -23.6,
+        "rate_limited_until": null,
+        "now": null,
+        "history": []
+      }
+    }
+  ],
+  "helper_and_fixture_hashes": {
+    "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/listener-device-trial.py": "e0d6a0099078e4c32f127df5c02e59680d27479c0d520c336110c5bcd0a25331",
+    "/home/harper/workspace/personal/esp-analog-streamer/scripts/stream-soak": "fc15a7978fc8dcf81f2b630e6cd1d55f6ac4ac3375a47cf0e07017ee77c105e5",
+    "/home/harper/workspace/personal/esp-analog-streamer/scripts/stream_soak.py": "a6376fa859d5ae71787b1dd0001dfd9f0cd65575eb7eae808d09218becdcc408",
+    "/home/harper/workspace/personal/esp-analog-streamer/scripts/serial-log": "d2e8961b9e2d2d3678d9b524c3ad8c1a40935023828dd7761b6fb1bbc76f0085",
+    "/home/harper/workspace/personal/esp-analog-streamer/scripts/encoder_probe_check.py": "a0af53f0d982bf7c10d43aec85eeaed0b1fbc347b5d2194468bbdb7e0e7c60dc",
+    "/home/harper/workspace/personal/esp-analog-streamer/docs/audit-evidence/2026-10-09/mp3-stream-probe/slow-acceptance.py": "2fca121cfe296b5f4e3243c168fe0fed1a1487b42234b85224eb4f44f0d1c737",
+    "/home/harper/workspace/personal/esp-analog-streamer/docs/audit-evidence/2026-10-09/mp3-stream-probe/acceptance.py": "7b40e52cab8607c21c229b6e6acb8c0c6ef36e6523faedc3cbb16c92da15c4c7",
+    "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/listener-end-reasons/build-evidence/esp-shazam": "fd8e747173c4933787e19f4f2c52e03f1837e402c2e7287e1e48d900a21f9ff1",
+    "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/encoder-probe-device/stereo-noise-420s.wav": "9311d9ca5dfe1a5f9269631afe22647834207f2b3239571474acc8ac15f3228d"
+  },
+  "original_artifact_sha256": {
+    "target/kata-hardening/listener-end-reasons/device-trial-1/aplay.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "target/kata-hardening/listener-end-reasons/device-trial-1/image.elf": "fd8e747173c4933787e19f4f2c52e03f1837e402c2e7287e1e48d900a21f9ff1",
+    "target/kata-hardening/listener-end-reasons/device-trial-1/source-liveness.jsonl": "f6273e54af8cf40b32dd80a7a0cbe19c8bf623582fa987a57b7002776632f410",
+    "target/kata-hardening/listener-end-reasons/device-trial-1/soak-cleanup.json": "1a0403e68d4da2b18c6f362ce0f58294a1f132fcb0e04bb4d3ae7c9cace18b97",
+    "target/kata-hardening/listener-end-reasons/device-trial-1/soak.log": "f50ee0773294c38bdbcf69ed1534e44ebd60fefe7d872b85036eba07abb62c6c",
+    "target/kata-hardening/listener-end-reasons/device-trial-1/result.json": "635a38e761f8268d9edc39826484159dcf1149385c75db405d1c88598f79abce",
+    "target/kata-hardening/listener-end-reasons/device-trial-1/events.jsonl": "12938b1e50540057864b90c1f49c0a162e6a0b556a59414d113457ef3bb1d6c3",
+    "target/kata-hardening/listener-end-reasons/device-trial-1/soak/20261011T003553.850685Z/serial.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "target/kata-hardening/listener-end-reasons/device-trial-1/soak/20261011T003553.850685Z/listener-1.ffmpeg.log": "9343eeb9017fe7d059c094e344b897b4d7a9b864b849187dcbae80bb91f7e947",
+    "target/kata-hardening/listener-end-reasons/device-trial-1/soak/20261011T003553.850685Z/listener-1.framehash": "8fdd08719e17dc94c92341358a6485d1dfd62a635f7e8857b8b45ed7ad2301ad",
+    "target/kata-hardening/listener-end-reasons/device-trial-1/soak/20261011T003553.850685Z/listener-2.framehash": "ca4d362a860e5c2a4e65bcc46f3f9d968b4113d5a5926b0c0f1bb5d71219f35f",
+    "target/kata-hardening/listener-end-reasons/device-trial-1/soak/20261011T003553.850685Z/listener-2.progress": "6b0e8273723bf643dde72e24dfe1b36d27cc743184271dbc0019e0bde5c716ac",
+    "target/kata-hardening/listener-end-reasons/device-trial-1/soak/20261011T003553.850685Z/summary.json": "f930d29a44c359e17c35cc4d981edd90637bcb282dc2104d56b3e67dbaf9f3ff",
+    "target/kata-hardening/listener-end-reasons/device-trial-1/soak/20261011T003553.850685Z/listener-2.ffmpeg.log": "ab5d7a859437ad7e4d2022a811c18141e50140633bc786ba2ed8717aa574dcd2",
+    "target/kata-hardening/listener-end-reasons/device-trial-1/soak/20261011T003553.850685Z/events.jsonl": "e14814fa62d6f221798a6fabd3f8a90b832abb92b285d96aee60292e6369a584",
+    "target/kata-hardening/listener-end-reasons/device-trial-1/soak/20261011T003553.850685Z/listener-1.progress": "0e0912465a9c489e1c2dc21623b9388080f9d6f2993835e6f741a20064db325e",
+    "target/kata-hardening/listener-end-reasons/device-trial-1/soak/20261011T003553.850685Z/uart.log": "0892737097cbcc94f5563b232073d329e788c56163a88b8222e7f5304aa2481e"
+  },
+  "originals_verified_unchanged": true,
+  "limits": [
+    "Reporting identity only; no performance-equivalence or delivery repair claim.",
+    "No retirement, invalid-offset or capacity-overwrite device case exercised.",
+    "Summary is failure-time snapshot; final framehash totals retained separately."
+  ],
+  "source_provenance_sha256": {
+    "target/kata-hardening/listener-end-reasons/build-evidence/source-before-firmware-build.json": "516fca2c58da7d3c0e0b5f3a3cda1f5c4fc1d10c65725b07c8cde8bff2dc031d",
+    "target/kata-hardening/listener-end-reasons/build-evidence/source-base.tar": "6c8035b263de0bd8484537e98778ef3f5ca098921d34d8734fd74239ef19ae8e",
+    "target/kata-hardening/listener-end-reasons/build-evidence/source-working.patch": "8e4c6fe97c166c40371cb62fca22ebe23829c99d0c756bb72ab07c7fc02b9dcd"
+  },
+  "private_cfg_hash_verified": true,
+  "analysis_dependency_sha256": {
+    "scripts/encoder_probe_check.py": "a0af53f0d982bf7c10d43aec85eeaed0b1fbc347b5d2194468bbdb7e0e7c60dc",
+    "scripts/encoder_fault_check.py": "d31378537681e660964a69106b47c24787e2727a77c1ede2a56c930d3cb03674",
+    "scripts/stream_format.py": "4d0e8a606729c00512deca848d316670fa644f54d6789af9f0132a0a5f352f71"
+  },
+  "stack_minima_bytes": {
+    "metrics": 1084,
+    "encoder": 5196,
+    "listener": 1752,
+    "supervisor": 3140
+  }
+}

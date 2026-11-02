@@ -1,0 +1,715 @@
+{
+  "source_checkpoint": "464e355",
+  "scope": "matched instruction-placement correction with identical ordinary production ELF",
+  "device_attestation": false,
+  "source_fixture": {
+    "path": "target/kata-hardening/encoder-probe-device/stereo-noise-420s.wav",
+    "frames": 20160000,
+    "rate": 48000,
+    "channels": 2,
+    "width": 2,
+    "seconds": 420.0,
+    "sha256": "9311d9ca5dfe1a5f9269631afe22647834207f2b3239571474acc8ac15f3228d"
+  },
+  "link": {
+    "default": {
+      "elf_sha256": "8bc907c549ecd0ba4e3db4b2e812961f81b3c34df77f2840c37b51daa372fba3",
+      "sections": {
+        ".rtc.force_slow": {
+          "address": 1342177280,
+          "size": 32,
+          "sha256": "66687aadf862bd776c8fc18b8e9f8e20089714856ee233b3902a591d0d5f2925"
+        },
+        ".rtc_slow_reserved": {
+          "address": 1342185448,
+          "size": 24,
+          "sha256": null
+        },
+        ".iram0.vectors": {
+          "address": 1074266112,
+          "size": 1028,
+          "sha256": "048e07f136ae36ae70cabc5be16eda827ee66543655bdcc1bce5a0bc682e188a"
+        },
+        ".iram0.text": {
+          "address": 1074267140,
+          "size": 101691,
+          "sha256": "cd24962598fdf3120bf4bc0c0e56ab9c06a5ec4026de1a679982924f602457ed"
+        },
+        ".dram0.data": {
+          "address": 1073414144,
+          "size": 22402,
+          "sha256": "d473c028874bfd3b5e56b522ddf9960a26004e887f26a28976ffe61f446d9182"
+        },
+        ".noinit": {
+          "address": 1073436546,
+          "size": 2,
+          "sha256": null
+        },
+        ".dram0.bss": {
+          "address": 1073436552,
+          "size": 22192,
+          "sha256": null
+        },
+        ".flash.appdesc": {
+          "address": 1061158944,
+          "size": 256,
+          "sha256": "5368639e1319df0b33be170755a4c62ea8ed930370bf6527ddc8d59548a8f4a1"
+        },
+        ".flash.rodata": {
+          "address": 1061159200,
+          "size": 378508,
+          "sha256": "33838861f163e0414d9a9dcb8f402cff1662263f1907820dfd7fa9d9efc17869"
+        },
+        ".flash.rodata_noload": {
+          "address": 1061537708,
+          "size": 13273,
+          "sha256": null
+        },
+        ".flash.text": {
+          "address": 1074593824,
+          "size": 1364892,
+          "sha256": "620af32c5063a5f99f423abd946377884f2ce05284d818e9f4f6664686775dd0"
+        },
+        ".iram0.text_end": {
+          "address": 1074368831,
+          "size": 1,
+          "sha256": null
+        }
+      },
+      "c_instruction_rows": 66,
+      "c_instruction_bytes": 13820,
+      "rust_instruction_rows": 6,
+      "iram_end": 1074368832,
+      "iram_remaining": 28352,
+      "selected_symbols": {
+        "_sram1_iram_len": 0,
+        "shine_enwindow": 1061319028,
+        "shine_scale_fact_band_index": 1061321076,
+        "shine_slen2_tab": 1061322196,
+        "shine_slen1_tab": 1061322260,
+        "shine_huffman_table": 1073416744,
+        "_iram_start": 1074266112,
+        "_iram_text_start": 1074267140,
+        "_iram_bss_end": 1074368832,
+        "_iram_bss_start": 1074368832,
+        "_iram_data_end": 1074368832,
+        "_iram_data_start": 1074368832,
+        "_iram_end": 1074368832,
+        "_iram_text_end": 1074368832,
+        "_sram1_iram_start": 1074397184,
+        "shazam_mp3_open": 1074776156,
+        "shazam_mp3_encode": 1074776232,
+        "shazam_mp3_close": 1074776352,
+        "shine_find_samplerate_index": 1074776368,
+        "shine_find_bitrate_index": 1074776472,
+        "shine_check_config": 1074776724,
+        "shine_initialise": 1074776772,
+        "shine_encode_buffer_interleaved": 1074777224,
+        "shine_format_bitstream": 1074779208,
+        "shine_inner_loop": 1074782500,
+        "shine_outer_loop": 1074782852,
+        "shine_iteration_loop": 1074783480,
+        "shine_loop_initialise": 1074784744,
+        "shine_mdct_initialise": 1074784992,
+        "shine_mdct_sub": 1074785236,
+        "shine_subband_initialise": 1074787884,
+        "shine_window_filter_subband": 1074788156,
+        "shine_max_reservoir_bits": 1074788684,
+        "shine_ResvAdjust": 1074788836,
+        "shine_ResvFrameEnd": 1074788868,
+        "shine_set_config_mpeg_defaults": 1075912184,
+        "shine_mpeg_version": 1075912204,
+        "shine_close": 1075912228,
+        "shine_open_bit_stream": 1075912256,
+        "shine_putbits": 1075912280,
+        "shine_get_bits_count": 1075912420
+      }
+    },
+    "iram": {
+      "elf_sha256": "bd8392cd041355bfd7a7fbd9b9eded48d741cf4e70600a2595293a4bec755490",
+      "sections": {
+        ".rtc.force_slow": {
+          "address": 1342177280,
+          "size": 32,
+          "sha256": "66687aadf862bd776c8fc18b8e9f8e20089714856ee233b3902a591d0d5f2925"
+        },
+        ".rtc_slow_reserved": {
+          "address": 1342185448,
+          "size": 24,
+          "sha256": null
+        },
+        ".iram0.vectors": {
+          "address": 1074266112,
+          "size": 1028,
+          "sha256": "cdbf2e6654ab55c9ccc21b56f89d94e7b2c21033dc9684ed2692a519a789ebca"
+        },
+        ".iram0.text": {
+          "address": 1074267140,
+          "size": 115583,
+          "sha256": "99e396a644b97928a32f750780acd996b1d44a66dda7f8ae066caa0604b1fcb9"
+        },
+        ".dram0.data": {
+          "address": 1073414144,
+          "size": 22402,
+          "sha256": "4f2d9b1d8c107f282ce0324bbc413810b3e04dd237f65b0c027eeee69cd399d2"
+        },
+        ".noinit": {
+          "address": 1073436546,
+          "size": 2,
+          "sha256": null
+        },
+        ".dram0.bss": {
+          "address": 1073436552,
+          "size": 22192,
+          "sha256": null
+        },
+        ".flash.appdesc": {
+          "address": 1061158944,
+          "size": 256,
+          "sha256": "5368639e1319df0b33be170755a4c62ea8ed930370bf6527ddc8d59548a8f4a1"
+        },
+        ".flash.rodata": {
+          "address": 1061159200,
+          "size": 378508,
+          "sha256": "7dede8ca31114bb36c5c4f4943270dddd62c630e3844fd7e7c1882ddadc82cc2"
+        },
+        ".flash.rodata_noload": {
+          "address": 1061537708,
+          "size": 13273,
+          "sha256": null
+        },
+        ".flash.text": {
+          "address": 1074593824,
+          "size": 1350756,
+          "sha256": "a700be8782c82bbe83764cc02bff5a2b1da01643553926af7105c3671b7c99fa"
+        },
+        ".iram0.text_end": {
+          "address": 1074382723,
+          "size": 1,
+          "sha256": null
+        }
+      },
+      "c_instruction_rows": 66,
+      "c_instruction_bytes": 13868,
+      "rust_instruction_rows": 6,
+      "iram_end": 1074382724,
+      "iram_remaining": 14460,
+      "selected_symbols": {
+        "_sram1_iram_len": 0,
+        "shine_enwindow": 1061319028,
+        "shine_scale_fact_band_index": 1061321076,
+        "shine_slen2_tab": 1061322196,
+        "shine_slen1_tab": 1061322260,
+        "shine_huffman_table": 1073416744,
+        "_iram_start": 1074266112,
+        "_iram_text_start": 1074267140,
+        "shine_open_bit_stream": 1074267140,
+        "shine_putbits": 1074267164,
+        "shine_get_bits_count": 1074267304,
+        "shine_format_bitstream": 1074273708,
+        "shine_inner_loop": 1074277000,
+        "shine_outer_loop": 1074277352,
+        "shine_iteration_loop": 1074277980,
+        "shine_loop_initialise": 1074279244,
+        "shine_mdct_initialise": 1074279492,
+        "shine_mdct_sub": 1074279736,
+        "shine_subband_initialise": 1074282384,
+        "shine_window_filter_subband": 1074282656,
+        "shine_find_samplerate_index": 1074283184,
+        "shine_find_bitrate_index": 1074283288,
+        "shine_check_config": 1074283540,
+        "shine_initialise": 1074283588,
+        "shine_encode_buffer_interleaved": 1074284040,
+        "shine_set_config_mpeg_defaults": 1074284256,
+        "shine_mpeg_version": 1074284276,
+        "shine_close": 1074284300,
+        "shine_max_reservoir_bits": 1074284328,
+        "shine_ResvAdjust": 1074284480,
+        "shine_ResvFrameEnd": 1074284512,
+        "shazam_mp3_open": 1074284724,
+        "shazam_mp3_encode": 1074284800,
+        "shazam_mp3_close": 1074284920,
+        "_iram_bss_end": 1074382724,
+        "_iram_bss_start": 1074382724,
+        "_iram_data_end": 1074382724,
+        "_iram_data_start": 1074382724,
+        "_iram_end": 1074382724,
+        "_iram_text_end": 1074382724,
+        "_sram1_iram_start": 1074397184
+      }
+    },
+    "mp3_non_instruction_rows_unchanged": true
+  },
+  "runs": {
+    "flash-control-1": {
+      "run": "target/kata-hardening/mp3-placement-acceptance/flash-control-1",
+      "collected": true,
+      "acceptance_passed": false,
+      "error": null,
+      "cleanup_errors": [],
+      "phases": [
+        {
+          "listeners": 0,
+          "complete_windows": 6,
+          "seconds": 60.111612,
+          "encoded_frames": 1817,
+          "generation_ratio": 0.7254505169483726,
+          "mean_encode_wall_us": 29786.71876719868,
+          "raw_overruns_window_sum": 8
+        },
+        {
+          "listeners": 1,
+          "complete_windows": 0,
+          "seconds": 0.0,
+          "encoded_frames": 0,
+          "generation_ratio": null,
+          "mean_encode_wall_us": null,
+          "raw_overruns_window_sum": 0
+        },
+        {
+          "listeners": 2,
+          "complete_windows": 0,
+          "seconds": 0.0,
+          "encoded_frames": 0,
+          "generation_ratio": null,
+          "mean_encode_wall_us": null,
+          "raw_overruns_window_sum": 0
+        }
+      ],
+      "prefixes": [
+        {
+          "label": "listener-1",
+          "decoded_sample_frames": 27648,
+          "expected_sample_frames": 27648,
+          "exact_saved_prefix_samples": true,
+          "eof_monotonic": 1148999.13322383,
+          "error": null,
+          "decode_error": null
+        },
+        {
+          "label": "listener-2",
+          "decoded_sample_frames": 32256,
+          "expected_sample_frames": 32256,
+          "exact_saved_prefix_samples": true,
+          "eof_monotonic": 1149030.321858341,
+          "error": null,
+          "decode_error": null
+        }
+      ],
+      "delivery_phase_rates": [
+        {
+          "phase": "solo_before_second_connect",
+          "label": "listener-1",
+          "start_seconds": 0.0,
+          "end_seconds": 30.00018366589211,
+          "wall_seconds": 30.00018366589211,
+          "received_byte_delta": 23040,
+          "completed_frame_delta": 24,
+          "coded_sample_frames": 27648,
+          "audio_seconds_per_wall_second": 0.019199882454548685
+        },
+        {
+          "phase": "second_handshake",
+          "label": "listener-1",
+          "start_seconds": 30.00018366589211,
+          "end_seconds": 30.55803803098388,
+          "wall_seconds": 0.5578543650917709,
+          "received_byte_delta": 0,
+          "completed_frame_delta": 0,
+          "coded_sample_frames": 0,
+          "audio_seconds_per_wall_second": 0.0
+        },
+        {
+          "phase": "planned_postjoin_including_recovery",
+          "label": "listener-1",
+          "start_seconds": 30.55803803098388,
+          "end_seconds": 90.0,
+          "wall_seconds": 59.44196196901612,
+          "received_byte_delta": 0,
+          "completed_frame_delta": 0,
+          "coded_sample_frames": 0,
+          "audio_seconds_per_wall_second": 0.0
+        },
+        {
+          "phase": "planned_postjoin_including_recovery",
+          "label": "listener-2",
+          "start_seconds": 30.55803803098388,
+          "end_seconds": 90.0,
+          "wall_seconds": 59.44196196901612,
+          "received_byte_delta": 26880,
+          "completed_frame_delta": 28,
+          "coded_sample_frames": 32256,
+          "audio_seconds_per_wall_second": 0.011305145014397023
+        },
+        {
+          "phase": "after_second_end",
+          "label": "listener-1",
+          "start_seconds": 32.58986767102033,
+          "end_seconds": 90.0,
+          "wall_seconds": 57.41013232897967,
+          "received_byte_delta": 0,
+          "completed_frame_delta": 0,
+          "coded_sample_frames": 0,
+          "audio_seconds_per_wall_second": 0.0
+        },
+        {
+          "phase": "after_second_end",
+          "label": "listener-2",
+          "start_seconds": 32.58986767102033,
+          "end_seconds": 90.0,
+          "wall_seconds": 57.41013232897967,
+          "received_byte_delta": 0,
+          "completed_frame_delta": 0,
+          "coded_sample_frames": 0,
+          "audio_seconds_per_wall_second": 0.0
+        }
+      ],
+      "capture": {
+        "measurement": {
+          "capture_brackets_complete": true,
+          "capture_fault_deltas": {
+            "queue_overflows": 0,
+            "software_dropped_frames": 0,
+            "read_errors": 0,
+            "restarts": 0,
+            "supervisor_restarts": 0,
+            "overflow_restarts": 0,
+            "settling_discarded_frames": 0,
+            "discontinuities": 0,
+            "health_restart_requests": 0
+          },
+          "whole_encoder_seconds": 60.111612
+        },
+        "staged_metrics": {
+          "capture_brackets_complete": true,
+          "capture_fault_deltas": {
+            "queue_overflows": 0,
+            "software_dropped_frames": 0,
+            "read_errors": 0,
+            "restarts": 0,
+            "supervisor_restarts": 0,
+            "overflow_restarts": 0,
+            "settling_discarded_frames": 0,
+            "discontinuities": 0,
+            "health_restart_requests": 0
+          },
+          "whole_encoder_seconds": 80.144762
+        }
+      },
+      "full_boundary_loss_receipts": 27,
+      "zero_listener_boundary_loss_receipts": 10,
+      "staged_boundary_loss_receipts": 12,
+      "limitations": [
+        "Listener counts are producer report endpoints; exclude crossing windows.",
+        "Boundary and window raw-loss receipts can overlap; their counts are not added.",
+        "Exact decoded prefix counts do not establish sample-exact physical ADC input."
+      ],
+      "startup_capture_counters": {
+        "frames": 485760,
+        "capture_begin_us": 10385552,
+        "capture_end_us": 10385571,
+        "callbacks": 2063,
+        "queue_overflows": 14,
+        "software_dropped_frames": 480,
+        "read_errors": 0,
+        "restarts": 2,
+        "supervisor_restarts": 0,
+        "overflow_restarts": 2,
+        "settling_discarded_frames": 26400,
+        "discontinuities": 2,
+        "health_restart_requests": 0,
+        "capture_runtime_window_us": 10131751,
+        "capture_task_runtime_us": 950496,
+        "read_service_delay_estimate_max_us": 65721,
+        "raw_work_max_us": 4926,
+        "meter_work_max_us": 1678,
+        "store_work_max_us": 224,
+        "raw_read_max_us": 2106,
+        "staged_frames": 0,
+        "staged_max_frames": 0,
+        "staging_pending_attempts": 0,
+        "staging_pending_max_attempts": 0,
+        "staging_pending_us": 0,
+        "staging_pending_max_us": 0,
+        "timing_deficit_estimate_frames": 3180,
+        "internal_free": 61791,
+        "internal_largest": 59392,
+        "psram_free": 2770860,
+        "psram_largest": 2359296,
+        "internal_min_sum": 61371,
+        "psram_min_sum": 363512,
+        "internal_window_start_free": 193395,
+        "psram_window_start_free": 3421712
+      },
+      "image_sha256": "8bc907c549ecd0ba4e3db4b2e812961f81b3c34df77f2840c37b51daa372fba3",
+      "recognition_enabled_after": false,
+      "final_state": {
+        "playback": "stopped",
+        "active_format": "mp3",
+        "saved_format": "mp3",
+        "buffer_preset": "med",
+        "autoplay": false,
+        "recognition": false,
+        "source_returncode": 0
+      }
+    },
+    "iram-1": {
+      "run": "target/kata-hardening/mp3-placement-acceptance/iram-1",
+      "collected": true,
+      "acceptance_passed": true,
+      "error": null,
+      "cleanup_errors": [],
+      "phases": [
+        {
+          "listeners": 0,
+          "complete_windows": 6,
+          "seconds": 60.069691,
+          "encoded_frames": 2503,
+          "generation_ratio": 1.0000384386861587,
+          "mean_encode_wall_us": 18962.71793847383,
+          "raw_overruns_window_sum": 0
+        },
+        {
+          "listeners": 1,
+          "complete_windows": 2,
+          "seconds": 20.017286,
+          "encoded_frames": 834,
+          "generation_ratio": 0.9999357555264984,
+          "mean_encode_wall_us": 19260.79376498801,
+          "raw_overruns_window_sum": 0
+        },
+        {
+          "listeners": 2,
+          "complete_windows": 5,
+          "seconds": 50.04142,
+          "encoded_frames": 2085,
+          "generation_ratio": 0.9999716235070867,
+          "mean_encode_wall_us": 19484.48153477218,
+          "raw_overruns_window_sum": 0
+        }
+      ],
+      "prefixes": [
+        {
+          "label": "listener-1",
+          "decoded_sample_frames": 4286592,
+          "expected_sample_frames": 4286592,
+          "exact_saved_prefix_samples": true,
+          "eof_monotonic": null,
+          "error": null,
+          "decode_error": null
+        },
+        {
+          "label": "listener-2",
+          "decoded_sample_frames": 2839680,
+          "expected_sample_frames": 2839680,
+          "exact_saved_prefix_samples": true,
+          "eof_monotonic": null,
+          "error": null,
+          "decode_error": null
+        }
+      ],
+      "delivery_phase_rates": [
+        {
+          "phase": "solo_before_second_connect",
+          "label": "listener-1",
+          "start_seconds": 0.0,
+          "end_seconds": 30.000105808023363,
+          "wall_seconds": 30.000105808023363,
+          "received_byte_delta": 1199040,
+          "completed_frame_delta": 1249,
+          "coded_sample_frames": 1438848,
+          "audio_seconds_per_wall_second": 0.9991964758998644
+        },
+        {
+          "phase": "second_handshake",
+          "label": "listener-1",
+          "start_seconds": 30.000105808023363,
+          "end_seconds": 30.17590669216588,
+          "wall_seconds": 0.17580088414251804,
+          "received_byte_delta": 6240,
+          "completed_frame_delta": 6,
+          "coded_sample_frames": 6912,
+          "audio_seconds_per_wall_second": 0.819108508483167
+        },
+        {
+          "phase": "both_connected",
+          "label": "listener-1",
+          "start_seconds": 30.17590669216588,
+          "end_seconds": 90.0,
+          "wall_seconds": 59.82409330783412,
+          "received_byte_delta": 2366880,
+          "completed_frame_delta": 2466,
+          "coded_sample_frames": 2840832,
+          "audio_seconds_per_wall_second": 0.9893004093761952
+        },
+        {
+          "phase": "both_connected",
+          "label": "listener-2",
+          "start_seconds": 30.17590669216588,
+          "end_seconds": 90.0,
+          "wall_seconds": 59.82409330783412,
+          "received_byte_delta": 2366880,
+          "completed_frame_delta": 2465,
+          "coded_sample_frames": 2839680,
+          "audio_seconds_per_wall_second": 0.9888992332166753
+        },
+        {
+          "phase": "planned_postjoin_including_recovery",
+          "label": "listener-1",
+          "start_seconds": 30.17590669216588,
+          "end_seconds": 90.0,
+          "wall_seconds": 59.82409330783412,
+          "received_byte_delta": 2366880,
+          "completed_frame_delta": 2466,
+          "coded_sample_frames": 2840832,
+          "audio_seconds_per_wall_second": 0.9893004093761952
+        },
+        {
+          "phase": "planned_postjoin_including_recovery",
+          "label": "listener-2",
+          "start_seconds": 30.17590669216588,
+          "end_seconds": 90.0,
+          "wall_seconds": 59.82409330783412,
+          "received_byte_delta": 2366880,
+          "completed_frame_delta": 2465,
+          "coded_sample_frames": 2839680,
+          "audio_seconds_per_wall_second": 0.9888992332166753
+        }
+      ],
+      "capture": {
+        "measurement": {
+          "capture_brackets_complete": true,
+          "capture_fault_deltas": {
+            "queue_overflows": 0,
+            "software_dropped_frames": 0,
+            "read_errors": 0,
+            "restarts": 0,
+            "supervisor_restarts": 0,
+            "overflow_restarts": 0,
+            "settling_discarded_frames": 0,
+            "discontinuities": 0,
+            "health_restart_requests": 0
+          },
+          "whole_encoder_seconds": 60.069691
+        },
+        "staged_metrics": {
+          "capture_brackets_complete": true,
+          "capture_fault_deltas": {
+            "queue_overflows": 0,
+            "software_dropped_frames": 0,
+            "read_errors": 0,
+            "restarts": 0,
+            "supervisor_restarts": 0,
+            "overflow_restarts": 0,
+            "settling_discarded_frames": 0,
+            "discontinuities": 0,
+            "health_restart_requests": 0
+          },
+          "whole_encoder_seconds": 80.076413
+        }
+      },
+      "full_boundary_loss_receipts": 0,
+      "zero_listener_boundary_loss_receipts": 0,
+      "staged_boundary_loss_receipts": 0,
+      "limitations": [
+        "Listener counts are producer report endpoints; exclude crossing windows.",
+        "Boundary and window raw-loss receipts can overlap; their counts are not added.",
+        "Exact decoded prefix counts do not establish sample-exact physical ADC input."
+      ],
+      "startup_capture_counters": {
+        "frames": 480720,
+        "capture_begin_us": 10290196,
+        "capture_end_us": 10290213,
+        "callbacks": 2044,
+        "queue_overflows": 16,
+        "software_dropped_frames": 480,
+        "read_errors": 0,
+        "restarts": 2,
+        "supervisor_restarts": 0,
+        "overflow_restarts": 2,
+        "settling_discarded_frames": 26400,
+        "discontinuities": 2,
+        "health_restart_requests": 0,
+        "capture_runtime_window_us": 10036390,
+        "capture_task_runtime_us": 891764,
+        "read_service_delay_estimate_max_us": 76463,
+        "raw_work_max_us": 4893,
+        "meter_work_max_us": 1566,
+        "store_work_max_us": 263,
+        "raw_read_max_us": 2030,
+        "staged_frames": 0,
+        "staged_max_frames": 0,
+        "staging_pending_attempts": 0,
+        "staging_pending_max_attempts": 0,
+        "staging_pending_us": 0,
+        "staging_pending_max_us": 0,
+        "timing_deficit_estimate_frames": 3642,
+        "internal_free": 61795,
+        "internal_largest": 61440,
+        "psram_free": 2770872,
+        "psram_largest": 2359296,
+        "internal_min_sum": 61123,
+        "psram_min_sum": 363512,
+        "internal_window_start_free": 193395,
+        "psram_window_start_free": 3421712
+      },
+      "image_sha256": "bd8392cd041355bfd7a7fbd9b9eded48d741cf4e70600a2595293a4bec755490",
+      "recognition_enabled_after": false,
+      "final_state": {
+        "playback": "stopped",
+        "active_format": "mp3",
+        "saved_format": "mp3",
+        "buffer_preset": "med",
+        "autoplay": false,
+        "recognition": false,
+        "source_returncode": 0
+      }
+    }
+  },
+  "hashes": {
+    "target/kata-hardening/mp3-placement-acceptance/flash-control-1/result.json": "d3f75453543ab5bd4261a9e6d50c4ee4b52ffc11cf9ad121e1509f6193d59ff1",
+    "target/kata-hardening/mp3-placement-acceptance/flash-control-1/uart.log": "1d6f4ced32c588d3ecd0f908953ed1c9d9b26dc34d7bdec69a36ba0308330c33",
+    "target/kata-hardening/mp3-placement-acceptance/flash-control-1/events.jsonl": "eb08d9ad7413ecfe8bb34428e318ad736b42e1ff48d1b702c4e7e1dae0dc5349",
+    "target/kata-hardening/mp3-placement-acceptance/flash-control-1/staged-cleanup.json": "7fbc079802185f91d2d083b73bb009338dc1a363e02a1acab8ec4602913b513f",
+    "target/kata-hardening/mp3-placement-acceptance/flash-control-1/0-mp3/result.json": "2e82f4edd432fcbe7d39a1f4ef534c620acbeebf7cf94739c8b00a797a63b1e9",
+    "target/kata-hardening/mp3-placement-acceptance/flash-control-1/0-mp3/listener-1.framehash": "7817d781eede319e8f01149301cdec21432f407c52d2a411808f86f6c9ae42aa",
+    "target/kata-hardening/mp3-placement-acceptance/flash-control-1/0-mp3/listener-2.framehash": "5cb070982ee6c2ab9e8e63e82ce1a635cf1a5335e0d1d06f6e6946c4ff574765",
+    "target/kata-hardening/mp3-placement-acceptance/iram-1/result.json": "0676b6b65f059067a81f0ce6ca82d656e0e2338b98392a6ea74e02aa2038489c",
+    "target/kata-hardening/mp3-placement-acceptance/iram-1/uart.log": "cdd8e85a9c053bb7af08aa79fa933accb9ed66233b3a66c59335552b83284f0b",
+    "target/kata-hardening/mp3-placement-acceptance/iram-1/events.jsonl": "7c503ce7b0383002b608c3cd8b8c12cb4f32f141e3250b91323c4f7291515346",
+    "target/kata-hardening/mp3-placement-acceptance/iram-1/staged-cleanup.json": "51ae823784f376cbd27991f24147c7ec964f7e300aba39a05568e4fbc23c78c7",
+    "target/kata-hardening/mp3-placement-acceptance/iram-1/0-mp3/result.json": "e8c575eb83038210ec363657e85ffc81024692ecf65e026a4df9559d578b6f95",
+    "target/kata-hardening/mp3-placement-acceptance/iram-1/0-mp3/listener-1.framehash": "71050ca5f8196626f3efcc0844cff63fd4b223a25f3065d29ee3c41e04de06ab",
+    "target/kata-hardening/mp3-placement-acceptance/iram-1/0-mp3/listener-2.framehash": "6f4f277c2adf0b4c40f262fd77f8c5189e2467f77f2e458b1f1e921a9e658812",
+    "target/kata-hardening/mp3-placement/pair-02/receipt.json": "a3a51f2b11d2567483153907b5bd00c0ff7258193a2954ed92548e1927775492",
+    "target/kata-hardening/mp3-placement/pair-02/link-review.json": "53ba19f2923391dc559c7b52e3f5c2d1f1176cbcc25c27ac920bdda5d69e15f4",
+    "target/kata-hardening/mp3-placement/pair-02/source-identities.json": "70256af0ad26cd0db6c395a3f31b173c9f6c13ad48636f9a79005bee902e34a9",
+    "target/kata-hardening/mp3-placement/pair-02/process-exits.json": "7ea30f41ca497dea188566c4bb5d15bb2b5bd8b204c88f54d273e6e10ef87f4a",
+    "target/kata-hardening/mp3-placement/pair-02/default.elf": "8bc907c549ecd0ba4e3db4b2e812961f81b3c34df77f2840c37b51daa372fba3",
+    "target/kata-hardening/mp3-placement/pair-02/iram.elf": "bd8392cd041355bfd7a7fbd9b9eded48d741cf4e70600a2595293a4bec755490",
+    "target/kata-hardening/mp3-placement/pair-02/flash-default.log": "f3a3776dd922bd1713ccb1631588ac6044de7d98b0832af45fc1ed5979336cde",
+    "target/kata-hardening/mp3-placement/pair-02/flash-iram.log": "15c70d798551527688f9a9b0e2619141d145d71369f3329148217db5837b9820",
+    "target/kata-hardening/mp3-placement/pair-02/default-i2s-iram.log": "ebb9b0f64b259a2710f90ed894b0f3e4bbf886a00c707a28c20ca0ceb99027c4",
+    "target/kata-hardening/mp3-placement/pair-02/iram-i2s-iram.log": "ebb9b0f64b259a2710f90ed894b0f3e4bbf886a00c707a28c20ca0ceb99027c4",
+    "target/kata-hardening/mp3-placement/pair-02/helpers/manifest.json": "3cd09b8c43c498c78251099e570e67a47cce327c7f57fb8aa9d5f2538cd6405e"
+  },
+  "production": {
+    "canonical_run": "target/check-logs/run.WKEIQEGi",
+    "normal_elf_sha256": "bd8392cd041355bfd7a7fbd9b9eded48d741cf4e70600a2595293a4bec755490",
+    "same_as_tested_candidate": true,
+    "source_hashes": {
+      "firmware/build.rs": "54854be0ebf89127dd5f290fd3a276be4514932bacf70db958a5caf3f8ce51e2",
+      "firmware/build_support/mp3_iram.rs": "42fcafad0a08f15ce104322577243020b3c9f2ee216acf04d859ed3ac40f5f0a",
+      "core/tests/mp3_iram_linker.rs": "fd26ce7c5aae2d08b1a714e1f26de45105ff9cbe39377b0f04d9b743225dd6ce"
+    },
+    "canonical_receipt_hashes": {
+      "run.status": "37a40f08d8548dba289b9b0bb35bcf63b359f6d37ee86044ebc6b6da080b9ec1",
+      "exit-code": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "stages.tsv": "ae28018917bac10f24f103c201611e17e81e648a99a7a156d764c589c18d37ee",
+      "start.head": "048f105a8249238125946a9ed9742cd5fa8ade7824e5468fdc6025de90cf8980",
+      "end.head": "048f105a8249238125946a9ed9742cd5fa8ade7824e5468fdc6025de90cf8980",
+      "start.diff": "c4729e2a23d7e04f9f6564f475eb604f30262d0eb611cdaf374796c347f30aef",
+      "end.diff": "c4729e2a23d7e04f9f6564f475eb604f30262d0eb611cdaf374796c347f30aef"
+    }
+  }
+}

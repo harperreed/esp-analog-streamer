@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+# ABOUTME: Exercises the Linux setup command's public CLI without installing packages or accessing hardware.
+# ABOUTME: Checks preview safety, argument rejection, and the explicit flash option.
+set -euo pipefail
+cd "$(dirname "$0")/.."
+scratch="$(mktemp -d)"
+trap 'rm -rf "$scratch"' EXIT
+
+scripts/setup-linux --help >"$scratch/help"
+grep -q -- '--dry-run' "$scratch/help"
+scripts/setup-linux --dry-run >"$scratch/preview"
+grep -q 'libasound2-dev' "$scratch/preview"
+grep -q 'scripts/check' "$scratch/preview"
+if grep -q 'scripts/flash' "$scratch/preview"; then
+    echo 'FAIL: default setup would flash' >&2
+    exit 1
+fi
+scripts/setup-linux --dry-run --flash --port /dev/serial/by-id/example >"$scratch/flash"
+grep -q 'ESPFLASH_PORT=/dev/serial/by-id/example' "$scratch/flash"
+grep -q 'scripts/flash' "$scratch/flash"
+for argument in --unknown --port; do
+    if scripts/setup-linux "$argument" >"$scratch/error" 2>&1; then
+        echo "FAIL: accepted $argument" >&2
+        exit 1
+    fi
+done
+if scripts/setup-linux --port "$scratch/help" >"$scratch/error" 2>&1; then
+    echo 'FAIL: accepted a regular file as a serial device' >&2
+    exit 1
+fi
+echo 'PASS Linux setup help, preview, explicit flash, and invalid arguments'

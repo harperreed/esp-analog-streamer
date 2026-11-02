@@ -1,0 +1,166 @@
+{
+  "source_commit": "9964baf6c94e085964f55d426c5a4783b99ec240",
+  "firmware_elf_sha256": "0a8ee33c9a74587acd05ff23e44a0ace59c666fdc40c8704b3d7c9a3c974f4cf",
+  "canonical_check": {
+    "passed_stages": 20,
+    "failed_stages": 0,
+    "log_sha256": "9a57fb18eb342d4a620dd83d3663edc9135646a353687eaf16887edba9c751a5"
+  },
+  "recognition_enabled_compile": {
+    "passed": true,
+    "flashed": false,
+    "config_restored_byte_for_byte": true,
+    "build_log_sha256": "50b72ff88dbc59a0aba3f2e400ad576dfbf4fa9d870d3bfd849b83dae04b8ea6"
+  },
+  "wifi": {
+    "effective_protocol_bitmap": 7,
+    "power_save": 0,
+    "association_phy": "bgn",
+    "channel": 6,
+    "rssi_dbm": -41
+  },
+  "presets": [
+    {
+      "preset": "low",
+      "expected_retained_frames": 12,
+      "decoded_stereo_frames_each": 576000,
+      "matched_lag_samples": 49152,
+      "matched_lag_seconds": 1.024,
+      "exact_overlap_samples": 526848,
+      "elapsed_seconds": 13.902138049947098,
+      "live_sha256": "e5ff286731c23ac5e2838c1330e6c7e6e9c8fea3bc333ac59395a071b5e5b487",
+      "buffered_sha256": "4faed8f0575410fdc14a50761d4c4caf7b31bcff53696abedb3095c00e5fc513"
+    },
+    {
+      "preset": "med",
+      "expected_retained_frames": 47,
+      "decoded_stereo_frames_each": 576000,
+      "matched_lag_samples": 192512,
+      "matched_lag_seconds": 4.010666666666666,
+      "exact_overlap_samples": 383488,
+      "elapsed_seconds": 16.550877857021987,
+      "live_sha256": "6be3d76b9d172144383af1ca3d478d34833f4bd70a12ad220eaecd731c2c912c",
+      "buffered_sha256": "ec467f7c4f9a2a15ef2933192af0be698969ae7c2bb7ab0c8ac45c8f8c06adca"
+    },
+    {
+      "preset": "high",
+      "expected_retained_frames": 94,
+      "decoded_stereo_frames_each": 576000,
+      "matched_lag_samples": 385024,
+      "matched_lag_seconds": 8.021333333333333,
+      "exact_overlap_samples": 190976,
+      "elapsed_seconds": 13.994172047940083,
+      "live_sha256": "0633b482c64e88ef50a83a2d4f1ad885ffb4fff3666990250aebcab771b38306",
+      "buffered_sha256": "5dcf34f3232cd7653e3186d6fe38bcfe7568a4b76537d69b3013fd9594851089"
+    }
+  ],
+  "browser_settings": {
+    "checks": [
+      {
+        "selected": "low",
+        "state": "stopped",
+        "autoplay": false
+      },
+      {
+        "selected": "med",
+        "state": "stopped",
+        "autoplay": false
+      },
+      {
+        "selected": "high",
+        "state": "stopped",
+        "autoplay": false
+      },
+      {
+        "selected": "med",
+        "state": "stopped",
+        "autoplay": false
+      }
+    ],
+    "page_errors": []
+  },
+  "browser_sonos": {
+    "medium_played": true,
+    "setting_change_preserved_queue": true,
+    "next_play_high": true,
+    "manual_stop_passed": true,
+    "page_errors": []
+  },
+  "cold_start": {
+    "http_status": 200,
+    "connection_after_reset_seconds": 5.459836001042277,
+    "header_wait_seconds": 8.218552298028953,
+    "saved_high_survived_reboot": true,
+    "stopped_after_reboot": true,
+    "autoplay": false
+  },
+  "capture_during_sonos_setup": {
+    "baseline_boot_ms": 51470,
+    "after_boot_ms": 61560,
+    "baseline": {
+      "queue_overflows": 14,
+      "software_dropped_frames": 480,
+      "read_errors": 0,
+      "restarts": 2,
+      "settling_discarded_frames": 26400,
+      "discontinuities": 2
+    },
+    "after": {
+      "queue_overflows": 23,
+      "software_dropped_frames": 720,
+      "read_errors": 0,
+      "restarts": 3,
+      "settling_discarded_frames": 50400,
+      "discontinuities": 3
+    },
+    "deltas": {
+      "queue_overflows": 9,
+      "software_dropped_frames": 240,
+      "read_errors": 0,
+      "restarts": 1,
+      "settling_discarded_frames": 24000,
+      "discontinuities": 1
+    },
+    "verdict": "capture protection failed; preset behavior passed"
+  },
+  "sampled_capture_during_pcm_comparisons": {
+    "baseline_boot_ms": 132030,
+    "last_sample_boot_ms": 182250,
+    "deltas": {
+      "queue_overflows": 0,
+      "software_dropped_frames": 0,
+      "read_errors": 0,
+      "restarts": 0,
+      "settling_discarded_frames": 0,
+      "discontinuities": 0
+    },
+    "note": "Last metrics sample precedes final decoder cleanup; zero deltas do not clear undetected DMA loss."
+  },
+  "internal_min_sum_lowest_observed": 15659,
+  "final_state": {
+    "preset": "med",
+    "controller": "stopped",
+    "autoplay": false,
+    "saved_destination_preserved": true,
+    "host_pcm_status": "closed",
+    "speaker_volume_writes": 0
+  },
+  "receipts_sha256": {
+    "hardware/uart.log": "b79f724a9d189882a9ea5c34822a5dd6194d7cd0ae71b167dde3e10201ea8d6c",
+    "hardware/cold-uart.log": "3b9caab7a133ec9f6c859af6eb467133aad85214e85d8fa40107bab878b1fde3",
+    "hardware/browser.log": "3a8dfb4cd0384dadaaf785cef2636da413da4193d88c750b8f3905344087f823",
+    "hardware/history.log": "15e18df84a4d5b5339322df80ef1f533aa40e692f370bfcacb1f59b9ee2e5586",
+    "hardware/cold.log": "dc14800352967045872c4842eb76642d864c1c6496745605c8033458f4bf36b9",
+    "check-browser.py": "ea7518134a0bdde489d7f31a2ec62111fc9b1e375399a41ec76a73c68b58e705",
+    "check-history.py": "88f22ab4208c59c901c4fad70608f386d7235de4474458cac49f918f6ee15806",
+    "check-cold.py": "6db25f9a48ac9e71675247b04d4d2d798b9a2da17afc7da275932829b70f5765"
+  },
+  "limitations": [
+    "No guaranteed Sonos playout cushion or latency measurement.",
+    "No injected network-interruption acceptance or endurance run for this feature.",
+    "Existing setup/startup capture failures remain.",
+    "Recognition profile compiled and host-tested, not flashed.",
+    "Known analog channel reversal is outside this change.",
+    "Existing MQTT TLS connection failures remain."
+  ]
+}

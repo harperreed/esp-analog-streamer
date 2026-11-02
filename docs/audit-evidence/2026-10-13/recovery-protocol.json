@@ -1,0 +1,502 @@
+{
+  "issue": "pqqq",
+  "status": "open",
+  "scope": "HTTP recovery; no TLS; no source stealing",
+  "acquisition": [
+    {
+      "file": "device-description.xml",
+      "status": 200,
+      "bytes": 9966,
+      "sha256": "2873911b5fc934b9f472cf1953a7abc5a1ef282ca7fa25f75907fc224634ad65",
+      "acquired_at": "2026-10-13T05:46:13.387400+00:00"
+    },
+    {
+      "file": "ConnectionManager1.xml",
+      "status": 200,
+      "bytes": 4410,
+      "sha256": "e83cb407f88ee426584e81b72ec0cf6f81c9f7cc93d1fe0c781a76050e999c9f",
+      "acquired_at": "2026-10-13T05:46:13.394380+00:00"
+    },
+    {
+      "file": "Queue1.xml",
+      "status": 200,
+      "bytes": 16218,
+      "sha256": "dc3a1fbf9ab423435c47898efe6155e70087aaece34f8b7de386fc9e1e14c897",
+      "acquired_at": "2026-10-13T05:46:13.406657+00:00"
+    },
+    {
+      "file": "VirtualLineIn1.xml",
+      "status": 200,
+      "bytes": 4665,
+      "sha256": "5cac437abedee9e253984bad999a9094c6b6b03dbb1792995719390dd80d5396",
+      "acquired_at": "2026-10-13T05:46:13.412637+00:00"
+    },
+    {
+      "file": "GroupManagement1.xml",
+      "status": 200,
+      "bytes": 4192,
+      "sha256": "5d0aecb87832118364f3f0ebc25034d40d3d6113cddb20fdbd86966b4e187c67",
+      "acquired_at": "2026-10-13T05:46:13.419150+00:00"
+    },
+    {
+      "file": "AVTransport1.xml",
+      "status": 200,
+      "bytes": 52535,
+      "sha256": "37b60a5577dbc75d12d11574e6cfbfec0a8442363fb1590ebd3fa147df14d84d",
+      "acquired_at": "2026-10-13T05:52:02.285150+00:00"
+    }
+  ],
+  "current_avtransport_matches_historical_bytes": true,
+  "observed_schemas": [
+    {
+      "service": "ConnectionManager1",
+      "sha256": "e83cb407f88ee426584e81b72ec0cf6f81c9f7cc93d1fe0c781a76050e999c9f",
+      "action_count": 3,
+      "candidate_actions": [
+        {
+          "name": "GetProtocolInfo",
+          "arguments": [
+            {
+              "name": "Source",
+              "direction": "out",
+              "relatedStateVariable": "SourceProtocolInfo"
+            },
+            {
+              "name": "Sink",
+              "direction": "out",
+              "relatedStateVariable": "SinkProtocolInfo"
+            }
+          ]
+        },
+        {
+          "name": "GetCurrentConnectionIDs",
+          "arguments": [
+            {
+              "name": "ConnectionIDs",
+              "direction": "out",
+              "relatedStateVariable": "CurrentConnectionIDs"
+            }
+          ]
+        },
+        {
+          "name": "GetCurrentConnectionInfo",
+          "arguments": [
+            {
+              "name": "ConnectionID",
+              "direction": "in",
+              "relatedStateVariable": "A_ARG_TYPE_ConnectionID"
+            },
+            {
+              "name": "RcsID",
+              "direction": "out",
+              "relatedStateVariable": "A_ARG_TYPE_RcsID"
+            },
+            {
+              "name": "AVTransportID",
+              "direction": "out",
+              "relatedStateVariable": "A_ARG_TYPE_AVTransportID"
+            },
+            {
+              "name": "ProtocolInfo",
+              "direction": "out",
+              "relatedStateVariable": "A_ARG_TYPE_ProtocolInfo"
+            },
+            {
+              "name": "PeerConnectionManager",
+              "direction": "out",
+              "relatedStateVariable": "A_ARG_TYPE_ConnectionManager"
+            },
+            {
+              "name": "PeerConnectionID",
+              "direction": "out",
+              "relatedStateVariable": "A_ARG_TYPE_ConnectionID"
+            },
+            {
+              "name": "Direction",
+              "direction": "out",
+              "relatedStateVariable": "A_ARG_TYPE_Direction"
+            },
+            {
+              "name": "Status",
+              "direction": "out",
+              "relatedStateVariable": "A_ARG_TYPE_ConnectionStatus"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "service": "Queue1",
+      "sha256": "dc3a1fbf9ab423435c47898efe6155e70087aaece34f8b7de386fc9e1e14c897",
+      "action_count": 11,
+      "candidate_actions": [
+        {
+          "name": "AttachQueue",
+          "arguments": [
+            {
+              "name": "QueueOwnerID",
+              "direction": "in",
+              "relatedStateVariable": "A_ARG_TYPE_QueueOwnerID"
+            },
+            {
+              "name": "QueueID",
+              "direction": "out",
+              "relatedStateVariable": "A_ARG_TYPE_QueueID"
+            },
+            {
+              "name": "QueueOwnerContext",
+              "direction": "out",
+              "relatedStateVariable": "A_ARG_TYPE_QueueOwnerContext"
+            }
+          ]
+        },
+        {
+          "name": "CreateQueue",
+          "arguments": [
+            {
+              "name": "QueueOwnerID",
+              "direction": "in",
+              "relatedStateVariable": "A_ARG_TYPE_QueueOwnerID"
+            },
+            {
+              "name": "QueueOwnerContext",
+              "direction": "in",
+              "relatedStateVariable": "A_ARG_TYPE_QueueOwnerContext"
+            },
+            {
+              "name": "QueueID",
+              "direction": "out",
+              "relatedStateVariable": "A_ARG_TYPE_QueueID"
+            },
+            {
+              "name": "QueuePolicy",
+              "direction": "in",
+              "relatedStateVariable": "A_ARG_TYPE_QueuePolicy"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "service": "VirtualLineIn1",
+      "sha256": "5cac437abedee9e253984bad999a9094c6b6b03dbb1792995719390dd80d5396",
+      "action_count": 8,
+      "candidate_actions": [
+        {
+          "name": "StartTransmission",
+          "arguments": [
+            {
+              "name": "InstanceID",
+              "direction": "in",
+              "relatedStateVariable": "A_ARG_TYPE_InstanceID"
+            },
+            {
+              "name": "CoordinatorID",
+              "direction": "in",
+              "relatedStateVariable": "A_ARG_TYPE_PlayerID"
+            },
+            {
+              "name": "CurrentTransportSettings",
+              "direction": "out",
+              "relatedStateVariable": "A_ARG_TYPE_CurrentTransportSettings"
+            }
+          ]
+        },
+        {
+          "name": "StopTransmission",
+          "arguments": [
+            {
+              "name": "InstanceID",
+              "direction": "in",
+              "relatedStateVariable": "A_ARG_TYPE_InstanceID"
+            },
+            {
+              "name": "CoordinatorID",
+              "direction": "in",
+              "relatedStateVariable": "A_ARG_TYPE_PlayerID"
+            }
+          ]
+        },
+        {
+          "name": "Play",
+          "arguments": [
+            {
+              "name": "InstanceID",
+              "direction": "in",
+              "relatedStateVariable": "A_ARG_TYPE_InstanceID"
+            },
+            {
+              "name": "Speed",
+              "direction": "in",
+              "relatedStateVariable": "A_ARG_TYPE_Speed"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "service": "GroupManagement1",
+      "sha256": "5d0aecb87832118364f3f0ebc25034d40d3d6113cddb20fdbd86966b4e187c67",
+      "action_count": 4,
+      "candidate_actions": [
+        {
+          "name": "AddMember",
+          "arguments": [
+            {
+              "name": "MemberID",
+              "direction": "in",
+              "relatedStateVariable": "A_ARG_TYPE_MemberID"
+            },
+            {
+              "name": "BootSeq",
+              "direction": "in",
+              "relatedStateVariable": "A_ARG_TYPE_BootSeq"
+            },
+            {
+              "name": "CurrentTransportSettings",
+              "direction": "out",
+              "relatedStateVariable": "A_ARG_TYPE_TransportSettings"
+            },
+            {
+              "name": "CurrentURI",
+              "direction": "out",
+              "relatedStateVariable": "A_ARG_TYPE_AVTransportURI"
+            },
+            {
+              "name": "GroupUUIDJoined",
+              "direction": "out",
+              "relatedStateVariable": "LocalGroupUUID"
+            },
+            {
+              "name": "ResetVolumeAfter",
+              "direction": "out",
+              "relatedStateVariable": "ResetVolumeAfter"
+            },
+            {
+              "name": "VolumeAVTransportURI",
+              "direction": "out",
+              "relatedStateVariable": "VolumeAVTransportURI"
+            }
+          ]
+        },
+        {
+          "name": "RemoveMember",
+          "arguments": [
+            {
+              "name": "MemberID",
+              "direction": "in",
+              "relatedStateVariable": "A_ARG_TYPE_MemberID"
+            }
+          ]
+        },
+        {
+          "name": "ReportTrackBufferingResult",
+          "arguments": [
+            {
+              "name": "MemberID",
+              "direction": "in",
+              "relatedStateVariable": "A_ARG_TYPE_MemberID"
+            },
+            {
+              "name": "ResultCode",
+              "direction": "in",
+              "relatedStateVariable": "A_ARG_TYPE_BufferingResultCode"
+            }
+          ]
+        },
+        {
+          "name": "SetSourceAreaIds",
+          "arguments": [
+            {
+              "name": "DesiredSourceAreaIds",
+              "direction": "in",
+              "relatedStateVariable": "SourceAreaIds"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "service": "AVTransport1",
+      "sha256": "37b60a5577dbc75d12d11574e6cfbfec0a8442363fb1590ebd3fa147df14d84d",
+      "action_count": 42,
+      "candidate_actions": [
+        {
+          "name": "SetAVTransportURI",
+          "arguments": [
+            {
+              "name": "InstanceID",
+              "direction": "in",
+              "relatedStateVariable": "A_ARG_TYPE_InstanceID"
+            },
+            {
+              "name": "CurrentURI",
+              "direction": "in",
+              "relatedStateVariable": "AVTransportURI"
+            },
+            {
+              "name": "CurrentURIMetaData",
+              "direction": "in",
+              "relatedStateVariable": "AVTransportURIMetaData"
+            }
+          ]
+        },
+        {
+          "name": "Play",
+          "arguments": [
+            {
+              "name": "InstanceID",
+              "direction": "in",
+              "relatedStateVariable": "A_ARG_TYPE_InstanceID"
+            },
+            {
+              "name": "Speed",
+              "direction": "in",
+              "relatedStateVariable": "TransportPlaySpeed"
+            }
+          ]
+        },
+        {
+          "name": "BecomeGroupCoordinatorAndSource",
+          "arguments": [
+            {
+              "name": "InstanceID",
+              "direction": "in",
+              "relatedStateVariable": "A_ARG_TYPE_InstanceID"
+            },
+            {
+              "name": "CurrentCoordinator",
+              "direction": "in",
+              "relatedStateVariable": "A_ARG_TYPE_MemberID"
+            },
+            {
+              "name": "CurrentGroupID",
+              "direction": "in",
+              "relatedStateVariable": "A_ARG_TYPE_GroupID"
+            },
+            {
+              "name": "OtherMembers",
+              "direction": "in",
+              "relatedStateVariable": "A_ARG_TYPE_MemberList"
+            },
+            {
+              "name": "CurrentURI",
+              "direction": "in",
+              "relatedStateVariable": "AVTransportURI"
+            },
+            {
+              "name": "CurrentURIMetaData",
+              "direction": "in",
+              "relatedStateVariable": "AVTransportURIMetaData"
+            },
+            {
+              "name": "SleepTimerState",
+              "direction": "in",
+              "relatedStateVariable": "A_ARG_TYPE_SleepTimerState"
+            },
+            {
+              "name": "AlarmState",
+              "direction": "in",
+              "relatedStateVariable": "A_ARG_TYPE_AlarmState"
+            },
+            {
+              "name": "StreamRestartState",
+              "direction": "in",
+              "relatedStateVariable": "A_ARG_TYPE_StreamRestartState"
+            },
+            {
+              "name": "CurrentAVTTrackList",
+              "direction": "in",
+              "relatedStateVariable": "A_ARG_TYPE_Queue"
+            },
+            {
+              "name": "CurrentQueueTrackList",
+              "direction": "in",
+              "relatedStateVariable": "A_ARG_TYPE_Queue"
+            },
+            {
+              "name": "CurrentSourceState",
+              "direction": "in",
+              "relatedStateVariable": "A_ARG_TYPE_SourceState"
+            },
+            {
+              "name": "ResumePlayback",
+              "direction": "in",
+              "relatedStateVariable": "A_ARG_TYPE_ResumePlayback"
+            }
+          ]
+        },
+        {
+          "name": "ChangeCoordinator",
+          "arguments": [
+            {
+              "name": "InstanceID",
+              "direction": "in",
+              "relatedStateVariable": "A_ARG_TYPE_InstanceID"
+            },
+            {
+              "name": "CurrentCoordinator",
+              "direction": "in",
+              "relatedStateVariable": "A_ARG_TYPE_MemberID"
+            },
+            {
+              "name": "NewCoordinator",
+              "direction": "in",
+              "relatedStateVariable": "A_ARG_TYPE_MemberID"
+            },
+            {
+              "name": "NewTransportSettings",
+              "direction": "in",
+              "relatedStateVariable": "A_ARG_TYPE_TransportSettings"
+            },
+            {
+              "name": "CurrentAVTransportURI",
+              "direction": "in",
+              "relatedStateVariable": "A_ARG_TYPE_CurrentAVTransportURI"
+            },
+            {
+              "name": "RestartSink",
+              "direction": "in",
+              "relatedStateVariable": "A_ARG_TYPE_RestartSink"
+            }
+          ]
+        },
+        {
+          "name": "ChangeTransportSettings",
+          "arguments": [
+            {
+              "name": "InstanceID",
+              "direction": "in",
+              "relatedStateVariable": "A_ARG_TYPE_InstanceID"
+            },
+            {
+              "name": "NewTransportSettings",
+              "direction": "in",
+              "relatedStateVariable": "A_ARG_TYPE_TransportSettings"
+            },
+            {
+              "name": "CurrentAVTransportURI",
+              "direction": "in",
+              "relatedStateVariable": "A_ARG_TYPE_CurrentAVTransportURI"
+            }
+          ]
+        },
+        {
+          "name": "EndDirectControlSession",
+          "arguments": [
+            {
+              "name": "InstanceID",
+              "direction": "in",
+              "relatedStateVariable": "A_ARG_TYPE_InstanceID"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "limits": [
+    "Schema signatures do not prove conditional rejection or safe controller authority.",
+    "No recovery media command was sent during acquisition/review.",
+    "Passive GET replacement would not establish the interruption matrix or sample continuity."
+  ]
+}

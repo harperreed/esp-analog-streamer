@@ -1,0 +1,6 @@
+{
+  "status": "pass",
+  "executable": "/home/harper/workspace/personal/esp-analog-streamer/firmware/target/xtensa-esp32-espidf/release/examples/quant-cost",
+  "sha256": "68791e0ca604919dc5fbd458d222ba2c487f5b486acf64080565ac75b8da80e6",
+  "warnings": 0
+}

@@ -65,7 +65,7 @@ esp-shazam/
 ├── core/               ← esp-shazam-core: pure logic, tested on the Mac (fingerprint, Shazam
 │                         client, listen policy, audio math, decimator, stream ring, song store)
 ├── firmware/           ← the ESP-IDF app (codec, I2S capture, Wi-Fi, web page, /api/state,
-│                         MQTT); build with `cargo +esp`, flash with scripts/flash
+│                         stream, OTA); build with `cargo +esp`, flash with scripts/flash
 ├── tools/              ← shazam-file, a Mac CLI that asks Shazam about an audio file
 ├── scripts/            ← check (the canonical check), flash, serial-log, e2e-host
 ├── docs/superpowers/   ← specs/ (design, stream) and plans/ (the plan)

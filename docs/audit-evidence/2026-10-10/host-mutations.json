@@ -1,0 +1,145 @@
+{
+  "date": "2026-10-10",
+  "revision": "823c0cc56a2736f1bf70910acdafb11df93f8539",
+  "archive_sha256": "3d7b7cb031ab6a6a4f1e871bbe0e90e84de988603a55d03a44d25b3ac71477fd",
+  "lockfile_sha256": "63b3ed56764b6dfef2f93d200ad82cdc5e24d35289d66fa45266996d71de0040",
+  "command": "scripts/mutation-host",
+  "status": "complete",
+  "exit": 0,
+  "versions": {
+    "rustc": "1.93.0 (254b59607 2026-01-19)",
+    "cargo": "1.93.0 (083ac5135 2025-12-15)",
+    "cargo_mutants": "27.1.0"
+  },
+  "host": "x86_64-unknown-linux-gnu",
+  "features": "default",
+  "locked": true,
+  "ordinary_baseline": {
+    "passed": 8,
+    "failed": 0,
+    "ignored": 0,
+    "filtered_out": 233
+  },
+  "tool_baseline": {
+    "passed": 8,
+    "failed": 0,
+    "ignored": 0,
+    "filtered_out": 233
+  },
+  "budgets_seconds": {
+    "ordinary_baseline": 300,
+    "inventory": 60,
+    "mutant_test": 60,
+    "mutant_build": 180,
+    "mutation_stage": 1500,
+    "overall": 1800
+  },
+  "workers": 1,
+  "counts": {
+    "generated": 5,
+    "attempted": 5,
+    "caught": 4,
+    "missed": 0,
+    "unviable": 1,
+    "timeout": 0,
+    "unattempted": 0
+  },
+  "start_time": "2026-10-10T18:31:57.929828375Z",
+  "end_time": "2026-10-10T18:32:14.170127083Z",
+  "mutants": [
+    {
+      "name": "core/src/capture_health.rs:39:9: replace CaptureHealth::observe -> Action with Default::default()",
+      "classification": "Unviable",
+      "log": "log/core__src__capture_health.rs_line_39_col_9.log",
+      "diff": "diff/core__src__capture_health.rs_line_39_col_9.diff",
+      "phases": [
+        {
+          "phase": "Build",
+          "status": {
+            "Failure": 101
+          }
+        }
+      ]
+    },
+    {
+      "name": "core/src/capture_health.rs:42:19: replace != with == in CaptureHealth::observe",
+      "classification": "CaughtMutant",
+      "log": "log/core__src__capture_health.rs_line_42_col_19.log",
+      "diff": "diff/core__src__capture_health.rs_line_42_col_19.diff",
+      "phases": [
+        {
+          "phase": "Build",
+          "status": "Success"
+        },
+        {
+          "phase": "Test",
+          "status": {
+            "Failure": 101
+          }
+        }
+      ]
+    },
+    {
+      "name": "core/src/capture_health.rs:53:49: replace < with == in CaptureHealth::observe",
+      "classification": "CaughtMutant",
+      "log": "log/core__src__capture_health.rs_line_53_col_49.log",
+      "diff": "diff/core__src__capture_health.rs_line_53_col_49.diff",
+      "phases": [
+        {
+          "phase": "Build",
+          "status": "Success"
+        },
+        {
+          "phase": "Test",
+          "status": {
+            "Failure": 101
+          }
+        }
+      ]
+    },
+    {
+      "name": "core/src/capture_health.rs:53:49: replace < with > in CaptureHealth::observe",
+      "classification": "CaughtMutant",
+      "log": "log/core__src__capture_health.rs_line_53_col_49_001.log",
+      "diff": "diff/core__src__capture_health.rs_line_53_col_49_001.diff",
+      "phases": [
+        {
+          "phase": "Build",
+          "status": "Success"
+        },
+        {
+          "phase": "Test",
+          "status": {
+            "Failure": 101
+          }
+        }
+      ]
+    },
+    {
+      "name": "core/src/capture_health.rs:53:49: replace < with <= in CaptureHealth::observe",
+      "classification": "CaughtMutant",
+      "log": "log/core__src__capture_health.rs_line_53_col_49_002.log",
+      "diff": "diff/core__src__capture_health.rs_line_53_col_49_002.diff",
+      "phases": [
+        {
+          "phase": "Build",
+          "status": "Success"
+        },
+        {
+          "phase": "Test",
+          "status": {
+            "Failure": 101
+          }
+        }
+      ]
+    }
+  ],
+  "meaningful_survivors": [],
+  "limits": [
+    "Only CaptureHealth::observe and five generated candidates, four viable",
+    "No constructor mutation generated",
+    "No ring, listener, codec, Python, firmware, network timing, or hardware mutation claim"
+  ],
+  "artifact_directory": "target/mutation-host/run.VRAKTpBA",
+  "outer_log": "target/kata-hardening/mutation-pilot.log"
+}

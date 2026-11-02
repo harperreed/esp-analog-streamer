@@ -1,0 +1,10 @@
+{
+  "status": "pass",
+  "real_process_cases": [
+    "success",
+    "nonzero exit",
+    "leader exits while descendant ignores SIGTERM",
+    "SIGTERM reaches finally and runs cleanup process"
+  ],
+  "uart_or_hardware_opened": false
+}

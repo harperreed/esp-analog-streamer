@@ -1,0 +1,793 @@
+{
+  "kata": "ewvq",
+  "base_commit": "eb17916",
+  "canonical_run": "run.p3FPXV1J",
+  "canonical_stage_count": 27,
+  "helper_tests": 14,
+  "images": {
+    "bootloader.bin": "52fe6290545ac5b485807bcfb5ccc4a4e118f1686c0e6e952e1699440283a25b",
+    "network-faults.elf": "2948c3be97c69b4caa91880191efa04051b03391e7eb194d7b101f28eb6bc0f9",
+    "production.elf": "e7404b41273f0b12fd55315dde025f81fd9b3d8a19771e49d234ef4ec7550ff7"
+  },
+  "source_sha256": {
+    "target/kata-hardening/network-generations/source.diff": "0391179d706f61d2dc6a0178a1341e30ae437851b9b8c748b92693eba0927322",
+    "core/src/network_lifecycle.rs": "688059e3b787cd2ead11400d9b1064e704c2501ee49df1dbf6b4fa6e4fa4fee4",
+    "core/tests/stream_network_query.rs": "96a822cb5eea119250529017d0b60b231c246a18c726462f50ea4696bf6c011f"
+  },
+  "runs": {
+    "device-1": {
+      "passed": false,
+      "error": "TimeoutError('bounded wait expired')",
+      "analysis_error": "KeyError('start')",
+      "events": [
+        {
+          "kind": "reset_released",
+          "host_monotonic": 1152763.783637966
+        },
+        {
+          "kind": "source_started",
+          "host_monotonic": 1152789.118772187,
+          "pid": 2660588
+        },
+        {
+          "kind": "old_peers_begin",
+          "host_monotonic": 1152801.130194446
+        }
+      ],
+      "initial_network": {
+        "host_monotonic": 1152769.088859499,
+        "generation": 2,
+        "address": "192.168.23.217"
+      },
+      "injection": 1152825.355379342,
+      "generations": [
+        {
+          "host_monotonic": 1152767.887412364,
+          "generation": 1,
+          "address": null
+        },
+        {
+          "host_monotonic": 1152769.088859499,
+          "generation": 2,
+          "address": "192.168.23.217"
+        },
+        {
+          "host_monotonic": 1152825.355379342,
+          "generation": 3,
+          "address": null
+        },
+        {
+          "host_monotonic": 1152827.757750027,
+          "generation": 4,
+          "address": null
+        },
+        {
+          "host_monotonic": 1152829.359768475,
+          "generation": 5,
+          "address": "192.168.23.217"
+        }
+      ],
+      "cleanup_errors": [],
+      "uart_errors": [],
+      "limitations": [
+        "UART timestamps are host arrival times.",
+        "Partial last MP3 frame is retained raw and excluded from decoder checks.",
+        "Same-IP hardware reconnect does not prove DHCP address-change handling."
+      ],
+      "artifact_hashes": {
+        "aplay.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "old-0-baseline.ffmpeg.log": "f9b603073c36b925d100c0647f7d45819c7aa8dc0403ea0192d61e4286618cf3",
+        "old-0-baseline.framehash": "7353a1abeba7f757cc0a63639e5d3f593c536baa3218ed4ce534041e3b918358",
+        "old-0-baseline.mp3": "59355e0eaeb638ba6f4b0e446f3626eeccd82d68f8bd19682fb49a51bf9e73ae",
+        "old-0-raw.mp3": "a6110fb42bd69c5aad0d0ec06defd5b161c19aa33de6edb506f7b7fcd143215f",
+        "old-1-baseline.ffmpeg.log": "702e14629388276d4c7058c9d46d3e1ac5b8f99cf0923b110dba757d6bfee100",
+        "old-1-baseline.framehash": "18eaf7e8a62c091b7f1bb026cfad6623128fc685b481266b3c57aacf9fe3242f",
+        "old-1-baseline.mp3": "1c53cf2eeecf193ba311a59c8c672a4fec8e7bf47829b8cdc0e01a9b3d2ecd0c",
+        "old-1-raw.mp3": "fbf90026600ee60fd00631560394bd1438d10367b0871d076c22335e52904cdf",
+        "result.json": "02ba3be25365595c01eebb4a138b400e2832fd762e120e23adbe5ff1cdd9d774",
+        "uart-arrival.jsonl": "41966f860dc645fb1f815392ac2fae9833ec30b0a9b6c2002d8c957ba33d1022",
+        "uart.log": "a1a23c6c5265ff799d5604e281d88a543b471f22bb06b93f749d25ae9bdfaa07"
+      },
+      "capture": null,
+      "captures": [
+        {
+          "label": "old-0",
+          "peer": "192.168.23.153:39110",
+          "outcome": null,
+          "error": "OSError(9, 'Bad file descriptor')",
+          "ended": 1152855.433642344,
+          "bytes": 945600,
+          "partial_tail_bytes": 0
+        },
+        {
+          "label": "old-1",
+          "peer": "192.168.23.153:39120",
+          "outcome": null,
+          "error": "OSError(9, 'Bad file descriptor')",
+          "ended": 1152855.433736446,
+          "bytes": 928800,
+          "partial_tail_bytes": 480
+        }
+      ],
+      "manifest": {
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/network-generations/run.py": "db6ed0de58aa8c684a614b5b6469a5faa50432a88f9d8ab4ed6ebf04c6411447",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/network-generations/test_run.py": "6d8d6a70d124f45f60b20a916e28665acb628b2a0622a3f3c7555934d30e1261",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/sender-overhead/matrix-run.py": "c5eaad0543c4f4fbf2807d88e0ee5a2d7bd09dd131a50180942f0c4b131cd017",
+        "/home/harper/workspace/personal/esp-analog-streamer/docs/audit-evidence/2026-10-09/mp3-stream-probe/acceptance.py": "7b40e52cab8607c21c229b6e6acb8c0c6ef36e6523faedc3cbb16c92da15c4c7",
+        "target/kata-hardening/network-generations/images/network-faults.elf": "2948c3be97c69b4caa91880191efa04051b03391e7eb194d7b101f28eb6bc0f9",
+        "target/kata-hardening/encoder-probe-device/stereo-noise-420s.wav": "9311d9ca5dfe1a5f9269631afe22647834207f2b3239571474acc8ac15f3228d"
+      },
+      "radio": [
+        "I (1562) esp_shazam_firmware::net: wifi: started, effective protocol=0x07 power_save=0",
+        "I (5172) esp_shazam_firmware::net: wifi: connected, effective protocol=0x07 power_save=0",
+        "I (5182) esp_shazam_firmware::net: wifi: connected, association channel=6 rssi=-48dBm",
+        "I (5182) esp_shazam_firmware::net: wifi: connected, negotiated_phy=4",
+        "I (65462) esp_shazam_firmware::net: wifi: reconnected, effective protocol=0x07 power_save=0",
+        "I (65472) esp_shazam_firmware::net: wifi: reconnected, association channel=11 rssi=-44dBm",
+        "I (65482) esp_shazam_firmware::net: wifi: reconnected, negotiated_phy=4"
+      ],
+      "boot_reset_markers": [
+        "rst:0x1 (POWERON_RESET),boot:0x1f (SPI_FAST_FLASH_BOOT)"
+      ],
+      "settings": [
+        {
+          "active_format": "mp3",
+          "state": "stopped",
+          "buffer_available": true,
+          "active_player_id": null,
+          "last_error": null,
+          "config": {
+            "autoplay": false,
+            "buffer_preset": "med",
+            "output_format": "mp3"
+          }
+        },
+        {
+          "active_format": "mp3",
+          "state": "stopped",
+          "buffer_available": true,
+          "active_player_id": null,
+          "last_error": null,
+          "config": {
+            "autoplay": false,
+            "buffer_preset": "med",
+            "output_format": "mp3"
+          }
+        },
+        {
+          "active_format": "mp3",
+          "state": "stopped",
+          "buffer_available": true,
+          "active_player_id": null,
+          "last_error": null,
+          "config": {
+            "autoplay": false,
+            "buffer_preset": "med",
+            "output_format": "mp3"
+          }
+        }
+      ]
+    },
+    "device-2": {
+      "passed": false,
+      "error": "ConnectionRefusedError(111, 'Connection refused')",
+      "events": [
+        {
+          "kind": "reset_released",
+          "host_monotonic": 1152955.915256511
+        },
+        {
+          "kind": "source_started",
+          "host_monotonic": 1152981.537394402,
+          "pid": 2666642
+        },
+        {
+          "kind": "old_peers_begin",
+          "host_monotonic": 1152993.549845891
+        }
+      ],
+      "initial_network": {
+        "host_monotonic": 1152961.420514761,
+        "generation": 2,
+        "address": "192.168.23.217"
+      },
+      "injection": 1153017.486895623,
+      "reconnected_network": {
+        "host_monotonic": 1153021.691898587,
+        "generation": 5,
+        "address": "192.168.23.217"
+      },
+      "generations": [
+        {
+          "host_monotonic": 1152960.219317051,
+          "generation": 1,
+          "address": null
+        },
+        {
+          "host_monotonic": 1152961.420514761,
+          "generation": 2,
+          "address": "192.168.23.217"
+        },
+        {
+          "host_monotonic": 1153017.486895623,
+          "generation": 3,
+          "address": null
+        },
+        {
+          "host_monotonic": 1153020.290176145,
+          "generation": 4,
+          "address": null
+        },
+        {
+          "host_monotonic": 1153021.691898587,
+          "generation": 5,
+          "address": "192.168.23.217"
+        }
+      ],
+      "old_device_checked_close_observed": 1153018.909984465,
+      "telemetry_loss": [],
+      "start": 1152993.549845891,
+      "held_at_close": [
+        2,
+        1
+      ],
+      "receiver_precleanup": [
+        {
+          "label": "old-0",
+          "outcome": null,
+          "error": null,
+          "ended": null,
+          "bytes": 941760
+        },
+        {
+          "label": "old-1",
+          "outcome": null,
+          "error": null,
+          "ended": null,
+          "bytes": 931200
+        }
+      ],
+      "cleanup_errors": [],
+      "uart_errors": [],
+      "limitations": [
+        "UART timestamps are host arrival times.",
+        "Partial last MP3 frame is retained raw and excluded from decoder checks.",
+        "Same-IP hardware reconnect does not prove DHCP address-change handling.",
+        "Board checked close during link loss need not deliver remote FIN/RST; old remote outcomes are recorded separately from local slot cleanup."
+      ],
+      "artifact_hashes": {
+        "aplay.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "old-0-baseline.ffmpeg.log": "d094f37e8bafd9ea7e4177665b7cc0536a19d34b5665012d72b58171e88a3fee",
+        "old-0-baseline.framehash": "ecc77a8276ebb843d478c6f2be3c08b334d686e65eb033ff18ba68d5e187abc1",
+        "old-0-baseline.mp3": "d1dba64c3ddb2d1d0b9f5dfee931e61e3f379e33af0918f379024b6add29042e",
+        "old-0-raw.mp3": "e3ed877ce39ae859525ebff562751c454187fe45367f51c6baf71ada7775b7ba",
+        "old-0.ffmpeg.log": "14325eed0738017ab37c90d749ef6d274f4ed8f5dec905a570f6b70c83199590",
+        "old-0.framehash": "e0cbb6994df771c0545fdfd1ef862269fc2e23f7302a59c297f1fc5e38992b48",
+        "old-0.mp3": "e3ed877ce39ae859525ebff562751c454187fe45367f51c6baf71ada7775b7ba",
+        "old-1-baseline.ffmpeg.log": "089f64c467564dc9e995728eebc57954b18fa793a3b4a09c1b7e9bb2f5ba6a08",
+        "old-1-baseline.framehash": "bdb9a73a77f3c75c3dc7cd02d3cd2040091a3766735071bc42350cafbda02d9f",
+        "old-1-baseline.mp3": "670c61ff02476f17d7e8b4daf56bad27ac4f49667f6782046d1bd749bc5b92f9",
+        "old-1-raw.mp3": "85e55a573c8e3a03f992ffa0fef67b5435992eb849d36f6994a7b009050f326b",
+        "old-1.ffmpeg.log": "cf0da836d95d9956fdda049252526c322260a48bf496a2e5644da95c1cd705a1",
+        "old-1.framehash": "99848c75c4c8d49e08e7cc414adaf27be3a3d63f674054f13d4c956b73958b76",
+        "old-1.mp3": "85e55a573c8e3a03f992ffa0fef67b5435992eb849d36f6994a7b009050f326b",
+        "result.json": "b11751c70b8ec5216e538a25e46e3fb615140c5287e8e7f0dc16e2ca1c839326",
+        "uart-arrival.jsonl": "00c99f73178a14e281e5d99b45f7288ff82240c524556b4debeb8764cbbd1c2d",
+        "uart.log": "c6ef674b7581034eb9dc0781a75b10fdc10e07d4877d8d601fc9fc7edd900ea0"
+      },
+      "capture": {
+        "complete": false,
+        "reason": "acquisition did not reach both capture milestones"
+      },
+      "captures": [
+        {
+          "label": "old-0",
+          "peer": "192.168.23.153:44240",
+          "outcome": "host_cleanup",
+          "error": null,
+          "ended": 1153021.739958089,
+          "bytes": 941760,
+          "partial_tail_bytes": 0,
+          "joined": [
+            "I (37772) esp_shazam_firmware::stream: stream: 192.168.23.153:44240 joined /stream.mp3 (1 of 2) event_us=36538621\r"
+          ],
+          "departed": [
+            "I (62112) esp_shazam_firmware::stream: stream: 192.168.23.153:44240 left after 23.7 s: network generation changed listener_stack_free_bytes=1656 event_us=60299263\r"
+          ],
+          "closed": [
+            "I (62692) esp_shazam_firmware::stream: stream: 192.168.23.153:44240 socket closed in 0 ms; releasing slot (1 held) event_us=60300035\r"
+          ],
+          "decoded": {
+            "frames": 981,
+            "decoded_samples": 1130112,
+            "decoder_warnings": [
+              "[mp3 @ 0x582dcde2ef40] [warning] Estimating duration from bitrate, this may be inaccurate"
+            ]
+          }
+        },
+        {
+          "label": "old-1",
+          "peer": "192.168.23.153:44252",
+          "outcome": "host_cleanup",
+          "error": null,
+          "ended": 1153021.74012641,
+          "bytes": 931200,
+          "partial_tail_bytes": 0,
+          "joined": [
+            "I (38212) esp_shazam_firmware::stream: stream: 192.168.23.153:44252 joined /stream.mp3 (2 of 2) event_us=36828047\r"
+          ],
+          "departed": [
+            "I (61782) esp_shazam_firmware::stream: stream: 192.168.23.153:44252 left after 23.4 s: network generation changed listener_stack_free_bytes=1652 event_us=60298558\r"
+          ],
+          "closed": [
+            "I (62692) esp_shazam_firmware::stream: stream: 192.168.23.153:44252 socket closed in 0 ms; releasing slot (2 held) event_us=60299619\r"
+          ],
+          "decoded": {
+            "frames": 970,
+            "decoded_samples": 1117440,
+            "decoder_warnings": [
+              "[mp3 @ 0x5d6b9eb94f40] [warning] Estimating duration from bitrate, this may be inaccurate"
+            ]
+          }
+        }
+      ],
+      "manifest": {
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/network-generations/run.py": "982eb084e6888b250eef6d0614d9f691fa8789ebba54ad80ab628ffe77243bc4",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/network-generations/test_run.py": "14e61b5f4a2f3932b0ef8e1973ab754d4637a84828540f6d4011a03e7c0b532d",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/sender-overhead/matrix-run.py": "c5eaad0543c4f4fbf2807d88e0ee5a2d7bd09dd131a50180942f0c4b131cd017",
+        "/home/harper/workspace/personal/esp-analog-streamer/docs/audit-evidence/2026-10-09/mp3-stream-probe/acceptance.py": "7b40e52cab8607c21c229b6e6acb8c0c6ef36e6523faedc3cbb16c92da15c4c7",
+        "target/kata-hardening/network-generations/images/network-faults.elf": "2948c3be97c69b4caa91880191efa04051b03391e7eb194d7b101f28eb6bc0f9",
+        "target/kata-hardening/encoder-probe-device/stereo-noise-420s.wav": "9311d9ca5dfe1a5f9269631afe22647834207f2b3239571474acc8ac15f3228d"
+      },
+      "reconnect_after_injection_host_seconds": 4.2050029640085995,
+      "radio": [
+        "I (1572) esp_shazam_firmware::net: wifi: started, effective protocol=0x07 power_save=0",
+        "I (5392) esp_shazam_firmware::net: wifi: connected, effective protocol=0x07 power_save=0",
+        "I (5402) esp_shazam_firmware::net: wifi: connected, association channel=6 rssi=-48dBm",
+        "I (5402) esp_shazam_firmware::net: wifi: connected, negotiated_phy=4",
+        "I (65742) esp_shazam_firmware::net: wifi: reconnected, effective protocol=0x07 power_save=0",
+        "I (65752) esp_shazam_firmware::net: wifi: reconnected, association channel=11 rssi=-45dBm",
+        "I (65762) esp_shazam_firmware::net: wifi: reconnected, negotiated_phy=4"
+      ],
+      "boot_reset_markers": [
+        "rst:0x1 (POWERON_RESET),boot:0x1f (SPI_FAST_FLASH_BOOT)"
+      ],
+      "settings": [
+        {
+          "active_format": "mp3",
+          "state": "stopped",
+          "buffer_available": true,
+          "active_player_id": null,
+          "last_error": null,
+          "config": {
+            "autoplay": false,
+            "buffer_preset": "med",
+            "output_format": "mp3"
+          }
+        },
+        {
+          "active_format": "mp3",
+          "state": "stopped",
+          "buffer_available": true,
+          "active_player_id": null,
+          "last_error": null,
+          "config": {
+            "autoplay": false,
+            "buffer_preset": "med",
+            "output_format": "mp3"
+          }
+        },
+        {
+          "active_format": "mp3",
+          "state": "stopped",
+          "buffer_available": true,
+          "active_player_id": null,
+          "last_error": null,
+          "config": {
+            "autoplay": false,
+            "buffer_preset": "med",
+            "output_format": "mp3"
+          }
+        }
+      ]
+    },
+    "device-3": {
+      "passed": true,
+      "events": [
+        {
+          "kind": "reset_released",
+          "host_monotonic": 1153134.859792749
+        },
+        {
+          "kind": "source_started",
+          "host_monotonic": 1153160.138572226,
+          "pid": 2672046
+        },
+        {
+          "kind": "old_peers_begin",
+          "host_monotonic": 1153172.156732702
+        },
+        {
+          "kind": "fresh_finished",
+          "host_monotonic": 1153210.892830422
+        }
+      ],
+      "initial_network": {
+        "host_monotonic": 1153140.16611206,
+        "generation": 2,
+        "address": "192.168.23.217"
+      },
+      "injection": 1153196.23435181,
+      "reconnected_network": {
+        "host_monotonic": 1153200.438967949,
+        "generation": 5,
+        "address": "192.168.23.217"
+      },
+      "generations": [
+        {
+          "host_monotonic": 1153139.164070266,
+          "generation": 1,
+          "address": null
+        },
+        {
+          "host_monotonic": 1153140.16611206,
+          "generation": 2,
+          "address": "192.168.23.217"
+        },
+        {
+          "host_monotonic": 1153196.434512186,
+          "generation": 3,
+          "address": null
+        },
+        {
+          "host_monotonic": 1153198.837184854,
+          "generation": 4,
+          "address": null
+        },
+        {
+          "host_monotonic": 1153200.438967949,
+          "generation": 5,
+          "address": "192.168.23.217"
+        }
+      ],
+      "old_device_checked_close_observed": 1153197.437940042,
+      "stale_connect_readiness": {
+        "attempts": 1,
+        "connected": true,
+        "elapsed_seconds": 0.009765292052179575
+      },
+      "telemetry_loss": [],
+      "stale_response": "HTTP/1.1 503 Service Unavailable\r\nContent-Type: text/plain; charset=utf-8\r\nContent-Length: 47\r\nConnection: close\r\n\r\n",
+      "start": 1153172.156732702,
+      "end": 1153210.892830422,
+      "held_at_close": [
+        2,
+        1,
+        2,
+        1
+      ],
+      "receiver_precleanup": [
+        {
+          "label": "old-0",
+          "outcome": null,
+          "error": null,
+          "ended": null,
+          "bytes": 949440
+        },
+        {
+          "label": "old-1",
+          "outcome": null,
+          "error": null,
+          "ended": null,
+          "bytes": 943680
+        },
+        {
+          "label": "fresh-0",
+          "outcome": "frames",
+          "error": null,
+          "ended": 1153210.777667622,
+          "bytes": 400320
+        },
+        {
+          "label": "fresh-1",
+          "outcome": "frames",
+          "error": null,
+          "ended": 1153210.886806263,
+          "bytes": 400320
+        }
+      ],
+      "cleanup_errors": [],
+      "uart_errors": [],
+      "limitations": [
+        "UART timestamps are host arrival times.",
+        "Partial last MP3 frame is retained raw and excluded from decoder checks.",
+        "Same-IP hardware reconnect does not prove DHCP address-change handling.",
+        "Board checked close during link loss need not deliver remote FIN/RST; old remote outcomes are recorded separately from local slot cleanup."
+      ],
+      "artifact_hashes": {
+        "aplay.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "fresh-0-raw.mp3": "08059c6fecd8417b6619ee38548e70201a7160a7a77e9e27c55b5ac426e377a9",
+        "fresh-0.ffmpeg.log": "edc016490d7effdbbe4f872c3f444fb41f65db20694ccf829256a4f18be6c72a",
+        "fresh-0.framehash": "321b3505029f744eceaec5cff2c167e0dc2d96902c1bccac2f5ff5eb4c1d873d",
+        "fresh-0.mp3": "08059c6fecd8417b6619ee38548e70201a7160a7a77e9e27c55b5ac426e377a9",
+        "fresh-1-raw.mp3": "9f97fa16f4a40444330c782ed2db4358cb94cdf591659bc39fe8d095588fca5a",
+        "fresh-1.ffmpeg.log": "1fbb6803d14cb94b6d824664a812e80da6dd3ccc084600b6a2080754e5113015",
+        "fresh-1.framehash": "a1406991ef74be2eed020a5e0d6ba9f3dbe699c8ec59513bb1aba85be4018488",
+        "fresh-1.mp3": "9f97fa16f4a40444330c782ed2db4358cb94cdf591659bc39fe8d095588fca5a",
+        "old-0-baseline.ffmpeg.log": "ad424705c69b18e12e573315b8b41a62efe1ea3fcc9256b435e0ec9baf3d6892",
+        "old-0-baseline.framehash": "e681cd8c61f90fef66f949cc801854aa0067f81beb4d06d435dad28404351f73",
+        "old-0-baseline.mp3": "87e129a8423cdecc65276fe9c58510808580d9f926457b7237e290134729f8b5",
+        "old-0-raw.mp3": "38dc7fd79e72d78e61ffdd2e607a207792ca049b08a9dc1861b357b4e3bd0804",
+        "old-0.ffmpeg.log": "d26285d20cafb2461092ad284080de4e238b9c94761559313f86b1444fe1593a",
+        "old-0.framehash": "d9a326a1dc0d0113267c41926f1dd3c325b7d9b1b1b9573b0fe3f41df369e829",
+        "old-0.mp3": "38dc7fd79e72d78e61ffdd2e607a207792ca049b08a9dc1861b357b4e3bd0804",
+        "old-1-baseline.ffmpeg.log": "173aa319476284e87c44dcc573d924c6e2b017d9554335df130fa9e38aa0e7b0",
+        "old-1-baseline.framehash": "c6cc1d7c008294e92f0f19d62e044cd3b20cdbfc7b495ac3521d907584f0a3cb",
+        "old-1-baseline.mp3": "3622c7baf78afb4ddcd02d9502b8096b35047a8503744cce3e73e25292bd4484",
+        "old-1-raw.mp3": "ed62c61d447842fb953db3b74237c15492ab0a18f32d51200fe75f0327a6065f",
+        "old-1.ffmpeg.log": "cb52c3e8cabfafb58e9e1b8e32d7a546618cd79fdd44cfb8b13d5c72884e0d6f",
+        "old-1.framehash": "8f215f1e949f77327266d2cc2a9e39a48e552109a26fa2442c563cbbd5e37713",
+        "old-1.mp3": "ed62c61d447842fb953db3b74237c15492ab0a18f32d51200fe75f0327a6065f",
+        "result.json": "4f8fdb8931ca00a09720429fe6e310458ae3f0fd9167383deff8378e80919e8e",
+        "uart-arrival.jsonl": "017be5ad3f968ede07add3fcd8781d51f52181de80fe0dbb36f475a6c615f28d",
+        "uart.log": "dd0ed6d69004a7be40b2b4db382802369112fc09483bbdf585e4b463678e47b6"
+      },
+      "capture": {
+        "complete": true,
+        "before": {
+          "host_monotonic": 1153166.798073627,
+          "counters": {
+            "frames": 1443840,
+            "queue_overflows": 14,
+            "software_dropped_frames": 480,
+            "read_errors": 0,
+            "restarts": 2,
+            "supervisor_restarts": 0,
+            "overflow_restarts": 2,
+            "settling_discarded_frames": 26400,
+            "discontinuities": 2,
+            "health_restart_requests": 0
+          },
+          "record": "I (31582) esp_shazam_firmware::audio_in: audio: frames=1443840 capture_begin_us=30344689 capture_end_us=30344715 callbacks=6055 queue_overflows=14 software_dropped_frames=480 read_errors=0 restarts=2 supervisor_restarts=0 overflow_restarts=2 settling_discarded_frames=26400 discontinuities=2 health_restart_requests=0 capture_runtime_window_us=10064301 capture_task_runtime_us=966358 capture_runtime_valid=true read_service_delay_estimate_max_us=1284 raw_work_max_us=1548 meter_work_max_us=2055 store_work_max_us=263 raw_read_max_us=1985 staged_frames=0 staged_max_frames=0 staging_pending_attempts=0 staging_pending_max_attempts=0 staging_pending_us=0 staging_pending_max_us=0 timing_deficit_estimate_frames=3138 (clock drift/scheduling; not proof of loss) internal_free=56295 internal_largest=55296 psram_free=2770844 psram_largest=2359296 internal_min_sum=55495 psram_min_sum=2763888 internal_window_start_free=56539 psram_window_start_free=2771404 (runtime includes charged interrupts and excludes unfinished slice; service delay includes work/preemption; minima sum per-region lows; largest is a snapshot; staging fields measure partial block assembly, sampled at publish/reset)\r"
+        },
+        "after": {
+          "host_monotonic": 1153217.457907103,
+          "counters": {
+            "frames": 3876720,
+            "queue_overflows": 14,
+            "software_dropped_frames": 480,
+            "read_errors": 0,
+            "restarts": 2,
+            "supervisor_restarts": 0,
+            "overflow_restarts": 2,
+            "settling_discarded_frames": 26400,
+            "discontinuities": 2,
+            "health_restart_requests": 0
+          },
+          "record": "I (82262) esp_shazam_firmware::audio_in: audio: frames=3876720 capture_begin_us=81029519 capture_end_us=81029545 callbacks=16192 queue_overflows=14 software_dropped_frames=480 read_errors=0 restarts=2 supervisor_restarts=0 overflow_restarts=2 settling_discarded_frames=26400 discontinuities=2 health_restart_requests=0 capture_runtime_window_us=10007977 capture_task_runtime_us=981055 capture_runtime_valid=true read_service_delay_estimate_max_us=3123 raw_work_max_us=3278 meter_work_max_us=2235 store_work_max_us=490 raw_read_max_us=790 staged_frames=0 staged_max_frames=0 staging_pending_attempts=0 staging_pending_max_attempts=0 staging_pending_us=0 staging_pending_max_us=0 timing_deficit_estimate_frames=3130 (clock drift/scheduling; not proof of loss) internal_free=60127 internal_largest=45056 psram_free=2771388 psram_largest=2359296 internal_min_sum=49595 psram_min_sum=2755380 internal_window_start_free=49819 psram_window_start_free=2763576 (runtime includes charged interrupts and excludes unfinished slice; service delay includes work/preemption; minima sum per-region lows; largest is a snapshot; staging fields measure partial block assembly, sampled at publish/reset)\r"
+        },
+        "startup": [
+          {
+            "host_monotonic": 1153146.573509614,
+            "counters": {
+              "frames": 477840,
+              "queue_overflows": 14,
+              "software_dropped_frames": 480,
+              "read_errors": 0,
+              "restarts": 2,
+              "supervisor_restarts": 0,
+              "overflow_restarts": 2,
+              "settling_discarded_frames": 26400,
+              "discontinuities": 2,
+              "health_restart_requests": 0
+            },
+            "record": "I (11452) esp_shazam_firmware::audio_in: audio: frames=477840 capture_begin_us=10221592 capture_end_us=10221618 callbacks=2030 queue_overflows=14 software_dropped_frames=480 read_errors=0 restarts=2 supervisor_restarts=0 overflow_restarts=2 settling_discarded_frames=26400 discontinuities=2 health_restart_requests=0 capture_runtime_window_us=9967806 capture_task_runtime_us=885555 capture_runtime_valid=true read_service_delay_estimate_max_us=66175 raw_work_max_us=1916 meter_work_max_us=7413 store_work_max_us=248 raw_read_max_us=2065 staged_frames=0 staged_max_frames=0 staging_pending_attempts=0 staging_pending_max_attempts=0 staging_pending_us=0 staging_pending_max_us=0 timing_deficit_estimate_frames=3229 (clock drift/scheduling; not proof of loss) internal_free=56563 internal_largest=55296 psram_free=2770844 psram_largest=2359296 internal_min_sum=55883 psram_min_sum=363468 internal_window_start_free=188539 psram_window_start_free=3421712 (runtime includes charged interrupts and excludes unfinished slice; service delay includes work/preemption; minima sum per-region lows; largest is a snapshot; staging fields measure partial block assembly, sampled at publish/reset)\r"
+          }
+        ],
+        "deltas": {
+          "queue_overflows": 0,
+          "software_dropped_frames": 0,
+          "read_errors": 0,
+          "restarts": 0,
+          "supervisor_restarts": 0,
+          "overflow_restarts": 0,
+          "settling_discarded_frames": 0,
+          "discontinuities": 0,
+          "health_restart_requests": 0
+        }
+      },
+      "captures": [
+        {
+          "label": "old-0",
+          "peer": "192.168.23.153:55468",
+          "outcome": "host_cleanup",
+          "error": null,
+          "ended": 1153217.562632888,
+          "bytes": 949440,
+          "partial_tail_bytes": 0,
+          "joined": [
+            "I (37502) esp_shazam_firmware::stream: stream: 192.168.23.153:55468 joined /stream.mp3 (1 of 2) event_us=36265743\r"
+          ],
+          "departed": [
+            "I (61682) esp_shazam_firmware::stream: stream: 192.168.23.153:55468 left after 23.9 s: network generation changed listener_stack_free_bytes=1652 event_us=60218321\r"
+          ],
+          "closed": [
+            "I (62402) esp_shazam_firmware::stream: stream: 192.168.23.153:55468 socket closed in 1 ms; releasing slot (1 held) event_us=60219670\r"
+          ],
+          "decoded": {
+            "frames": 989,
+            "decoded_samples": 1139328,
+            "decoder_warnings": [
+              "[mp3 @ 0x56ec0a59df40] [warning] Estimating duration from bitrate, this may be inaccurate"
+            ]
+          }
+        },
+        {
+          "label": "old-1",
+          "peer": "192.168.23.153:55484",
+          "outcome": "host_cleanup",
+          "error": null,
+          "ended": 1153217.562752662,
+          "bytes": 943680,
+          "partial_tail_bytes": 0,
+          "joined": [
+            "I (37752) esp_shazam_firmware::stream: stream: 192.168.23.153:55484 joined /stream.mp3 (2 of 2) event_us=36400465\r"
+          ],
+          "departed": [
+            "I (61932) esp_shazam_firmware::stream: stream: 192.168.23.153:55484 left after 23.8 s: network generation changed listener_stack_free_bytes=1648 event_us=60218797\r"
+          ],
+          "closed": [
+            "I (62342) esp_shazam_firmware::stream: stream: 192.168.23.153:55484 socket closed in 0 ms; releasing slot (2 held) event_us=60219230\r"
+          ],
+          "decoded": {
+            "frames": 983,
+            "decoded_samples": 1132416,
+            "decoder_warnings": [
+              "[mp3 @ 0x5920fc5baf40] [warning] Estimating duration from bitrate, this may be inaccurate"
+            ]
+          }
+        },
+        {
+          "label": "fresh-0",
+          "peer": "192.168.23.153:54278",
+          "outcome": "frames",
+          "error": null,
+          "ended": 1153210.777667622,
+          "bytes": 400320,
+          "partial_tail_bytes": 0,
+          "joined": [
+            "I (65822) esp_shazam_firmware::stream: stream: 192.168.23.153:54278 joined /stream.mp3 (1 of 2) event_us=64586633\r"
+          ],
+          "departed": [
+            "I (76502) esp_shazam_firmware::stream: stream: 192.168.23.153:54278 left after 10.1 s: socket error kind=ConnectionReset raw_os_error=Some(104) listener_stack_free_bytes=1652 event_us=74699596\r"
+          ],
+          "closed": [
+            "I (76512) esp_shazam_firmware::stream: stream: 192.168.23.153:54278 socket closed in 0 ms; releasing slot (2 held) event_us=74700147\r"
+          ],
+          "decoded": {
+            "frames": 417,
+            "decoded_samples": 480384,
+            "decoder_warnings": [
+              "[mp3 @ 0x64e495140f40] [warning] Estimating duration from bitrate, this may be inaccurate"
+            ]
+          }
+        },
+        {
+          "label": "fresh-1",
+          "peer": "192.168.23.153:54282",
+          "outcome": "frames",
+          "error": null,
+          "ended": 1153210.886806263,
+          "bytes": 400320,
+          "partial_tail_bytes": 0,
+          "joined": [
+            "I (66612) esp_shazam_firmware::stream: stream: 192.168.23.153:54282 joined /stream.mp3 (2 of 2) event_us=64774399\r"
+          ],
+          "departed": [
+            "I (76982) esp_shazam_firmware::stream: stream: 192.168.23.153:54282 left after 10.1 s: socket error kind=ConnectionReset raw_os_error=Some(104) listener_stack_free_bytes=1660 event_us=74905407\r"
+          ],
+          "closed": [
+            "I (77052) esp_shazam_firmware::stream: stream: 192.168.23.153:54282 socket closed in 0 ms; releasing slot (1 held) event_us=74906040\r"
+          ],
+          "decoded": {
+            "frames": 417,
+            "decoded_samples": 480384,
+            "decoder_warnings": [
+              "[mp3 @ 0x5c6dfe3e7f40] [warning] Estimating duration from bitrate, this may be inaccurate"
+            ]
+          }
+        }
+      ],
+      "manifest": {
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/network-generations/run.py": "ff177da07d3bd204219a11af197fc620aef994078911375e08889356a5006e5d",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/network-generations/test_run.py": "b624b338e33c0989e5c508e0ccca5cedccdadcf4813a4b4324d446598d59d0c1",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/sender-overhead/matrix-run.py": "c5eaad0543c4f4fbf2807d88e0ee5a2d7bd09dd131a50180942f0c4b131cd017",
+        "/home/harper/workspace/personal/esp-analog-streamer/docs/audit-evidence/2026-10-09/mp3-stream-probe/acceptance.py": "7b40e52cab8607c21c229b6e6acb8c0c6ef36e6523faedc3cbb16c92da15c4c7",
+        "target/kata-hardening/network-generations/images/network-faults.elf": "2948c3be97c69b4caa91880191efa04051b03391e7eb194d7b101f28eb6bc0f9",
+        "target/kata-hardening/encoder-probe-device/stereo-noise-420s.wav": "9311d9ca5dfe1a5f9269631afe22647834207f2b3239571474acc8ac15f3228d"
+      },
+      "reconnect_after_injection_host_seconds": 4.204616138944402,
+      "radio": [
+        "I (1562) esp_shazam_firmware::net: wifi: started, effective protocol=0x07 power_save=0",
+        "I (5202) esp_shazam_firmware::net: wifi: connected, effective protocol=0x07 power_save=0",
+        "I (5212) esp_shazam_firmware::net: wifi: connected, association channel=6 rssi=-47dBm",
+        "I (5212) esp_shazam_firmware::net: wifi: connected, negotiated_phy=4",
+        "I (65442) esp_shazam_firmware::net: wifi: reconnected, effective protocol=0x07 power_save=0",
+        "I (65452) esp_shazam_firmware::net: wifi: reconnected, association channel=11 rssi=-46dBm",
+        "I (65462) esp_shazam_firmware::net: wifi: reconnected, negotiated_phy=4"
+      ],
+      "boot_reset_markers": [
+        "rst:0x1 (POWERON_RESET),boot:0x1f (SPI_FAST_FLASH_BOOT)"
+      ],
+      "settings": [
+        {
+          "active_format": "mp3",
+          "state": "stopped",
+          "buffer_available": true,
+          "active_player_id": null,
+          "last_error": null,
+          "config": {
+            "autoplay": false,
+            "buffer_preset": "med",
+            "output_format": "mp3"
+          }
+        },
+        {
+          "active_format": "mp3",
+          "state": "stopped",
+          "buffer_available": true,
+          "active_player_id": null,
+          "last_error": null,
+          "config": {
+            "autoplay": false,
+            "buffer_preset": "med",
+            "output_format": "mp3"
+          }
+        },
+        {
+          "active_format": "mp3",
+          "state": "stopped",
+          "buffer_available": true,
+          "active_player_id": null,
+          "last_error": null,
+          "config": {
+            "autoplay": false,
+            "buffer_preset": "med",
+            "output_format": "mp3"
+          }
+        },
+        {
+          "active_format": "mp3",
+          "state": "stopped",
+          "buffer_available": true,
+          "active_player_id": null,
+          "last_error": null,
+          "config": {
+            "autoplay": false,
+            "buffer_preset": "med",
+            "output_format": "mp3"
+          }
+        }
+      ]
+    }
+  },
+  "limits": [
+    "Host arrival timestamps are not device execution timestamps.",
+    "No real DHCP reassignment, physical fidelity calibration, actual Sonos TLS playback, or long-soak claim.",
+    "Partial MP3 tails are retained but excluded from complete-frame decoder assertions.",
+    "No full flash readback attestation."
+  ],
+  "production_restore": {
+    "flash_completed": true,
+    "elf_sha256": "e7404b41273f0b12fd55315dde025f81fd9b3d8a19771e49d234ef4ec7550ff7",
+    "flash_log_sha256": "40f9e90672b7b93e2782ca3e9457d8f41a46cb851f6a6a5ec6935b54dc99c2ba",
+    "active_format": "mp3",
+    "state": "stopped",
+    "saved_format": "mp3",
+    "buffer_preset": "med",
+    "autoplay": false,
+    "recognition": false,
+    "uart_and_source_owners_absent": true,
+    "identity_limit": "flash tool plus HTTP state; no full flash readback"
+  }
+}

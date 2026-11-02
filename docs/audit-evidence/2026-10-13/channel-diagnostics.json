@@ -1,0 +1,142 @@
+{
+  "schema": 1,
+  "base_commit": "28575fcacf97f6a114bdb0c7229ddaada1edf99a",
+  "kata": "cn4m",
+  "kata_closed": false,
+  "canonical_check": {
+    "run": "run.qBh9KzSn",
+    "stages": 27,
+    "exit_code": 0
+  },
+  "final_elf_sha256": "1d2105b115ca0423097ff742193890d8329c0e366d6f52076d6655f2c25c9eb3",
+  "final_boot": "7ad6a71e4450b1307826935ce157ad56",
+  "quiet_costs": {
+    "baseline": {
+      "clean_startup": true,
+      "valid_runtime_windows": 9,
+      "capture_cpu_percent": 9.883722102717647,
+      "meter_work_max_us": 702,
+      "store_work_max_us": 288
+    },
+    "candidate": {
+      "clean_startup": true,
+      "valid_runtime_windows": 9,
+      "capture_cpu_percent": 11.067786437410462,
+      "meter_work_max_us": 763,
+      "store_work_max_us": 252
+    },
+    "candidate-two": {
+      "clean_startup": true,
+      "valid_runtime_windows": 9,
+      "capture_cpu_percent": 11.901087286090533,
+      "meter_work_max_us": 752,
+      "store_work_max_us": 284
+    }
+  },
+  "added_capture_cpu_percentage_points": 1.184064334692815,
+  "proposed_one_point_cpu_target_passed": false,
+  "rejected_u32_optimization": true,
+  "target_layout": {
+    "meter_bytes": 336,
+    "meter_alignment": 8,
+    "reading_bytes": 40,
+    "reading_alignment": 4,
+    "store_bytes": 176,
+    "store_alignment": 8,
+    "pending_bytes": 56,
+    "pending_alignment": 8,
+    "instant_bytes": 16,
+    "instant_alignment": 8,
+    "old_pending_bytes": 24,
+    "reconstructed_old_meter_bytes": 256,
+    "reconstructed_old_store_bytes": 144,
+    "baseline_meter_lower_bound": 252,
+    "baseline_store_lower_bound": 138,
+    "current_storage": 608,
+    "baseline_storage_lower_bound": 418,
+    "fixed_storage_growth_upper_bound": 190,
+    "layout_elf_sha256": "53588efc539043cb06b3e97c1b758d27e0aa4ad857716b4760f43e45991ff380"
+  },
+  "api": {
+    "api_gate": true,
+    "snapshots": 30,
+    "measurement_age_ms_range": [
+      5,
+      240
+    ],
+    "settings_preserved": true,
+    "image": "1d2105b115ca0423097ff742193890d8329c0e366d6f52076d6655f2c25c9eb3",
+    "boot": "ba919457c2b0545bceaa5faedf48f957",
+    "scope": "Quiet ADC API plumbing only; no calibrated input or continuous-audio claim."
+  },
+  "canary": {
+    "passed": true,
+    "requested_seconds": 60,
+    "elapsed_seconds": 93.219,
+    "listeners": 2,
+    "decoded_frames": [
+      2880000,
+      2880000
+    ],
+    "decoder_discontinuities": [
+      0,
+      0
+    ],
+    "capture_samples": 9,
+    "counter_deltas": {
+      "queue_overflows": 0,
+      "software_dropped_frames": 0,
+      "read_errors": 0,
+      "restarts": 0,
+      "discontinuities": 0
+    },
+    "capture_gate": "clean_startup_and_steady_state",
+    "costs": {
+      "clean_startup": true,
+      "valid_runtime_windows": 9,
+      "capture_cpu_percent": 11.505501447619922,
+      "meter_work_max_us": 869,
+      "store_work_max_us": 284
+    }
+  },
+  "final_state": {
+    "stopped": true,
+    "remote_stopped_ok": true,
+    "listeners_idle": true,
+    "settings_preserved": true
+  },
+  "limits": [
+    "Quiet uncontrolled ADC input; no workstation source or speaker playback started.",
+    "No physical voltage calibration, routing localization, distortion or fidelity claim.",
+    "CPU target missed; timings include preemption and runtime includes charged interrupts.",
+    "Type storage bound does not measure total runtime capture stack depth.",
+    "Canary counts decoded frames; no source-exact input oracle or long-soak acceptance.",
+    "Existing MQTT connection errors occurred on baseline and candidate boots."
+  ],
+  "private_artifact_root": "target/kata-hardening/oct13-channel",
+  "artifact_sha256": {
+    "baseline.uart": "be49b10e237fb755fc08ceaea5f6788e7a3a0d04d5a7db000bdcfbb7a185fda2",
+    "candidate.uart": "300b5599b7b54f484405048f75bac0f50aef7b26a95692f267751e143ead46c6",
+    "candidate-two.uart": "aae3b6443756aa2d1be0ac4dda0095fb8821bd45dac3dd534e072334fcf9cea3",
+    "final-boot.uart": "178ec66d845f0254020bb33e980477d685f70e9089ec063e79c0f80f969dbd53",
+    "channel-layout.rs": "48d605dfcab77ea67d38bee3a3b3ee61e96a7107637c390d12ac8134dad5d166",
+    "layout-dump.txt": "e4ed3324fec9c7687746d6597efc5de39a58e828d95aac87f8aa3d932aa26ba5",
+    "layout-build.log": "dc0e2f3d5f4067168f31d2387bad7a5c7516103287e4f24b936c4aa5a59d5049",
+    "layout-two-build.log": "13421bf5bf628f29906877689aedf79646298145c82c746188a6655da93cb6e9",
+    "candidate-one.diff": "f61da1a1877fa5a6fa4f0126a524300fd5aa11189828bdb60386408440515a69",
+    "candidate-two.diff": "aa488fbb451bb2e0cb3848d30c86df922f62b2acf93b342f6441370009b29b74",
+    "collect.py": "da401c4e9558b4a969013aebd6833c3b175757ae1a8316c4ef6e27d32f87c141",
+    "test_collect.py": "169f8533c2ce9107b38467a52726f3e6afb38972e62bd0a965ed760b4bbc70a7",
+    "check-api.py": "87acd634af2c29254a476ebe7458d9ca410781aa46ec73403dc6897f46c95013",
+    "summarize-uart.py": "e4cc4366a1e3b5d483f3953b69d90328e43593a144bdfaa98103a238d2585029",
+    "check-final.log": "59b02700625e3dc6db6cb9df6841aa39ccb16b9ebbd21378b5276cde66c2bb60",
+    "source-restoration.json": "3c4b33452ed2a2309b8cc8acdc52559acdbaf65fe3d5523e3d7fd5c26895aca7",
+    "impl/red.log": "d361926c4789263c8a7380056cffe813489346b798cf4ef2477b4414701ab158",
+    "impl/restored-green.log": "d66b113797abb0296adcf48eb1e0ee197d981c4621311b54a67cdb67a09d500e",
+    "impl/restored-clippy.log": "d408f0667bd10b7d464cdf3a8ec6ee55ec039f357f510788b2c121445146a9ca",
+    "review.md": "37ea63d654ec22df19e66c6c53b869444bdacf0a31ca2460219d8abd15025054",
+    "soak/20261013T071010.279749Z/uart.log": "78f861e32112783a480ebb42cb7347e40bca7340fdc97b817b8c3fe3d3d48b5f",
+    "soak/20261013T071010.279749Z/listener-1.framehash": "669af76fd2d8684ef2aa3de580d64ef535864fe3383f2b552307eba8606fc522",
+    "soak/20261013T071010.279749Z/listener-2.framehash": "669af76fd2d8684ef2aa3de580d64ef535864fe3383f2b552307eba8606fc522"
+  }
+}

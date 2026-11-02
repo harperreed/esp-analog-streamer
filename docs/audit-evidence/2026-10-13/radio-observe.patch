@@ -1,0 +1,45 @@
+--- a/firmware/src/net.rs
++++ b/firmware/src/net.rs
+@@ -86,7 +86,15 @@
+     let driver = EspWifi::new(modem, sysloop.clone(), Some(nvs));
+     #[cfg(feature = "startup-capture-trace")]
+     crate::startup_capture_trace::phase(8, driver.as_ref().err().map_or(0, |e| e.code()));
+-    let mut wifi = BlockingWifi::wrap(driver?, sysloop.clone())?;
++    let driver = driver?;
++    // Throwaway observation: read persistent protocol before application configuration.
++    let mut observed_protocol = 0_u8;
++    // SAFETY: the driver is initialized and the output points to a writable byte.
++    esp!(unsafe {
++        sys::esp_wifi_get_protocol(sys::wifi_interface_t_WIFI_IF_STA, &mut observed_protocol)
++    })?;
++    log::info!("radio-observe: phase=1 protocol={observed_protocol}");
++    let mut wifi = BlockingWifi::wrap(driver, sysloop.clone())?;
+     let network = Network::new();
+     let observed_network = network.clone();
+     let events = sysloop.subscribe::<WifiEvent, _>(move |event| {
+@@ -128,6 +136,13 @@
+     #[cfg(feature = "startup-capture-trace")]
+     crate::startup_capture_trace::phase(10, started.as_ref().err().map_or(0, |e| e.code()));
+     started?;
++    // Throwaway observation: read immediately before production policy application.
++    let mut observed_protocol = 0_u8;
++    // SAFETY: the driver is started and the output points to a writable byte.
++    esp!(unsafe {
++        sys::esp_wifi_get_protocol(sys::wifi_interface_t_WIFI_IF_STA, &mut observed_protocol)
++    })?;
++    log::info!("radio-observe: phase=2 protocol={observed_protocol}");
+     // A prior diagnostic bitmap can survive reflashing. Apply b/g/n after driver startup,
+     // before the first association, rather than relying on the stored/default policy.
+     // SAFETY: the station driver is initialized and started; the bitmap uses IDF constants.
+--- a/firmware/src/lib.rs
++++ b/firmware/src/lib.rs
+@@ -55,7 +55,8 @@
+     esp_idf_svc::log::EspLogger::initialize_default();
+     let peripherals = Peripherals::take()?;
+     let sysloop = EspSystemEventLoop::take()?;
+-    let nvs = EspDefaultNvsPartition::take()?;
++    // Throwaway probe: preserve NVS evidence and credentials on initialization failure.
++    let nvs = EspDefaultNvsPartition::take_with(false)?;
+ 
+     // I2S first: the codec locks onto MCLK and LRCK when its state machines restart.
+     #[cfg(feature = "startup-capture-trace")]

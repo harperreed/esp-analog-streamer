@@ -1,5 +1,5 @@
 // ABOUTME: Checks a listener joining encoded FLAC at a nonzero frame number with claxon and ffmpeg.
-// ABOUTME: Frames copied in small slices must decode to the exact source samples after a fresh stream header.
+// ABOUTME: Frames copied in small slices must decode to the exact quantized samples after a fresh stream header.
 
 use std::path::Path;
 use std::process::Command;
@@ -16,26 +16,55 @@ fn joined_frames_decode_bit_exact_with_both_decoders() {
         let mut ring = FlacRing::try_new(2, MAX_FRAME_BYTES).unwrap();
         encoder.push(&vec![0; BLOCK_FRAMES * CHANNELS]);
         encoder.encode_block(first - 1, &mut encoded);
-        ring.push(&encoded).unwrap();
+        ring.push(
+            &encoded,
+            esp_shazam_core::flac_ring::SourceMetadata {
+                raw_generation: 0,
+                source_start: 0,
+                source_end: 1,
+                oldest_accepted_us: 0,
+                raw_publication_us: 0,
+            },
+            || 0,
+        )
+        .unwrap();
         let mut cursor = ring.cursor_now();
         let mut expected = chord_and_chirp_stereo_48k(BLOCK_FRAMES);
         expected.extend(full_scale_noise_stereo(BLOCK_FRAMES));
         for (i, block) in expected.chunks_exact(BLOCK_FRAMES * CHANNELS).enumerate() {
             encoder.push(block);
             encoder.encode_block(first + i as u32, &mut encoded);
-            ring.push(&encoded).unwrap();
+            ring.push(
+                &encoded,
+                esp_shazam_core::flac_ring::SourceMetadata {
+                    raw_generation: 0,
+                    source_start: 0,
+                    source_end: 1,
+                    oldest_accepted_us: 0,
+                    raw_publication_us: 0,
+                },
+                || 0,
+            )
+            .unwrap();
         }
         // Exactly two frames behind, with the old frame's slot already overwritten.
         let mut stream = flac::stream_header().to_vec();
         let mut out = [0; 113];
         loop {
-            let n = ring.read(&mut cursor, &mut out).unwrap();
+            let n = ring
+                .read(&mut cursor, &mut out)
+                .map(|read| read.bytes)
+                .unwrap();
             if n == 0 {
                 break;
             }
             stream.extend_from_slice(&out[..n]);
             assert!(stream.len() <= flac::STREAM_HEADER_LEN + 2 * MAX_FRAME_BYTES);
         }
+        let expected: Vec<_> = expected
+            .into_iter()
+            .map(|s| s.clamp(-0x80_0000, 0x7f_ffff) >> 8)
+            .collect();
         let mut reader = claxon::FlacReader::new(stream.as_slice()).unwrap();
         let decoded = reader.samples().collect::<Result<Vec<_>, _>>().unwrap();
         assert_samples(&decoded, &expected, "claxon", first);
@@ -58,7 +87,7 @@ fn joined_frames_decode_bit_exact_with_both_decoders() {
         let decoded: Vec<_> = ffmpeg
             .stdout
             .chunks_exact(4)
-            .map(|b| i32::from_le_bytes(b.try_into().unwrap()) >> 8)
+            .map(|b| i32::from_le_bytes(b.try_into().unwrap()) >> 16)
             .collect();
         assert_samples(&decoded, &expected, "ffmpeg", first);
         std::fs::remove_file(&path).unwrap();

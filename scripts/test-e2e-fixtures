@@ -1,0 +1,126 @@
+#!/usr/bin/env bash
+# ABOUTME: Exercises the real E2E fixture transaction with local files and validation subprocesses.
+# ABOUTME: Covers late failures, interrupted validation, missing originals and complete promotion without network calls.
+set -euo pipefail
+cd "$(dirname "$0")/.."
+exec uv run --quiet --no-project python3 - "$@" <<'PY'
+import json
+import os
+from pathlib import Path
+import signal
+import subprocess
+import tempfile
+import time
+import unittest
+
+
+TRANSACTION = Path('scripts/e2e-fixtures').resolve()
+NAMES = ('match.json', 'match.expected.json', 'miss.json')
+CANDIDATES = {
+    'match.json': b'{"track":{"title":"Candidate song"}}\n',
+    'match.expected.json': b'{"title":"Candidate song"}\n',
+    'miss.json': b'{"matches":[]}\n',
+}
+ORIGINALS = {name: b'local edits\x00\xff\n' + name.encode() for name in NAMES}
+VALIDATE = '''import json, pathlib, sys
+files = pathlib.Path(sys.argv[1])
+match = json.loads((files / 'match.json').read_text())
+expected = json.loads((files / 'match.expected.json').read_text())
+assert match['track']['title'] == expected['title']
+miss = json.loads((files / 'miss.json').read_text())
+assert 'track' not in miss
+'''
+
+
+class FixtureTransactionTests(unittest.TestCase):
+    def setUp(self):
+        self.temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temporary.cleanup)
+        root = Path(self.temporary.name)
+        self.fixtures = root / 'fixtures with spaces'
+        self.candidates = root / 'candidates with spaces'
+        self.fixtures.mkdir()
+        self.candidates.mkdir()
+        for name in NAMES:
+            (self.fixtures / name).write_bytes(ORIGINALS[name])
+            (self.candidates / name).write_bytes(CANDIDATES[name])
+        self.unrelated = self.fixtures / 'unrelated.json'
+        self.unrelated.write_bytes(b'keep this edit\n')
+
+    def command(self, source):
+        return [str(TRANSACTION), str(self.fixtures), str(self.candidates),
+                'python3', '-c', source, str(self.fixtures)]
+
+    def run_validation(self, source):
+        return subprocess.run(self.command(source), capture_output=True, timeout=10)
+
+    def assert_originals(self, missing=()):
+        for name in NAMES:
+            if name in missing:
+                self.assertFalse((self.fixtures / name).exists(), name)
+            else:
+                self.assertEqual((self.fixtures / name).read_bytes(), ORIGINALS[name], name)
+        self.assertEqual(self.unrelated.read_bytes(), b'keep this edit\n')
+
+    def test_failure_after_song_match_preserves_all_original_bytes(self):
+        (self.candidates / 'miss.json').write_text('{"track":{"title":"Unexpected"}}')
+        result = self.run_validation(VALIDATE)
+        self.assertNotEqual(result.returncode, 0)
+        self.assert_originals()
+
+    def test_later_validation_failure_restores_all_originals(self):
+        result = self.run_validation(VALIDATE + '\nsys.exit(23)\n')
+        self.assertEqual(result.returncode, 23, result.stderr)
+        self.assert_originals()
+
+    def test_missing_original_paths_stay_missing_on_failure(self):
+        for name in ('match.expected.json', 'miss.json'):
+            (self.fixtures / name).unlink()
+        result = self.run_validation(VALIDATE + '\nsys.exit(23)\n')
+        self.assertEqual(result.returncode, 23, result.stderr)
+        self.assert_originals(missing=('match.expected.json', 'miss.json'))
+
+    def test_incomplete_candidate_set_never_changes_originals(self):
+        (self.candidates / 'miss.json').unlink()
+        result = self.run_validation(VALIDATE)
+        self.assertNotEqual(result.returncode, 0)
+        self.assert_originals()
+
+    def test_success_promotes_complete_validated_set(self):
+        result = self.run_validation(VALIDATE)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        for name in NAMES:
+            self.assertEqual((self.fixtures / name).read_bytes(), CANDIDATES[name])
+        self.assertEqual(self.unrelated.read_bytes(), b'keep this edit\n')
+
+    def test_interrupt_restores_originals(self):
+        for termination in (signal.SIGINT, signal.SIGTERM):
+            with self.subTest(signal=termination):
+                ready = self.fixtures.parent / 'ready'
+                source = VALIDATE + '''
+import time
+(files.parent / 'ready').write_text('validated')
+time.sleep(30)
+'''
+                process = subprocess.Popen(self.command(source), start_new_session=True,
+                                           stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                try:
+                    deadline = time.monotonic() + 5
+                    while not ready.exists():
+                        if process.poll() is not None or time.monotonic() >= deadline:
+                            self.fail('validation subprocess did not become ready')
+                        time.sleep(0.01)
+                    os.killpg(process.pid, termination)
+                    _, stderr = process.communicate(timeout=5)
+                    self.assertNotEqual(process.returncode, 0, stderr)
+                    self.assert_originals()
+                finally:
+                    if process.poll() is None:
+                        os.killpg(process.pid, signal.SIGKILL)
+                    process.communicate(timeout=5)
+                    ready.unlink(missing_ok=True)
+
+
+if __name__ == '__main__':
+    unittest.main()
+PY

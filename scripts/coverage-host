@@ -1,0 +1,107 @@
+#!/usr/bin/env bash
+# ABOUTME: Reports default-feature host Rust test coverage in a fresh isolated directory.
+# ABOUTME: Retains versions, commands and failure logs without accessing a device.
+
+coverage_run_dir() {
+    local root="$1" component current=''
+    local -a components
+    [[ "$root" == /* ]] || root="$PWD/$root"
+    IFS=/ read -r -a components <<< "$root"
+    for component in "${components[@]}"; do
+        [[ -n "$component" ]] || continue
+        [[ "$component" != .. ]] || { echo 'FAIL: parent path component' >&2; return 1; }
+        current="$current/$component"
+        [[ ! -L "$current" ]] || { echo "FAIL: symlink output path: $current" >&2; return 1; }
+    done
+    mkdir -p "$root" || return
+    mktemp -d "$root/run.XXXXXXXX"
+}
+
+coverage_stage() {
+    local run="$1" name="$2"
+    shift 2
+    printf '%q ' "$@" >>"$run/commands.log"
+    printf '\n' >>"$run/commands.log"
+    if "$@" >"$run/$name.log" 2>&1; then
+        echo "ok    $name"
+    else
+        local status=$?
+        echo "FAIL  $name (exit $status; full log: $run/$name.log)" >&2
+        return "$status"
+    fi
+}
+
+coverage_command() {
+    local host="$1"
+    shift
+    coverage_argv=(cargo +1.93.0 llvm-cov "$@" --target "$host")
+}
+
+coverage_main() {
+    set -euo pipefail
+    case "${1:-}" in
+        --help|-h)
+            cat <<'HELP'
+Usage: scripts/coverage-host [--help]
+
+Run default-feature host workspace Rust tests with pinned cargo-llvm-cov.
+Requires pinned mise tools and Rust 1.93.0's llvm-tools component.
+Mise activation may install missing pinned host tools; preinstall with mise install.
+Each run keeps private logs, provenance, JSON and HTML below
+ target/coverage-host/run.XXXXXXXX/; old runs are never reused or deleted.
+Firmware/device execution, C encoder FFI, Loom models, Python/JS, doctests,
+benches and examples are outside this report. Some tests compile firmware
+source for the host; that does not measure its execution on the board.
+No percentage gate. This command builds/tests host code; it never flashes.
+HELP
+            return ;;
+        '') ;;
+        *) echo 'FAIL: unknown argument (see --help)' >&2; return 2 ;;
+    esac
+    [[ $# -eq 0 ]] || { echo 'FAIL: unexpected arguments' >&2; return 2; }
+    cd "$(dirname "${BASH_SOURCE[0]}")/.."
+    local mise_env run sysroot host llvm_version tool_version
+    mise_env="$(mise env -s bash)"
+    eval "$mise_env"
+    # A custom compiler/tool override would invalidate the pinned LLVM pairing.
+    for override in LLVM_COV LLVM_PROFDATA RUSTFLAGS CARGO_ENCODED_RUSTFLAGS RUSTC RUSTC_WRAPPER RUSTC_WORKSPACE_WRAPPER LLVM_PROFILE_FILE; do
+        [[ -z "${!override:-}" ]] || { echo "FAIL: unset $override for a reproducible coverage run" >&2; return 1; }
+    done
+    umask 077
+    run="$(coverage_run_dir target/coverage-host)"
+    echo "Coverage run: $run"
+    coverage_stage "$run" rust-version rustc +1.93.0 -vV
+    coverage_stage "$run" cargo-version cargo +1.93.0 --version
+    coverage_stage "$run" coverage-version cargo +1.93.0 llvm-cov --version
+    tool_version="$(cat "$run/coverage-version.log")"
+    [[ "$tool_version" == 'cargo-llvm-cov 0.9.1' ]] || { echo "FAIL: expected cargo-llvm-cov 0.9.1; see $run/coverage-version.log" >&2; return 1; }
+    coverage_stage "$run" components rustup component list --toolchain 1.93.0 --installed
+    grep -q '^llvm-tools' "$run/components.log" || { echo "FAIL: llvm-tools-preview missing; run mise install (logs: $run)" >&2; return 1; }
+    coverage_stage "$run" revision git rev-parse HEAD
+    coverage_stage "$run" working-tree git status --short
+    coverage_stage "$run" diff git diff --binary HEAD
+    sysroot="$(rustc +1.93.0 --print sysroot)"
+    host="$(sed -n 's/^host: //p' "$run/rust-version.log")"
+    llvm_version="$(sed -n 's/^LLVM version: //p' "$run/rust-version.log")"
+    export LLVM_COV="$sysroot/lib/rustlib/$host/bin/llvm-cov"
+    export LLVM_PROFDATA="$sysroot/lib/rustlib/$host/bin/llvm-profdata"
+    coverage_stage "$run" llvm-cov-version "$LLVM_COV" --version
+    coverage_stage "$run" llvm-profdata-version "$LLVM_PROFDATA" --version
+    grep -Fq "$llvm_version" "$run/llvm-cov-version.log"
+    grep -Fq "$llvm_version" "$run/llvm-profdata-version.log"
+    export CARGO_LLVM_COV_TARGET_DIR="$run/build"
+    export CARGO_LLVM_COV_BUILD_DIR="$run/build"
+    unset CARGO_TARGET_DIR CARGO_BUILD_BUILD_DIR
+    mkdir "$run/reports"
+    coverage_command "$host" --locked --workspace --tests --no-report
+    coverage_stage "$run" test "${coverage_argv[@]}"
+    coverage_command "$host" report --json --output-path "$run/reports/coverage.json"
+    coverage_stage "$run" json "${coverage_argv[@]}"
+    coverage_command "$host" report --html --output-dir "$run/reports/html"
+    coverage_stage "$run" html "${coverage_argv[@]}"
+    echo "Host coverage reports: $run/reports (scope: docs/test-host-coverage.md)"
+}
+
+if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
+    coverage_main "$@"
+fi

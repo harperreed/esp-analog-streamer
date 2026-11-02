@@ -1,4 +1,4 @@
-// ABOUTME: Measures real-device FLAC costs for deterministic zero, DC, mixed, and noise blocks.
+// ABOUTME: Measures real-device FLAC costs for deterministic constant, noise, and varying stereo blocks.
 // ABOUTME: Runs on core 1 without capture or network startup; reports warmup separately.
 
 // Build from firmware/: cargo +esp build --release --example flac-cost.
@@ -11,9 +11,10 @@ use std::time::Duration;
 use esp_idf_svc::hal::cpu::Core;
 use esp_idf_svc::sys;
 use esp_shazam_core::flac::{Encoder, BLOCK_FRAMES, CHANNELS, MAX_FRAME_BYTES};
+use esp_shazam_firmware::threads;
 
-#[path = "../src/threads.rs"]
-mod threads;
+#[path = "flac-cost/contract.rs"]
+mod contract;
 
 const BLOCKS: usize = 128;
 const CHUNK_SAMPLES: usize = 240 * CHANNELS;
@@ -54,27 +55,8 @@ fn benchmark() {
             BLOCKS
         );
     }
-    for kind in ["zero", "dc", "mixed", "noise"] {
-        let mut state = 0x1234_5678u32;
-        for pair in input.chunks_exact_mut(CHANNELS) {
-            for (channel, sample) in pair.iter_mut().enumerate() {
-                state ^= state << 13;
-                state ^= state >> 17;
-                state ^= state << 5;
-                *sample = match kind {
-                    "zero" => 0,
-                    "dc" => {
-                        if channel == 0 {
-                            123_456
-                        } else {
-                            -123_456
-                        }
-                    }
-                    "mixed" if channel == 0 => 123_456,
-                    _ => (state as i32) >> 8,
-                };
-            }
-        }
+    for kind in contract::KINDS {
+        contract::fill_input(kind, &mut input);
         for (phase, blocks) in [("warmup", 1), ("measured", BLOCKS)] {
             // Commit setup/previous logging runtime before this phase's baseline snapshot.
             std::thread::sleep(Duration::from_millis(10));
@@ -82,7 +64,9 @@ fn benchmark() {
             let initial_capacity = frame.capacity();
             let cpu_start = runtime_us();
             let wall_start = now_us();
+            let heap_start = free_heap();
             let mut encoding_us = 0;
+            let mut max_encoding_us = 0;
             let mut bytes = 0;
             let mut largest = 0;
             for _ in 0..blocks {
@@ -95,13 +79,10 @@ fn benchmark() {
                     encoder.push(&chunk[..samples.len()]);
                 }
                 encoder.encode_block(0, &mut frame);
-                encoding_us += now_us() - started;
-                assert!(frame.len() <= MAX_FRAME_BYTES);
-                if kind == "zero" || kind == "dc" {
-                    assert_eq!(frame.len(), 16, "constant block at frame number zero");
-                }
-                assert_eq!(frame.as_ptr(), initial_ptr, "output storage must be reused");
-                assert_eq!(frame.capacity(), initial_capacity);
+                let elapsed = now_us() - started;
+                encoding_us += elapsed;
+                max_encoding_us = max_encoding_us.max(elapsed);
+                contract::assert_frame(kind, &frame, initial_ptr, initial_capacity);
                 bytes += frame.len();
                 largest = largest.max(frame.len());
                 // Yield between blocks so the scheduler commits this task's runtime counter.
@@ -110,9 +91,14 @@ fn benchmark() {
             }
             let cpu_end = runtime_us();
             let wall_end = now_us();
-            log::info!("flac-cost: kind={} phase={} blocks={} bytes={} max_frame_bytes={} encoding_us={} wall_us={} task_runtime_us={} runtime_valid={}",
-                kind, phase, blocks, bytes, largest, encoding_us, wall_end - wall_start,
-                cpu_end.wrapping_sub(cpu_start), wall_end <= u64::from(u32::MAX));
+            let heap_end = free_heap();
+            // SAFETY: NULL selects this live task; IDF reports its watermark in bytes.
+            let stack_free_bytes =
+                unsafe { sys::uxTaskGetStackHighWaterMark(std::ptr::null_mut()) };
+            log::info!("flac-cost: kind={} phase={} blocks={} bytes={} max_frame_bytes={} encoding_us={} max_encoding_us={} wall_us={} task_runtime_us={} runtime_valid={} stack_free_bytes={} heap_internal_before={} heap_internal_after={} heap_external_before={} heap_external_after={} output_storage_reused=true",
+                kind, phase, blocks, bytes, largest, encoding_us, max_encoding_us, wall_end - wall_start,
+                cpu_end.wrapping_sub(cpu_start), wall_end <= u64::from(u32::MAX), stack_free_bytes,
+                heap_start.0, heap_end.0, heap_start.1, heap_end.1);
         }
     }
 }
@@ -134,4 +120,14 @@ fn runtime_us() -> u32 {
         );
     }
     status.ulRunTimeCounter
+}
+
+fn free_heap() -> (usize, usize) {
+    // SAFETY: IDF heap queries only read initialized allocator accounting.
+    unsafe {
+        (
+            sys::heap_caps_get_free_size(sys::MALLOC_CAP_INTERNAL | sys::MALLOC_CAP_8BIT),
+            sys::heap_caps_get_free_size(sys::MALLOC_CAP_SPIRAM | sys::MALLOC_CAP_8BIT),
+        )
+    }
 }

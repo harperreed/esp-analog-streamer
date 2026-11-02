@@ -1,0 +1,10 @@
+{
+  "run": "target/kata-hardening/oct13-relink-parent/recipient/target/check-logs/run.VG4kYsui",
+  "overall_exit": 1,
+  "run_status": "incomplete",
+  "stages": "stage\texit_code\tlog\nfirmware-fmt\t0\tfirmware-fmt.log\nfirmware-build\t0\tfirmware-build.log\ni2s-iram-tests\t0\ti2s-iram-tests.log\ni2s-iram\t0\ti2s-iram.log\nfirmware-warnings\t0\tfirmware-warnings.log\n",
+  "error": "boundary config comparison failed (cmp exit 1)\n",
+  "cold_target_before": true,
+  "environment_change": "SDK installer created a fresh Python venv; seven cryptography Cargo manifests appeared in config inventory",
+  "followup": "same unchanged source rechecked after bootstrap; all five stages and boundary pass in run.ZAtxchL1"
+}

@@ -1,0 +1,30 @@
+{
+  "five_second_wav": {
+    "frames": 240000,
+    "rms_dbfs": [
+      -26.397916518259077,
+      -26.409716247378366
+    ],
+    "peak_dbfs": [
+      -13.9389909728207,
+      -14.053733519253752
+    ],
+    "correlation": 0.9600843586264205,
+    "mono_rms_dbfs": -26.491366664532503,
+    "zero_low_byte_fraction": [
+      0.0038666666666666667,
+      0.0038375
+    ],
+    "clipped_samples": 0
+  },
+  "paired_streams": {
+    "wav_frames": 56880,
+    "flac_frames": 384000,
+    "overlap_frames": 56880,
+    "overlap_seconds": 1.185,
+    "offset_frames": 416,
+    "unequal_samples": 0,
+    "caveat": "WAV ended early after1.185seconds; comparison uses captured overlap only",
+    "comparison": "Signed24-bit WAV arithmetic>>8 versus independently decoded signed16-bit FLAC"
+  }
+}

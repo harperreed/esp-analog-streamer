@@ -1,0 +1,184 @@
+{
+  "schema_version": 1,
+  "generator": "explicit-environment-v1",
+  "seed": 17,
+  "raw_capacity": 96000,
+  "encoded_capacity": 141,
+  "expected": [
+    "audio",
+    "zero_slots"
+  ],
+  "events": [
+    {
+      "at": 0,
+      "id": 0,
+      "op": "pump",
+      "turns": 1
+    },
+    {
+      "at": 20000,
+      "id": 1,
+      "op": "admit",
+      "actor": 0
+    },
+    {
+      "at": 40000,
+      "id": 2,
+      "op": "listen",
+      "actor": 0,
+      "turns": 3
+    },
+    {
+      "at": 60000,
+      "id": 3,
+      "op": "write",
+      "actor": 0,
+      "result": "send",
+      "size": 100000
+    },
+    {
+      "at": 80000,
+      "op": "admit",
+      "actor": 1,
+      "id": 4
+    },
+    {
+      "at": 100000,
+      "op": "listen",
+      "actor": 1,
+      "turns": 3,
+      "id": 5
+    },
+    {
+      "at": 120000,
+      "op": "write",
+      "actor": 1,
+      "result": "send",
+      "size": 100000,
+      "id": 6
+    },
+    {
+      "at": 140000,
+      "id": 7,
+      "op": "publish",
+      "frames": 4320
+    },
+    {
+      "at": 160000,
+      "id": 8,
+      "op": "pump",
+      "turns": 30
+    },
+    {
+      "at": 180000,
+      "id": 9,
+      "op": "listen",
+      "actor": 0,
+      "turns": 3
+    },
+    {
+      "at": 200000,
+      "id": 10,
+      "op": "write",
+      "actor": 0,
+      "result": "send",
+      "size": 100000
+    },
+    {
+      "at": 220000,
+      "id": 11,
+      "op": "publish",
+      "frames": 4320
+    },
+    {
+      "at": 240000,
+      "id": 12,
+      "op": "pump",
+      "turns": 30
+    },
+    {
+      "at": 260000,
+      "id": 13,
+      "op": "listen",
+      "actor": 0,
+      "turns": 3
+    },
+    {
+      "at": 280000,
+      "id": 14,
+      "op": "write",
+      "actor": 0,
+      "result": "send",
+      "size": 100000
+    },
+    {
+      "at": 300000,
+      "id": 15,
+      "op": "close",
+      "actor": 0,
+      "fail": false
+    },
+    {
+      "at": 3120000,
+      "op": "listen",
+      "actor": 1,
+      "turns": 3,
+      "id": 16
+    },
+    {
+      "at": 3140000,
+      "op": "write",
+      "actor": 1,
+      "result": "send",
+      "size": 100000,
+      "id": 17
+    },
+    {
+      "at": 3160000,
+      "op": "close",
+      "actor": 1,
+      "fail": false,
+      "id": 18
+    }
+  ],
+  "raw_block": 240,
+  "actors": {
+    "0": {
+      "ranges": [
+        [
+          0,
+          0,
+          4096
+        ],
+        [
+          0,
+          4096,
+          8192
+        ]
+      ],
+      "terminal": "fixture_end",
+      "pending_source": null,
+      "close_state": "closed",
+      "admission": [
+        0,
+        0
+      ]
+    },
+    "1": {
+      "ranges": [
+        [
+          0,
+          0,
+          4096
+        ]
+      ],
+      "terminal": "fixture_end",
+      "pending_source": null,
+      "close_state": "closed",
+      "admission": [
+        0,
+        0
+      ]
+    }
+  }
+}

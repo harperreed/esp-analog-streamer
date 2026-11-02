@@ -1,0 +1,2038 @@
+{
+ "schema": 1,
+ "kata": "cv5a",
+ "plan": "docs/superpowers/plans/2026-10-13-interruption-recovery.md",
+ "harness_commit": "84a0abc2a035ec58c4374e2a9da9c0d6319f9c01",
+ "harness_sha256": {
+  "scripts/network_fault.py": "6afaaf9f3ad5829885e8698a92a27a6d0f2c40fbba436c8acdac046748c44bfd",
+  "scripts/encoder_fault_check.py": "410e4c95f3880f208d52d9909cce3580c040654ddc5dc3717ca432b12bd8b961",
+  "scripts/network-fault-batch": "3c5ea613afeee59418c19b3df382e2c44f053796db2e323a42e01c5dadb623c5"
+ },
+ "board": "192.168.23.217",
+ "injection": {
+  "interface": "enp5s0",
+  "receiver_source": "192.168.23.153",
+  "egress": "prio bands 4 root, netem on 1:4, u32 dst 192.168.23.217/32",
+  "ingress": "ingress qdisc, u32 src 192.168.23.217/32 mirred redirect to ifb0, netem root on ifb0",
+  "stall": "loss 100% both directions",
+  "deficit": "netem rate on ifb0 only",
+  "privilege": "operator sudo -v in the launching tty; harness uses sudo -n and refuses to run as root"
+ },
+ "attempts": {
+  "oct14-interruption": {
+   "directory": "target/kata-hardening/oct14-interruption",
+   "started_utc": "2026-10-14T14:27:55.567602+00:00",
+   "elapsed_seconds": 176.931,
+   "original_passed": false,
+   "original_error": "TypeError: Driver.record() got multiple values for argument 'kind'",
+   "boot_token": "107a87e5ad163e9f97d030f69e7b213c",
+   "build_elf_sha256": "0ff2a7ccb677fb8045f6faa1d040b930f8adaaf38913946c1847e1f3eb14faf2",
+   "restore_verified": true,
+   "cleanup_errors": [],
+   "tolerances": {
+    "age_bound_us": 122471,
+    "largest_tolerance_bytes": {
+     "internal_largest": 0,
+     "psram_largest": 0
+    },
+    "source": [
+     "null-1",
+     "null-2"
+    ]
+   },
+   "environment": {
+    "route": "192.168.23.217 dev enp5s0 src 192.168.23.153 uid 1000 \n    cache \n",
+    "route_interface": "enp5s0",
+    "tc_version": "tc utility, iproute2-6.19.0, libbpf 1.6.3",
+    "kernel": "7.0.0-38-generic",
+    "qdisc_before": "qdisc mq 0: root \nqdisc fq_codel 0: parent :4 limit 10240p flows 1024 quantum 1514 target 5ms interval 100ms memory_limit 32Mb ecn drop_batch 64 \nqdisc fq_codel 0: parent :3 limit 10240p flows 1024 quantum 1514 target 5ms interval 100ms memory_limit 32Mb ecn drop_batch 64 \nqdisc fq_codel 0: parent :2 limit 10240p flows 1024 quantum 1514 target 5ms interval 100ms memory_limit 32Mb ecn drop_batch 64 \nqdisc fq_codel 0: parent :1 limit 10240p flows 1024 quantum 1514 target 5ms interval 100ms memory_limit 32Mb ecn drop_batch 64 \n"
+   },
+   "qdisc_installed": "qdisc prio 1: root refcnt 9 bands 4 priomap 1 2 2 2 1 2 0 0 1 1 1 1 1 1 1 1\nqdisc netem 10: parent 1:4 limit 1000 seed 7889104966736947434\nqdisc ingress ffff: parent ffff:fff1 ---------------- \n",
+   "original_trials": {
+    "null-1": {
+     "passed": true,
+     "reason": "exact frames, no departures, counters flat",
+     "harness_closes": 1,
+     "metrics_unavailable": 0,
+     "decoded_frames": [
+      2880000
+     ],
+     "expected_frames": 2880000,
+     "discontinuities": 0,
+     "product_departures": []
+    },
+    "null-2": {
+     "passed": true,
+     "reason": "exact frames, no departures, counters flat",
+     "harness_closes": 2,
+     "metrics_unavailable": 0,
+     "decoded_frames": [
+      2880000,
+      2880000
+     ],
+     "expected_frames": 2880000,
+     "discontinuities": 0,
+     "product_departures": []
+    }
+   },
+   "raw_artifacts": {
+    "events.jsonl": {
+     "sha256": "45677022d92e499e3cb0e4346021021f1d2755227d9a1174151964ad6cfdff9e",
+     "bytes": 45616
+    },
+    "null-1-listener-1.ffmpeg.log": {
+     "sha256": "48594299ba9803a6b4ff1d7affda5facd1b0255c099f94f23a483254321cfc42",
+     "bytes": 2885
+    },
+    "null-1-listener-1.framehash": {
+     "sha256": "658d1c027985e94cb2adcee92ef9a761768ac2b626366911651d39bcd5689347",
+     "bytes": 280239
+    },
+    "null-1-listener-1.progress": {
+     "sha256": "feb4963fe81e6a99f1aa0ed5a817f012b57b0bfd62aa92e12df614350db93b13",
+     "bytes": 9635
+    },
+    "null-2-listener-1.ffmpeg.log": {
+     "sha256": "7d2cbdb95332c2b836dde8474ef41b1700470c78b9e7189e15b47b24eaf2d613",
+     "bytes": 2885
+    },
+    "null-2-listener-1.framehash": {
+     "sha256": "c5fc68ae2483b273e296de3b3310a1b2921d037291363cb1e7b7ada4c7bbf365",
+     "bytes": 280239
+    },
+    "null-2-listener-1.progress": {
+     "sha256": "04787323734a19cc255ed651d5dfc7c6a5818bf5047f5a3b55bdbdfd83dca8fc",
+     "bytes": 9635
+    },
+    "null-2-listener-2.ffmpeg.log": {
+     "sha256": "720326c8e55a988337605f22a82611b1556f7692921f4883e9d5c882b4f4a353",
+     "bytes": 2885
+    },
+    "null-2-listener-2.framehash": {
+     "sha256": "c5fc68ae2483b273e296de3b3310a1b2921d037291363cb1e7b7ada4c7bbf365",
+     "bytes": 280239
+    },
+    "null-2-listener-2.progress": {
+     "sha256": "3a165789f5f42e7e4adf2d098ce5ebaffe4c148363d2f13794d5fab3216719b2",
+     "bytes": 9635
+    },
+    "result.json": {
+     "sha256": "8b401af6e5066e97bf779ea45c68c2e229fa87516f1ea06f17fd620dfbd10564",
+     "bytes": 10778
+    },
+    "serial.log": {
+     "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+     "bytes": 0
+    },
+    "stall-0.5-1-listener-1.ffmpeg.log": {
+     "sha256": "0f0fd036d0fb418d6bae3de0c1e4d83b7458edc5aa6ffeebe8522b9efb0b99c8",
+     "bytes": 2646
+    },
+    "stall-0.5-1-listener-1.framehash": {
+     "sha256": "839da838d1fe911a478fd1773b8daa8859bfa76534a7adb48bf85255572f9aca",
+     "bytes": 92303
+    },
+    "stall-0.5-1-listener-1.progress": {
+     "sha256": "34d5ec0ccc10c193bb5e9d0f34397e783d3717c40e1ceb3f619bff99a7b59c9c",
+     "bytes": 2918
+    },
+    "uart.log": {
+     "sha256": "f26fc8a416aa02424787d712c667f9552d4aed8ccbf897c34166fe28d4fc808a",
+     "bytes": 91236
+    }
+   }
+  },
+  "oct14-interruption-2": {
+   "directory": "target/kata-hardening/oct14-interruption-2",
+   "started_utc": "2026-10-14T15:06:37.174526+00:00",
+   "elapsed_seconds": 0.009,
+   "original_passed": false,
+   "original_error": "Failure: true failed (1): sudo: interactive authentication is required",
+   "boot_token": null,
+   "build_elf_sha256": null,
+   "restore_verified": null,
+   "cleanup_errors": [
+    "restore-check: no pre-run qdisc listing"
+   ],
+   "tolerances": null,
+   "environment": null,
+   "qdisc_installed": null,
+   "original_trials": {},
+   "raw_artifacts": {
+    "events.jsonl": {
+     "sha256": "4b6c31d2e8f4657e2b217f7ab3ce44dd6197fd7e3076fafec1d2f7442c0c5035",
+     "bytes": 302
+    },
+    "result.json": {
+     "sha256": "7a7af89151329ee7b6863b16e27e4945001154b82795985fb6204acb1bb9d84a",
+     "bytes": 1487
+    }
+   }
+  },
+  "oct14-interruption-3": {
+   "directory": "target/kata-hardening/oct14-interruption-3",
+   "started_utc": "2026-10-14T15:09:06.316394+00:00",
+   "elapsed_seconds": 674.537,
+   "original_passed": false,
+   "original_error": null,
+   "boot_token": "10b4dd7f2db4744e7d1ed8f4143334c2",
+   "build_elf_sha256": "0ff2a7ccb677fb8045f6faa1d040b930f8adaaf38913946c1847e1f3eb14faf2",
+   "restore_verified": true,
+   "cleanup_errors": [],
+   "tolerances": {
+    "age_bound_us": 2126239,
+    "largest_tolerance_bytes": {
+     "internal_largest": 0,
+     "psram_largest": 0
+    },
+    "source": [
+     "null-1",
+     "null-2"
+    ]
+   },
+   "environment": {
+    "route": "192.168.23.217 dev enp5s0 src 192.168.23.153 uid 1000 \n    cache \n",
+    "route_interface": "enp5s0",
+    "tc_version": "tc utility, iproute2-6.19.0, libbpf 1.6.3",
+    "kernel": "7.0.0-38-generic",
+    "qdisc_before": "qdisc mq 0: root \nqdisc fq_codel 0: parent :4 limit 10240p flows 1024 quantum 1514 target 5ms interval 100ms memory_limit 32Mb ecn drop_batch 64 \nqdisc fq_codel 0: parent :3 limit 10240p flows 1024 quantum 1514 target 5ms interval 100ms memory_limit 32Mb ecn drop_batch 64 \nqdisc fq_codel 0: parent :2 limit 10240p flows 1024 quantum 1514 target 5ms interval 100ms memory_limit 32Mb ecn drop_batch 64 \nqdisc fq_codel 0: parent :1 limit 10240p flows 1024 quantum 1514 target 5ms interval 100ms memory_limit 32Mb ecn drop_batch 64 \n"
+   },
+   "qdisc_installed": "qdisc prio 1: root refcnt 9 bands 4 priomap 1 2 2 2 1 2 0 0 1 1 1 1 1 1 1 1\nqdisc netem 10: parent 1:4 limit 1000 seed 15351112019562934562\nqdisc ingress ffff: parent ffff:fff1 ---------------- \n",
+   "original_trials": {
+    "null-1": {
+     "passed": true,
+     "reason": "exact frames, no departures, counters flat",
+     "harness_closes": 1,
+     "metrics_unavailable": 8,
+     "decoded_frames": [
+      2880000
+     ],
+     "expected_frames": 2880000,
+     "discontinuities": 0,
+     "product_departures": []
+    },
+    "null-2": {
+     "passed": true,
+     "reason": "exact frames, no departures, counters flat",
+     "harness_closes": 2,
+     "metrics_unavailable": 7,
+     "decoded_frames": [
+      2880000,
+      2880000
+     ],
+     "expected_frames": 2880000,
+     "discontinuities": 0,
+     "product_departures": []
+    },
+    "stall-0.5-1": {
+     "passed": false,
+     "reason": "media age did not return under the null bound",
+     "stall_actual_s": 0.549,
+     "harness_closes": 1,
+     "metrics_unavailable": 8,
+     "decoded_frames": [
+      1944000
+     ],
+     "expected_frames": 1944000,
+     "discontinuities": 0,
+     "product_departures": []
+    },
+    "stall-0.5-2": {
+     "passed": false,
+     "reason": "media age did not return under the null bound",
+     "stall_actual_s": 0.59,
+     "harness_closes": 2,
+     "metrics_unavailable": 7,
+     "decoded_frames": [
+      1944000,
+      1944000
+     ],
+     "expected_frames": 1944000,
+     "discontinuities": 0,
+     "product_departures": []
+    },
+    "stall-1-1": {
+     "passed": false,
+     "reason": "media age did not return under the null bound",
+     "stall_actual_s": 1.052,
+     "harness_closes": 1,
+     "metrics_unavailable": 5,
+     "decoded_frames": [
+      1968000
+     ],
+     "expected_frames": 1968000,
+     "discontinuities": 0,
+     "product_departures": []
+    },
+    "stall-1-2": {
+     "passed": false,
+     "reason": "media age did not return under the null bound",
+     "stall_actual_s": 1.052,
+     "harness_closes": 2,
+     "metrics_unavailable": 9,
+     "decoded_frames": [
+      1968000,
+      1968000
+     ],
+     "expected_frames": 1968000,
+     "discontinuities": 0,
+     "product_departures": []
+    },
+    "stall-2.5-1": {
+     "passed": false,
+     "reason": "no fresh admission within 10 s of workstation-peer close",
+     "stall_actual_s": 2.548,
+     "harness_closes": 1,
+     "metrics_unavailable": 6,
+     "decoded_frames": [
+      1001088
+     ],
+     "expected_frames": 2040000,
+     "discontinuities": 0,
+     "product_departures": [
+      "media age exceeded"
+     ]
+    },
+    "stall-2.5-2": {
+     "passed": true,
+     "reason": "2 MediaAge departure(s) with checked close and fresh admission",
+     "stall_actual_s": 2.557,
+     "harness_closes": 2,
+     "metrics_unavailable": 7,
+     "departed": 2,
+     "decoded_frames": [
+      930816,
+      928512
+     ],
+     "expected_frames": 2040000,
+     "discontinuities": 0,
+     "product_departures": [
+      "media age exceeded",
+      "media age exceeded"
+     ]
+    },
+    "stall-4-1": {
+     "passed": false,
+     "reason": "media age did not return under the null bound",
+     "stall_actual_s": 4.048,
+     "harness_closes": 1,
+     "metrics_unavailable": 7,
+     "decoded_frames": [
+      2112000
+     ],
+     "expected_frames": 2112000,
+     "discontinuities": 0,
+     "product_departures": []
+    },
+    "stall-4-2": {
+     "passed": false,
+     "reason": "media age did not return under the null bound",
+     "stall_actual_s": 4.111,
+     "harness_closes": 1,
+     "metrics_unavailable": 4,
+     "decoded_frames": [
+      881280,
+      2112000
+     ],
+     "expected_frames": 2112000,
+     "discontinuities": 0,
+     "product_departures": [
+      "media age exceeded"
+     ]
+    },
+    "deficit-0.8-1": {
+     "passed": true,
+     "reason": "MediaAge departure near prediction, fresh admission, largest-free returned",
+     "observed_end_s": 10.023462540993933,
+     "predicted_end_s": 20.000000000000004,
+     "end_tolerance_s": 11.643195000000002,
+     "harness_closes": 1,
+     "metrics_unavailable": 7,
+     "decoded_frames": [
+      1203840
+     ],
+     "expected_frames": 2880000,
+     "discontinuities": 0,
+     "product_departures": [
+      "media age exceeded"
+     ]
+    },
+    "deficit-0.5-1": {
+     "passed": false,
+     "reason": "no fresh admission within 10 s of the close",
+     "observed_end_s": 9.019894120981917,
+     "predicted_end_s": 8.0,
+     "end_tolerance_s": 5.263478,
+     "harness_closes": 1,
+     "metrics_unavailable": 13,
+     "decoded_frames": [
+      1165824
+     ],
+     "expected_frames": 2880000,
+     "discontinuities": 0,
+     "product_departures": [
+      "media age exceeded"
+     ]
+    },
+    "delayed-reader-1": {
+     "passed": false,
+     "reason": "departure workstation-peer ended 'stopped reading', not media_age",
+     "harness_closes": 1,
+     "metrics_unavailable": 2,
+     "wav_end_category": "frame_timeout",
+     "decoded_frames": [
+      1920000
+     ],
+     "expected_frames": 1920000,
+     "discontinuities": 0,
+     "product_departures": [
+      "stopped reading"
+     ]
+    }
+   },
+   "raw_artifacts": {
+    "deficit-0.5-1-fresh-1.ffmpeg.log": {
+     "sha256": "7f8baadd7d3cd5888d0c55673bf6c6a51f8e62d1d74298f266d83aadfc81e5c7",
+     "bytes": 2891
+    },
+    "deficit-0.5-1-fresh-1.framehash": {
+     "sha256": "bd88f15f8aa479d8e763c108a250f6ca1e50f0da89c7018f5bb4f4eec0770380",
+     "bytes": 46943
+    },
+    "deficit-0.5-1-fresh-1.progress": {
+     "sha256": "0a4e2c99f9a61881a15b6e3890ef9829d26a8d69e7acd08006e969def0dd6778",
+     "bytes": 1770
+    },
+    "deficit-0.5-1-listener-1.ffmpeg.log": {
+     "sha256": "3fe7141d5650444c0e2924d44801e0e6b8119bf68edacaf8868a87c1cc36e9cd",
+     "bytes": 3342
+    },
+    "deficit-0.5-1-listener-1.framehash": {
+     "sha256": "43c9f2a1df140ac3030aa10438c7e419db549a3072f733b93acaf806ded4bbc2",
+     "bytes": 113583
+    },
+    "deficit-0.5-1-listener-1.progress": {
+     "sha256": "7367694e94d014bb5d73511cf1db64409cf7210fe1adf059767cf16bdf8dd619",
+     "bytes": 4721
+    },
+    "deficit-0.8-1-fresh-1.ffmpeg.log": {
+     "sha256": "92b5b7125263854bbb331dd617f5c373a3ded24ea5e0551b90d6bc22655af89c",
+     "bytes": 2890
+    },
+    "deficit-0.8-1-fresh-1.framehash": {
+     "sha256": "4bcadb52c024d20d60e773d01e49762424d3232167093bea40fa1143d71facab",
+     "bytes": 46943
+    },
+    "deficit-0.8-1-fresh-1.progress": {
+     "sha256": "262136b72db59f36b6ffe80a00e2f7bd4f36f9b32c983330fe29cfc2c8a35ef0",
+     "bytes": 1445
+    },
+    "deficit-0.8-1-listener-1.ffmpeg.log": {
+     "sha256": "affceb03e531e3a0b2f60fd20d0a706f4e062388c661bc0ac8eea1606b01ec80",
+     "bytes": 3344
+    },
+    "deficit-0.8-1-listener-1.framehash": {
+     "sha256": "1c19727ee92574879ca994947d28a5f1fa8a2f73d64a57cd19afe80cf869ca24",
+     "bytes": 117279
+    },
+    "deficit-0.8-1-listener-1.progress": {
+     "sha256": "6af12059f87a7e7dfb2659a11830c8417ed144ba5d666cc92eeb0f2d5df41977",
+     "bytes": 4719
+    },
+    "delayed-reader-1-listener-1.ffmpeg.log": {
+     "sha256": "bcc305e2afe1210a053af5cc9ff7cb41a4aaeb5071d51f6a58e817cc8fe24275",
+     "bytes": 2897
+    },
+    "delayed-reader-1-listener-1.framehash": {
+     "sha256": "50bf7a12469adc6edf5ec43086243a8f940675c61c31281d4ace7253241ab8c7",
+     "bytes": 186943
+    },
+    "delayed-reader-1-listener-1.progress": {
+     "sha256": "9e010583f9c4f5e0ca97a928fedca560f807afd1971f3c471eaf8f152dbab4b6",
+     "bytes": 6519
+    },
+    "events.jsonl": {
+     "sha256": "f4aba960bf41030153df5b4d8488013cdac2d310f27723a32195d0b93a0a5ee0",
+     "bytes": 183093
+    },
+    "null-1-listener-1.ffmpeg.log": {
+     "sha256": "1a2fa5cb1676f30011a23251a1016a57193e3431b9a3aefa373a1c028a45f19a",
+     "bytes": 2887
+    },
+    "null-1-listener-1.framehash": {
+     "sha256": "5cb9c4c2994056750d75767a051aee35200aead48a5e343453e05d2d5ae23979",
+     "bytes": 280239
+    },
+    "null-1-listener-1.progress": {
+     "sha256": "6b831ac6e6a37bffe93fadf5b15d7ef15a3ee3d5571c4fa2df0d9fcccddf945c",
+     "bytes": 9635
+    },
+    "null-2-listener-1.ffmpeg.log": {
+     "sha256": "628397c980b17ffd3296b6643d5fb82b48215c53325acc09469831e0c41355c8",
+     "bytes": 2887
+    },
+    "null-2-listener-1.framehash": {
+     "sha256": "e8cd8836c6478b5c3b581425de10edfb9a412268d968efa161897eb346061cdf",
+     "bytes": 280239
+    },
+    "null-2-listener-1.progress": {
+     "sha256": "0e1474a53b0b5aede24d9a9d637cb9c1473bd4c8bf3b625d556051f7b14187ac",
+     "bytes": 9638
+    },
+    "null-2-listener-2.ffmpeg.log": {
+     "sha256": "ce2f875ca04c4b141e6fa6d61d747290b28dfc609ee60f531163016c15f1f423",
+     "bytes": 2887
+    },
+    "null-2-listener-2.framehash": {
+     "sha256": "e8cd8836c6478b5c3b581425de10edfb9a412268d968efa161897eb346061cdf",
+     "bytes": 280239
+    },
+    "null-2-listener-2.progress": {
+     "sha256": "8939b180d5a89c06ad00a46e85ce9009f6bc8b377d5ff9e944199cbeaa13ac28",
+     "bytes": 9639
+    },
+    "result.json": {
+     "sha256": "ca5bd8c5533c0d52e7069f651c23c1b87306a4aad787ae8ed19dbeef0ae5fee6",
+     "bytes": 70829
+    },
+    "reverdict.json": {
+     "sha256": "dd4b50b95b0306450bbb862fed6c532bc64569ee1c42b411acc1c19af0db9478",
+     "bytes": 6201
+    },
+    "serial.log": {
+     "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+     "bytes": 0
+    },
+    "stall-0.5-1-listener-1.ffmpeg.log": {
+     "sha256": "5c2ca1b5ca048f24601181c4c9f81b824adb6c67706a182835ceeada09da2388",
+     "bytes": 2892
+    },
+    "stall-0.5-1-listener-1.framehash": {
+     "sha256": "30f62e5b43886132dd32d3889c90855d3778e53091ee6d0a6e480b068a0d4d29",
+     "bytes": 189295
+    },
+    "stall-0.5-1-listener-1.progress": {
+     "sha256": "e716528ea56be623202714202b6fcbffb4e9b30bd22443703b402541f6d006c6",
+     "bytes": 6524
+    },
+    "stall-0.5-2-listener-1.ffmpeg.log": {
+     "sha256": "e9d3d0c2086ff4a7645714b698f1e739679aa51d7b29570eaeb43251446ee663",
+     "bytes": 2892
+    },
+    "stall-0.5-2-listener-1.framehash": {
+     "sha256": "ebc984e6c657b95752568ebd98fb450a61a4624c5b2e4b0d3d16e1991556e342",
+     "bytes": 189295
+    },
+    "stall-0.5-2-listener-1.progress": {
+     "sha256": "26a6622c8ea3f90516798513895ec788a536f4de220deed83e0d46f1a3df1be7",
+     "bytes": 6518
+    },
+    "stall-0.5-2-listener-2.ffmpeg.log": {
+     "sha256": "5bec0829565c2cac5208921a89d4053ecb7537755c959399b7e1cbe8edf0e3bf",
+     "bytes": 2892
+    },
+    "stall-0.5-2-listener-2.framehash": {
+     "sha256": "ebc984e6c657b95752568ebd98fb450a61a4624c5b2e4b0d3d16e1991556e342",
+     "bytes": 189295
+    },
+    "stall-0.5-2-listener-2.progress": {
+     "sha256": "b0bd9d84b820158f12a11d4acb938768dd0e6289a39b7adc07e6e5a1bc447adb",
+     "bytes": 6522
+    },
+    "stall-1-1-listener-1.ffmpeg.log": {
+     "sha256": "feb8e1633360ff13841afebc7ac8dce1ac4a0aac8cceca9312152579f2fa9b5b",
+     "bytes": 2890
+    },
+    "stall-1-1-listener-1.framehash": {
+     "sha256": "630a3156a5ec55d67a6c288b190543e7640056b2c445dce55cb433c095350ffb",
+     "bytes": 191647
+    },
+    "stall-1-1-listener-1.progress": {
+     "sha256": "dd4cbd4fd27dc6c6fbeef2fd0884f7bca29481b7bf2ce8663473bd35db65b897",
+     "bytes": 6519
+    },
+    "stall-1-2-listener-1.ffmpeg.log": {
+     "sha256": "1fcc58724bb86865159b261294705ff33db5ee38d2429b85c8716c24d60f88da",
+     "bytes": 2890
+    },
+    "stall-1-2-listener-1.framehash": {
+     "sha256": "c398fce2d006b01330a3a7df57ac25e3dc61f9e515ddb64aaeb40b98407eb509",
+     "bytes": 191647
+    },
+    "stall-1-2-listener-1.progress": {
+     "sha256": "8551cb8730787666b84d557127d4f48cca7d392189b3402d31a4f3ddcb05cdb1",
+     "bytes": 6523
+    },
+    "stall-1-2-listener-2.ffmpeg.log": {
+     "sha256": "c15abe9b31cd3922e834fb47f9fceceea7efb42316a20f1a87cef13eeb78ce31",
+     "bytes": 2890
+    },
+    "stall-1-2-listener-2.framehash": {
+     "sha256": "c398fce2d006b01330a3a7df57ac25e3dc61f9e515ddb64aaeb40b98407eb509",
+     "bytes": 191647
+    },
+    "stall-1-2-listener-2.progress": {
+     "sha256": "e71827be47fd2a80a4a28fcf0dfcbb98470747eec6a58e2aa4ceb08124cd408b",
+     "bytes": 6523
+    },
+    "stall-2.5-1-fresh-1.ffmpeg.log": {
+     "sha256": "e4def00f16018d3706669e2edbe1063b92cca409c771a65183bc96c775a3d3e1",
+     "bytes": 2888
+    },
+    "stall-2.5-1-fresh-1.framehash": {
+     "sha256": "405eef86f0a443750525ab1ed71ecec56f975315092ec7e8d26169a21271ff28",
+     "bytes": 46943
+    },
+    "stall-2.5-1-fresh-1.progress": {
+     "sha256": "bcd8383824004e990adf6d8cdc379743747cb5422a98cb676b992338fddbdf9e",
+     "bytes": 1445
+    },
+    "stall-2.5-1-listener-1.ffmpeg.log": {
+     "sha256": "c6a47b6bfd13ddc84fdb3d3f552a72b3d406756f512961e926103637b7cd2a5c",
+     "bytes": 3280
+    },
+    "stall-2.5-1-listener-1.framehash": {
+     "sha256": "439e3ee5dde9f30104bc385b6b968af0b5db778563f9eb6b5994de8868dd9c44",
+     "bytes": 97567
+    },
+    "stall-2.5-1-listener-1.progress": {
+     "sha256": "39b4d57e717dfff060b361ec550b4a341b31920ca2f3c7565f8e059f1a8865d4",
+     "bytes": 4058
+    },
+    "stall-2.5-2-fresh-1.ffmpeg.log": {
+     "sha256": "5acbb9879b5c107652b213df2cf78caa4200fde8861cb8eb066486422d5bd9b0",
+     "bytes": 2888
+    },
+    "stall-2.5-2-fresh-1.framehash": {
+     "sha256": "51e8b695003b85be39a5df917cfc32fc9f07572b22852b586f9f7913316e01ed",
+     "bytes": 46943
+    },
+    "stall-2.5-2-fresh-1.progress": {
+     "sha256": "1c57a24fed952d1bed2642d633e007e2c88387b32306e26c639b351ab1c1b3fd",
+     "bytes": 1607
+    },
+    "stall-2.5-2-fresh-2.ffmpeg.log": {
+     "sha256": "42f81d7ed05a09a2469da21f54eb9475273e3442458294b935c7114cceb2b67b",
+     "bytes": 2888
+    },
+    "stall-2.5-2-fresh-2.framehash": {
+     "sha256": "51e8b695003b85be39a5df917cfc32fc9f07572b22852b586f9f7913316e01ed",
+     "bytes": 46943
+    },
+    "stall-2.5-2-fresh-2.progress": {
+     "sha256": "86cc7a35bb762f0e510c6b4896aa4f19883932c936b670c6d5de18fd6d239da0",
+     "bytes": 1607
+    },
+    "stall-2.5-2-listener-1.ffmpeg.log": {
+     "sha256": "8fc0365661504f190c8abfb69230377054c1a1b8fe690603e80ab8301801382e",
+     "bytes": 3281
+    },
+    "stall-2.5-2-listener-1.framehash": {
+     "sha256": "7da1ef8f05a9e95df2cdca0ca6ff382a3e0fae8c5fd222b8c66e5b9fbbac282d",
+     "bytes": 90735
+    },
+    "stall-2.5-2-listener-1.progress": {
+     "sha256": "69ab6d8e8143b5afb6700c1a29561fb693a73579e213f6ab475c828907c66471",
+     "bytes": 3407
+    },
+    "stall-2.5-2-listener-2.ffmpeg.log": {
+     "sha256": "61e91cd2765e195dbe371a3eb72ec8b558bb008e76810ceca21820e4f79ec635",
+     "bytes": 3281
+    },
+    "stall-2.5-2-listener-2.framehash": {
+     "sha256": "25be1501f0a17a05c80b013b6157cd33a1615ae65ffeb33ebc282e9aea578197",
+     "bytes": 90511
+    },
+    "stall-2.5-2-listener-2.progress": {
+     "sha256": "84559ecd85bf4233a9493890569b858ee1f00df0ebdfc8858d6a0d02d0a221df",
+     "bytes": 3569
+    },
+    "stall-4-1-listener-1.ffmpeg.log": {
+     "sha256": "a0ccceba39fe361c200789fcc86095365616a6d63bb9f110c950141a4770de1d",
+     "bytes": 2890
+    },
+    "stall-4-1-listener-1.framehash": {
+     "sha256": "d44bc5e0307dcaf2cf8bf6d06b4ba1a4b7ad58253143c2d1d3bfc7997a4f1797",
+     "bytes": 205647
+    },
+    "stall-4-1-listener-1.progress": {
+     "sha256": "47bde62729bf3135aa197647b9e0c8e8cc9be3580ce2f90479d40614d5fe8117",
+     "bytes": 7013
+    },
+    "stall-4-2-fresh-1.ffmpeg.log": {
+     "sha256": "03f04e05e4ad4d2d64bbf89886c6bba075493af24db1da1e7a374ef49453c884",
+     "bytes": 2286
+    },
+    "stall-4-2-fresh-1.progress": {
+     "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+     "bytes": 0
+    },
+    "stall-4-2-listener-1.ffmpeg.log": {
+     "sha256": "91602be0e4bb4590219f547e590e0e0acc9ed5869c01c1d49a6e24bc3043cf5a",
+     "bytes": 3203
+    },
+    "stall-4-2-listener-1.framehash": {
+     "sha256": "9687112ac3afc25dae317cf1f5cdd6d929e8ca6fe39ea5dfb83b29350bae386c",
+     "bytes": 85919
+    },
+    "stall-4-2-listener-1.progress": {
+     "sha256": "81e49101e97bd56e4caeaf9e420d825272a5a6f8cdf84c16b564f72230faa3e0",
+     "bytes": 4060
+    },
+    "stall-4-2-listener-2.ffmpeg.log": {
+     "sha256": "03553ae755df2c609c41fbc41bdacab1b153b0c94a47503ce434edd1b1c60949",
+     "bytes": 2890
+    },
+    "stall-4-2-listener-2.framehash": {
+     "sha256": "8062406ddc778ad9f174cf0ae001761aafde0e74a7a4e5b125de1157b98ae69d",
+     "bytes": 205647
+    },
+    "stall-4-2-listener-2.progress": {
+     "sha256": "1d570a261be24d892ff67ad242da4eb0e28bb2d3e5b5283dde36a09b2b40e78c",
+     "bytes": 7019
+    },
+    "uart.log": {
+     "sha256": "cbb05aca6e4488f10f6a3a27dd9f88f542c1999bcdf9dd92ff52e44b999c7b5e",
+     "bytes": 358363
+    }
+   },
+   "reverdict": {
+    "harness_commit": "84a0abc2a035ec58c4374e2a9da9c0d6319f9c01",
+    "harness_dirty": false,
+    "harness_sha256": {
+     "network_fault.py": "6afaaf9f3ad5829885e8698a92a27a6d0f2c40fbba436c8acdac046748c44bfd",
+     "encoder_fault_check.py": "410e4c95f3880f208d52d9909cce3580c040654ddc5dc3717ca432b12bd8b961"
+    },
+    "source_result_sha256": "ca5bd8c5533c0d52e7069f651c23c1b87306a4aad787ae8ed19dbeef0ae5fee6",
+    "tolerances": {
+     "age_bound_us": 2126239,
+     "largest_tolerance_bytes": {
+      "internal_largest": 0,
+      "psram_largest": 0
+     },
+     "source": [
+      "null-1",
+      "null-2"
+     ]
+    },
+    "trials": {
+     "null-1": {
+      "passed": true,
+      "reason": "exact frames, no departures, counters flat",
+      "harness_closes": 1
+     },
+     "null-2": {
+      "passed": true,
+      "reason": "exact frames, no departures, counters flat",
+      "harness_closes": 2
+     },
+     "stall-0.5-1": {
+      "passed": true,
+      "reason": "continuous",
+      "age_peak_after_removal_us": 2579144,
+      "age_last_active_us": 1469429,
+      "harness_closes": 1,
+      "departed": 0
+     },
+     "stall-0.5-2": {
+      "passed": true,
+      "reason": "continuous",
+      "age_peak_after_removal_us": 1847522,
+      "age_last_active_us": 55803,
+      "harness_closes": 2,
+      "departed": 0
+     },
+     "stall-1-1": {
+      "passed": true,
+      "reason": "continuous",
+      "age_peak_after_removal_us": 1129248,
+      "age_last_active_us": 53271,
+      "harness_closes": 1,
+      "departed": 0
+     },
+     "stall-1-2": {
+      "passed": true,
+      "reason": "continuous",
+      "age_peak_after_removal_us": 2876057,
+      "age_last_active_us": 52393,
+      "harness_closes": 2,
+      "departed": 0
+     },
+     "stall-2.5-1": {
+      "passed": true,
+      "reason": "1 MediaAge departure(s) with checked close and fresh admission",
+      "harness_closes": 1,
+      "departed": 1
+     },
+     "stall-2.5-2": {
+      "passed": true,
+      "reason": "2 MediaAge departure(s) with checked close and fresh admission",
+      "harness_closes": 2,
+      "departed": 2
+     },
+     "stall-4-1": {
+      "passed": true,
+      "reason": "continuous",
+      "age_peak_after_removal_us": 3269588,
+      "age_last_active_us": 44763,
+      "harness_closes": 1,
+      "departed": 0
+     },
+     "stall-4-2": {
+      "passed": false,
+      "reason": "no fresh join line within 10 s of workstation-peer departure (device_us 506161813)",
+      "age_peak_after_removal_us": 3724336,
+      "age_last_active_us": 47551,
+      "harness_closes": 1
+     },
+     "deficit-0.8-1": {
+      "passed": true,
+      "reason": "MediaAge departure near prediction, fresh admission, largest-free returned",
+      "observed_end_s": 10.023462540993933,
+      "predicted_end_s": 20.000000000000004,
+      "end_tolerance_s": 11.643195000000002,
+      "earliest_end_s": 1.8857609999999996,
+      "harness_closes": 1
+     },
+     "deficit-0.5-1": {
+      "passed": false,
+      "reason": "internal_largest 43008 is outside 47104 \u00b1 0",
+      "observed_end_s": 9.019894120981917,
+      "predicted_end_s": 8.0,
+      "end_tolerance_s": 5.263478,
+      "harness_closes": 1
+     },
+     "delayed-reader-1": {
+      "passed": true,
+      "reason": "MP3 continuous; WAV reader ended on its deadline (frame_timeout) with checked close",
+      "harness_closes": 1,
+      "wav_end_category": "frame_timeout"
+     }
+    }
+   }
+  },
+  "oct14-interruption-4": {
+   "directory": "target/kata-hardening/oct14-interruption-4",
+   "started_utc": "2026-10-14T15:20:46.812072+00:00",
+   "elapsed_seconds": 680.491,
+   "original_passed": false,
+   "original_error": null,
+   "boot_token": "1e858ec10a310f3540a36a73cf206e2c",
+   "build_elf_sha256": "0ff2a7ccb677fb8045f6faa1d040b930f8adaaf38913946c1847e1f3eb14faf2",
+   "restore_verified": true,
+   "cleanup_errors": [],
+   "tolerances": {
+    "age_bound_us": 142463,
+    "largest_tolerance_bytes": {
+     "internal_largest": 6144,
+     "psram_largest": 0
+    },
+    "source": [
+     "null-1",
+     "null-2"
+    ]
+   },
+   "environment": {
+    "route": "192.168.23.217 dev enp5s0 src 192.168.23.153 uid 1000 \n    cache \n",
+    "route_interface": "enp5s0",
+    "tc_version": "tc utility, iproute2-6.19.0, libbpf 1.6.3",
+    "kernel": "7.0.0-38-generic",
+    "qdisc_before": "qdisc mq 0: root \nqdisc fq_codel 0: parent :4 limit 10240p flows 1024 quantum 1514 target 5ms interval 100ms memory_limit 32Mb ecn drop_batch 64 \nqdisc fq_codel 0: parent :3 limit 10240p flows 1024 quantum 1514 target 5ms interval 100ms memory_limit 32Mb ecn drop_batch 64 \nqdisc fq_codel 0: parent :2 limit 10240p flows 1024 quantum 1514 target 5ms interval 100ms memory_limit 32Mb ecn drop_batch 64 \nqdisc fq_codel 0: parent :1 limit 10240p flows 1024 quantum 1514 target 5ms interval 100ms memory_limit 32Mb ecn drop_batch 64 \n"
+   },
+   "qdisc_installed": "qdisc prio 1: root refcnt 9 bands 4 priomap 1 2 2 2 1 2 0 0 1 1 1 1 1 1 1 1\nqdisc netem 10: parent 1:4 limit 1000 seed 13579574712751405365\nqdisc ingress ffff: parent ffff:fff1 ---------------- \n",
+   "original_trials": {
+    "null-1": {
+     "passed": true,
+     "reason": "exact frames, no departures, counters flat",
+     "harness_closes": 1,
+     "metrics_unavailable": 0,
+     "decoded_frames": [
+      2880000
+     ],
+     "expected_frames": 2880000,
+     "discontinuities": 0,
+     "product_departures": []
+    },
+    "null-2": {
+     "passed": true,
+     "reason": "exact frames, no departures, counters flat",
+     "harness_closes": 2,
+     "metrics_unavailable": 0,
+     "decoded_frames": [
+      2880000,
+      2880000
+     ],
+     "expected_frames": 2880000,
+     "discontinuities": 0,
+     "product_departures": []
+    },
+    "stall-0.5-1": {
+     "passed": false,
+     "reason": "media age did not return under the null bound",
+     "stall_actual_s": 0.549,
+     "harness_closes": 1,
+     "metrics_unavailable": 1,
+     "decoded_frames": [
+      1944000
+     ],
+     "expected_frames": 1944000,
+     "discontinuities": 0,
+     "product_departures": []
+    },
+    "stall-0.5-2": {
+     "passed": false,
+     "reason": "media age did not return under the null bound",
+     "stall_actual_s": 0.548,
+     "harness_closes": 2,
+     "metrics_unavailable": 1,
+     "decoded_frames": [
+      1944000,
+      1944000
+     ],
+     "expected_frames": 1944000,
+     "discontinuities": 0,
+     "product_departures": []
+    },
+    "stall-1-1": {
+     "passed": false,
+     "reason": "media age did not return under the null bound",
+     "stall_actual_s": 1.068,
+     "harness_closes": 1,
+     "metrics_unavailable": 2,
+     "decoded_frames": [
+      1968000
+     ],
+     "expected_frames": 1968000,
+     "discontinuities": 0,
+     "product_departures": []
+    },
+    "stall-1-2": {
+     "passed": false,
+     "reason": "media age did not return under the null bound",
+     "stall_actual_s": 1.048,
+     "harness_closes": 2,
+     "metrics_unavailable": 1,
+     "decoded_frames": [
+      1968000,
+      1968000
+     ],
+     "expected_frames": 1968000,
+     "discontinuities": 0,
+     "product_departures": []
+    },
+    "stall-2.5-1": {
+     "passed": false,
+     "reason": "media age did not return under the null bound",
+     "stall_actual_s": 2.549,
+     "harness_closes": 1,
+     "metrics_unavailable": 3,
+     "decoded_frames": [
+      2040000
+     ],
+     "expected_frames": 2040000,
+     "discontinuities": 0,
+     "product_departures": []
+    },
+    "stall-2.5-2": {
+     "passed": false,
+     "reason": "media age did not return under the null bound",
+     "stall_actual_s": 2.552,
+     "harness_closes": 2,
+     "metrics_unavailable": 3,
+     "decoded_frames": [
+      2040000,
+      2040000
+     ],
+     "expected_frames": 2040000,
+     "discontinuities": 0,
+     "product_departures": []
+    },
+    "stall-4-1": {
+     "passed": false,
+     "reason": "media age did not return under the null bound",
+     "stall_actual_s": 4.049,
+     "harness_closes": 1,
+     "metrics_unavailable": 4,
+     "decoded_frames": [
+      2112000
+     ],
+     "expected_frames": 2112000,
+     "discontinuities": 0,
+     "product_departures": []
+    },
+    "stall-4-2": {
+     "passed": false,
+     "reason": "media age did not return under the null bound",
+     "stall_actual_s": 4.05,
+     "harness_closes": 2,
+     "metrics_unavailable": 4,
+     "decoded_frames": [
+      2112000,
+      2112000
+     ],
+     "expected_frames": 2112000,
+     "discontinuities": 0,
+     "product_departures": []
+    },
+    "deficit-0.8-1": {
+     "passed": true,
+     "reason": "MediaAge departure near prediction, fresh admission, largest-free returned",
+     "observed_end_s": 18.54250019401661,
+     "predicted_end_s": 20.000000000000004,
+     "end_tolerance_s": 1.7293150000000002,
+     "harness_closes": 1,
+     "metrics_unavailable": 17,
+     "decoded_frames": [
+      1616256
+     ],
+     "expected_frames": 2880000,
+     "discontinuities": 0,
+     "product_departures": [
+      "media age exceeded"
+     ]
+    },
+    "deficit-0.5-1": {
+     "passed": false,
+     "reason": "no fresh admission within 10 s of the close",
+     "observed_end_s": 9.02545418299269,
+     "predicted_end_s": 8.0,
+     "end_tolerance_s": 1.2999260000000001,
+     "harness_closes": 1,
+     "metrics_unavailable": 9,
+     "decoded_frames": [
+      1172736
+     ],
+     "expected_frames": 2880000,
+     "discontinuities": 0,
+     "product_departures": [
+      "media age exceeded"
+     ]
+    },
+    "delayed-reader-1": {
+     "passed": false,
+     "reason": "departure workstation-peer ended 'stopped reading', not media_age",
+     "harness_closes": 1,
+     "metrics_unavailable": 0,
+     "wav_end_category": "frame_timeout",
+     "decoded_frames": [
+      1920000
+     ],
+     "expected_frames": 1920000,
+     "discontinuities": 0,
+     "product_departures": [
+      "stopped reading"
+     ]
+    }
+   },
+   "raw_artifacts": {
+    "deficit-0.5-1-fresh-1.ffmpeg.log": {
+     "sha256": "9a1381bcc1e7b411ea406c08d972921ee25e0d70f37425e6b39a9f82d027b53c",
+     "bytes": 2890
+    },
+    "deficit-0.5-1-fresh-1.framehash": {
+     "sha256": "db1b585881f48198cac3c01c1f5327dc74700df67cc55e475a0e4209ee811576",
+     "bytes": 46943
+    },
+    "deficit-0.5-1-fresh-1.progress": {
+     "sha256": "26490012a62d28e28e43813a88a0c2bb8db522c09a8e01f9cf1c828389c47a6c",
+     "bytes": 1446
+    },
+    "deficit-0.5-1-listener-1.ffmpeg.log": {
+     "sha256": "3aed50376ac3afd7e9527e24ed15aa84a9761cf3b1bf87327dd5008f6b5fc8f8",
+     "bytes": 3343
+    },
+    "deficit-0.5-1-listener-1.framehash": {
+     "sha256": "f87ef4a559dab509cc203f812783052056df9d559d19745951ba7201e4e749a1",
+     "bytes": 114255
+    },
+    "deficit-0.5-1-listener-1.progress": {
+     "sha256": "ea27560e0a34da2ce597a785b2a6489fca89171788b27a3b6394409ef048a727",
+     "bytes": 4721
+    },
+    "deficit-0.8-1-fresh-1.ffmpeg.log": {
+     "sha256": "211bff1010ef09f3a8a54ab868c6d610d9be1fbeadcac29de5e7f941075bea06",
+     "bytes": 2890
+    },
+    "deficit-0.8-1-fresh-1.framehash": {
+     "sha256": "c28b5c4f4e8f0e235c1fefbddff52eb5fc4e84271bdc4a4a0da5eed5d450a212",
+     "bytes": 46943
+    },
+    "deficit-0.8-1-fresh-1.progress": {
+     "sha256": "87413002014e77d8805cedb1157486b0185d035fa0c05c6984769db5eab67dc4",
+     "bytes": 1446
+    },
+    "deficit-0.8-1-listener-1.ffmpeg.log": {
+     "sha256": "048f2124ff10cf6ac4661ca78b95a9d8478b1e177b8515b9c023949dfd8f0dfd",
+     "bytes": 3345
+    },
+    "deficit-0.8-1-listener-1.framehash": {
+     "sha256": "04dec243e360a36def8f29cc962eaee40fcd6c36eb226a8d9dc114559d491cb1",
+     "bytes": 157375
+    },
+    "deficit-0.8-1-listener-1.progress": {
+     "sha256": "8d39ac5233b50756dc32557fdbad9246521c96977a17f75d224a53ef14170836",
+     "bytes": 6204
+    },
+    "delayed-reader-1-listener-1.ffmpeg.log": {
+     "sha256": "43807236b4fbb0f73b8c02dc6179f54fb22a09a81a1c00b945a6a645cca2530a",
+     "bytes": 2897
+    },
+    "delayed-reader-1-listener-1.framehash": {
+     "sha256": "86e0b406a42f3e4c06378ad676a9398337f8dc26a248134534a7cf378bac86b1",
+     "bytes": 186943
+    },
+    "delayed-reader-1-listener-1.progress": {
+     "sha256": "47fdab8f5da5aa55cbad90c2b336f59ecc60b03a0a30b46ad26d9221da4130b6",
+     "bytes": 6355
+    },
+    "events.jsonl": {
+     "sha256": "ed1eb1b2ae9294dc59f1e2fa5e48dfb3e2dcba519a95caed99cefcb685f62b47",
+     "bytes": 189874
+    },
+    "null-1-listener-1.ffmpeg.log": {
+     "sha256": "2a00cf09d030d85112448dde433733dd9f5628a31eda93cbc8f7ab75d7b8f502",
+     "bytes": 2887
+    },
+    "null-1-listener-1.framehash": {
+     "sha256": "bad975478f2b2c6e8f1c892fed81a982a871e3faffd0a2369397a4040d042dbb",
+     "bytes": 280239
+    },
+    "null-1-listener-1.progress": {
+     "sha256": "c3204aba545d03ea124fe05dfdb794de0bc0946ec5dee2a77c0e59ca9b50b297",
+     "bytes": 9635
+    },
+    "null-2-listener-1.ffmpeg.log": {
+     "sha256": "30da0fddcd93dc41c210fcfd5fc34362070c4d06a573e5a93394c94705b6459d",
+     "bytes": 2887
+    },
+    "null-2-listener-1.framehash": {
+     "sha256": "819031338aad4afa0cb0a70ab5cb94bc4bc760adc79e0f4a897c94ed8af9cace",
+     "bytes": 280239
+    },
+    "null-2-listener-1.progress": {
+     "sha256": "2e41afd400e0f1e904d548b29d957c3de5716865f8672a11ec963b75e6f8fb46",
+     "bytes": 9635
+    },
+    "null-2-listener-2.ffmpeg.log": {
+     "sha256": "3d5322df9560f61b1fc44cca42028f43dbfee150117298acb07bfc4a850ecddb",
+     "bytes": 2887
+    },
+    "null-2-listener-2.framehash": {
+     "sha256": "819031338aad4afa0cb0a70ab5cb94bc4bc760adc79e0f4a897c94ed8af9cace",
+     "bytes": 280239
+    },
+    "null-2-listener-2.progress": {
+     "sha256": "ab3c19dcd873f658232d3d10b0f2d736a111692c4a1d363fb0eca0edc2c69030",
+     "bytes": 9635
+    },
+    "result.json": {
+     "sha256": "f1b03fe3b03a62bec5a0236a82f3359744fe864985ffb19d10ed333719f732f0",
+     "bytes": 69865
+    },
+    "reverdict.json": {
+     "sha256": "f1dd9e1d63684dbba9a0fbf0963de61811e9f07b47bf1c15ce59a51a299df56f",
+     "bytes": 6134
+    },
+    "serial.log": {
+     "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+     "bytes": 0
+    },
+    "stall-0.5-1-listener-1.ffmpeg.log": {
+     "sha256": "0068d1046b24c5093086b0803b253f4d97bd1df858ae604f2150a5f9ed7ac6d9",
+     "bytes": 2892
+    },
+    "stall-0.5-1-listener-1.framehash": {
+     "sha256": "290aad772a780d0d6e524d05c92d6cec28cb26045cc806e09cfcaf91aa16521c",
+     "bytes": 189295
+    },
+    "stall-0.5-1-listener-1.progress": {
+     "sha256": "5f9fefbdc1bcbb42e417f2c110da461ed4512f25a64836ff875ec77c1f50ed33",
+     "bytes": 6519
+    },
+    "stall-0.5-2-listener-1.ffmpeg.log": {
+     "sha256": "85770d7439bc373fed4e71e8d3e13a6c26320cebb4b6179ba411e2badd50eeaa",
+     "bytes": 2892
+    },
+    "stall-0.5-2-listener-1.framehash": {
+     "sha256": "8b34220dc8d9b1a8b3774cba32863efb0025581aae2a70f235eee65462fb4cd5",
+     "bytes": 189295
+    },
+    "stall-0.5-2-listener-1.progress": {
+     "sha256": "764303218fbf03f3902ec31a8fde60c5570fedf1169e49a18d76df75ec58c228",
+     "bytes": 6520
+    },
+    "stall-0.5-2-listener-2.ffmpeg.log": {
+     "sha256": "d46e70e51e337f398dc3f5258890f2331c58bb6ffe56edd4fa7a8b2d1c170b31",
+     "bytes": 2892
+    },
+    "stall-0.5-2-listener-2.framehash": {
+     "sha256": "8b34220dc8d9b1a8b3774cba32863efb0025581aae2a70f235eee65462fb4cd5",
+     "bytes": 189295
+    },
+    "stall-0.5-2-listener-2.progress": {
+     "sha256": "031362981732c41578b9c9bdb64ca5085b549360de37f5d9c7656d19a478fc3f",
+     "bytes": 6520
+    },
+    "stall-1-1-listener-1.ffmpeg.log": {
+     "sha256": "849293f6ae68b746a82d145fca2a2d0c6be76656df80a85b2d7fc91499b19ce1",
+     "bytes": 2890
+    },
+    "stall-1-1-listener-1.framehash": {
+     "sha256": "1050829de379b5a4ee49a281fb6976f9e4512b76722f7c79cc1dd93b30687b32",
+     "bytes": 191647
+    },
+    "stall-1-1-listener-1.progress": {
+     "sha256": "6ff07628c57a8bc6b2449a2e106fa73ddc860df51e37093ede65f1a18d556919",
+     "bytes": 6519
+    },
+    "stall-1-2-listener-1.ffmpeg.log": {
+     "sha256": "4079b7d332bc8efafa9c2bd4c29ecb584b635d5b317ef29238025e3498b832fa",
+     "bytes": 2890
+    },
+    "stall-1-2-listener-1.framehash": {
+     "sha256": "36f17d6eebd689ce53baea62fea0491920fc8fa56fa30798baa682857cbc5272",
+     "bytes": 191647
+    },
+    "stall-1-2-listener-1.progress": {
+     "sha256": "e23a992ed54cde82619b2d80ddf95a59423fc3c9a47fd1b6c124edc45f97966e",
+     "bytes": 6520
+    },
+    "stall-1-2-listener-2.ffmpeg.log": {
+     "sha256": "da10e8670d48496f2edd08bb5a5aa6a7a4b8f93ec9758e2c94b60bad4c7af43c",
+     "bytes": 2890
+    },
+    "stall-1-2-listener-2.framehash": {
+     "sha256": "36f17d6eebd689ce53baea62fea0491920fc8fa56fa30798baa682857cbc5272",
+     "bytes": 191647
+    },
+    "stall-1-2-listener-2.progress": {
+     "sha256": "ab62325a8b77a0ec0286673b667fbe4f141f8c7dc117a01beb678ba7321bcdb5",
+     "bytes": 6520
+    },
+    "stall-2.5-1-listener-1.ffmpeg.log": {
+     "sha256": "84e6f97df60dc200746c3a580c61014e5fa158ec9158c42ff658a81d8979f301",
+     "bytes": 2892
+    },
+    "stall-2.5-1-listener-1.framehash": {
+     "sha256": "c40855c01aa619d4e3a17519871fdf1fbf7d4f874a36c83f68d021dac64011eb",
+     "bytes": 198591
+    },
+    "stall-2.5-1-listener-1.progress": {
+     "sha256": "5c9cfc00620d530bc364d81cd14d4027aeaa567c249625b2ddd84335cd31513a",
+     "bytes": 6849
+    },
+    "stall-2.5-2-listener-1.ffmpeg.log": {
+     "sha256": "8225dbb44f2376640808d2b657c2d19bbfdc2db95e8e99bd030ad12cedc85aec",
+     "bytes": 2892
+    },
+    "stall-2.5-2-listener-1.framehash": {
+     "sha256": "1715fb4a9219ef4284c45b93d57f8922681ebe121ebc9db6c10f8077515e6dc0",
+     "bytes": 198591
+    },
+    "stall-2.5-2-listener-1.progress": {
+     "sha256": "70cbdfe09978f509fe3a86a448ad826840cbc9a15d22d8d984d04e7eb4e11783",
+     "bytes": 6851
+    },
+    "stall-2.5-2-listener-2.ffmpeg.log": {
+     "sha256": "55d98cc93c72fa673303c66cb82f1d343c27b207b71a94def9a61db67c3e20b4",
+     "bytes": 2892
+    },
+    "stall-2.5-2-listener-2.framehash": {
+     "sha256": "b47787415a25bfee029b7df71c51d2c3acd77151423abf9a9306363bbcd7606c",
+     "bytes": 198591
+    },
+    "stall-2.5-2-listener-2.progress": {
+     "sha256": "6074c7fa6c2ea7a6704181a6a596f89e01a4086152b510d4b82d5ee5b719ebb6",
+     "bytes": 6852
+    },
+    "stall-4-1-listener-1.ffmpeg.log": {
+     "sha256": "e9d7e84683499b6c2b0a0af275540dfa403d30e87428384272e66a9b1f7b7f76",
+     "bytes": 2890
+    },
+    "stall-4-1-listener-1.framehash": {
+     "sha256": "8d4e2f36117481c87ec5efe532929de859b6bacd6c75b2b5a52fac443f017374",
+     "bytes": 205647
+    },
+    "stall-4-1-listener-1.progress": {
+     "sha256": "f78bcd4cf96cb79292daac0d7afa47652cb53594cf9466b490d1b6eecafe9480",
+     "bytes": 7012
+    },
+    "stall-4-2-listener-1.ffmpeg.log": {
+     "sha256": "cfb1dad73ced48f3e58b2c6b80afacac806a5112b8b1e229f7d66fc647372d4d",
+     "bytes": 2890
+    },
+    "stall-4-2-listener-1.framehash": {
+     "sha256": "c3adc004d43f34e6de1b3a7be893ce69a34d3208c2542f5786ab122fe2799705",
+     "bytes": 205647
+    },
+    "stall-4-2-listener-1.progress": {
+     "sha256": "0ffb41a4d25c65242b37b18a83b6800423de4939d8b6d6934a218b2c10b8bc0b",
+     "bytes": 7016
+    },
+    "stall-4-2-listener-2.ffmpeg.log": {
+     "sha256": "d1d0527623c7b52d57180d238a21eee550aa54a102f4cee20698ebbbf122f668",
+     "bytes": 2890
+    },
+    "stall-4-2-listener-2.framehash": {
+     "sha256": "c3adc004d43f34e6de1b3a7be893ce69a34d3208c2542f5786ab122fe2799705",
+     "bytes": 205647
+    },
+    "stall-4-2-listener-2.progress": {
+     "sha256": "c06df4c27e7ab5ac7b70b7ff4249be7ebff0d61d61450eb824ca7643812a2e21",
+     "bytes": 7014
+    },
+    "uart.log": {
+     "sha256": "e440c23b768551e0919304b83e4c1c65e59a8689d672c9ff9c9045f74669f6bf",
+     "bytes": 349209
+    }
+   },
+   "reverdict": {
+    "harness_commit": "84a0abc2a035ec58c4374e2a9da9c0d6319f9c01",
+    "harness_dirty": false,
+    "harness_sha256": {
+     "network_fault.py": "6afaaf9f3ad5829885e8698a92a27a6d0f2c40fbba436c8acdac046748c44bfd",
+     "encoder_fault_check.py": "410e4c95f3880f208d52d9909cce3580c040654ddc5dc3717ca432b12bd8b961"
+    },
+    "source_result_sha256": "f1b03fe3b03a62bec5a0236a82f3359744fe864985ffb19d10ed333719f732f0",
+    "tolerances": {
+     "age_bound_us": 142463,
+     "largest_tolerance_bytes": {
+      "internal_largest": 6144,
+      "psram_largest": 0
+     },
+     "source": [
+      "null-1",
+      "null-2"
+     ]
+    },
+    "trials": {
+     "null-1": {
+      "passed": true,
+      "reason": "exact frames, no departures, counters flat",
+      "harness_closes": 1
+     },
+     "null-2": {
+      "passed": true,
+      "reason": "exact frames, no departures, counters flat",
+      "harness_closes": 2
+     },
+     "stall-0.5-1": {
+      "passed": true,
+      "reason": "continuous",
+      "age_peak_after_removal_us": 434305,
+      "age_last_active_us": 55993,
+      "harness_closes": 1,
+      "departed": 0
+     },
+     "stall-0.5-2": {
+      "passed": true,
+      "reason": "continuous",
+      "age_peak_after_removal_us": 824390,
+      "age_last_active_us": 72431,
+      "harness_closes": 2,
+      "departed": 0
+     },
+     "stall-1-1": {
+      "passed": true,
+      "reason": "continuous",
+      "age_peak_after_removal_us": 86960,
+      "age_last_active_us": 51599,
+      "harness_closes": 1,
+      "departed": 0
+     },
+     "stall-1-2": {
+      "passed": true,
+      "reason": "continuous",
+      "age_peak_after_removal_us": 1068792,
+      "age_last_active_us": 50519,
+      "harness_closes": 2,
+      "departed": 0
+     },
+     "stall-2.5-1": {
+      "passed": true,
+      "reason": "continuous",
+      "age_peak_after_removal_us": 2769513,
+      "age_last_active_us": 53295,
+      "harness_closes": 1,
+      "departed": 0
+     },
+     "stall-2.5-2": {
+      "passed": true,
+      "reason": "continuous",
+      "age_peak_after_removal_us": 3167856,
+      "age_last_active_us": 54831,
+      "harness_closes": 2,
+      "departed": 0
+     },
+     "stall-4-1": {
+      "passed": true,
+      "reason": "continuous",
+      "age_peak_after_removal_us": 1550664,
+      "age_last_active_us": 56819,
+      "harness_closes": 1,
+      "departed": 0
+     },
+     "stall-4-2": {
+      "passed": true,
+      "reason": "continuous",
+      "age_peak_after_removal_us": 3159167,
+      "age_last_active_us": 77145,
+      "harness_closes": 2,
+      "departed": 0
+     },
+     "deficit-0.8-1": {
+      "passed": true,
+      "reason": "MediaAge departure near prediction, fresh admission, largest-free returned",
+      "observed_end_s": 18.54250019401661,
+      "predicted_end_s": 20.000000000000004,
+      "end_tolerance_s": 1.7293150000000002,
+      "earliest_end_s": 3.874537,
+      "harness_closes": 1
+     },
+     "deficit-0.5-1": {
+      "passed": true,
+      "reason": "MediaAge departure near prediction, fresh admission, largest-free returned",
+      "observed_end_s": 9.02545418299269,
+      "predicted_end_s": 8.0,
+      "end_tolerance_s": 1.2999260000000001,
+      "earliest_end_s": 3.8725369999999995,
+      "harness_closes": 1
+     },
+     "delayed-reader-1": {
+      "passed": true,
+      "reason": "MP3 continuous; WAV reader ended on its deadline (frame_timeout) with checked close",
+      "harness_closes": 1,
+      "wav_end_category": "frame_timeout"
+     }
+    }
+   }
+  },
+  "oct14-interruption-5": {
+   "directory": "target/kata-hardening/oct14-interruption-5",
+   "started_utc": "2026-10-14T16:09:27.097645+00:00",
+   "elapsed_seconds": 581.96,
+   "original_passed": false,
+   "original_error": null,
+   "boot_token": "586c4386dd0ebfb732bcc31f59dbcf1f",
+   "build_elf_sha256": "0ff2a7ccb677fb8045f6faa1d040b930f8adaaf38913946c1847e1f3eb14faf2",
+   "restore_verified": true,
+   "cleanup_errors": [],
+   "tolerances": null,
+   "environment": {
+    "route": "192.168.23.217 dev enp5s0 src 192.168.23.153 uid 1000 \n    cache \n",
+    "route_interface": "enp5s0",
+    "tc_version": "tc utility, iproute2-6.19.0, libbpf 1.6.3",
+    "kernel": "7.0.0-38-generic",
+    "qdisc_before": "qdisc mq 0: root \nqdisc fq_codel 0: parent :4 limit 10240p flows 1024 quantum 1514 target 5ms interval 100ms memory_limit 32Mb ecn drop_batch 64 \nqdisc fq_codel 0: parent :3 limit 10240p flows 1024 quantum 1514 target 5ms interval 100ms memory_limit 32Mb ecn drop_batch 64 \nqdisc fq_codel 0: parent :2 limit 10240p flows 1024 quantum 1514 target 5ms interval 100ms memory_limit 32Mb ecn drop_batch 64 \nqdisc fq_codel 0: parent :1 limit 10240p flows 1024 quantum 1514 target 5ms interval 100ms memory_limit 32Mb ecn drop_batch 64 \n"
+   },
+   "qdisc_installed": "qdisc prio 1: root refcnt 9 bands 4 priomap 1 2 2 2 1 2 0 0 1 1 1 1 1 1 1 1\nqdisc netem 10: parent 1:4 limit 1000 seed 13878134350059371771\nqdisc ingress ffff: parent ffff:fff1 ---------------- \n",
+   "original_trials": {
+    "null-1": {
+     "passed": false,
+     "reason": "decoder not continuous",
+     "harness_closes": 0,
+     "metrics_unavailable": 5,
+     "decoded_frames": [
+      1190016
+     ],
+     "expected_frames": 2880000,
+     "discontinuities": 0,
+     "product_departures": [
+      "media age exceeded"
+     ]
+    },
+    "null-2": {
+     "passed": false,
+     "reason": "decoder not continuous",
+     "harness_closes": 0,
+     "metrics_unavailable": 8,
+     "decoded_frames": [
+      817920,
+      812160
+     ],
+     "expected_frames": 2880000,
+     "discontinuities": 0,
+     "product_departures": [
+      "media age exceeded",
+      "media age exceeded"
+     ]
+    },
+    "stall-0.5-1": {
+     "passed": false,
+     "reason": "no media age bound; run null-* first",
+     "stall_actual_s": 0.589,
+     "harness_closes": 1,
+     "metrics_unavailable": 10,
+     "decoded_frames": [
+      1944000
+     ],
+     "expected_frames": 1944000,
+     "discontinuities": 0,
+     "product_departures": []
+    },
+    "stall-0.5-2": {
+     "passed": false,
+     "reason": "no media age bound; run null-* first",
+     "stall_actual_s": 0.57,
+     "harness_closes": 2,
+     "metrics_unavailable": 12,
+     "decoded_frames": [
+      983808,
+      998784
+     ],
+     "expected_frames": 1944000,
+     "discontinuities": 0,
+     "product_departures": [
+      "media age exceeded",
+      "media age exceeded"
+     ]
+    },
+    "stall-1-1": {
+     "passed": false,
+     "reason": "no media age bound; run null-* first",
+     "stall_actual_s": 1.052,
+     "harness_closes": 1,
+     "metrics_unavailable": 10,
+     "decoded_frames": [
+      1968000
+     ],
+     "expected_frames": 1968000,
+     "discontinuities": 0,
+     "product_departures": []
+    },
+    "stall-1-2": {
+     "passed": false,
+     "reason": "no media age bound; run null-* first",
+     "stall_actual_s": 1.068,
+     "harness_closes": 2,
+     "metrics_unavailable": 15,
+     "decoded_frames": [
+      681984,
+      1968000
+     ],
+     "expected_frames": 1968000,
+     "discontinuities": 0,
+     "product_departures": [
+      "media age exceeded"
+     ]
+    },
+    "stall-2.5-1": {
+     "passed": false,
+     "reason": "no media age bound; run null-* first",
+     "stall_actual_s": 2.592,
+     "harness_closes": 1,
+     "metrics_unavailable": 5,
+     "decoded_frames": [
+      2040000
+     ],
+     "expected_frames": 2040000,
+     "discontinuities": 0,
+     "product_departures": []
+    },
+    "stall-2.5-2": {
+     "passed": false,
+     "reason": "no media age bound; run null-* first",
+     "stall_actual_s": 2.551,
+     "harness_closes": 2,
+     "metrics_unavailable": 20,
+     "decoded_frames": [
+      980352,
+      972288
+     ],
+     "expected_frames": 2040000,
+     "discontinuities": 0,
+     "product_departures": [
+      "media age exceeded",
+      "media age exceeded"
+     ]
+    },
+    "stall-4-1": {
+     "passed": false,
+     "reason": "no media age bound; run null-* first",
+     "stall_actual_s": 4.117,
+     "harness_closes": 0,
+     "metrics_unavailable": 7,
+     "decoded_frames": [
+      877824
+     ],
+     "expected_frames": 2112000,
+     "discontinuities": 0,
+     "product_departures": [
+      "media age exceeded"
+     ]
+    },
+    "stall-4-2": {
+     "passed": false,
+     "reason": "no media age bound; run null-* first",
+     "stall_actual_s": 4.05,
+     "harness_closes": 0,
+     "metrics_unavailable": 9,
+     "decoded_frames": [
+      941184,
+      940032
+     ],
+     "expected_frames": 2112000,
+     "discontinuities": 0,
+     "product_departures": [
+      "media age exceeded",
+      "media age exceeded"
+     ]
+    },
+    "deficit-0.8-1": {
+     "passed": false,
+     "reason": "no largest-free tolerance; run null-* first",
+     "predicted_end_s": 20.000000000000004,
+     "harness_closes": 1,
+     "metrics_unavailable": 20,
+     "decoded_frames": [
+      1412352
+     ],
+     "expected_frames": 2880000,
+     "discontinuities": 0,
+     "product_departures": [
+      "media age exceeded"
+     ]
+    },
+    "deficit-0.5-1": {
+     "passed": false,
+     "reason": "no largest-free tolerance; run null-* first",
+     "predicted_end_s": 8.0,
+     "harness_closes": 1,
+     "metrics_unavailable": 18,
+     "decoded_frames": [
+      1075968
+     ],
+     "expected_frames": 2880000,
+     "discontinuities": 0,
+     "product_departures": [
+      "media age exceeded"
+     ]
+    },
+    "delayed-reader-1": {
+     "passed": false,
+     "reason": "expected one WAV reader departure, found 0",
+     "harness_closes": 1,
+     "metrics_unavailable": 4,
+     "decoded_frames": [
+      1920000
+     ],
+     "expected_frames": 1920000,
+     "discontinuities": 0,
+     "product_departures": []
+    }
+   },
+   "raw_artifacts": {
+    "deficit-0.5-1-fresh-1.ffmpeg.log": {
+     "sha256": "defaeb58881b4aa021bb3392a8e689dff454c2b4edc7f79737de1ed790bfdaf3",
+     "bytes": 2890
+    },
+    "deficit-0.5-1-fresh-1.framehash": {
+     "sha256": "ef6acf1a41376bae24f2884bd33ca0e97e46412fa99d596b1d8252340b69aa76",
+     "bytes": 46943
+    },
+    "deficit-0.5-1-fresh-1.progress": {
+     "sha256": "83fab03318409f5c672a80cee6f05c22e351e354d1589ef1f76cde173860360d",
+     "bytes": 1445
+    },
+    "deficit-0.5-1-listener-1.ffmpeg.log": {
+     "sha256": "b037b80019c6dd09a0b1766cb377b3e274631f528db5c3980d3c0c14cfe15340",
+     "bytes": 3343
+    },
+    "deficit-0.5-1-listener-1.framehash": {
+     "sha256": "120d614e7269e33fb6bb0313b5fdc6ff2f55fbb77d45433dc59a9e7f9fd34f73",
+     "bytes": 104847
+    },
+    "deficit-0.5-1-listener-1.progress": {
+     "sha256": "112c977b439af118a77311655f037c1c3a9edc276e5e55f99acbe2ca6ec20a3c",
+     "bytes": 4391
+    },
+    "deficit-0.8-1-fresh-1.ffmpeg.log": {
+     "sha256": "064205ac3eb96c8c6423cdf6957b4afccb7cfee501fd74d3c12839538dfd2786",
+     "bytes": 2890
+    },
+    "deficit-0.8-1-fresh-1.framehash": {
+     "sha256": "4534939410b822e1f8ab2e79374142ac3a18c90421f179f5cd17810aa1ef1333",
+     "bytes": 46943
+    },
+    "deficit-0.8-1-fresh-1.progress": {
+     "sha256": "beab7bf8fbeaa0cca5116c4d480da1acbc7ee0718fdde1128af99c0594e3d24e",
+     "bytes": 1447
+    },
+    "deficit-0.8-1-listener-1.ffmpeg.log": {
+     "sha256": "37a0d950cd9c8678fa6a0f0d9ba4bcbc52b04082618c5bbf249bc3b71e76bfc6",
+     "bytes": 3285
+    },
+    "deficit-0.8-1-listener-1.framehash": {
+     "sha256": "8e8acb0704722204d392b4cfc518b379e47846fa1b43c1d10aff9719a179c7c1",
+     "bytes": 137551
+    },
+    "deficit-0.8-1-listener-1.progress": {
+     "sha256": "6029bdf890efd13ff51407e96c92f427064560479fed05bdb10d1e7725fe2307",
+     "bytes": 5382
+    },
+    "delayed-reader-1-listener-1.ffmpeg.log": {
+     "sha256": "dcc6cc894a428d414b8063fa108878a953cc88dfa70624703569ec75f843d66d",
+     "bytes": 2897
+    },
+    "delayed-reader-1-listener-1.framehash": {
+     "sha256": "5812dfa5636bc6f5133a12375e79eeb5f71118707714d84c73c9df0851f593a7",
+     "bytes": 186943
+    },
+    "delayed-reader-1-listener-1.progress": {
+     "sha256": "c49d01da51c9ff0c36da2cdd275427b61816aaf9dab5ffa988e99a79ec4748e5",
+     "bytes": 6356
+    },
+    "events.jsonl": {
+     "sha256": "dd15157dd7f4103a16cd003ed79fd1d3a00824b129acad7429f750fee337bcc0",
+     "bytes": 151063
+    },
+    "null-1-listener-1.ffmpeg.log": {
+     "sha256": "603b5c62299f2240b64f17fdcd120994cb7a1177db5fedc639ace220371bc229",
+     "bytes": 3276
+    },
+    "null-1-listener-1.framehash": {
+     "sha256": "cb1cf95391127873b45ea8f669fea1f959d484c92724ad832d14861e59498b3d",
+     "bytes": 115935
+    },
+    "null-1-listener-1.progress": {
+     "sha256": "abe21ce5a2adb2428fdd44f8f4a006058404bd20d4998fcc5c4ac202236af3e2",
+     "bytes": 4725
+    },
+    "null-2-listener-1.ffmpeg.log": {
+     "sha256": "a6f4f0a8f6a2b7efeb531194328af7150f698aa8f151d6b9b9a631a9c94a9b04",
+     "bytes": 3336
+    },
+    "null-2-listener-1.framehash": {
+     "sha256": "5cc47aa1974a5ab2d15911fc1893ebd3e84e0115b49d8d03616d6802a9e971db",
+     "bytes": 79759
+    },
+    "null-2-listener-1.progress": {
+     "sha256": "1dd6a8132680cb103673c2b1652b680800613a61bfaf0ee5a17648a35b58e4ea",
+     "bytes": 3244
+    },
+    "null-2-listener-2.ffmpeg.log": {
+     "sha256": "743712a74d6135961aaeb5f6739a2400a01404d03e3e674e1a4e3922861e3a9f",
+     "bytes": 3276
+    },
+    "null-2-listener-2.framehash": {
+     "sha256": "91da973a3fddc3857cb6fc0b4b21782ed5881a3f1d5cb4ba0d3512811325bb28",
+     "bytes": 79199
+    },
+    "null-2-listener-2.progress": {
+     "sha256": "de2c09b19e8287bb7d131b34deaedad4657acbb003abeb7b57f8a95fbbeb7f7b",
+     "bytes": 3245
+    },
+    "result.json": {
+     "sha256": "2eac861fa622d8d726423f3fe313bf91b5552f19be2b912b684f55eb524b7064",
+     "bytes": 66373
+    },
+    "reverdict.json": {
+     "sha256": "1a4791a25aabe5bc9293152557fd5adff97003d82e046b8a17f52b0a56229add",
+     "bytes": 6392
+    },
+    "serial.log": {
+     "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+     "bytes": 0
+    },
+    "stall-0.5-1-listener-1.ffmpeg.log": {
+     "sha256": "092e469e1168e751cdfce1750491f469ded72a9fe13c10313c16806cb663328e",
+     "bytes": 2892
+    },
+    "stall-0.5-1-listener-1.framehash": {
+     "sha256": "1b9032788953e2459ae454e0526e76d54c8863c57b593506645b4e69ee4c9513",
+     "bytes": 189295
+    },
+    "stall-0.5-1-listener-1.progress": {
+     "sha256": "28efc2884d123797cbd36fcb7cda53492466312626b2aeb4caacd74bf07e8e06",
+     "bytes": 6521
+    },
+    "stall-0.5-2-fresh-1.ffmpeg.log": {
+     "sha256": "9b0b78b11969d6665e3f3040cc6727f09d98fe1889aa0f01dc438f99c03bb580",
+     "bytes": 2888
+    },
+    "stall-0.5-2-fresh-1.framehash": {
+     "sha256": "48e0e4d6d6ea24b40dd5a8986f8b3259f0997fc0dda181ccec4f474daa55d9e6",
+     "bytes": 46943
+    },
+    "stall-0.5-2-fresh-1.progress": {
+     "sha256": "61dd64adab458b8a2b06adbb42d008bf296a88a37a78550edeb3ba279520c458",
+     "bytes": 1445
+    },
+    "stall-0.5-2-fresh-2.ffmpeg.log": {
+     "sha256": "832d0245bae35f8524e56ea0d4252088877a50459180ed650c3e11c1a1a60526",
+     "bytes": 2888
+    },
+    "stall-0.5-2-fresh-2.framehash": {
+     "sha256": "b561d358321f95d10858aa1c49177a72040d8fcb9640403b3467032292f9e859",
+     "bytes": 46943
+    },
+    "stall-0.5-2-fresh-2.progress": {
+     "sha256": "ad273307e370d32b844256c754127d540a5c0c94af67ae8eb5b7121b75dd4daa",
+     "bytes": 1607
+    },
+    "stall-0.5-2-listener-1.ffmpeg.log": {
+     "sha256": "5d400d58d8bb8a240efb019fae0d3597b83f9c1b6166d98af080fc827edcee08",
+     "bytes": 3341
+    },
+    "stall-0.5-2-listener-1.framehash": {
+     "sha256": "ac16c477017b6be84c42bfb0f19ec265cf015787c58c02373a1868e1e59b0555",
+     "bytes": 95887
+    },
+    "stall-0.5-2-listener-1.progress": {
+     "sha256": "125229ac74bc6051ee7b2d28f23e1c6313f978738a5902500dd5dd4123c335d8",
+     "bytes": 4061
+    },
+    "stall-0.5-2-listener-2.ffmpeg.log": {
+     "sha256": "c524249d1108decee53bd7e2338895e7bf6fc6c7e787108d633411c580fb9d67",
+     "bytes": 3205
+    },
+    "stall-0.5-2-listener-2.framehash": {
+     "sha256": "e9bcc2c05a31918e788675826339040bda6a2d967d8a6919a2f647e926a0c0fb",
+     "bytes": 97343
+    },
+    "stall-0.5-2-listener-2.progress": {
+     "sha256": "3bd3596626274545f54042b19bfb7315a3ecc390fe18b34761f8468ce0a0c829",
+     "bytes": 4389
+    },
+    "stall-1-1-listener-1.ffmpeg.log": {
+     "sha256": "cd0cb5d9a6b5aac4d6f0c426ba51acec2f5adf5a796ca24d076b4d5aa725fd48",
+     "bytes": 2890
+    },
+    "stall-1-1-listener-1.framehash": {
+     "sha256": "550e8ab1b2e7dd520b89f7437fb68de6b100b9820bfe9ec18c5f9eeb2cfb9dfe",
+     "bytes": 191647
+    },
+    "stall-1-1-listener-1.progress": {
+     "sha256": "fe14618423f5d4a0bb0ef9d5f7bdf5b5af4d3ebefaef6f423576c9cbe321c81d",
+     "bytes": 6521
+    },
+    "stall-1-2-fresh-1.ffmpeg.log": {
+     "sha256": "6a4d3b55053ff482cdaed297953e18da3dcb1b0b4f9e094f3b84a5e88268cdcf",
+     "bytes": 2886
+    },
+    "stall-1-2-fresh-1.framehash": {
+     "sha256": "e694b50937e69dc4b979cf01704ec23dc167877a0488ead1ebf5db314fcd539c",
+     "bytes": 46943
+    },
+    "stall-1-2-fresh-1.progress": {
+     "sha256": "a64c7c7eb62e547cf553854d184504638d4a63facf3c699993a04b000e6898f8",
+     "bytes": 1607
+    },
+    "stall-1-2-listener-1.ffmpeg.log": {
+     "sha256": "10009a3e1401d01329041f1b7a9f90a0993bdb41b5a2dd22e9a6d2292da8cdc2",
+     "bytes": 3263
+    },
+    "stall-1-2-listener-1.framehash": {
+     "sha256": "1a9b38377063fa25ae4ac15ceec30414d26381e745c40eb1da56031cbd823a0b",
+     "bytes": 66543
+    },
+    "stall-1-2-listener-1.progress": {
+     "sha256": "74666f41b06369ef7f9edae4a01cff0f4bcdfca5c5feb4b1d5b53bce89f792aa",
+     "bytes": 3573
+    },
+    "stall-1-2-listener-2.ffmpeg.log": {
+     "sha256": "a80ff4dea06748188de3cd63c5dd006e8b5c66ab95ae705b1faf54b1228cefbe",
+     "bytes": 2890
+    },
+    "stall-1-2-listener-2.framehash": {
+     "sha256": "194d06227c456ca240cc06807ad22d64aa1bba26d535b7a4561054bda6f2942b",
+     "bytes": 191647
+    },
+    "stall-1-2-listener-2.progress": {
+     "sha256": "7d44bbed8eb12f0628f709af7f93eeb0f3856060dc3d019340f97bae8bf00c00",
+     "bytes": 6522
+    },
+    "stall-2.5-1-listener-1.ffmpeg.log": {
+     "sha256": "1e936a120d1c979f037b4a117acaea0e5c45f610831b0443630c1aa59c0ed859",
+     "bytes": 2892
+    },
+    "stall-2.5-1-listener-1.framehash": {
+     "sha256": "dd92f70629f7657f745f25e500465f1bb9fe514343a6504ea13f4100ae6cac56",
+     "bytes": 198591
+    },
+    "stall-2.5-1-listener-1.progress": {
+     "sha256": "0cdb28b2da5fd9cc02a21bd5fd2a38ab093e4dd96b5e9c60bf9c1fe0a26ccf8d",
+     "bytes": 6846
+    },
+    "stall-2.5-2-fresh-1.ffmpeg.log": {
+     "sha256": "bae31f5fa1f73780f73225c4e35409767e85224d896825cdf0f2f8e52d0390e8",
+     "bytes": 2889
+    },
+    "stall-2.5-2-fresh-1.framehash": {
+     "sha256": "3b32ac7594bc75a933c34466999545c5cb52e64c0ec784018783888ccd9feebd",
+     "bytes": 46943
+    },
+    "stall-2.5-2-fresh-1.progress": {
+     "sha256": "86e2b4d37bdfc3dfb9e5ccfce79cf705ecffd9648153d0a0ea7a59cccea1c6cb",
+     "bytes": 1937
+    },
+    "stall-2.5-2-fresh-2.ffmpeg.log": {
+     "sha256": "e4cbde4600dcedcbbaedb8bf49e99996884693ab920566ba924cb30a9ec869bb",
+     "bytes": 2888
+    },
+    "stall-2.5-2-fresh-2.framehash": {
+     "sha256": "8056c4a18e9e721bf484fd97beba796fd8bfee30fed4d0a739adc67fa505811b",
+     "bytes": 46943
+    },
+    "stall-2.5-2-fresh-2.progress": {
+     "sha256": "03c9026f22a12f6f974bcd2d0172022f196cfd618098bbcfd4cf5ef3c62c8ec4",
+     "bytes": 1609
+    },
+    "stall-2.5-2-listener-1.ffmpeg.log": {
+     "sha256": "2c7b5622afafe8a77f969086d70c7581941a18c0487bb7084a8f703c2d42b06d",
+     "bytes": 3205
+    },
+    "stall-2.5-2-listener-1.framehash": {
+     "sha256": "1978bf3872d45b9edc11ce8a0ff25b125dda74b3934764d866df5d2c6d2727c2",
+     "bytes": 95551
+    },
+    "stall-2.5-2-listener-1.progress": {
+     "sha256": "d4d7e5554f4eb81a4b8952755abcddddffbed792dd455af7bde7340df36ec0ef",
+     "bytes": 4387
+    },
+    "stall-2.5-2-listener-2.ffmpeg.log": {
+     "sha256": "bf6cd011b1302e3a4e84d5118787d19711e0dea1391d36a9dd020505b1547687",
+     "bytes": 3265
+    },
+    "stall-2.5-2-listener-2.framehash": {
+     "sha256": "01b957bd1b5f3afa7adb414480b2fd224b8bea77c56ad94696b02ab5e8cf17e6",
+     "bytes": 94767
+    },
+    "stall-2.5-2-listener-2.progress": {
+     "sha256": "2fdf19118160cd00b6bae52f3f6374f382f53c405e3e202345e86c5687d86180",
+     "bytes": 4387
+    },
+    "stall-4-1-listener-1.ffmpeg.log": {
+     "sha256": "530edac2b77a85f40acd65fc2598adda5e1aac92dcb54eb76b4e19c1015739bc",
+     "bytes": 3263
+    },
+    "stall-4-1-listener-1.framehash": {
+     "sha256": "71cb2943dd116b377d3ebaa5246a68bf4081464601bd477b8df1cddb01827374",
+     "bytes": 85583
+    },
+    "stall-4-1-listener-1.progress": {
+     "sha256": "20ed5b812e20d272dbdc2d0c22a2494f3b256a8ef1418f93f0cb049d78aa20d3",
+     "bytes": 4061
+    },
+    "stall-4-2-listener-1.ffmpeg.log": {
+     "sha256": "32ebf8cfd51bddb02e6adcc256af594cd0e96157d633eb1b3fb34f125dca073f",
+     "bytes": 3263
+    },
+    "stall-4-2-listener-1.framehash": {
+     "sha256": "e1c066250a6a2ecbfeb123cedfb144b04cd786d455682155b6d43ca95803eb33",
+     "bytes": 91743
+    },
+    "stall-4-2-listener-1.progress": {
+     "sha256": "c0e5cb7b1eac1610b8355fb5d3f0dd67f28cdc16b68905b0aba2e0725d5f0fe1",
+     "bytes": 4223
+    },
+    "stall-4-2-listener-2.ffmpeg.log": {
+     "sha256": "bad34cb750d8000ec6d5ac5a0eb78d81c75609d57794914b056d2d32c7a9abb4",
+     "bytes": 3203
+    },
+    "stall-4-2-listener-2.framehash": {
+     "sha256": "26e4c22bcf09996067a13093659442cb502a1272ef1b5dcef1f0dd9ef76174f4",
+     "bytes": 91631
+    },
+    "stall-4-2-listener-2.progress": {
+     "sha256": "9f3ba9b907253102ccf2361d74aa04bcbd963d322239fdec91fb9a140fd83269",
+     "bytes": 4223
+    },
+    "uart.log": {
+     "sha256": "4454a7fdfb02776bc8e34f0063907d8c214f22efb022367c93e6bf8cbfbb0062",
+     "bytes": 326098
+    }
+   },
+   "reverdict": {
+    "harness_commit": "84a0abc2a035ec58c4374e2a9da9c0d6319f9c01",
+    "harness_dirty": false,
+    "harness_sha256": {
+     "network_fault.py": "6afaaf9f3ad5829885e8698a92a27a6d0f2c40fbba436c8acdac046748c44bfd",
+     "encoder_fault_check.py": "410e4c95f3880f208d52d9909cce3580c040654ddc5dc3717ca432b12bd8b961"
+    },
+    "source_result_sha256": "2eac861fa622d8d726423f3fe313bf91b5552f19be2b912b684f55eb524b7064",
+    "tolerances": null,
+    "trials": {
+     "null-1": {
+      "passed": false,
+      "reason": "decoder not continuous",
+      "harness_closes": 0
+     },
+     "null-2": {
+      "passed": false,
+      "reason": "decoder not continuous",
+      "harness_closes": 0
+     },
+     "stall-0.5-1": {
+      "passed": false,
+      "reason": "no media age bound; run null-* first",
+      "harness_closes": 1
+     },
+     "stall-0.5-2": {
+      "passed": false,
+      "reason": "no media age bound; run null-* first",
+      "harness_closes": 2
+     },
+     "stall-1-1": {
+      "passed": false,
+      "reason": "no media age bound; run null-* first",
+      "harness_closes": 1
+     },
+     "stall-1-2": {
+      "passed": false,
+      "reason": "no media age bound; run null-* first",
+      "harness_closes": 2
+     },
+     "stall-2.5-1": {
+      "passed": false,
+      "reason": "no media age bound; run null-* first",
+      "harness_closes": 1
+     },
+     "stall-2.5-2": {
+      "passed": false,
+      "reason": "no media age bound; run null-* first",
+      "harness_closes": 2
+     },
+     "stall-4-1": {
+      "passed": false,
+      "reason": "no media age bound; run null-* first",
+      "harness_closes": 0
+     },
+     "stall-4-2": {
+      "passed": false,
+      "reason": "no media age bound; run null-* first",
+      "harness_closes": 0
+     },
+     "deficit-0.8-1": {
+      "passed": false,
+      "reason": "no largest-free tolerance; run null-* first",
+      "predicted_end_s": 20.000000000000004,
+      "harness_closes": 1
+     },
+     "deficit-0.5-1": {
+      "passed": false,
+      "reason": "no largest-free tolerance; run null-* first",
+      "predicted_end_s": 8.0,
+      "harness_closes": 1
+     },
+     "delayed-reader-1": {
+      "passed": false,
+      "reason": "WAV reader never connected (phase None): TimeoutError('timed out')",
+      "harness_closes": 1
+     }
+    }
+   }
+  }
+ },
+ "limits": [
+  "Workstation listeners on a wired receiver only: receiver-visible loss and rate limits, not RF, AP queueing or the board's Wi-Fi hop.",
+  "MP3 as deployed; no FLAC.",
+  "No Sonos playback, no ownership evidence; cv5a's ownership-safe resume scenario is unmet (pqqq) and unreachable from workstation shaping.",
+  "Attempt 4's pass is an offline re-judgment (--reverdict) of complete retained data with corrected verdict code; the original failing verdicts are retained.",
+  "The close-line replacement trigger and the 3 s close_timeout fallback have not run on the board.",
+  "Attempts 3 and 4 disagree on 2.5 s stalls (MediaAge vs survival); the lwIP retransmit-backoff explanation is a hypothesis.",
+  "Internal largest free block dropped 2-4 KiB across each batch; not shown to recover within a run, not shown to grow.",
+  "Attempt 5's null controls failed on a board-side delivery stall (3.98 s sender poll wait, no injection, no Wi-Fi disconnect); its later verdicts fail closed and it is a retained failed control, not a recovery result.",
+  "Quiet LINE IN; MP3 bitrate is constant so content does not affect the trials, but no driven-signal variant ran."
+ ]
+}

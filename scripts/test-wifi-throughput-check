@@ -2,7 +2,11 @@
 # ABOUTME: Exercises throughput framing and byte validation through real localhost sockets.
 # ABOUTME: Covers complete, truncated, and corrupt transfers without firmware or mocks.
 import importlib.machinery
+import json
 import socket
+import subprocess
+import sys
+import tempfile
 import threading
 import time
 import unittest
@@ -13,6 +17,110 @@ loader = importlib.machinery.SourceFileLoader('checker', str(Path(__file__).with
 spec = importlib.util.spec_from_loader(loader.name, loader)
 checker = importlib.util.module_from_spec(spec)
 loader.exec_module(checker)
+
+
+@unittest.skipUnless(sys.platform == 'linux', 'Linux socket binding')
+class LinuxInterfaceTests(unittest.TestCase):
+    def test_client_binds_device_before_connect(self):
+        sockets = []
+        report = {}
+        with socket.socket() as listener:
+            listener.bind(('127.0.0.1', 0))
+            listener.listen()
+            listener.settimeout(2)
+            worker = threading.Thread(target=checker.client, args=(
+                '127.0.0.1', listener.getsockname()[1], 'lo', 2,
+                report, sockets, threading.Lock()))
+            worker.start()
+            try:
+                try:
+                    peer, address = listener.accept()
+                except socket.timeout:
+                    self.fail(f'bound client did not connect: {report}')
+                with peer:
+                    self.assertEqual(address[0], '127.0.0.1')
+                    self.assertEqual(sockets[0].getsockopt(
+                        socket.SOL_SOCKET, socket.SO_BINDTODEVICE, 256), b'lo\0')
+                    peer.sendall(b'invalid\n')
+            finally:
+                worker.join(3)
+                self.assertFalse(worker.is_alive())
+        self.assertFalse(report['passed'])
+        self.assertIn('unexpected transfer header', report['error'])
+        self.assertEqual(report['interface_index'], socket.if_nametoindex('lo'))
+
+    def run_cli(self, output, *args):
+        return subprocess.run([sys.executable, str(Path(checker.__file__)),
+                               '127.0.0.1', '--seconds', '10', '--out', str(output),
+                               *args], capture_output=True, text=True, timeout=15)
+
+    def test_two_complete_transfers(self):
+        payload = checker.pattern(0, checker.TARGET)
+        errors = []
+        addresses = []
+        with socket.socket() as listener, tempfile.TemporaryDirectory() as directory:
+            listener.bind(('127.0.0.1', 0))
+            listener.listen(2)
+            listener.settimeout(3)
+            def serve():
+                try:
+                    # Admit both peers before sending so sequential clients cannot pass.
+                    with listener.accept()[0] as first, listener.accept()[0] as second:
+                        for peer in (first, second):
+                            peer.settimeout(10)
+                            addresses.append(peer.getpeername())
+                            peer.sendall(f'ESPTHR1 {len(payload)}\n'.encode() + payload)
+                            peer.shutdown(socket.SHUT_WR)
+                except BaseException as error:
+                    errors.append(error)
+            worker = threading.Thread(target=serve)
+            worker.start()
+            output = Path(directory) / 'report.json'
+            try:
+                result = self.run_cli(output, '--interface', 'lo',
+                                      '--port', str(listener.getsockname()[1]))
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                reports = json.loads(output.read_text())['peers']
+                self.assertEqual(len(reports), 2)
+                for report in reports:
+                    self.assertTrue(report['passed'])
+                    self.assertEqual(report['bytes'], 15814656)
+                    self.assertEqual(sum(report['second_bins'].values()), 15814656)
+                    self.assertEqual(report['interface'], 'lo')
+                    self.assertEqual(report['local_address'][0], '127.0.0.1')
+                original = output.read_bytes()
+                result = self.run_cli(output, '--interface', 'lo')
+                self.assertNotEqual(result.returncode, 0)
+                self.assertEqual(output.read_bytes(), original)
+            finally:
+                worker.join(12)
+                self.assertFalse(worker.is_alive())
+            self.assertEqual(errors, [])
+            self.assertEqual(len(addresses), 2)
+
+    def test_invalid_interface_fails_without_connecting(self):
+        with socket.socket() as listener, tempfile.TemporaryDirectory() as directory:
+            listener.bind(('127.0.0.1', 0))
+            listener.listen(2)
+            listener.settimeout(0.1)
+            output = Path(directory) / 'report.json'
+            result = self.run_cli(output, '--interface', 'missing-iface',
+                                  '--port', str(listener.getsockname()[1]))
+            self.assertEqual(result.returncode, 1, result.stderr)
+            for report in json.loads(output.read_text())['peers']:
+                self.assertFalse(report['passed'])
+                self.assertIn('error', report)
+                self.assertNotIn('local_address', report)
+            with self.assertRaises(socket.timeout):
+                listener.accept()
+
+    def test_linux_requires_explicit_interface(self):
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory) / 'report.json'
+            result = self.run_cli(output)
+            self.assertEqual(result.returncode, 2)
+            self.assertIn('--interface is required on Linux', result.stderr)
+            self.assertFalse(output.exists())
 
 class TransferTests(unittest.TestCase):
     def transfer(self, kind):

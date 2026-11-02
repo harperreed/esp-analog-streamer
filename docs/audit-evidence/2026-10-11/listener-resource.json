@@ -1,0 +1,103 @@
+{
+  "kata": "7vhq",
+  "verdict": "INCOMPLETE",
+  "candidate_elf_sha256": "473391a8309a13b027f058a1a9a76b000c06bd31984db1d2d34278fede2c83a7",
+  "canonical": {
+    "full_run": "run.kcrncMVU",
+    "passed_stages": 26,
+    "failed_stage": "firmware-fmt",
+    "correction": "module ordering only in firmware/src/lib.rs",
+    "firmware_recheck": "run.eiWqre4n",
+    "firmware_recheck_passed_stages": 5,
+    "single_all_green_run": false
+  },
+  "trial": {
+    "diagnostic_format": "flac",
+    "scenario": "contention",
+    "passed": false,
+    "verdict": "FAILED",
+    "cleanup_errors": [
+      "guarded-board-stop: <HTTPError 404: ''>",
+      "wait-stopped: TimeoutError('board did not stop')",
+      "restore-mp3: AssertionError()",
+      "verify-exact-config: AssertionError()"
+    ],
+    "trial_identity": {
+      "build_elf_sha256": "473391a8309a13b027f058a1a9a76b000c06bd31984db1d2d34278fede2c83a7",
+      "boot_token": "0d350978db9b4e74c115d58ee7bd7366",
+      "served_device_us": 6118153
+    },
+    "after_identity": {
+      "build_elf_sha256": "473391a8309a13b027f058a1a9a76b000c06bd31984db1d2d34278fede2c83a7",
+      "boot_token": "0d350978db9b4e74c115d58ee7bd7366",
+      "served_device_us": 25149361
+    },
+    "diagnostics": [
+      {
+        "label": "older-diagnostic",
+        "local_address": [
+          "192.168.23.153",
+          59762
+        ],
+        "started_monotonic": 1179910.457097721,
+        "payload_bytes": 1753272,
+        "ended_monotonic": null,
+        "last_payload_monotonic": 1179927.149081398,
+        "error": null
+      },
+      {
+        "label": "newer-diagnostic",
+        "local_address": [
+          "192.168.23.153",
+          59764
+        ],
+        "started_monotonic": 1179910.625138713,
+        "payload_bytes": 316826,
+        "ended_monotonic": 1179915.232544179,
+        "last_payload_monotonic": 1179915.227951253,
+        "error": null
+      }
+    ]
+  },
+  "observed_failure": {
+    "state": "error",
+    "last_error": "Sonos connection failed",
+    "tls_error": "-0x2700",
+    "pinned_symbol": "MBEDTLS_ERR_X509_CERT_VERIFY_FAILED",
+    "detailed_verification_reason": null,
+    "sonos_listener_join_observed": false
+  },
+  "target_layout": {
+    "job_bytes": 96,
+    "mailbox_bytes": 224,
+    "workers": 2,
+    "stack_bytes_each": 4096,
+    "internal_free_before": 104415,
+    "internal_free_after": 82467,
+    "heap_interval_scope": "output mailbox, output and admission startup including concurrent activity; not isolated allocation cost",
+    "native_backing_and_allocator_overhead": "not included in sizeof"
+  },
+  "restoration": {
+    "separate_from_trial": true,
+    "same_boot": true,
+    "state": "stopped",
+    "active_format": "mp3",
+    "buffer_preset": "med",
+    "autoplay": false,
+    "recognition": false,
+    "active_player_id": null
+  },
+  "not_run": [
+    "reconnect",
+    "cancel",
+    "failed-start"
+  ],
+  "raw_artifacts": {
+    "target/kata-hardening/listener-resource-device/contention/result.json": "5814804ffae2a691db4ab6918c595944e859fa6ee5c671bcb2e3958c01bc7866",
+    "target/kata-hardening/listener-resource-device/contention/uart.log": "4c4152cdb1cbe1af8852efd85e0581a72e76fbddf7cdd4415ad91a399f661102",
+    "target/kata-hardening/listener-resource-device/boot.log": "b440a0b31297ffe8386091ce520d4286c638957b4b870b961238fa5d3c465292",
+    "target/kata-hardening/listener-resource-device/restoration.json": "f298aa07a23fde70a09446119cb092f38b050e1006e9d1b3c0b6feb08ae8183a",
+    "target/kata-hardening/listener-resource-device/control-run.py": "58307b3e8392cfa1f10c0ca353fae134a124e2af8cb579c47110f6681790e663",
+    "target/kata-hardening/listener-resource-device/test_control_capacity.py": "eda99be7058782176d7fb4a587a8880f8e36d57d054e1e002ebdddb4f84cb6a5"
+  }
+}

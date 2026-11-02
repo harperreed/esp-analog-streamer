@@ -1,0 +1,60 @@
+<!doctype html>
+<!-- ABOUTME: The board's system page served at /system: firmware and slots, memory, capture, listeners, network and stacks. -->
+<!-- ABOUTME: Reads /api/metrics, /api/ota and /api/input every five seconds through the shared page script; nothing here changes state. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>System · esp-shazam</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="/style.css">
+<script src="/app.js" defer></script>
+</head>
+<body>
+<main>
+  <nav><a href="/">Playback</a> · <a href="/settings">Settings</a></nav>
+  <h1>System</h1>
+  <p class="muted" id="system-status" role="status">connecting…</p>
+  <section aria-labelledby="system-firmware-heading">
+    <h2 id="system-firmware-heading">Firmware</h2>
+    <dl class="facts">
+      <dt>Image</dt><dd id="system-image"></dd>
+      <dt>Boot</dt><dd id="system-boot"></dd>
+      <dt>Uptime</dt><dd id="system-uptime"></dd>
+      <dt>Running slot</dt><dd id="system-slot"></dd>
+      <dt>Over-the-air updates</dt><dd id="system-ota"></dd>
+      <dt>Input gain</dt><dd id="system-gain"></dd>
+      <dt>Active format</dt><dd id="system-format"></dd>
+    </dl>
+  </section>
+  <section aria-labelledby="system-memory-heading">
+    <h2 id="system-memory-heading">Memory</h2>
+    <dl class="facts">
+      <dt>Internal RAM</dt><dd id="system-internal"></dd>
+      <dt>PSRAM</dt><dd id="system-psram"></dd>
+      <dt>Stack headroom</dt><dd id="system-stacks"></dd>
+    </dl>
+  </section>
+  <section aria-labelledby="system-capture-heading">
+    <h2 id="system-capture-heading">Capture</h2>
+    <dl class="facts">
+      <dt>Frames</dt><dd id="system-frames"></dd>
+      <dt>Faults</dt><dd id="system-faults"></dd>
+      <dt>Encoder</dt><dd id="system-encoder"></dd>
+    </dl>
+  </section>
+  <section aria-labelledby="system-listeners-heading">
+    <h2 id="system-listeners-heading">Listeners</h2>
+    <ol id="system-listeners"></ol>
+    <p class="muted" id="system-departure"></p>
+  </section>
+  <section aria-labelledby="system-network-heading">
+    <h2 id="system-network-heading">Network</h2>
+    <dl class="facts">
+      <dt>Wi-Fi</dt><dd id="system-network"></dd>
+    </dl>
+  </section>
+  <p class="muted">Raw: <a href="/api/metrics">/api/metrics</a> · <a href="/api/ota">/api/ota</a> · <a href="/api/input">/api/input</a> · <a href="/api/state">/api/state</a></p>
+</main>
+</body>
+</html>

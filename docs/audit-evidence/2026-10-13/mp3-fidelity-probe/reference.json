@@ -1,0 +1,4096 @@
+{
+  "scope": "Throwaway offline reference comparison; no production change, playback, subjective acceptance or replacement recommendation.",
+  "source_precision": "Exact retained interleaved signed16 PCM divided by32768 into float64; FFmpeg decodes raw MP3 with mp3float to f32le, analyzed as float64. No fitted gain correction.",
+  "source_provenance": {
+    "candidate_sha256": "20ba886e60d16d5fcc2b4a15efb70c22ebad8be87d25fc27cd2feeba64027928",
+    "recorded_candidate_git_head": "db8a0868ef66cbd354a05bc7e89ca937cec75446",
+    "task_repo_head_supplied_by_parent": "369af00"
+  },
+  "versions": {
+    "ffmpeg-version": "ffmpeg version 8.0.1-3ubuntu2 Copyright (c) 2000-2025 the FFmpeg developers\nbuilt with gcc 15 (Ubuntu 15.2.0-13ubuntu3)\nconfiguration: --prefix=/usr --extra-version=3ubuntu2 --toolchain=hardened --libdir=/usr/lib/x86_64-linux-gnu --incdir=/usr/include/x86_64-linux-gnu --arch=amd64 --enable-gpl --disable-stripping --disable-pocketsphinx --disable-libcaca --disable-libmfx --disable-omx --enable-gnutls --enable-libaom --enable-libass --enable-libbs2b --enable-libcdio --enable-libcodec2 --enable-libdav1d --enable-libflite --enable-libfontconfig --enable-libfreetype --enable-libfribidi --enable-libglslang --enable-libgme --enable-libgsm --enable-libharfbuzz --enable-libmp3lame --enable-libmysofa --enable-libopenjpeg --enable-libopenmpt --enable-libopus --enable-librubberband --enable-libshine --enable-libsnappy --enable-libsoxr --enable-libspeex --enable-libtheora --enable-libtwolame --enable-libvidstab --enable-libvorbis --enable-libvpx --enable-libwebp --enable-libx265 --enable-libxml2 --enable-libxvid --enable-libzimg --enable-openal --enable-opencl --enable-opengl --disable-sndio --enable-libvpl --enable-libdc1394 --enable-libdrm --enable-libiec61883 --enable-chromaprint --enable-frei0r --enable-ladspa --enable-libbluray --enable-libdvdnav --enable-libdvdread --enable-libjack --enable-libjxl --enable-libpulse --enable-librabbitmq --enable-librist --enable-libsrt --enable-libssh --enable-libsvtav1 --enable-libx264 --enable-libzmq --enable-libzvbi --enable-lv2 --enable-sdl2 --enable-libplacebo --enable-librav1e --enable-librsvg --enable-shared\nlibavutil      60.  8.100 / 60.  8.100\nlibavcodec     62. 11.100 / 62. 11.100\nlibavformat    62.  3.100 / 62.  3.100\nlibavdevice    62.  1.100 / 62.  1.100\nlibavfilter    11.  4.100 / 11.  4.100\nlibswscale      9.  1.100 /  9.  1.100\nlibswresample   6.  1.100 /  6.  1.100\n\nExiting with exit code 0\n",
+    "ffmpeg-lame-help": {
+      "local_log": "ffmpeg-lame-help.log",
+      "sha256": "dcfe8a6e3417354c873d838688e010e4d8d48f67d8e3b088b83e5b6cd925c288",
+      "bytes": 747,
+      "exact_relevant_help_lines": [
+        "  -reservoir         <boolean>    E...A...... use bit reservoir (default true)",
+        "  -joint_stereo      <boolean>    E...A...... use joint stereo (default true)",
+        "  -abr               <boolean>    E...A...... use ABR (default false)"
+      ],
+      "scope": "Exact encoder/muxer help lines, or first generic compression_level/cutoff entries in full help; no options from other encoders/filters."
+    },
+    "ffmpeg-mp3-help": {
+      "local_log": "ffmpeg-mp3-help.log",
+      "sha256": "7d942065c19aca51a4a96803ff50a21029441b86e95ed5594fdab3a14d461298",
+      "bytes": 607,
+      "exact_relevant_help_lines": [
+        "  -id3v2_version     <int>        E.......... Select ID3v2 version to write. Currently 3 and 4 are supported. (from 0 to 4) (default 4)",
+        "  -write_xing        <boolean>    E.......... Write the Xing header containing file duration. (default true)"
+      ],
+      "scope": "Exact encoder/muxer help lines, or first generic compression_level/cutoff entries in full help; no options from other encoders/filters."
+    },
+    "ffmpeg-full-help": {
+      "local_log": "ffmpeg-full-help.log",
+      "sha256": "e2c3f19d4fb713ed8c71a083433e416174a3c331254739889d27367b2f4e735e",
+      "bytes": 1213717,
+      "exact_relevant_help_lines": [
+        "  -compression_level <int>        E..VA...... (from INT_MIN to INT_MAX) (default -1)",
+        "  -cutoff            <int>        E...A...... set cutoff bandwidth (from INT_MIN to INT_MAX) (default 0)"
+      ],
+      "scope": "Exact encoder/muxer help lines, or first generic compression_level/cutoff entries in full help; no options from other encoders/filters."
+    },
+    "uv-version": "uv 0.12.19 (x86_64-unknown-linux-gnu)\n",
+    "libmp3lame-package": "libmp3lame0:amd64\t3.101~svn6525+dfsg-2\n",
+    "python": "3.12.14 (main, Sep 24 2026, 17:57:43) [Clang 22.1.3 ]",
+    "numpy": "2.4.4"
+  },
+  "sample_rate": 48000,
+  "channels": 2,
+  "bitrate_kbps": 320,
+  "reference_defaults": {
+    "reservoir": true,
+    "joint_stereo": true,
+    "compression_level": -1,
+    "cutoff": 0,
+    "scope": "FFmpeg help defaults; library-selected quality and lowpass frequency are not exposed by these logs and are not assumed. Stream mode/reservoir are parsed from every actual frame."
+  },
+  "alignment": {
+    "nonperiodic": {
+      "delay_samples": 1105,
+      "search_samples": [
+        0,
+        2048
+      ],
+      "top_correlations": [
+        {
+          "lag": 1105,
+          "dot_product": 2859.406561188339
+        },
+        {
+          "lag": 1106,
+          "dot_product": 514.0610170776856
+        },
+        {
+          "lag": 1104,
+          "dot_product": 513.6444900657673
+        },
+        {
+          "lag": 1102,
+          "dot_product": 352.79590344875857
+        },
+        {
+          "lag": 1108,
+          "dot_product": 350.1613677299008
+        }
+      ],
+      "input_frames": 110592,
+      "decoded_frames": 111744,
+      "headers": {
+        "bytes": 93120,
+        "mpeg_frames": 97,
+        "decoded_nominal_frames": 111744,
+        "bitrate_kbps": [
+          320
+        ],
+        "sample_rate": [
+          48000
+        ],
+        "mode_counts": {
+          "joint_stereo": 97
+        },
+        "nonzero_main_data_begin_frames": 72,
+        "max_main_data_begin": 511,
+        "tag_scope": "Every byte parsed as MPEG1 Layer3 frame; no ID3/Xing frame added."
+      }
+    },
+    "impulses": {
+      "delay_samples": 1105,
+      "search_samples": [
+        0,
+        2048
+      ],
+      "top_correlations": [
+        {
+          "lag": 1105,
+          "dot_product": 0.6276023268583231
+        },
+        {
+          "lag": 1106,
+          "dot_product": 0.11301924860163126
+        },
+        {
+          "lag": 1104,
+          "dot_product": 0.11225515572732547
+        },
+        {
+          "lag": 1108,
+          "dot_product": 0.07952933628985193
+        },
+        {
+          "lag": 1102,
+          "dot_product": 0.07821093277016189
+        }
+      ],
+      "input_frames": 110592,
+      "decoded_frames": 111744,
+      "headers": {
+        "bytes": 93120,
+        "mpeg_frames": 97,
+        "decoded_nominal_frames": 111744,
+        "bitrate_kbps": [
+          320
+        ],
+        "sample_rate": [
+          48000
+        ],
+        "mode_counts": {
+          "joint_stereo": 97
+        },
+        "nonzero_main_data_begin_frames": 4,
+        "max_main_data_begin": 70,
+        "tag_scope": "Every byte parsed as MPEG1 Layer3 frame; no ID3/Xing frame added."
+      },
+      "peak_offsets": [
+        [
+          1105,
+          1105
+        ],
+        [
+          1105,
+          1105
+        ]
+      ]
+    }
+  },
+  "cases": [
+    {
+      "name": "noise_independent_half",
+      "source_sample_frames": 110592,
+      "common_source_range": [
+        0,
+        109535
+      ],
+      "steady_source_range": [
+        4608,
+        104927
+      ],
+      "codecs": {
+        "shine": {
+          "delay_samples": 1057,
+          "decoded_sample_frames": 110592,
+          "aligned_available_source_frames": 109535,
+          "omitted_source_tail_frames": 1057,
+          "decoded_padding_after_source_frames": 0,
+          "headers": {
+            "bytes": 92160,
+            "mpeg_frames": 96,
+            "decoded_nominal_frames": 110592,
+            "bitrate_kbps": [
+              320
+            ],
+            "sample_rate": [
+              48000
+            ],
+            "mode_counts": {
+              "stereo": 96
+            },
+            "nonzero_main_data_begin_frames": 0,
+            "max_main_data_begin": 0,
+            "tag_scope": "Every byte parsed as MPEG1 Layer3 frame; no ID3/Xing frame added."
+          },
+          "aligned_common": [
+            {
+              "channel": 0,
+              "sample_frames": 109535,
+              "gain": 1.0269961764246969,
+              "raw_snr_db": 12.576015478120668,
+              "input_rms": 0.28831459149776334,
+              "output_rms": 0.3036557380084133,
+              "error_rms": 0.06777442606485257,
+              "input_peak": 0.5,
+              "output_peak": 0.7762261033058167,
+              "output_min": -0.7423536777496338,
+              "output_max": 0.7762261033058167,
+              "outside_unit": 0,
+              "nonfinite": 0
+            },
+            {
+              "channel": 1,
+              "sample_frames": 109535,
+              "gain": 1.027841635283678,
+              "raw_snr_db": 12.586347025681231,
+              "input_rms": 0.28809613307830656,
+              "output_rms": 0.3036388903734011,
+              "error_rms": 0.06764256658016843,
+              "input_peak": 0.5,
+              "output_peak": 0.739716649055481,
+              "output_min": -0.739716649055481,
+              "output_max": 0.7326463460922241,
+              "outside_unit": 0,
+              "nonfinite": 0
+            }
+          ],
+          "steady": [
+            {
+              "channel": 0,
+              "sample_frames": 100319,
+              "gain": 1.0275570333717432,
+              "raw_snr_db": 12.559092013636786,
+              "input_rms": 0.2882764643376027,
+              "output_rms": 0.3037985670670697,
+              "error_rms": 0.0678976254513988,
+              "input_peak": 0.5,
+              "output_peak": 0.7762261033058167,
+              "output_min": -0.7423536777496338,
+              "output_max": 0.7762261033058167,
+              "outside_unit": 0,
+              "nonfinite": 0
+            },
+            {
+              "channel": 1,
+              "sample_frames": 100319,
+              "gain": 1.027343410934068,
+              "raw_snr_db": 12.582564461608516,
+              "input_rms": 0.2880918317971861,
+              "output_rms": 0.30350470731327134,
+              "error_rms": 0.06767101989113114,
+              "input_peak": 0.5,
+              "output_peak": 0.739716649055481,
+              "output_min": -0.739716649055481,
+              "output_max": 0.7326463460922241,
+              "outside_unit": 0,
+              "nonfinite": 0
+            }
+          ],
+          "steady_spectrum_bands": [
+            {
+              "channel": 0,
+              "hz": [
+                0,
+                16000
+              ],
+              "bins": 33440,
+              "input_mean_square": 0.0557257357573839,
+              "output_mean_square": 0.06180895077862801,
+              "error_mean_square": 0.0030689086541531123,
+              "raw_snr_db": 12.590718493819967
+            },
+            {
+              "channel": 0,
+              "hz": [
+                16000,
+                20000
+              ],
+              "bins": 8360,
+              "input_mean_square": 0.013698044935180467,
+              "output_mean_square": 0.01523961160865913,
+              "error_mean_square": 0.0007718332862103683,
+              "raw_snr_db": 12.491350824443025
+            },
+            {
+              "channel": 0,
+              "hz": [
+                20000,
+                24000
+              ],
+              "bins": 8360,
+              "input_mean_square": 0.013679539198424795,
+              "output_mean_square": 0.015245006964717759,
+              "error_mean_square": 0.0007693456015749598,
+              "raw_snr_db": 12.49949992996999
+            },
+            {
+              "channel": 1,
+              "hz": [
+                0,
+                16000
+              ],
+              "bins": 33440,
+              "input_mean_square": 0.05556610632881961,
+              "output_mean_square": 0.06170133135353232,
+              "error_mean_square": 0.003060576920179242,
+              "raw_snr_db": 12.590066667216792
+            },
+            {
+              "channel": 1,
+              "hz": [
+                16000,
+                20000
+              ],
+              "bins": 8360,
+              "input_mean_square": 0.013714641691417225,
+              "output_mean_square": 0.015216401246470088,
+              "error_mean_square": 0.0007576745770355316,
+              "raw_snr_db": 12.577017505112186
+            },
+            {
+              "channel": 1,
+              "hz": [
+                20000,
+                24000
+              ],
+              "bins": 8360,
+              "input_mean_square": 0.013716155528021365,
+              "output_mean_square": 0.015197374761312131,
+              "error_mean_square": 0.0007611154358910948,
+              "raw_snr_db": 12.55781871161844
+            }
+          ],
+          "all_decoded": [
+            {
+              "channel": 0,
+              "sample_frames": 110592,
+              "gain": null,
+              "raw_snr_db": null,
+              "input_rms": 0.0,
+              "output_rms": 0.30220653294186683,
+              "error_rms": 0.30220653294186683,
+              "input_peak": 0.0,
+              "output_peak": 0.7762261033058167,
+              "output_min": -0.7423536777496338,
+              "output_max": 0.7762261033058167,
+              "outside_unit": 0,
+              "nonfinite": 0
+            },
+            {
+              "channel": 1,
+              "sample_frames": 110592,
+              "gain": null,
+              "raw_snr_db": null,
+              "input_rms": 0.0,
+              "output_rms": 0.3021883725314634,
+              "error_rms": 0.3021883725314634,
+              "input_peak": 0.0,
+              "output_peak": 0.739716649055481,
+              "output_min": -0.739716649055481,
+              "output_max": 0.7326463460922241,
+              "outside_unit": 0,
+              "nonfinite": 0
+            }
+          ]
+        },
+        "lame": {
+          "delay_samples": 1105,
+          "decoded_sample_frames": 111744,
+          "aligned_available_source_frames": 110592,
+          "omitted_source_tail_frames": 0,
+          "decoded_padding_after_source_frames": 47,
+          "headers": {
+            "bytes": 93120,
+            "mpeg_frames": 97,
+            "decoded_nominal_frames": 111744,
+            "bitrate_kbps": [
+              320
+            ],
+            "sample_rate": [
+              48000
+            ],
+            "mode_counts": {
+              "joint_stereo": 97
+            },
+            "nonzero_main_data_begin_frames": 96,
+            "max_main_data_begin": 511,
+            "tag_scope": "Every byte parsed as MPEG1 Layer3 frame; no ID3/Xing frame added."
+          },
+          "aligned_common": [
+            {
+              "channel": 0,
+              "sample_frames": 109535,
+              "gain": 0.8384325925281995,
+              "raw_snr_db": 7.538207286401487,
+              "input_rms": 0.28831459149776334,
+              "output_rms": 0.2663027423368743,
+              "error_rms": 0.12104762089492845,
+              "input_peak": 0.5,
+              "output_peak": 0.8818076252937317,
+              "output_min": -0.8818076252937317,
+              "output_max": 0.7983839511871338,
+              "outside_unit": 0,
+              "nonfinite": 0
+            },
+            {
+              "channel": 1,
+              "sample_frames": 109535,
+              "gain": 0.8396791549506104,
+              "raw_snr_db": 7.56280731984946,
+              "input_rms": 0.28809613307830656,
+              "output_rms": 0.2663344002565833,
+              "error_rms": 0.12061381742247702,
+              "input_peak": 0.5,
+              "output_peak": 0.8032513856887817,
+              "output_min": -0.7975426912307739,
+              "output_max": 0.8032513856887817,
+              "outside_unit": 0,
+              "nonfinite": 0
+            }
+          ],
+          "steady": [
+            {
+              "channel": 0,
+              "sample_frames": 100319,
+              "gain": 0.839531726528949,
+              "raw_snr_db": 7.561467300209012,
+              "input_rms": 0.2882764643376027,
+              "output_rms": 0.2664635679417115,
+              "error_rms": 0.12070793542463117,
+              "input_peak": 0.5,
+              "output_peak": 0.8818076252937317,
+              "output_min": -0.8818076252937317,
+              "output_max": 0.7983839511871338,
+              "outside_unit": 0,
+              "nonfinite": 0
+            },
+            {
+              "channel": 1,
+              "sample_frames": 100319,
+              "gain": 0.8400098799913812,
+              "raw_snr_db": 7.566774894186388,
+              "input_rms": 0.2880918317971861,
+              "output_rms": 0.2664085380659207,
+              "error_rms": 0.12055693561227461,
+              "input_peak": 0.5,
+              "output_peak": 0.8032513856887817,
+              "output_min": -0.7975426912307739,
+              "output_max": 0.8032513856887817,
+              "outside_unit": 0,
+              "nonfinite": 0
+            }
+          ],
+          "steady_spectrum_bands": [
+            {
+              "channel": 0,
+              "hz": [
+                0,
+                16000
+              ],
+              "bins": 33440,
+              "input_mean_square": 0.0557257357573839,
+              "output_mean_square": 0.05629830741217848,
+              "error_mean_square": 0.0011955015386413532,
+              "raw_snr_db": 16.68505671861597
+            },
+            {
+              "channel": 0,
+              "hz": [
+                16000,
+                20000
+              ],
+              "bins": 8360,
+              "input_mean_square": 0.013698044935180467,
+              "output_mean_square": 0.013839510502572741,
+              "error_mean_square": 0.00048045610080718637,
+              "raw_snr_db": 14.550048741356363
+            },
+            {
+              "channel": 0,
+              "hz": [
+                20000,
+                24000
+              ],
+              "bins": 8360,
+              "input_mean_square": 0.013679539198424795,
+              "output_mean_square": 0.0008650151254759292,
+              "error_mean_square": 0.012894448035028394,
+              "raw_snr_db": 0.2566871193480946
+            },
+            {
+              "channel": 1,
+              "hz": [
+                0,
+                16000
+              ],
+              "bins": 33440,
+              "input_mean_square": 0.05556610632881961,
+              "output_mean_square": 0.05626510042500603,
+              "error_mean_square": 0.0011656432230945442,
+              "raw_snr_db": 16.782443225439064
+            },
+            {
+              "channel": 1,
+              "hz": [
+                16000,
+                20000
+              ],
+              "bins": 8360,
+              "input_mean_square": 0.013714641691417225,
+              "output_mean_square": 0.013843593350362116,
+              "error_mean_square": 0.00045741941149893327,
+              "raw_snr_db": 14.768698749072211
+            },
+            {
+              "channel": 1,
+              "hz": [
+                20000,
+                24000
+              ],
+              "bins": 8360,
+              "input_mean_square": 0.013716155528021365,
+              "output_mean_square": 0.0008648153790530145,
+              "error_mean_square": 0.012910912089628655,
+              "raw_snr_db": 0.2627547692806297
+            }
+          ],
+          "all_decoded": [
+            {
+              "channel": 0,
+              "sample_frames": 111744,
+              "gain": null,
+              "raw_snr_db": null,
+              "input_rms": 0.0,
+              "output_rms": 0.2649678408791142,
+              "error_rms": 0.2649678408791142,
+              "input_peak": 0.0,
+              "output_peak": 0.8818076252937317,
+              "output_min": -0.8818076252937317,
+              "output_max": 0.7983839511871338,
+              "outside_unit": 0,
+              "nonfinite": 0
+            },
+            {
+              "channel": 1,
+              "sample_frames": 111744,
+              "gain": null,
+              "raw_snr_db": null,
+              "input_rms": 0.0,
+              "output_rms": 0.2649971449578199,
+              "error_rms": 0.2649971449578199,
+              "input_peak": 0.0,
+              "output_peak": 0.8032513856887817,
+              "output_min": -0.7975426912307739,
+              "output_max": 0.8032513856887817,
+              "outside_unit": 0,
+              "nonfinite": 0
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "noise_independent_nearfull",
+      "source_sample_frames": 110592,
+      "common_source_range": [
+        0,
+        109535
+      ],
+      "steady_source_range": [
+        4608,
+        104927
+      ],
+      "codecs": {
+        "shine": {
+          "delay_samples": 1057,
+          "decoded_sample_frames": 110592,
+          "aligned_available_source_frames": 109535,
+          "omitted_source_tail_frames": 1057,
+          "decoded_padding_after_source_frames": 0,
+          "headers": {
+            "bytes": 92160,
+            "mpeg_frames": 96,
+            "decoded_nominal_frames": 110592,
+            "bitrate_kbps": [
+              320
+            ],
+            "sample_rate": [
+              48000
+            ],
+            "mode_counts": {
+              "stereo": 96
+            },
+            "nonzero_main_data_begin_frames": 0,
+            "max_main_data_begin": 0,
+            "tag_scope": "Every byte parsed as MPEG1 Layer3 frame; no ID3/Xing frame added."
+          },
+          "aligned_common": [
+            {
+              "channel": 0,
+              "sample_frames": 109535,
+              "gain": 1.0246150220670769,
+              "raw_snr_db": 12.62801428779526,
+              "input_rms": 0.5650965589098009,
+              "output_rms": 0.5937093857869156,
+              "error_rms": 0.1320449961745572,
+              "input_peak": 0.980010986328125,
+              "output_peak": 1.5406123399734497,
+              "output_min": -1.4584472179412842,
+              "output_max": 1.5406123399734497,
+              "outside_unit": 5942,
+              "nonfinite": 0
+            },
+            {
+              "channel": 1,
+              "sample_frames": 109535,
+              "gain": 1.024751935433697,
+              "raw_snr_db": 12.626558717013916,
+              "input_rms": 0.5646685002296313,
+              "output_rms": 0.5933381511042702,
+              "error_rms": 0.1319670855788928,
+              "input_peak": 0.97998046875,
+              "output_peak": 1.5074435472488403,
+              "output_min": -1.5074435472488403,
+              "output_max": 1.3870725631713867,
+              "outside_unit": 5799,
+              "nonfinite": 0
+            }
+          ],
+          "steady": [
+            {
+              "channel": 0,
+              "sample_frames": 100319,
+              "gain": 1.025148077008145,
+              "raw_snr_db": 12.605954662449733,
+              "input_rms": 0.5650218171000849,
+              "output_rms": 0.5939921872618684,
+              "error_rms": 0.13236326896813513,
+              "input_peak": 0.980010986328125,
+              "output_peak": 1.5406123399734497,
+              "output_min": -1.4584472179412842,
+              "output_max": 1.5406123399734497,
+              "outside_unit": 5465,
+              "nonfinite": 0
+            },
+            {
+              "channel": 1,
+              "sample_frames": 100319,
+              "gain": 1.0244167421555768,
+              "raw_snr_db": 12.62892971680725,
+              "input_rms": 0.5646600869021996,
+              "output_rms": 0.5931411461140914,
+              "error_rms": 0.1319291015314441,
+              "input_peak": 0.97998046875,
+              "output_peak": 1.5074435472488403,
+              "output_min": -1.5074435472488403,
+              "output_max": 1.3870725631713867,
+              "outside_unit": 5305,
+              "nonfinite": 0
+            }
+          ],
+          "steady_spectrum_bands": [
+            {
+              "channel": 0,
+              "hz": [
+                0,
+                16000
+              ],
+              "bins": 33440,
+              "input_mean_square": 0.2140759703672268,
+              "output_mean_square": 0.23653237456394774,
+              "error_mean_square": 0.011665789812729565,
+              "raw_snr_db": 12.636537739712326
+            },
+            {
+              "channel": 0,
+              "hz": [
+                16000,
+                20000
+              ],
+              "bins": 8360,
+              "input_mean_square": 0.052622397148368194,
+              "output_mean_square": 0.058225075986796646,
+              "error_mean_square": 0.0029277068606762997,
+              "raw_snr_db": 12.546430375180792
+            },
+            {
+              "channel": 0,
+              "hz": [
+                20000,
+                24000
+              ],
+              "bins": 8360,
+              "input_mean_square": 0.052551286283487014,
+              "output_mean_square": 0.05806926797739438,
+              "error_mean_square": 0.0029265382985250226,
+              "raw_snr_db": 12.54229138663071
+            },
+            {
+              "channel": 1,
+              "hz": [
+                0,
+                16000
+              ],
+              "bins": 33440,
+              "input_mean_square": 0.21346283067722738,
+              "output_mean_square": 0.235360840099729,
+              "error_mean_square": 0.011549660923805705,
+              "raw_snr_db": 12.667530298480283
+            },
+            {
+              "channel": 1,
+              "hz": [
+                16000,
+                20000
+              ],
+              "bins": 8360,
+              "input_mean_square": 0.05268619487930873,
+              "output_mean_square": 0.05834081676918523,
+              "error_mean_square": 0.00293013394201184,
+              "raw_snr_db": 12.548093607011932
+            },
+            {
+              "channel": 1,
+              "hz": [
+                20000,
+                24000
+              ],
+              "bins": 8360,
+              "input_mean_square": 0.0526919881838637,
+              "output_mean_square": 0.058114762344623816,
+              "error_mean_square": 0.002925492965076549,
+              "raw_snr_db": 12.555455276603729
+            }
+          ],
+          "all_decoded": [
+            {
+              "channel": 0,
+              "sample_frames": 110592,
+              "gain": null,
+              "raw_snr_db": null,
+              "input_rms": 0.0,
+              "output_rms": 0.5908750160864154,
+              "error_rms": 0.5908750160864154,
+              "input_peak": 0.0,
+              "output_peak": 1.5406123399734497,
+              "output_min": -1.4584472179412842,
+              "output_max": 1.5406123399734497,
+              "outside_unit": 5942,
+              "nonfinite": 0
+            },
+            {
+              "channel": 1,
+              "sample_frames": 110592,
+              "gain": null,
+              "raw_snr_db": null,
+              "input_rms": 0.0,
+              "output_rms": 0.590503989435698,
+              "error_rms": 0.590503989435698,
+              "input_peak": 0.0,
+              "output_peak": 1.5074435472488403,
+              "output_min": -1.5074435472488403,
+              "output_max": 1.3870725631713867,
+              "outside_unit": 5799,
+              "nonfinite": 0
+            }
+          ]
+        },
+        "lame": {
+          "delay_samples": 1105,
+          "decoded_sample_frames": 111744,
+          "aligned_available_source_frames": 110592,
+          "omitted_source_tail_frames": 0,
+          "decoded_padding_after_source_frames": 47,
+          "headers": {
+            "bytes": 93120,
+            "mpeg_frames": 97,
+            "decoded_nominal_frames": 111744,
+            "bitrate_kbps": [
+              320
+            ],
+            "sample_rate": [
+              48000
+            ],
+            "mode_counts": {
+              "joint_stereo": 97
+            },
+            "nonzero_main_data_begin_frames": 96,
+            "max_main_data_begin": 511,
+            "tag_scope": "Every byte parsed as MPEG1 Layer3 frame; no ID3/Xing frame added."
+          },
+          "aligned_common": [
+            {
+              "channel": 0,
+              "sample_frames": 109535,
+              "gain": 0.8390754818537318,
+              "raw_snr_db": 7.537836304858574,
+              "input_rms": 0.5650965589098009,
+              "output_rms": 0.5223511158085202,
+              "error_rms": 0.23726345348372813,
+              "input_peak": 0.980010986328125,
+              "output_peak": 1.7157044410705566,
+              "output_min": -1.7157044410705566,
+              "output_max": 1.644556999206543,
+              "outside_unit": 3416,
+              "nonfinite": 0
+            },
+            {
+              "channel": 1,
+              "sample_frames": 109535,
+              "gain": 0.839698991341887,
+              "raw_snr_db": 7.549526203487518,
+              "input_rms": 0.5646685002296313,
+              "output_rms": 0.5221915329367365,
+              "error_rms": 0.23676486288964518,
+              "input_peak": 0.97998046875,
+              "output_peak": 1.5629801750183105,
+              "output_min": -1.5362391471862793,
+              "output_max": 1.5629801750183105,
+              "outside_unit": 3435,
+              "nonfinite": 0
+            }
+          ],
+          "steady": [
+            {
+              "channel": 0,
+              "sample_frames": 100319,
+              "gain": 0.8401264844273489,
+              "raw_snr_db": 7.563175768867659,
+              "input_rms": 0.5650218171000849,
+              "output_rms": 0.522610916097244,
+              "error_rms": 0.23654100029665162,
+              "input_peak": 0.980010986328125,
+              "output_peak": 1.7157044410705566,
+              "output_min": -1.7157044410705566,
+              "output_max": 1.5638483762741089,
+              "outside_unit": 3141,
+              "nonfinite": 0
+            },
+            {
+              "channel": 1,
+              "sample_frames": 100319,
+              "gain": 0.8397867593857231,
+              "raw_snr_db": 7.551207583483648,
+              "input_rms": 0.5646600869021996,
+              "output_rms": 0.5222165657175907,
+              "error_rms": 0.23671550830829918,
+              "input_peak": 0.97998046875,
+              "output_peak": 1.5362391471862793,
+              "output_min": -1.5362391471862793,
+              "output_max": 1.5305850505828857,
+              "outside_unit": 3144,
+              "nonfinite": 0
+            }
+          ],
+          "steady_spectrum_bands": [
+            {
+              "channel": 0,
+              "hz": [
+                0,
+                16000
+              ],
+              "bins": 33440,
+              "input_mean_square": 0.2140759703672268,
+              "output_mean_square": 0.21642024114149916,
+              "error_mean_square": 0.004596226054904113,
+              "raw_snr_db": 16.681665409498468
+            },
+            {
+              "channel": 0,
+              "hz": [
+                16000,
+                20000
+              ],
+              "bins": 8360,
+              "input_mean_square": 0.052622397148368194,
+              "output_mean_square": 0.0533379281436661,
+              "error_mean_square": 0.0018402849114852137,
+              "raw_snr_db": 14.562855625992075
+            },
+            {
+              "channel": 0,
+              "hz": [
+                20000,
+                24000
+              ],
+              "bins": 8360,
+              "input_mean_square": 0.052551286283487014,
+              "output_mean_square": 0.003364000338835418,
+              "error_mean_square": 0.04951513385495124,
+              "raw_snr_db": 0.25845393179918913
+            },
+            {
+              "channel": 1,
+              "hz": [
+                0,
+                16000
+              ],
+              "bins": 33440,
+              "input_mean_square": 0.21346283067722738,
+              "output_mean_square": 0.21576020083397504,
+              "error_mean_square": 0.004537832580730404,
+              "raw_snr_db": 16.724737952605146
+            },
+            {
+              "channel": 1,
+              "hz": [
+                16000,
+                20000
+              ],
+              "bins": 8360,
+              "input_mean_square": 0.05268619487930873,
+              "output_mean_square": 0.05373544344291186,
+              "error_mean_square": 0.0018361510774504613,
+              "raw_snr_db": 14.577884221036852
+            },
+            {
+              "channel": 1,
+              "hz": [
+                20000,
+                24000
+              ],
+              "bins": 8360,
+              "input_mean_square": 0.0526919881838637,
+              "output_mean_square": 0.0032144972329879416,
+              "error_mean_square": 0.049660248215475614,
+              "raw_snr_db": 0.257356998154985
+            }
+          ],
+          "all_decoded": [
+            {
+              "channel": 0,
+              "sample_frames": 111744,
+              "gain": null,
+              "raw_snr_db": null,
+              "input_rms": 0.0,
+              "output_rms": 0.5196931712062736,
+              "error_rms": 0.5196931712062736,
+              "input_peak": 0.0,
+              "output_peak": 1.7157044410705566,
+              "output_min": -1.7157044410705566,
+              "output_max": 1.644556999206543,
+              "outside_unit": 3450,
+              "nonfinite": 0
+            },
+            {
+              "channel": 1,
+              "sample_frames": 111744,
+              "gain": null,
+              "raw_snr_db": null,
+              "input_rms": 0.0,
+              "output_rms": 0.5195771545642244,
+              "error_rms": 0.5195771545642244,
+              "input_peak": 0.0,
+              "output_peak": 1.5629801750183105,
+              "output_min": -1.5362391471862793,
+              "output_max": 1.5629801750183105,
+              "outside_unit": 3468,
+              "nonfinite": 0
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "tones_independent_half",
+      "source_sample_frames": 110592,
+      "common_source_range": [
+        0,
+        109535
+      ],
+      "steady_source_range": [
+        4608,
+        104927
+      ],
+      "codecs": {
+        "shine": {
+          "delay_samples": 1057,
+          "decoded_sample_frames": 110592,
+          "aligned_available_source_frames": 109535,
+          "omitted_source_tail_frames": 1057,
+          "decoded_padding_after_source_frames": 0,
+          "headers": {
+            "bytes": 92160,
+            "mpeg_frames": 96,
+            "decoded_nominal_frames": 110592,
+            "bitrate_kbps": [
+              320
+            ],
+            "sample_rate": [
+              48000
+            ],
+            "mode_counts": {
+              "stereo": 96
+            },
+            "nonzero_main_data_begin_frames": 0,
+            "max_main_data_begin": 0,
+            "tag_scope": "Every byte parsed as MPEG1 Layer3 frame; no ID3/Xing frame added."
+          },
+          "aligned_common": [
+            {
+              "channel": 0,
+              "sample_frames": 109535,
+              "gain": 0.9998569773181643,
+              "raw_snr_db": 72.61056460343187,
+              "input_rms": 0.3535463558041192,
+              "output_rms": 0.3534957967318524,
+              "error_rms": 8.277861102369782e-05,
+              "input_peak": 0.5,
+              "output_peak": 0.5004093050956726,
+              "output_min": -0.5004093050956726,
+              "output_max": 0.5003117918968201,
+              "outside_unit": 0,
+              "nonfinite": 0
+            },
+            {
+              "channel": 1,
+              "sample_frames": 109535,
+              "gain": 0.9998498829297332,
+              "raw_snr_db": 69.71568924687283,
+              "input_rms": 0.3535501504724718,
+              "output_rms": 0.35349709145176084,
+              "error_rms": 0.00011552249608026157,
+              "input_peak": 0.5,
+              "output_peak": 0.5024027824401855,
+              "output_min": -0.5009331107139587,
+              "output_max": 0.5024027824401855,
+              "outside_unit": 0,
+              "nonfinite": 0
+            }
+          ],
+          "steady": [
+            {
+              "channel": 0,
+              "sample_frames": 100319,
+              "gain": 0.9998586934178382,
+              "raw_snr_db": 75.37090420842715,
+              "input_rms": 0.3535633243941153,
+              "output_rms": 0.35351336517220794,
+              "error_rms": 6.024513727416207e-05,
+              "input_peak": 0.5,
+              "output_peak": 0.5000138282775879,
+              "output_min": -0.5000138282775879,
+              "output_max": 0.5000133514404297,
+              "outside_unit": 0,
+              "nonfinite": 0
+            },
+            {
+              "channel": 1,
+              "sample_frames": 100319,
+              "gain": 0.9998502696562864,
+              "raw_snr_db": 74.8344070281287,
+              "input_rms": 0.3535497677452678,
+              "output_rms": 0.35349683246152724,
+              "error_rms": 6.408113640795471e-05,
+              "input_peak": 0.5,
+              "output_peak": 0.500041663646698,
+              "output_min": -0.500041663646698,
+              "output_max": 0.5000239610671997,
+              "outside_unit": 0,
+              "nonfinite": 0
+            }
+          ],
+          "steady_spectrum_bands": [
+            {
+              "channel": 0,
+              "hz": [
+                0,
+                16000
+              ],
+              "bins": 33440,
+              "input_mean_square": 0.12500651634814322,
+              "output_mean_square": 0.12497119143276093,
+              "error_mean_square": 3.5514743500721497e-09,
+              "raw_snr_db": 75.46523970129937
+            },
+            {
+              "channel": 0,
+              "hz": [
+                16000,
+                20000
+              ],
+              "bins": 8360,
+              "input_mean_square": 2.7240702242803856e-07,
+              "output_mean_square": 2.723856200858609e-07,
+              "error_mean_square": 3.844693078896959e-11,
+              "raw_snr_db": 38.50356623261162
+            },
+            {
+              "channel": 0,
+              "hz": [
+                20000,
+                24000
+              ],
+              "bins": 8360,
+              "input_mean_square": 2.356014527976885e-07,
+              "output_mean_square": 2.3553699788747773e-07,
+              "error_mean_square": 3.9555284321514437e-11,
+              "raw_snr_db": 37.74973453580414
+            },
+            {
+              "channel": 1,
+              "hz": [
+                0,
+                16000
+              ],
+              "bins": 33440,
+              "input_mean_square": 0.1249971329136133,
+              "output_mean_square": 0.12495970523261525,
+              "error_mean_square": 4.0261869613668984e-09,
+              "raw_snr_db": 74.92006113550457
+            },
+            {
+              "channel": 1,
+              "hz": [
+                16000,
+                20000
+              ],
+              "bins": 8360,
+              "input_mean_square": 1.6404424623176608e-07,
+              "output_mean_square": 1.6397240168076663e-07,
+              "error_mean_square": 3.7299177696997157e-11,
+              "raw_snr_db": 36.432617449358396
+            },
+            {
+              "channel": 1,
+              "hz": [
+                20000,
+                24000
+              ],
+              "bins": 8360,
+              "input_mean_square": 1.4131487329077628e-07,
+              "output_mean_square": 1.4135531620221301e-07,
+              "error_mean_square": 4.290590427100346e-11,
+              "raw_snr_db": 35.17670813987527
+            }
+          ],
+          "all_decoded": [
+            {
+              "channel": 0,
+              "sample_frames": 110592,
+              "gain": null,
+              "raw_snr_db": null,
+              "input_rms": 0.0,
+              "output_rms": 0.35180245045496544,
+              "error_rms": 0.35180245045496544,
+              "input_peak": 0.0,
+              "output_peak": 0.5004093050956726,
+              "output_min": -0.5004093050956726,
+              "output_max": 0.5003117918968201,
+              "outside_unit": 0,
+              "nonfinite": 0
+            },
+            {
+              "channel": 1,
+              "sample_frames": 110592,
+              "gain": null,
+              "raw_snr_db": null,
+              "input_rms": 0.0,
+              "output_rms": 0.351803746725118,
+              "error_rms": 0.351803746725118,
+              "input_peak": 0.0,
+              "output_peak": 0.5024027824401855,
+              "output_min": -0.5009331107139587,
+              "output_max": 0.5024027824401855,
+              "outside_unit": 0,
+              "nonfinite": 0
+            }
+          ]
+        },
+        "lame": {
+          "delay_samples": 1105,
+          "decoded_sample_frames": 111744,
+          "aligned_available_source_frames": 110592,
+          "omitted_source_tail_frames": 0,
+          "decoded_padding_after_source_frames": 47,
+          "headers": {
+            "bytes": 93120,
+            "mpeg_frames": 97,
+            "decoded_nominal_frames": 111744,
+            "bitrate_kbps": [
+              320
+            ],
+            "sample_rate": [
+              48000
+            ],
+            "mode_counts": {
+              "joint_stereo": 97
+            },
+            "nonzero_main_data_begin_frames": 62,
+            "max_main_data_begin": 511,
+            "tag_scope": "Every byte parsed as MPEG1 Layer3 frame; no ID3/Xing frame added."
+          },
+          "aligned_common": [
+            {
+              "channel": 0,
+              "sample_frames": 109535,
+              "gain": 0.9999679975759266,
+              "raw_snr_db": 78.01115482922621,
+              "input_rms": 0.3535463558041192,
+              "output_rms": 0.35353504407723085,
+              "error_rms": 4.4451725481440715e-05,
+              "input_peak": 0.5,
+              "output_peak": 0.5002619028091431,
+              "output_min": -0.5002619028091431,
+              "output_max": 0.5000931024551392,
+              "outside_unit": 0,
+              "nonfinite": 0
+            },
+            {
+              "channel": 1,
+              "sample_frames": 109535,
+              "gain": 0.9999387126802917,
+              "raw_snr_db": 75.265538554151,
+              "input_rms": 0.3535501504724718,
+              "output_rms": 0.35352848692622146,
+              "error_rms": 6.097812956041617e-05,
+              "input_peak": 0.5,
+              "output_peak": 0.5014533400535583,
+              "output_min": -0.5002536177635193,
+              "output_max": 0.5014533400535583,
+              "outside_unit": 0,
+              "nonfinite": 0
+            }
+          ],
+          "steady": [
+            {
+              "channel": 0,
+              "sample_frames": 100319,
+              "gain": 0.9999689645884454,
+              "raw_snr_db": 78.79062480099928,
+              "input_rms": 0.3535633243941153,
+              "output_rms": 0.3535523535760962,
+              "error_rms": 4.063834085579085e-05,
+              "input_peak": 0.5,
+              "output_peak": 0.5000931024551392,
+              "output_min": -0.5000931024551392,
+              "output_max": 0.5000931024551392,
+              "outside_unit": 0,
+              "nonfinite": 0
+            },
+            {
+              "channel": 1,
+              "sample_frames": 100319,
+              "gain": 0.9999372251592894,
+              "raw_snr_db": 77.49533889532667,
+              "input_rms": 0.3535497677452678,
+              "output_rms": 0.3535275761653818,
+              "error_rms": 4.717192631916352e-05,
+              "input_peak": 0.5,
+              "output_peak": 0.5001351237297058,
+              "output_min": -0.5000820159912109,
+              "output_max": 0.5001351237297058,
+              "outside_unit": 0,
+              "nonfinite": 0
+            }
+          ],
+          "steady_spectrum_bands": [
+            {
+              "channel": 0,
+              "hz": [
+                0,
+                16000
+              ],
+              "bins": 33440,
+              "input_mean_square": 0.12500651634814322,
+              "output_mean_square": 0.12499875862225239,
+              "error_mean_square": 1.6171970670782406e-09,
+              "raw_snr_db": 78.88169707497192
+            },
+            {
+              "channel": 0,
+              "hz": [
+                16000,
+                20000
+              ],
+              "bins": 8360,
+              "input_mean_square": 2.7240702242803856e-07,
+              "output_mean_square": 2.724959056839501e-07,
+              "error_mean_square": 1.757511537246457e-11,
+              "raw_snr_db": 41.903201144954295
+            },
+            {
+              "channel": 0,
+              "hz": [
+                20000,
+                24000
+              ],
+              "bins": 8360,
+              "input_mean_square": 2.356014527976885e-07,
+              "output_mean_square": 2.3560103885318354e-07,
+              "error_mean_square": 1.6702565060735234e-11,
+              "raw_snr_db": 41.49394792012561
+            },
+            {
+              "channel": 1,
+              "hz": [
+                0,
+                16000
+              ],
+              "bins": 33440,
+              "input_mean_square": 0.1249971329136133,
+              "output_mean_square": 0.12498144170784588,
+              "error_mean_square": 2.189704726188546e-09,
+              "raw_snr_db": 77.56514495876986
+            },
+            {
+              "channel": 1,
+              "hz": [
+                16000,
+                20000
+              ],
+              "bins": 8360,
+              "input_mean_square": 1.6404424623176608e-07,
+              "output_mean_square": 1.640344159889594e-07,
+              "error_mean_square": 1.9761879486095922e-11,
+              "raw_snr_db": 39.19132755823978
+            },
+            {
+              "channel": 1,
+              "hz": [
+                20000,
+                24000
+              ],
+              "bins": 8360,
+              "input_mean_square": 1.4131487329077628e-07,
+              "output_mean_square": 1.4136710810077418e-07,
+              "error_mean_square": 1.5724026985951462e-11,
+              "raw_snr_db": 39.53624092946892
+            }
+          ],
+          "all_decoded": [
+            {
+              "channel": 0,
+              "sample_frames": 111744,
+              "gain": null,
+              "raw_snr_db": null,
+              "input_rms": 0.0,
+              "output_rms": 0.35170848557151585,
+              "error_rms": 0.35170848557151585,
+              "input_peak": 0.0,
+              "output_peak": 0.5002619028091431,
+              "output_min": -0.5002619028091431,
+              "output_max": 0.5000931024551392,
+              "outside_unit": 0,
+              "nonfinite": 0
+            },
+            {
+              "channel": 1,
+              "sample_frames": 111744,
+              "gain": null,
+              "raw_snr_db": null,
+              "input_rms": 0.0,
+              "output_rms": 0.3517019138614643,
+              "error_rms": 0.3517019138614643,
+              "input_peak": 0.0,
+              "output_peak": 0.5014533400535583,
+              "output_min": -0.5012637972831726,
+              "output_max": 0.5014533400535583,
+              "outside_unit": 0,
+              "nonfinite": 0
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "tones_independent_nearfull",
+      "source_sample_frames": 110592,
+      "common_source_range": [
+        0,
+        109535
+      ],
+      "steady_source_range": [
+        4608,
+        104927
+      ],
+      "codecs": {
+        "shine": {
+          "delay_samples": 1057,
+          "decoded_sample_frames": 110592,
+          "aligned_available_source_frames": 109535,
+          "omitted_source_tail_frames": 1057,
+          "decoded_padding_after_source_frames": 0,
+          "headers": {
+            "bytes": 92160,
+            "mpeg_frames": 96,
+            "decoded_nominal_frames": 110592,
+            "bitrate_kbps": [
+              320
+            ],
+            "sample_rate": [
+              48000
+            ],
+            "mode_counts": {
+              "stereo": 96
+            },
+            "nonzero_main_data_begin_frames": 0,
+            "max_main_data_begin": 0,
+            "tag_scope": "Every byte parsed as MPEG1 Layer3 frame; no ID3/Xing frame added."
+          },
+          "aligned_common": [
+            {
+              "channel": 0,
+              "sample_frames": 109535,
+              "gain": 0.999843509441469,
+              "raw_snr_db": 71.94347703078215,
+              "input_rms": 0.6929510310090513,
+              "output_rms": 0.6928426043798781,
+              "error_rms": 0.00017519781831570278,
+              "input_peak": 0.980010986328125,
+              "output_peak": 0.981529712677002,
+              "output_min": -0.981529712677002,
+              "output_max": 0.9808107614517212,
+              "outside_unit": 0,
+              "nonfinite": 0
+            },
+            {
+              "channel": 1,
+              "sample_frames": 109535,
+              "gain": 0.9998565357754832,
+              "raw_snr_db": 70.80695480873887,
+              "input_rms": 0.6929584701220688,
+              "output_rms": 0.692859077017179,
+              "error_rms": 0.0001996914484570603,
+              "input_peak": 0.980010986328125,
+              "output_peak": 0.9830865859985352,
+              "output_min": -0.9824380874633789,
+              "output_max": 0.9830865859985352,
+              "outside_unit": 0,
+              "nonfinite": 0
+            }
+          ],
+          "steady": [
+            {
+              "channel": 0,
+              "sample_frames": 100319,
+              "gain": 0.9998461682211909,
+              "raw_snr_db": 74.92077892567451,
+              "input_rms": 0.692984289867837,
+              "output_rms": 0.6928776898215789,
+              "error_rms": 0.00012436106794522917,
+              "input_peak": 0.980010986328125,
+              "output_peak": 0.980011522769928,
+              "output_min": -0.9800070524215698,
+              "output_max": 0.980011522769928,
+              "outside_unit": 0,
+              "nonfinite": 0
+            },
+            {
+              "channel": 1,
+              "sample_frames": 100319,
+              "gain": 0.9998551766069069,
+              "raw_snr_db": 75.12934443032576,
+              "input_rms": 0.6929577014062164,
+              "output_rms": 0.6928573482892505,
+              "error_rms": 0.00012140581934744011,
+              "input_peak": 0.980010986328125,
+              "output_peak": 0.9800344109535217,
+              "output_min": -0.9800131916999817,
+              "output_max": 0.9800344109535217,
+              "outside_unit": 0,
+              "nonfinite": 0
+            }
+          ],
+          "steady_spectrum_bands": [
+            {
+              "channel": 0,
+              "hz": [
+                0,
+                16000
+              ],
+              "bins": 33440,
+              "input_mean_square": 0.48022527458219133,
+              "output_mean_square": 0.48007754157336535,
+              "error_mean_square": 1.5250591483614067e-08,
+              "raw_snr_db": 74.9815832571618
+            },
+            {
+              "channel": 0,
+              "hz": [
+                16000,
+                20000
+              ],
+              "bins": 8360,
+              "input_mean_square": 1.04647476199552e-06,
+              "output_mean_square": 1.046628545236461e-06,
+              "error_mean_square": 1.0550755928183936e-10,
+              "raw_snr_db": 39.96445182279315
+            },
+            {
+              "channel": 0,
+              "hz": [
+                20000,
+                24000
+              ],
+              "bins": 8360,
+              "input_mean_square": 9.049466772927449e-07,
+              "output_mean_square": 9.04850577715835e-07,
+              "error_mean_square": 1.0957617758200682e-10,
+              "raw_snr_db": 39.16906843186594
+            },
+            {
+              "channel": 1,
+              "hz": [
+                0,
+                16000
+              ],
+              "bins": 33440,
+              "input_mean_square": 0.48018920284705396,
+              "output_mean_square": 0.48005013225241816,
+              "error_mean_square": 1.4536998893022445e-08,
+              "raw_snr_db": 75.18937633263043
+            },
+            {
+              "channel": 1,
+              "hz": [
+                16000,
+                20000
+              ],
+              "bins": 8360,
+              "input_mean_square": 6.301079366467248e-07,
+              "output_mean_square": 6.298549588248718e-07,
+              "error_mean_square": 9.871409527685115e-11,
+              "raw_snr_db": 38.0503578036221
+            },
+            {
+              "channel": 1,
+              "hz": [
+                20000,
+                24000
+              ],
+              "bins": 8360,
+              "input_mean_square": 5.429831967424231e-07,
+              "output_mean_square": 5.429710349198093e-07,
+              "error_mean_square": 1.0365998312397291e-10,
+              "raw_snr_db": 37.19175256240506
+            }
+          ],
+          "all_decoded": [
+            {
+              "channel": 0,
+              "sample_frames": 110592,
+              "gain": null,
+              "raw_snr_db": null,
+              "input_rms": 0.0,
+              "output_rms": 0.6895236887793441,
+              "error_rms": 0.6895236887793441,
+              "input_peak": 0.0,
+              "output_peak": 0.981529712677002,
+              "output_min": -0.981529712677002,
+              "output_max": 0.9808107614517212,
+              "outside_unit": 0,
+              "nonfinite": 0
+            },
+            {
+              "channel": 1,
+              "sample_frames": 110592,
+              "gain": null,
+              "raw_snr_db": null,
+              "input_rms": 0.0,
+              "output_rms": 0.689540091735207,
+              "error_rms": 0.689540091735207,
+              "input_peak": 0.0,
+              "output_peak": 0.9830865859985352,
+              "output_min": -0.9824380874633789,
+              "output_max": 0.9830865859985352,
+              "outside_unit": 0,
+              "nonfinite": 0
+            }
+          ]
+        },
+        "lame": {
+          "delay_samples": 1105,
+          "decoded_sample_frames": 111744,
+          "aligned_available_source_frames": 110592,
+          "omitted_source_tail_frames": 0,
+          "decoded_padding_after_source_frames": 47,
+          "headers": {
+            "bytes": 93120,
+            "mpeg_frames": 97,
+            "decoded_nominal_frames": 111744,
+            "bitrate_kbps": [
+              320
+            ],
+            "sample_rate": [
+              48000
+            ],
+            "mode_counts": {
+              "joint_stereo": 97
+            },
+            "nonzero_main_data_begin_frames": 96,
+            "max_main_data_begin": 511,
+            "tag_scope": "Every byte parsed as MPEG1 Layer3 frame; no ID3/Xing frame added."
+          },
+          "aligned_common": [
+            {
+              "channel": 0,
+              "sample_frames": 109535,
+              "gain": 0.9999419079936447,
+              "raw_snr_db": 78.83057739513777,
+              "input_rms": 0.6929510310090513,
+              "output_rms": 0.6929107794596968,
+              "error_rms": 7.928183172381105e-05,
+              "input_peak": 0.980010986328125,
+              "output_peak": 0.9805638790130615,
+              "output_min": -0.9805638790130615,
+              "output_max": 0.9801362752914429,
+              "outside_unit": 0,
+              "nonfinite": 0
+            },
+            {
+              "channel": 1,
+              "sample_frames": 109535,
+              "gain": 0.9999500261015297,
+              "raw_snr_db": 76.88774128883877,
+              "input_rms": 0.6929584701220688,
+              "output_rms": 0.6929238465150506,
+              "error_rms": 9.915626126771095e-05,
+              "input_peak": 0.980010986328125,
+              "output_peak": 0.9814789295196533,
+              "output_min": -0.9801228046417236,
+              "output_max": 0.9814789295196533,
+              "outside_unit": 0,
+              "nonfinite": 0
+            }
+          ],
+          "steady": [
+            {
+              "channel": 0,
+              "sample_frames": 100319,
+              "gain": 0.9999419125521993,
+              "raw_snr_db": 80.18545410740332,
+              "input_rms": 0.692984289867837,
+              "output_rms": 0.6929440383301563,
+              "error_rms": 6.783450867973737e-05,
+              "input_peak": 0.980010986328125,
+              "output_peak": 0.9801190495491028,
+              "output_min": -0.9801190495491028,
+              "output_max": 0.9800951480865479,
+              "outside_unit": 0,
+              "nonfinite": 0
+            },
+            {
+              "channel": 1,
+              "sample_frames": 100319,
+              "gain": 0.9999490467812331,
+              "raw_snr_db": 79.73640706955263,
+              "input_rms": 0.6929577014062164,
+              "output_rms": 0.6929223957630583,
+              "error_rms": 7.143094115699553e-05,
+              "input_peak": 0.980010986328125,
+              "output_peak": 0.9801228046417236,
+              "output_min": -0.9801228046417236,
+              "output_max": 0.9801228046417236,
+              "outside_unit": 0,
+              "nonfinite": 0
+            }
+          ],
+          "steady_spectrum_bands": [
+            {
+              "channel": 0,
+              "hz": [
+                0,
+                16000
+              ],
+              "bins": 33440,
+              "input_mean_square": 0.48022527458219133,
+              "output_mean_square": 0.48016948844015334,
+              "error_mean_square": 4.541854714685202e-09,
+              "raw_snr_db": 80.24211775686479
+            },
+            {
+              "channel": 0,
+              "hz": [
+                16000,
+                20000
+              ],
+              "bins": 8360,
+              "input_mean_square": 1.04647476199552e-06,
+              "output_mean_square": 1.0467788540665722e-06,
+              "error_mean_square": 3.203090448511908e-11,
+              "raw_snr_db": 45.14159556453074
+            },
+            {
+              "channel": 0,
+              "hz": [
+                20000,
+                24000
+              ],
+              "bins": 8360,
+              "input_mean_square": 9.049466772927449e-07,
+              "output_mean_square": 9.050382977796827e-07,
+              "error_mean_square": 2.763494865104439e-11,
+              "raw_snr_db": 45.15164327820209
+            },
+            {
+              "channel": 1,
+              "hz": [
+                0,
+                16000
+              ],
+              "bins": 33440,
+              "input_mean_square": 0.48018920284705396,
+              "output_mean_square": 0.4801402737859959,
+              "error_mean_square": 5.040974897913106e-09,
+              "raw_snr_db": 79.78897855803511
+            },
+            {
+              "channel": 1,
+              "hz": [
+                16000,
+                20000
+              ],
+              "bins": 8360,
+              "input_mean_square": 6.301079366467248e-07,
+              "output_mean_square": 6.298913840703403e-07,
+              "error_mean_square": 4.1026480240508214e-11,
+              "raw_snr_db": 41.86350690483235
+            },
+            {
+              "channel": 1,
+              "hz": [
+                20000,
+                24000
+              ],
+              "bins": 8360,
+              "input_mean_square": 5.429831967424231e-07,
+              "output_mean_square": 5.428726364764428e-07,
+              "error_mean_square": 2.0377976420545793e-11,
+              "raw_snr_db": 44.256253346594136
+            }
+          ],
+          "all_decoded": [
+            {
+              "channel": 0,
+              "sample_frames": 111744,
+              "gain": null,
+              "raw_snr_db": null,
+              "input_rms": 0.0,
+              "output_rms": 0.689331818246283,
+              "error_rms": 0.689331818246283,
+              "input_peak": 0.0,
+              "output_peak": 0.9805638790130615,
+              "output_min": -0.9805638790130615,
+              "output_max": 0.9801362752914429,
+              "outside_unit": 0,
+              "nonfinite": 0
+            },
+            {
+              "channel": 1,
+              "sample_frames": 111744,
+              "gain": null,
+              "raw_snr_db": null,
+              "input_rms": 0.0,
+              "output_rms": 0.6893435819494927,
+              "error_rms": 0.6893435819494927,
+              "input_peak": 0.0,
+              "output_peak": 0.9834986329078674,
+              "output_min": -0.981034517288208,
+              "output_max": 0.9834986329078674,
+              "outside_unit": 0,
+              "nonfinite": 0
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "impulse_and_gated_tones_half",
+      "source_sample_frames": 110592,
+      "common_source_range": [
+        0,
+        109535
+      ],
+      "steady_source_range": [
+        4608,
+        104927
+      ],
+      "codecs": {
+        "shine": {
+          "delay_samples": 1057,
+          "decoded_sample_frames": 110592,
+          "aligned_available_source_frames": 109535,
+          "omitted_source_tail_frames": 1057,
+          "decoded_padding_after_source_frames": 0,
+          "headers": {
+            "bytes": 92160,
+            "mpeg_frames": 96,
+            "decoded_nominal_frames": 110592,
+            "bitrate_kbps": [
+              320
+            ],
+            "sample_rate": [
+              48000
+            ],
+            "mode_counts": {
+              "stereo": 96
+            },
+            "nonzero_main_data_begin_frames": 0,
+            "max_main_data_begin": 0,
+            "tag_scope": "Every byte parsed as MPEG1 Layer3 frame; no ID3/Xing frame added."
+          },
+          "aligned_common": [
+            {
+              "channel": 0,
+              "sample_frames": 109535,
+              "gain": 0.999541858970708,
+              "raw_snr_db": 37.839183834875314,
+              "input_rms": 0.08088633495490663,
+              "output_rms": 0.08085592349915306,
+              "error_rms": 0.0010373276776954403,
+              "input_peak": 0.5,
+              "output_peak": 0.6211308240890503,
+              "output_min": -0.5106341242790222,
+              "output_max": 0.6211308240890503,
+              "outside_unit": 0,
+              "nonfinite": 0
+            },
+            {
+              "channel": 1,
+              "sample_frames": 109535,
+              "gain": 0.9996865841782779,
+              "raw_snr_db": 36.926032989615685,
+              "input_rms": 0.08094225134504372,
+              "output_rms": 0.08092509470410293,
+              "error_rms": 0.0011531176782979308,
+              "input_peak": 0.5,
+              "output_peak": 0.6211308240890503,
+              "output_min": -0.6211308240890503,
+              "output_max": 0.508907675743103,
+              "outside_unit": 0,
+              "nonfinite": 0
+            }
+          ],
+          "steady": [
+            {
+              "channel": 0,
+              "sample_frames": 100319,
+              "gain": 0.999541858970708,
+              "raw_snr_db": 37.839183834875314,
+              "input_rms": 0.0845201028044258,
+              "output_rms": 0.08448832513310274,
+              "error_rms": 0.0010839289727934008,
+              "input_peak": 0.5,
+              "output_peak": 0.6211308240890503,
+              "output_min": -0.5106341242790222,
+              "output_max": 0.6211308240890503,
+              "outside_unit": 0,
+              "nonfinite": 0
+            },
+            {
+              "channel": 1,
+              "sample_frames": 100319,
+              "gain": 0.9996865841782779,
+              "raw_snr_db": 36.926032989615685,
+              "input_rms": 0.08457853120330769,
+              "output_rms": 0.08456060381103676,
+              "error_rms": 0.001204920766525963,
+              "input_peak": 0.5,
+              "output_peak": 0.6211308240890503,
+              "output_min": -0.6211308240890503,
+              "output_max": 0.508907675743103,
+              "outside_unit": 0,
+              "nonfinite": 0
+            }
+          ],
+          "steady_spectrum_bands": [
+            {
+              "channel": 0,
+              "hz": [
+                0,
+                16000
+              ],
+              "bins": 33440,
+              "input_mean_square": 0.007142432971197403,
+              "output_mean_square": 0.007136522275296408,
+              "error_mean_square": 6.52324051036358e-07,
+              "raw_snr_db": 40.393827822439725
+            },
+            {
+              "channel": 0,
+              "hz": [
+                16000,
+                20000
+              ],
+              "bins": 8360,
+              "input_mean_square": 6.214067613178537e-07,
+              "output_mean_square": 9.192133278773455e-07,
+              "error_mean_square": 2.6317303118531136e-07,
+              "raw_snr_db": 3.7313459172298593
+            },
+            {
+              "channel": 0,
+              "hz": [
+                20000,
+                24000
+              ],
+              "bins": 8360,
+              "input_mean_square": 5.934001119889124e-07,
+              "output_mean_square": 8.355951725963295e-07,
+              "error_mean_square": 2.594049358392883e-07,
+              "raw_snr_db": 3.5936938855786393
+            },
+            {
+              "channel": 1,
+              "hz": [
+                0,
+                16000
+              ],
+              "bins": 33440,
+              "input_mean_square": 0.007152189756673635,
+              "output_mean_square": 0.007148607536242372,
+              "error_mean_square": 7.868652682579269e-07,
+              "raw_snr_db": 39.58538652079077
+            },
+            {
+              "channel": 1,
+              "hz": [
+                16000,
+                20000
+              ],
+              "bins": 8360,
+              "input_mean_square": 6.880289457038366e-07,
+              "output_mean_square": 9.8777462305629e-07,
+              "error_mean_square": 3.302613118563825e-07,
+              "raw_snr_db": 3.1874900793273753
+            },
+            {
+              "channel": 1,
+              "hz": [
+                20000,
+                24000
+              ],
+              "bins": 8360,
+              "input_mean_square": 6.50154889555724e-07,
+              "output_mean_square": 9.00406021699442e-07,
+              "error_mean_square": 3.3470747349120563e-07,
+              "raw_snr_db": 2.88351423473596
+            }
+          ],
+          "all_decoded": [
+            {
+              "channel": 0,
+              "sample_frames": 110592,
+              "gain": null,
+              "raw_snr_db": null,
+              "input_rms": 0.0,
+              "output_rms": 0.0804685993553864,
+              "error_rms": 0.0804685993553864,
+              "input_peak": 0.0,
+              "output_peak": 0.6211308240890503,
+              "output_min": -0.5106341242790222,
+              "output_max": 0.6211308240890503,
+              "outside_unit": 0,
+              "nonfinite": 0
+            },
+            {
+              "channel": 1,
+              "sample_frames": 110592,
+              "gain": null,
+              "raw_snr_db": null,
+              "input_rms": 0.0,
+              "output_rms": 0.08053743920950172,
+              "error_rms": 0.08053743920950172,
+              "input_peak": 0.0,
+              "output_peak": 0.6211308240890503,
+              "output_min": -0.6211308240890503,
+              "output_max": 0.508907675743103,
+              "outside_unit": 0,
+              "nonfinite": 0
+            }
+          ],
+          "event_regions": {
+            "isolated_impulse": {
+              "source_range": [
+                7000,
+                17000
+              ],
+              "metrics": [
+                {
+                  "channel": 0,
+                  "sample_frames": 10000,
+                  "gain": 1.2422616481781006,
+                  "raw_snr_db": 8.58728284354513,
+                  "input_rms": 0.005,
+                  "output_rms": 0.006369785168956486,
+                  "error_rms": 0.0018603979922997619,
+                  "input_peak": 0.5,
+                  "output_peak": 0.6211308240890503,
+                  "output_min": -0.038556311279535294,
+                  "output_max": 0.6211308240890503,
+                  "outside_unit": 0,
+                  "nonfinite": 0
+                },
+                {
+                  "channel": 1,
+                  "sample_frames": 10000,
+                  "gain": 1.2422616481781006,
+                  "raw_snr_db": 8.587282820031357,
+                  "input_rms": 0.005,
+                  "output_rms": 0.006369785170427427,
+                  "error_rms": 0.001860397997336089,
+                  "input_peak": 0.5,
+                  "output_peak": 0.6211308240890503,
+                  "output_min": -0.6211308240890503,
+                  "output_max": 0.03855659067630768,
+                  "outside_unit": 0,
+                  "nonfinite": 0
+                }
+              ]
+            },
+            "first_gate": {
+              "source_range": [
+                25000,
+                39000
+              ],
+              "metrics": [
+                {
+                  "channel": 0,
+                  "sample_frames": 14000,
+                  "gain": 0.9995161288995483,
+                  "raw_snr_db": 41.04818180844446,
+                  "input_rms": 0.18361996357409682,
+                  "output_rms": 0.18353830929050777,
+                  "error_rms": 0.0016274618110087306,
+                  "input_peak": 0.5,
+                  "output_peak": 0.5103580355644226,
+                  "output_min": -0.5103580355644226,
+                  "output_max": 0.5058072209358215,
+                  "outside_unit": 0,
+                  "nonfinite": 0
+                },
+                {
+                  "channel": 1,
+                  "sample_frames": 14000,
+                  "gain": 0.9995215169258043,
+                  "raw_snr_db": 41.03601762592262,
+                  "input_rms": 0.18359348605504383,
+                  "output_rms": 0.18351285342490192,
+                  "error_rms": 0.001629507587285739,
+                  "input_peak": 0.5,
+                  "output_peak": 0.5051409006118774,
+                  "output_min": -0.5039569735527039,
+                  "output_max": 0.5051409006118774,
+                  "outside_unit": 0,
+                  "nonfinite": 0
+                }
+              ]
+            },
+            "second_gate": {
+              "source_range": [
+                55000,
+                68000
+              ],
+              "metrics": [
+                {
+                  "channel": 0,
+                  "sample_frames": 13000,
+                  "gain": 0.9993432440845138,
+                  "raw_snr_db": 37.2364863549288,
+                  "input_rms": 0.13710342169520678,
+                  "output_rms": 0.13702630950558906,
+                  "error_rms": 0.0018846207821824504,
+                  "input_peak": 0.5,
+                  "output_peak": 0.5106341242790222,
+                  "output_min": -0.5106341242790222,
+                  "output_max": 0.5063564777374268,
+                  "outside_unit": 0,
+                  "nonfinite": 0
+                },
+                {
+                  "channel": 1,
+                  "sample_frames": 13000,
+                  "gain": 0.9997568515798284,
+                  "raw_snr_db": 35.21620054517755,
+                  "input_rms": 0.1374192954086987,
+                  "output_rms": 0.13740655425559134,
+                  "error_rms": 0.0023836236741635016,
+                  "input_peak": 0.5,
+                  "output_peak": 0.508907675743103,
+                  "output_min": -0.5073854923248291,
+                  "output_max": 0.508907675743103,
+                  "outside_unit": 0,
+                  "nonfinite": 0
+                }
+              ]
+            },
+            "first_gate_preceding_silence": {
+              "source_range": [
+                28017,
+                30017
+              ],
+              "metrics": [
+                {
+                  "channel": 0,
+                  "sample_frames": 2000,
+                  "gain": null,
+                  "raw_snr_db": null,
+                  "input_rms": 0.0,
+                  "output_rms": 0.0006307587308662318,
+                  "error_rms": 0.0006307587308662318,
+                  "input_peak": 0.0,
+                  "output_peak": 0.005308941006660461,
+                  "output_min": -0.00445723719894886,
+                  "output_max": 0.005308941006660461,
+                  "outside_unit": 0,
+                  "nonfinite": 0
+                },
+                {
+                  "channel": 1,
+                  "sample_frames": 2000,
+                  "gain": null,
+                  "raw_snr_db": null,
+                  "input_rms": 0.0,
+                  "output_rms": 0.0007615729361045606,
+                  "error_rms": 0.0007615729361045606,
+                  "input_peak": 0.0,
+                  "output_peak": 0.0057526640594005585,
+                  "output_min": -0.0057526640594005585,
+                  "output_max": 0.004798622336238623,
+                  "outside_unit": 0,
+                  "nonfinite": 0
+                }
+              ]
+            },
+            "second_gate_preceding_silence": {
+              "source_range": [
+                58029,
+                60029
+              ],
+              "metrics": [
+                {
+                  "channel": 0,
+                  "sample_frames": 2000,
+                  "gain": null,
+                  "raw_snr_db": null,
+                  "input_rms": 0.0,
+                  "output_rms": 0.00270825200488001,
+                  "error_rms": 0.00270825200488001,
+                  "input_peak": 0.0,
+                  "output_peak": 0.043940022587776184,
+                  "output_min": -0.02968601882457733,
+                  "output_max": 0.043940022587776184,
+                  "outside_unit": 0,
+                  "nonfinite": 0
+                },
+                {
+                  "channel": 1,
+                  "sample_frames": 2000,
+                  "gain": null,
+                  "raw_snr_db": null,
+                  "input_rms": 0.0,
+                  "output_rms": 0.0032343186630078005,
+                  "error_rms": 0.0032343186630078005,
+                  "input_peak": 0.0,
+                  "output_peak": 0.04785504937171936,
+                  "output_min": -0.04785504937171936,
+                  "output_max": 0.04013565555214882,
+                  "outside_unit": 0,
+                  "nonfinite": 0
+                }
+              ]
+            }
+          },
+          "isolated_impulse_peak_offset": [
+            1057,
+            1057
+          ]
+        },
+        "lame": {
+          "delay_samples": 1105,
+          "decoded_sample_frames": 111744,
+          "aligned_available_source_frames": 110592,
+          "omitted_source_tail_frames": 0,
+          "decoded_padding_after_source_frames": 47,
+          "headers": {
+            "bytes": 93120,
+            "mpeg_frames": 97,
+            "decoded_nominal_frames": 111744,
+            "bitrate_kbps": [
+              320
+            ],
+            "sample_rate": [
+              48000
+            ],
+            "mode_counts": {
+              "joint_stereo": 97
+            },
+            "nonzero_main_data_begin_frames": 10,
+            "max_main_data_begin": 511,
+            "tag_scope": "Every byte parsed as MPEG1 Layer3 frame; no ID3/Xing frame added."
+          },
+          "aligned_common": [
+            {
+              "channel": 0,
+              "sample_frames": 109535,
+              "gain": 0.9997468172867903,
+              "raw_snr_db": 40.6135106208455,
+              "input_rms": 0.08088633495490663,
+              "output_rms": 0.08086936566469038,
+              "error_rms": 0.000753701928456482,
+              "input_peak": 0.5,
+              "output_peak": 0.5054356455802917,
+              "output_min": -0.5054356455802917,
+              "output_max": 0.5020698308944702,
+              "outside_unit": 0,
+              "nonfinite": 0
+            },
+            {
+              "channel": 1,
+              "sample_frames": 109535,
+              "gain": 0.9996167363874732,
+              "raw_snr_db": 40.2431168865612,
+              "input_rms": 0.08094225134504372,
+              "output_rms": 0.08091505133609284,
+              "error_rms": 0.0007870810121900126,
+              "input_peak": 0.5,
+              "output_peak": 0.5183486938476562,
+              "output_min": -0.5183486938476562,
+              "output_max": 0.5019206404685974,
+              "outside_unit": 0,
+              "nonfinite": 0
+            }
+          ],
+          "steady": [
+            {
+              "channel": 0,
+              "sample_frames": 100319,
+              "gain": 0.9997468172867903,
+              "raw_snr_db": 40.6135106208455,
+              "input_rms": 0.0845201028044258,
+              "output_rms": 0.08450237117949316,
+              "error_rms": 0.000787561514717531,
+              "input_peak": 0.5,
+              "output_peak": 0.5054356455802917,
+              "output_min": -0.5054356455802917,
+              "output_max": 0.5020698308944702,
+              "outside_unit": 0,
+              "nonfinite": 0
+            },
+            {
+              "channel": 1,
+              "sample_frames": 100319,
+              "gain": 0.9996167363874732,
+              "raw_snr_db": 40.2431168865612,
+              "input_rms": 0.08457853120330769,
+              "output_rms": 0.08455010925102005,
+              "error_rms": 0.0008224401328456528,
+              "input_peak": 0.5,
+              "output_peak": 0.5183486938476562,
+              "output_min": -0.5183486938476562,
+              "output_max": 0.5019206404685974,
+              "outside_unit": 0,
+              "nonfinite": 0
+            }
+          ],
+          "steady_spectrum_bands": [
+            {
+              "channel": 0,
+              "hz": [
+                0,
+                16000
+              ],
+              "bins": 33440,
+              "input_mean_square": 0.007142432971197403,
+              "output_mean_square": 0.007139971660450429,
+              "error_mean_square": 4.020070065250225e-08,
+              "raw_snr_db": 52.49612550988963
+            },
+            {
+              "channel": 0,
+              "hz": [
+                16000,
+                20000
+              ],
+              "bins": 8360,
+              "input_mean_square": 6.214067613178537e-07,
+              "output_mean_square": 6.476503711635674e-07,
+              "error_mean_square": 1.3058949640858487e-08,
+              "raw_snr_db": 16.77467727243433
+            },
+            {
+              "channel": 0,
+              "hz": [
+                20000,
+                24000
+              ],
+              "bins": 8360,
+              "input_mean_square": 5.934001119889124e-07,
+              "output_mean_square": 3.142413524758694e-08,
+              "error_mean_square": 5.669934891708112e-07,
+              "raw_snr_db": 0.19769552057569667
+            },
+            {
+              "channel": 1,
+              "hz": [
+                0,
+                16000
+              ],
+              "bins": 33440,
+              "input_mean_square": 0.007152189756673635,
+              "output_mean_square": 0.007147985196913488,
+              "error_mean_square": 4.2196621990166274e-08,
+              "raw_snr_db": 52.29161342996868
+            },
+            {
+              "channel": 1,
+              "hz": [
+                16000,
+                20000
+              ],
+              "bins": 8360,
+              "input_mean_square": 6.880289457038366e-07,
+              "output_mean_square": 7.007476365578372e-07,
+              "error_mean_square": 1.4606456578839858e-08,
+              "raw_snr_db": 16.730618375961413
+            },
+            {
+              "channel": 1,
+              "hz": [
+                20000,
+                24000
+              ],
+              "bins": 8360,
+              "input_mean_square": 6.50154889555724e-07,
+              "output_mean_square": 3.502980938339858e-08,
+              "error_mean_square": 6.196046935461692e-07,
+              "raw_snr_db": 0.20902134143236675
+            }
+          ],
+          "all_decoded": [
+            {
+              "channel": 0,
+              "sample_frames": 111744,
+              "gain": null,
+              "raw_snr_db": null,
+              "input_rms": 0.0,
+              "output_rms": 0.080066046814175,
+              "error_rms": 0.080066046814175,
+              "input_peak": 0.0,
+              "output_peak": 0.5054356455802917,
+              "output_min": -0.5054356455802917,
+              "output_max": 0.5020698308944702,
+              "outside_unit": 0,
+              "nonfinite": 0
+            },
+            {
+              "channel": 1,
+              "sample_frames": 111744,
+              "gain": null,
+              "raw_snr_db": null,
+              "input_rms": 0.0,
+              "output_rms": 0.080111278665262,
+              "error_rms": 0.080111278665262,
+              "input_peak": 0.0,
+              "output_peak": 0.5183486938476562,
+              "output_min": -0.5183486938476562,
+              "output_max": 0.5019206404685974,
+              "outside_unit": 0,
+              "nonfinite": 0
+            }
+          ],
+          "event_regions": {
+            "isolated_impulse": {
+              "source_range": [
+                7000,
+                17000
+              ],
+              "metrics": [
+                {
+                  "channel": 0,
+                  "sample_frames": 10000,
+                  "gain": 0.8395645618438721,
+                  "raw_snr_db": 7.942882118433222,
+                  "input_rms": 0.005,
+                  "output_rms": 0.004581802708966376,
+                  "error_rms": 0.002003668628216258,
+                  "input_peak": 0.5,
+                  "output_peak": 0.41978228092193604,
+                  "output_min": -0.068674236536026,
+                  "output_max": 0.41978228092193604,
+                  "outside_unit": 0,
+                  "nonfinite": 0
+                },
+                {
+                  "channel": 1,
+                  "sample_frames": 10000,
+                  "gain": 0.8395645618438721,
+                  "raw_snr_db": 7.942882118433222,
+                  "input_rms": 0.005,
+                  "output_rms": 0.004581802708966376,
+                  "error_rms": 0.002003668628216258,
+                  "input_peak": 0.5,
+                  "output_peak": 0.41978228092193604,
+                  "output_min": -0.41978228092193604,
+                  "output_max": 0.068674236536026,
+                  "outside_unit": 0,
+                  "nonfinite": 0
+                }
+              ]
+            },
+            "first_gate": {
+              "source_range": [
+                25000,
+                39000
+              ],
+              "metrics": [
+                {
+                  "channel": 0,
+                  "sample_frames": 14000,
+                  "gain": 0.9999812512259936,
+                  "raw_snr_db": 48.20190642658264,
+                  "input_rms": 0.18361996357409682,
+                  "output_rms": 0.18361790990385846,
+                  "error_rms": 0.0007142077780900292,
+                  "input_peak": 0.5,
+                  "output_peak": 0.5054356455802917,
+                  "output_min": -0.5054356455802917,
+                  "output_max": 0.5012487769126892,
+                  "outside_unit": 0,
+                  "nonfinite": 0
+                },
+                {
+                  "channel": 1,
+                  "sample_frames": 14000,
+                  "gain": 0.9999562703456869,
+                  "raw_snr_db": 48.2620541654942,
+                  "input_rms": 0.18359348605504383,
+                  "output_rms": 0.18358682714325264,
+                  "error_rms": 0.0007091768658471997,
+                  "input_peak": 0.5,
+                  "output_peak": 0.5142567753791809,
+                  "output_min": -0.5142567753791809,
+                  "output_max": 0.5010144710540771,
+                  "outside_unit": 0,
+                  "nonfinite": 0
+                }
+              ]
+            },
+            "second_gate": {
+              "source_range": [
+                55000,
+                68000
+              ],
+              "metrics": [
+                {
+                  "channel": 0,
+                  "sample_frames": 13000,
+                  "gain": 0.9994578492075066,
+                  "raw_snr_db": 42.138348150701866,
+                  "input_rms": 0.13710342169520678,
+                  "output_rms": 0.13703326272086563,
+                  "error_rms": 0.001071842284499912,
+                  "input_peak": 0.5,
+                  "output_peak": 0.5021780729293823,
+                  "output_min": -0.5021780729293823,
+                  "output_max": 0.5020698308944702,
+                  "outside_unit": 0,
+                  "nonfinite": 0
+                },
+                {
+                  "channel": 1,
+                  "sample_frames": 13000,
+                  "gain": 0.9991270670711478,
+                  "raw_snr_db": 40.747271805605145,
+                  "input_rms": 0.1374192954086987,
+                  "output_rms": 0.13730507494087557,
+                  "error_rms": 0.0012609101107198487,
+                  "input_peak": 0.5,
+                  "output_peak": 0.5183486938476562,
+                  "output_min": -0.5183486938476562,
+                  "output_max": 0.5019206404685974,
+                  "outside_unit": 0,
+                  "nonfinite": 0
+                }
+              ]
+            },
+            "first_gate_preceding_silence": {
+              "source_range": [
+                28017,
+                30017
+              ],
+              "metrics": [
+                {
+                  "channel": 0,
+                  "sample_frames": 2000,
+                  "gain": null,
+                  "raw_snr_db": null,
+                  "input_rms": 0.0,
+                  "output_rms": 0.0003336195847719539,
+                  "error_rms": 0.0003336195847719539,
+                  "input_peak": 0.0,
+                  "output_peak": 0.008510352112352848,
+                  "output_min": -0.007162832655012608,
+                  "output_max": 0.008510352112352848,
+                  "outside_unit": 0,
+                  "nonfinite": 0
+                },
+                {
+                  "channel": 1,
+                  "sample_frames": 2000,
+                  "gain": null,
+                  "raw_snr_db": null,
+                  "input_rms": 0.0,
+                  "output_rms": 0.0003919152761215511,
+                  "error_rms": 0.0003919152761215511,
+                  "input_peak": 0.0,
+                  "output_peak": 0.009813093580305576,
+                  "output_min": -0.009813093580305576,
+                  "output_max": 0.00913731474429369,
+                  "outside_unit": 0,
+                  "nonfinite": 0
+                }
+              ]
+            },
+            "second_gate_preceding_silence": {
+              "source_range": [
+                58029,
+                60029
+              ],
+              "metrics": [
+                {
+                  "channel": 0,
+                  "sample_frames": 2000,
+                  "gain": null,
+                  "raw_snr_db": null,
+                  "input_rms": 0.0,
+                  "output_rms": 0.0014081161591881287,
+                  "error_rms": 0.0014081161591881287,
+                  "input_peak": 0.0,
+                  "output_peak": 0.031051672995090485,
+                  "output_min": -0.031051672995090485,
+                  "output_max": 0.02996108867228031,
+                  "outside_unit": 0,
+                  "nonfinite": 0
+                },
+                {
+                  "channel": 1,
+                  "sample_frames": 2000,
+                  "gain": null,
+                  "raw_snr_db": null,
+                  "input_rms": 0.0,
+                  "output_rms": 0.0016532952090997093,
+                  "error_rms": 0.0016532952090997093,
+                  "input_peak": 0.0,
+                  "output_peak": 0.038492511957883835,
+                  "output_min": -0.03510785102844238,
+                  "output_max": 0.038492511957883835,
+                  "outside_unit": 0,
+                  "nonfinite": 0
+                }
+              ]
+            }
+          },
+          "isolated_impulse_peak_offset": [
+            1105,
+            1105
+          ]
+        }
+      }
+    },
+    {
+      "name": "impulse_and_gated_tones_nearfull",
+      "source_sample_frames": 110592,
+      "common_source_range": [
+        0,
+        109535
+      ],
+      "steady_source_range": [
+        4608,
+        104927
+      ],
+      "codecs": {
+        "shine": {
+          "delay_samples": 1057,
+          "decoded_sample_frames": 110592,
+          "aligned_available_source_frames": 109535,
+          "omitted_source_tail_frames": 1057,
+          "decoded_padding_after_source_frames": 0,
+          "headers": {
+            "bytes": 92160,
+            "mpeg_frames": 96,
+            "decoded_nominal_frames": 110592,
+            "bitrate_kbps": [
+              320
+            ],
+            "sample_rate": [
+              48000
+            ],
+            "mode_counts": {
+              "stereo": 96
+            },
+            "nonzero_main_data_begin_frames": 0,
+            "max_main_data_begin": 0,
+            "tag_scope": "Every byte parsed as MPEG1 Layer3 frame; no ID3/Xing frame added."
+          },
+          "aligned_common": [
+            {
+              "channel": 0,
+              "sample_frames": 109535,
+              "gain": 0.9993271148317159,
+              "raw_snr_db": 38.16754657902009,
+              "input_rms": 0.1585372438007594,
+              "output_rms": 0.15844262598886347,
+              "error_rms": 0.0019577353135555105,
+              "input_peak": 0.980010986328125,
+              "output_peak": 1.1662423610687256,
+              "output_min": -0.9979668259620667,
+              "output_max": 1.1662423610687256,
+              "outside_unit": 1,
+              "nonfinite": 0
+            },
+            {
+              "channel": 1,
+              "sample_frames": 109535,
+              "gain": 0.9995212595391141,
+              "raw_snr_db": 37.494749823187036,
+              "input_rms": 0.15864684769937254,
+              "output_rms": 0.15858500796604671,
+              "error_rms": 0.0021168688680427987,
+              "input_peak": 0.980010986328125,
+              "output_peak": 1.1662423610687256,
+              "output_min": -1.1662423610687256,
+              "output_max": 0.9982690811157227,
+              "outside_unit": 1,
+              "nonfinite": 0
+            }
+          ],
+          "steady": [
+            {
+              "channel": 0,
+              "sample_frames": 100319,
+              "gain": 0.9993271148317159,
+              "raw_snr_db": 38.16754657902009,
+              "input_rms": 0.16565943001176459,
+              "output_rms": 0.16556056155403273,
+              "error_rms": 0.0020456853442279636,
+              "input_peak": 0.980010986328125,
+              "output_peak": 1.1662423610687256,
+              "output_min": -0.9979668259620667,
+              "output_max": 1.1662423610687256,
+              "outside_unit": 1,
+              "nonfinite": 0
+            },
+            {
+              "channel": 1,
+              "sample_frames": 100319,
+              "gain": 0.9995212595391141,
+              "raw_snr_db": 37.494749823187036,
+              "input_rms": 0.1657739577967571,
+              "output_rms": 0.16570933995221002,
+              "error_rms": 0.002211967873809722,
+              "input_peak": 0.980010986328125,
+              "output_peak": 1.1662423610687256,
+              "output_min": -1.1662423610687256,
+              "output_max": 0.9982690811157227,
+              "outside_unit": 1,
+              "nonfinite": 0
+            }
+          ],
+          "steady_spectrum_bands": [
+            {
+              "channel": 0,
+              "hz": [
+                0,
+                16000
+              ],
+              "bins": 33440,
+              "input_mean_square": 0.027438379880589274,
+              "output_mean_square": 0.027404167081609747,
+              "error_mean_square": 2.3021136874546747e-06,
+              "raw_snr_db": 40.762316975552444
+            },
+            {
+              "channel": 0,
+              "hz": [
+                16000,
+                20000
+              ],
+              "bins": 8360,
+              "input_mean_square": 2.3872214962214752e-06,
+              "output_mean_square": 2.9726039223632075e-06,
+              "error_mean_square": 9.201592761463317e-07,
+              "raw_snr_db": 4.140297078920374
+            },
+            {
+              "channel": 0,
+              "hz": [
+                20000,
+                24000
+              ],
+              "bins": 8360,
+              "input_mean_square": 2.2796497372442433e-06,
+              "output_mean_square": 3.159856554557703e-06,
+              "error_mean_square": 9.62555563988077e-07,
+              "raw_snr_db": 3.7444231504854053
+            },
+            {
+              "channel": 1,
+              "hz": [
+                0,
+                16000
+              ],
+              "bins": 33440,
+              "input_mean_square": 0.027475864319124736,
+              "output_mean_square": 0.027453058583825907,
+              "error_mean_square": 2.61146837546847e-06,
+              "raw_snr_db": 40.22066592126634
+            },
+            {
+              "channel": 1,
+              "hz": [
+                16000,
+                20000
+              ],
+              "bins": 8360,
+              "input_mean_square": 2.6432193099939724e-06,
+              "output_mean_square": 3.1728355514213644e-06,
+              "error_mean_square": 1.1309509721852176e-06,
+              "raw_snr_db": 3.686894201337539
+            },
+            {
+              "channel": 1,
+              "hz": [
+                20000,
+                24000
+              ],
+              "bins": 8360,
+              "input_mean_square": 2.4975451662860396e-06,
+              "output_mean_square": 3.353928019789298e-06,
+              "error_mean_square": 1.1503825271126175e-06,
+              "raw_snr_db": 3.3667107417554876
+            }
+          ],
+          "all_decoded": [
+            {
+              "channel": 0,
+              "sample_frames": 110592,
+              "gain": null,
+              "raw_snr_db": null,
+              "input_rms": 0.0,
+              "output_rms": 0.15768363825127463,
+              "error_rms": 0.15768363825127463,
+              "input_peak": 0.0,
+              "output_peak": 1.1662423610687256,
+              "output_min": -0.9979668259620667,
+              "output_max": 1.1662423610687256,
+              "outside_unit": 1,
+              "nonfinite": 0
+            },
+            {
+              "channel": 1,
+              "sample_frames": 110592,
+              "gain": null,
+              "raw_snr_db": null,
+              "input_rms": 0.0,
+              "output_rms": 0.15782533817604893,
+              "error_rms": 0.15782533817604893,
+              "input_peak": 0.0,
+              "output_peak": 1.1662423610687256,
+              "output_min": -1.1662423610687256,
+              "output_max": 0.9982690811157227,
+              "outside_unit": 1,
+              "nonfinite": 0
+            }
+          ],
+          "event_regions": {
+            "isolated_impulse": {
+              "source_range": [
+                7000,
+                17000
+              ],
+              "metrics": [
+                {
+                  "channel": 0,
+                  "sample_frames": 10000,
+                  "gain": 1.190029884704014,
+                  "raw_snr_db": 10.723828520662025,
+                  "input_rms": 0.00980010986328125,
+                  "output_rms": 0.011860594274145937,
+                  "error_rms": 0.002851277705619922,
+                  "input_peak": 0.980010986328125,
+                  "output_peak": 1.1662423610687256,
+                  "output_min": -0.06240517646074295,
+                  "output_max": 1.1662423610687256,
+                  "outside_unit": 1,
+                  "nonfinite": 0
+                },
+                {
+                  "channel": 1,
+                  "sample_frames": 10000,
+                  "gain": 1.190029884704014,
+                  "raw_snr_db": 10.72382868100094,
+                  "input_rms": 0.00980010986328125,
+                  "output_rms": 0.01186059426149283,
+                  "error_rms": 0.002851277652986192,
+                  "input_peak": 0.980010986328125,
+                  "output_peak": 1.1662423610687256,
+                  "output_min": -1.1662423610687256,
+                  "output_max": 0.06240683048963547,
+                  "outside_unit": 1,
+                  "nonfinite": 0
+                }
+              ]
+            },
+            "first_gate": {
+              "source_range": [
+                25000,
+                39000
+              ],
+              "metrics": [
+                {
+                  "channel": 0,
+                  "sample_frames": 14000,
+                  "gain": 0.9996501363561879,
+                  "raw_snr_db": 40.82219852861671,
+                  "input_rms": 0.35989525385583054,
+                  "output_rms": 0.3597842135435493,
+                  "error_rms": 0.003273905902959081,
+                  "input_peak": 0.980010986328125,
+                  "output_peak": 0.9972574710845947,
+                  "output_min": -0.9972574710845947,
+                  "output_max": 0.995012640953064,
+                  "outside_unit": 0,
+                  "nonfinite": 0
+                },
+                {
+                  "channel": 1,
+                  "sample_frames": 14000,
+                  "gain": 0.999508713741482,
+                  "raw_snr_db": 40.771231397463616,
+                  "input_rms": 0.3598432330426214,
+                  "output_rms": 0.3596814753403156,
+                  "error_rms": 0.003292697016786796,
+                  "input_peak": 0.980010986328125,
+                  "output_peak": 0.9965732097625732,
+                  "output_min": -0.9935413002967834,
+                  "output_max": 0.9965732097625732,
+                  "outside_unit": 0,
+                  "nonfinite": 0
+                }
+              ]
+            },
+            "second_gate": {
+              "source_range": [
+                55000,
+                68000
+              ],
+              "metrics": [
+                {
+                  "channel": 0,
+                  "sample_frames": 13000,
+                  "gain": 0.9985080460797569,
+                  "raw_snr_db": 36.97329215571143,
+                  "input_rms": 0.2687226584433851,
+                  "output_rms": 0.2683484500514395,
+                  "error_rms": 0.003807497961548347,
+                  "input_peak": 0.980010986328125,
+                  "output_peak": 0.9979668259620667,
+                  "output_min": -0.9979668259620667,
+                  "output_max": 0.9954462647438049,
+                  "outside_unit": 0,
+                  "nonfinite": 0
+                },
+                {
+                  "channel": 1,
+                  "sample_frames": 13000,
+                  "gain": 0.9993513649119368,
+                  "raw_snr_db": 35.63340677907107,
+                  "input_rms": 0.2693419894021663,
+                  "output_rms": 0.26920405667039565,
+                  "error_rms": 0.004452805491696761,
+                  "input_peak": 0.980010986328125,
+                  "output_peak": 0.9982690811157227,
+                  "output_min": -0.9935740232467651,
+                  "output_max": 0.9982690811157227,
+                  "outside_unit": 0,
+                  "nonfinite": 0
+                }
+              ]
+            },
+            "first_gate_preceding_silence": {
+              "source_range": [
+                28017,
+                30017
+              ],
+              "metrics": [
+                {
+                  "channel": 0,
+                  "sample_frames": 2000,
+                  "gain": null,
+                  "raw_snr_db": null,
+                  "input_rms": 0.0,
+                  "output_rms": 0.0012207951610756485,
+                  "error_rms": 0.0012207951610756485,
+                  "input_peak": 0.0,
+                  "output_peak": 0.010741204023361206,
+                  "output_min": -0.008020371198654175,
+                  "output_max": 0.010741204023361206,
+                  "outside_unit": 0,
+                  "nonfinite": 0
+                },
+                {
+                  "channel": 1,
+                  "sample_frames": 2000,
+                  "gain": null,
+                  "raw_snr_db": null,
+                  "input_rms": 0.0,
+                  "output_rms": 0.0015553014857655463,
+                  "error_rms": 0.0015553014857655463,
+                  "input_peak": 0.0,
+                  "output_peak": 0.00919746607542038,
+                  "output_min": -0.00919746607542038,
+                  "output_max": 0.008407949469983578,
+                  "outside_unit": 0,
+                  "nonfinite": 0
+                }
+              ]
+            },
+            "second_gate_preceding_silence": {
+              "source_range": [
+                58029,
+                60029
+              ],
+              "metrics": [
+                {
+                  "channel": 0,
+                  "sample_frames": 2000,
+                  "gain": null,
+                  "raw_snr_db": null,
+                  "input_rms": 0.0,
+                  "output_rms": 0.00541735004535313,
+                  "error_rms": 0.00541735004535313,
+                  "input_peak": 0.0,
+                  "output_peak": 0.09007887542247772,
+                  "output_min": -0.06283247470855713,
+                  "output_max": 0.09007887542247772,
+                  "outside_unit": 0,
+                  "nonfinite": 0
+                },
+                {
+                  "channel": 1,
+                  "sample_frames": 2000,
+                  "gain": null,
+                  "raw_snr_db": null,
+                  "input_rms": 0.0,
+                  "output_rms": 0.006501653891684248,
+                  "error_rms": 0.006501653891684248,
+                  "input_peak": 0.0,
+                  "output_peak": 0.08394201844930649,
+                  "output_min": -0.08394201844930649,
+                  "output_max": 0.08389110118150711,
+                  "outside_unit": 0,
+                  "nonfinite": 0
+                }
+              ]
+            }
+          },
+          "isolated_impulse_peak_offset": [
+            1057,
+            1057
+          ]
+        },
+        "lame": {
+          "delay_samples": 1105,
+          "decoded_sample_frames": 111744,
+          "aligned_available_source_frames": 110592,
+          "omitted_source_tail_frames": 0,
+          "decoded_padding_after_source_frames": 47,
+          "headers": {
+            "bytes": 93120,
+            "mpeg_frames": 97,
+            "decoded_nominal_frames": 111744,
+            "bitrate_kbps": [
+              320
+            ],
+            "sample_rate": [
+              48000
+            ],
+            "mode_counts": {
+              "joint_stereo": 97
+            },
+            "nonzero_main_data_begin_frames": 10,
+            "max_main_data_begin": 511,
+            "tag_scope": "Every byte parsed as MPEG1 Layer3 frame; no ID3/Xing frame added."
+          },
+          "aligned_common": [
+            {
+              "channel": 0,
+              "sample_frames": 109535,
+              "gain": 0.9999193294089739,
+              "raw_snr_db": 40.30660192657349,
+              "input_rms": 0.1585372438007594,
+              "output_rms": 0.15853184095658274,
+              "error_rms": 0.0015303867865268496,
+              "input_peak": 0.980010986328125,
+              "output_peak": 0.9961703419685364,
+              "output_min": -0.9961703419685364,
+              "output_max": 0.9954932928085327,
+              "outside_unit": 0,
+              "nonfinite": 0
+            },
+            {
+              "channel": 1,
+              "sample_frames": 109535,
+              "gain": 1.000209678610711,
+              "raw_snr_db": 40.165760231979206,
+              "input_rms": 0.15864684769937254,
+              "output_rms": 0.1586877425672867,
+              "error_rms": 0.0015564796091396206,
+              "input_peak": 0.980010986328125,
+              "output_peak": 1.0202749967575073,
+              "output_min": -1.0202749967575073,
+              "output_max": 0.9846781492233276,
+              "outside_unit": 2,
+              "nonfinite": 0
+            }
+          ],
+          "steady": [
+            {
+              "channel": 0,
+              "sample_frames": 100319,
+              "gain": 0.9999193294089739,
+              "raw_snr_db": 40.30660192657349,
+              "input_rms": 0.16565943001176459,
+              "output_rms": 0.165653784448203,
+              "error_rms": 0.0015991384527422924,
+              "input_peak": 0.980010986328125,
+              "output_peak": 0.9961703419685364,
+              "output_min": -0.9961703419685364,
+              "output_max": 0.9954932928085327,
+              "outside_unit": 0,
+              "nonfinite": 0
+            },
+            {
+              "channel": 1,
+              "sample_frames": 100319,
+              "gain": 1.000209678610711,
+              "raw_snr_db": 40.165760231979206,
+              "input_rms": 0.1657739577967571,
+              "output_rms": 0.16581668984095474,
+              "error_rms": 0.0016264034790402265,
+              "input_peak": 0.980010986328125,
+              "output_peak": 1.0202749967575073,
+              "output_min": -1.0202749967575073,
+              "output_max": 0.9846781492233276,
+              "outside_unit": 2,
+              "nonfinite": 0
+            }
+          ],
+          "steady_spectrum_bands": [
+            {
+              "channel": 0,
+              "hz": [
+                0,
+                16000
+              ],
+              "bins": 33440,
+              "input_mean_square": 0.027438379880589274,
+              "output_mean_square": 0.02743858681614273,
+              "error_mean_square": 2.773877417317968e-07,
+              "raw_snr_db": 49.95271199653978
+            },
+            {
+              "channel": 0,
+              "hz": [
+                16000,
+                20000
+              ],
+              "bins": 8360,
+              "input_mean_square": 2.3872214962214752e-06,
+              "output_mean_square": 2.482328427641535e-06,
+              "error_mean_square": 1.034123223420817e-07,
+              "raw_snr_db": 13.633204252663242
+            },
+            {
+              "channel": 0,
+              "hz": [
+                20000,
+                24000
+              ],
+              "bins": 8360,
+              "input_mean_square": 2.2796497372442433e-06,
+              "output_mean_square": 1.0715744135005968e-07,
+              "error_mean_square": 2.1764437269651352e-06,
+              "raw_snr_db": 0.20120681074098684
+            },
+            {
+              "channel": 1,
+              "hz": [
+                0,
+                16000
+              ],
+              "bins": 33440,
+              "input_mean_square": 0.027475864319124736,
+              "output_mean_square": 0.027492362440661205,
+              "error_mean_square": 2.2434917333885766e-07,
+              "raw_snr_db": 50.88026889459813
+            },
+            {
+              "channel": 1,
+              "hz": [
+                16000,
+                20000
+              ],
+              "bins": 8360,
+              "input_mean_square": 2.6432193099939724e-06,
+              "output_mean_square": 2.6873512007396727e-06,
+              "error_mean_square": 4.309006092231195e-08,
+              "raw_snr_db": 17.877560902725676
+            },
+            {
+              "channel": 1,
+              "hz": [
+                20000,
+                24000
+              ],
+              "bins": 8360,
+              "input_mean_square": 2.4975451662860396e-06,
+              "output_mean_square": 1.2483794945071594e-07,
+              "error_mean_square": 2.3777490423729845e-06,
+              "raw_snr_db": 0.2134733543198138
+            }
+          ],
+          "all_decoded": [
+            {
+              "channel": 0,
+              "sample_frames": 111744,
+              "gain": null,
+              "raw_snr_db": null,
+              "input_rms": 0.0,
+              "output_rms": 0.15695705902030083,
+              "error_rms": 0.15695705902030083,
+              "input_peak": 0.0,
+              "output_peak": 0.9961703419685364,
+              "output_min": -0.9961703419685364,
+              "output_max": 0.9954932928085327,
+              "outside_unit": 0,
+              "nonfinite": 0
+            },
+            {
+              "channel": 1,
+              "sample_frames": 111744,
+              "gain": null,
+              "raw_snr_db": null,
+              "input_rms": 0.0,
+              "output_rms": 0.15711141197655853,
+              "error_rms": 0.15711141197655853,
+              "input_peak": 0.0,
+              "output_peak": 1.0202749967575073,
+              "output_min": -1.0202749967575073,
+              "output_max": 0.9846781492233276,
+              "outside_unit": 2,
+              "nonfinite": 0
+            }
+          ],
+          "event_regions": {
+            "isolated_impulse": {
+              "source_range": [
+                7000,
+                17000
+              ],
+              "metrics": [
+                {
+                  "channel": 0,
+                  "sample_frames": 10000,
+                  "gain": 0.8395262675941207,
+                  "raw_snr_db": 7.9420207992179135,
+                  "input_rms": 0.00980010986328125,
+                  "output_rms": 0.008980194760474774,
+                  "error_rms": 0.003927623993048018,
+                  "input_peak": 0.980010986328125,
+                  "output_peak": 0.8227449655532837,
+                  "output_min": -0.13481853902339935,
+                  "output_max": 0.8227449655532837,
+                  "outside_unit": 0,
+                  "nonfinite": 0
+                },
+                {
+                  "channel": 1,
+                  "sample_frames": 10000,
+                  "gain": 0.8395262675941207,
+                  "raw_snr_db": 7.9420207992179135,
+                  "input_rms": 0.00980010986328125,
+                  "output_rms": 0.008980194760474774,
+                  "error_rms": 0.003927623993048018,
+                  "input_peak": 0.980010986328125,
+                  "output_peak": 0.8227449655532837,
+                  "output_min": -0.8227449655532837,
+                  "output_max": 0.13481853902339935,
+                  "outside_unit": 0,
+                  "nonfinite": 0
+                }
+              ]
+            },
+            "first_gate": {
+              "source_range": [
+                25000,
+                39000
+              ],
+              "metrics": [
+                {
+                  "channel": 0,
+                  "sample_frames": 14000,
+                  "gain": 0.999738707147536,
+                  "raw_snr_db": 48.09804446869939,
+                  "input_rms": 0.35989525385583054,
+                  "output_rms": 0.35980399254144163,
+                  "error_rms": 0.0014166869584982605,
+                  "input_peak": 0.980010986328125,
+                  "output_peak": 0.9921948313713074,
+                  "output_min": -0.9921948313713074,
+                  "output_max": 0.9803377985954285,
+                  "outside_unit": 0,
+                  "nonfinite": 0
+                },
+                {
+                  "channel": 1,
+                  "sample_frames": 14000,
+                  "gain": 1.000095482869956,
+                  "raw_snr_db": 48.161356562640805,
+                  "input_rms": 0.3598432330426214,
+                  "output_rms": 0.3598803375574499,
+                  "error_rms": 0.0014061948787406759,
+                  "input_peak": 0.980010986328125,
+                  "output_peak": 1.005211591720581,
+                  "output_min": -1.005211591720581,
+                  "output_max": 0.981510579586029,
+                  "outside_unit": 1,
+                  "nonfinite": 0
+                }
+              ]
+            },
+            "second_gate": {
+              "source_range": [
+                55000,
+                68000
+              ],
+              "metrics": [
+                {
+                  "channel": 0,
+                  "sample_frames": 13000,
+                  "gain": 1.0004323233996812,
+                  "raw_snr_db": 41.022662077467295,
+                  "input_rms": 0.2687226584433851,
+                  "output_rms": 0.2688494207915661,
+                  "error_rms": 0.0023887526585465455,
+                  "input_peak": 0.980010986328125,
+                  "output_peak": 0.9961703419685364,
+                  "output_min": -0.9961703419685364,
+                  "output_max": 0.9954932928085327,
+                  "outside_unit": 0,
+                  "nonfinite": 0
+                },
+                {
+                  "channel": 1,
+                  "sample_frames": 13000,
+                  "gain": 1.0005928249991276,
+                  "raw_snr_db": 40.53297100522576,
+                  "input_rms": 0.2693419894021663,
+                  "output_rms": 0.26951351923593325,
+                  "error_rms": 0.0025331185386039323,
+                  "input_peak": 0.980010986328125,
+                  "output_peak": 1.0202749967575073,
+                  "output_min": -1.0202749967575073,
+                  "output_max": 0.9846781492233276,
+                  "outside_unit": 1,
+                  "nonfinite": 0
+                }
+              ]
+            },
+            "first_gate_preceding_silence": {
+              "source_range": [
+                28017,
+                30017
+              ],
+              "metrics": [
+                {
+                  "channel": 0,
+                  "sample_frames": 2000,
+                  "gain": null,
+                  "raw_snr_db": null,
+                  "input_rms": 0.0,
+                  "output_rms": 0.0006288808170247444,
+                  "error_rms": 0.0006288808170247444,
+                  "input_peak": 0.0,
+                  "output_peak": 0.01584865339100361,
+                  "output_min": -0.014038030058145523,
+                  "output_max": 0.01584865339100361,
+                  "outside_unit": 0,
+                  "nonfinite": 0
+                },
+                {
+                  "channel": 1,
+                  "sample_frames": 2000,
+                  "gain": null,
+                  "raw_snr_db": null,
+                  "input_rms": 0.0,
+                  "output_rms": 0.0007597986379236444,
+                  "error_rms": 0.0007597986379236444,
+                  "input_peak": 0.0,
+                  "output_peak": 0.018435193225741386,
+                  "output_min": -0.018435193225741386,
+                  "output_max": 0.017878083512187004,
+                  "outside_unit": 0,
+                  "nonfinite": 0
+                }
+              ]
+            },
+            "second_gate_preceding_silence": {
+              "source_range": [
+                58029,
+                60029
+              ],
+              "metrics": [
+                {
+                  "channel": 0,
+                  "sample_frames": 2000,
+                  "gain": null,
+                  "raw_snr_db": null,
+                  "input_rms": 0.0,
+                  "output_rms": 0.0027324848840000484,
+                  "error_rms": 0.0027324848840000484,
+                  "input_peak": 0.0,
+                  "output_peak": 0.06476905941963196,
+                  "output_min": -0.06476905941963196,
+                  "output_max": 0.06087121367454529,
+                  "outside_unit": 0,
+                  "nonfinite": 0
+                },
+                {
+                  "channel": 1,
+                  "sample_frames": 2000,
+                  "gain": null,
+                  "raw_snr_db": null,
+                  "input_rms": 0.0,
+                  "output_rms": 0.0032569890989207783,
+                  "error_rms": 0.0032569890989207783,
+                  "input_peak": 0.0,
+                  "output_peak": 0.07421086728572845,
+                  "output_min": -0.07036621123552322,
+                  "output_max": 0.07421086728572845,
+                  "outside_unit": 0,
+                  "nonfinite": 0
+                }
+              ]
+            }
+          },
+          "isolated_impulse_peak_offset": [
+            1105,
+            1105
+          ]
+        }
+      }
+    }
+  ],
+  "spectrum_definition": "Rectangular window over exactly common steady source range; rfft squared magnitude/N^2; double positive-frequency bins except DC and even-N Nyquist. Sum equals mean-square energy (Parseval). Bands lower inclusive/upper exclusive except final Nyquist inclusive. Leakage is retained; no gain correction or weighting.",
+  "limits": [
+    "LAME keeps default psychoacoustic, joint-stereo and reservoir behavior; Shine does not have the same algorithm. This is a numerical reference, not a drop-in ESP codec.",
+    "Raw MP3 no Xing/ID3; LAME flush adds frames while retained live Shine has no finite drain. Fidelity uses equal common source prefix, not padded LAME tail.",
+    "White-noise SNR and out-of-range float samples alone do not prove audible quality or a structural encoder defect.",
+    "No audio playback, music transparency, analog path, target throughput, network or indefinite input bound is established."
+  ],
+  "frozen_hashes": {
+    "compare.py": "daa5be0ec9d1de6e3f4a876ef48a005ae8cbdba56c22c1106c54e268fd31a1cc",
+    "delay-impulses-decode.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "delay-impulses-encode.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "delay-impulses.f32le": "f57e9f1a5d557261dc96a664bbd4df94c225b6c07bb6642ba6c1cbddd2e068d1",
+    "delay-impulses.mp3": "d11d4c485edaa79a164b8271ac969b78f7604ee2f6dd757c25f3c1cdbde26b80",
+    "delay-impulses.s16le": "9521f36d5bcb4f480812d7bdfb5b627f32a55b4e066644026d87fd8808ba8471",
+    "delay-nonperiodic-decode.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "delay-nonperiodic-encode.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "delay-nonperiodic.f32le": "c901f6a627adacfa4214f1114df19fa465385a6538f008c70470e84c86b0d9fd",
+    "delay-nonperiodic.mp3": "9cdd98248242ed69892c5fa973cf93e6f76ed631a1d4c577d4f9ba30c8dfdc98",
+    "delay-nonperiodic.s16le": "cb37caf74611959bf0992e4ffcb56b00a0737702d06854d3b2cedcc275dda736",
+    "failed-first-run.log": "b1a7a0955b1b9eba7fbdf7cd34820d43a0a4101f57a6db58a2ff681362303022",
+    "ffmpeg-full-help.log": "e2c3f19d4fb713ed8c71a083433e416174a3c331254739889d27367b2f4e735e",
+    "ffmpeg-full-help.txt": "e2c3f19d4fb713ed8c71a083433e416174a3c331254739889d27367b2f4e735e",
+    "ffmpeg-lame-help.log": "dcfe8a6e3417354c873d838688e010e4d8d48f67d8e3b088b83e5b6cd925c288",
+    "ffmpeg-mp3-help.log": "7d942065c19aca51a4a96803ff50a21029441b86e95ed5594fdab3a14d461298",
+    "ffmpeg-version.log": "a85f002a2266c5bfd7a5d1e5c72d18a0f9e8e60fd941327fa9a093d931687c17",
+    "impulse_and_gated_tones_half-lame-decode.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "impulse_and_gated_tones_half-lame-encode.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "impulse_and_gated_tones_half-lame.f32le": "d1cdec282dac24b2a0fe313b57e9e8bbc0de176f1c83728516e0b509965fad4a",
+    "impulse_and_gated_tones_half-lame.mp3": "4781178f378f0a4ee596ca5f4402e38523d9b841adba58d982355a2bcf984cfc",
+    "impulse_and_gated_tones_half-shine-decode.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "impulse_and_gated_tones_half-shine.f32le": "12c8960cac650b60f5d5b7d7b67721da8ff59330d6845b9ec30c461b82a68fe8",
+    "impulse_and_gated_tones_half-shine.mp3": "d0ee700129536c33abd0a24c809b0ed3f55fc7fa387edd048ff0f1593169f6a9",
+    "impulse_and_gated_tones_half.s16le": "5810de5dbb0f9e1bfad860c34c5f6a7761cbbb55e6ad1577869588df3e1a4411",
+    "impulse_and_gated_tones_nearfull-lame-decode.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "impulse_and_gated_tones_nearfull-lame-encode.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "impulse_and_gated_tones_nearfull-lame.f32le": "16d5c87fc876e5a7fb84c3bf6e594523b1884ccb88bf039797384b8cfc5a1418",
+    "impulse_and_gated_tones_nearfull-lame.mp3": "be2dc41582498cd3e3e758ad2566c9eaf0d0abf24c76b36a43ab686adf09c31e",
+    "impulse_and_gated_tones_nearfull-shine-decode.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "impulse_and_gated_tones_nearfull-shine.f32le": "b7a9201a3ea623486fa3e71bcbdaf033ecc0c440075703ca9b7ee415880c17e9",
+    "impulse_and_gated_tones_nearfull-shine.mp3": "781dd42492e8eb9cea2445905a15292d2280c52a987134fb1a6f54d4bd508ded",
+    "impulse_and_gated_tones_nearfull.s16le": "76cea4e670dd4ab07a1a7ddfe9c1ddf73333367271fd93d5c6edf1f7b5958e3d",
+    "libmp3lame-package.log": "80ea866c82dcec5011194cebe535a1b3b616e2b4cc8419c3238271d9d3afd2aa",
+    "noise_independent_half-lame-decode.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "noise_independent_half-lame-encode.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "noise_independent_half-lame.f32le": "068dc143846b425bd93dbccd277f2a5b5d7404db7b4f2ee27a0a912732bc7ae7",
+    "noise_independent_half-lame.mp3": "84805dd7e0f8a82ee3c48c518083263e0b3fde17b1d59772032e8fdaa44b7e2a",
+    "noise_independent_half-shine-decode.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "noise_independent_half-shine.f32le": "ca4012b0bc058262fb827aeeb4f555133a9136913ddbf25675f3bc067ee362e1",
+    "noise_independent_half-shine.mp3": "5b602fffb2f2db6e7b8e2776117142543be6eb5032a300daf4e38f35341f4e0d",
+    "noise_independent_half.s16le": "83bfde1afb8e4b102f7c96cc50ff6bc1f24a47ec26b6534c8e105ee9b8a50bf8",
+    "noise_independent_nearfull-lame-decode.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "noise_independent_nearfull-lame-encode.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "noise_independent_nearfull-lame.f32le": "4826cf0e1990289ada18ec8e31c1f99eab5ae92dad1d9ca1e44d1e56694e86c6",
+    "noise_independent_nearfull-lame.mp3": "ba250264a6e28f95079ee04993ae0889f1133acd6fc3658e2eb7a405c021e82b",
+    "noise_independent_nearfull-shine-decode.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "noise_independent_nearfull-shine.f32le": "cf0e1b523fa310e669b2fccc9040fb5faac0064b4a9e103349c02cba4ed30fc8",
+    "noise_independent_nearfull-shine.mp3": "385d2f73f8973ca4fa4f1161d9966cbc1d184299a5ee8eabec436a90ba5c7b0a",
+    "noise_independent_nearfull.s16le": "c9533374940ae3e78f7b6f314d6f13888c816f2e0d4f78617ea41a52cf5521eb",
+    "retained-candidate.json": "20ba886e60d16d5fcc2b4a15efb70c22ebad8be87d25fc27cd2feeba64027928",
+    "retained-probe.py": "f1145986f39c9d59c75b3fbfa6038c0a4efc79230cc9352ff29c2cd6595c62de",
+    "source/current-bridge.c": "0d685f7cfecafa6823b7544442c5ac584dddfb3963c2bf586c92e60d9b4094d8",
+    "source/mp3/src/bridge.c": "abc352b6740f607e9fa22c7761e7e63d9963d0feca0a0f7bb0c2afed17524d6a",
+    "source/mp3/vendor/shine/bitstream.c": "44665c9d1516e4a48ebb459064c81d7bd828fe84a522adb0d38fc1546cf8526e",
+    "source/mp3/vendor/shine/bitstream.h": "041a4afa73d1d3be06ef0825dffcc3d7ce1140d480cba97ea2d23587bc3cbf57",
+    "source/mp3/vendor/shine/huffman.c": "3cbd7f3a410870493b0bf68a42913b53c54eb8bbfc2e4c37f8a09c920b972df3",
+    "source/mp3/vendor/shine/huffman.h": "5c0daa50a28c8ac836fd3e7be61df75d3e0506267e8e79b4f63b955c04a656d4",
+    "source/mp3/vendor/shine/l3bitstream.c": "6b8d01088f823b2d4c7d926bdb9e078faf3d0a93ef976df3da141f5a2e08fe60",
+    "source/mp3/vendor/shine/l3bitstream.h": "7d09cbf7107191de7692e4d9d07d261a7f8ab9bcc40df2b887658c83642bb880",
+    "source/mp3/vendor/shine/l3loop.c": "a5677927bc4fbd8795f5de47b1c3fb3dbe5a7fc57df9b26fb00209911f8243dd",
+    "source/mp3/vendor/shine/l3loop.h": "1e4cc8d8200b1e7ab7445dcb2c8ccdc41f55873f2bc921e2b281b66f18502716",
+    "source/mp3/vendor/shine/l3mdct.c": "dfc90eb9f3c31577d467d42abb8d2c2da40366e58b6cd02d707517f040874a43",
+    "source/mp3/vendor/shine/l3mdct.h": "acf6ce1571ebee244044a68b24dd03777b789df7be733ea27e21a35d54530e6b",
+    "source/mp3/vendor/shine/l3subband.c": "fccfcc3c5b7b7d0bffb47c35df734bea42d291982730c5715fd8c4e7cc78d3a3",
+    "source/mp3/vendor/shine/l3subband.h": "d25f8a66fdc2401eb6d6f571d69594fae6a8fb34728d4efddf1d0b1212de4251",
+    "source/mp3/vendor/shine/layer3.c": "6d41c15cf6a2d57ac2969f848c445004eea37727efa011007f19cce0e7c26c38",
+    "source/mp3/vendor/shine/layer3.h": "80bf1187280edf4886ca24e27c62393023b5a7ed227f694ff3cf4138f00f3f90",
+    "source/mp3/vendor/shine/mult_mips_gcc.h": "3b69725742c3303ed2e899e92670373ecbcbee33605cf590e84e6a5fa1f4b56b",
+    "source/mp3/vendor/shine/mult_noarch_gcc.h": "f6094c3ab0ad58130a027867ed8d1a646d63dd4c83ecddd751adec07c6c4e60a",
+    "source/mp3/vendor/shine/mult_sarm_gcc.h": "39b8c8166614b0b53bf8e63392ace988813dfe520149af5596a038f34af552e5",
+    "source/mp3/vendor/shine/reservoir.c": "5754e370cc3dae68a02adf049fdf30a55628fe113191407d82ba32f8352c7770",
+    "source/mp3/vendor/shine/reservoir.h": "6a24ddb678f635b1d97703468c91d7209a76d47b8d5265d195b95f3222734b92",
+    "source/mp3/vendor/shine/tables.c": "94af116b5aa89c21116a7874f2d66b893dc8ec8342a19e03711c3a38a9bdd261",
+    "source/mp3/vendor/shine/tables.h": "c6e3872b6b480cea63989f6ddefe20409deb21b9207cde1e0616143981a3cd55",
+    "source/mp3/vendor/shine/types.h": "668de0f839dea6b6b994f5e78d89ca18a48b9da9fefdd30fb44cc33defacfe46",
+    "tones_independent_half-lame-decode.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "tones_independent_half-lame-encode.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "tones_independent_half-lame.f32le": "c996f2d65c05d5aea9f88ce92ef47bd6dc63f6f993fe4938c1368bcebb00a663",
+    "tones_independent_half-lame.mp3": "e4be3086dceb5cb7984703084741c08418fa4fdad646478f827bebc8a1538c49",
+    "tones_independent_half-shine-decode.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "tones_independent_half-shine.f32le": "e533e415d73d2758782d4de782bef547185bfcae7e1e179d33db785cb03beb83",
+    "tones_independent_half-shine.mp3": "63b68659665eed5095e2e89e24315cede660cefc9ebf5ac022adfeb23d76a029",
+    "tones_independent_half.s16le": "4a0a1300c0208bcc6fe1fd6b6a1d92f0ea045b9aec49eafa25582d2e9746a35f",
+    "tones_independent_nearfull-lame-decode.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "tones_independent_nearfull-lame-encode.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "tones_independent_nearfull-lame.f32le": "6b11318290d609ac768d6f1cabb5bed68bd68c98fd19b805890fd9ae717fd720",
+    "tones_independent_nearfull-lame.mp3": "876710e12fc85d5e9221f3dfe04ff8ed0a9f713035322f4e608d14bab0896e23",
+    "tones_independent_nearfull-shine-decode.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "tones_independent_nearfull-shine.f32le": "0c6402ba912fe5471af665de8b8e0fad5286a63e19c64860f270af5682d3b457",
+    "tones_independent_nearfull-shine.mp3": "482d6df6db9cade0b45ccf707e333f49bef699ca6e1ab6d4c821c7a3bfce3dff",
+    "tones_independent_nearfull.s16le": "9ce0c335840e05bd80a5d2fd0f93de931e0148bac7d79f79ec1b9ad76e49582f",
+    "uv-version.log": "d27c5539d426b7ed041c1d392e585a95dc9090b740d43a659fc38e4e48adadf6"
+  },
+  "commands": [
+    {
+      "argv": [
+        "ffmpeg",
+        "-version"
+      ],
+      "exit": 0,
+      "log": "ffmpeg-version.log",
+      "log_sha256": "a85f002a2266c5bfd7a5d1e5c72d18a0f9e8e60fd941327fa9a093d931687c17",
+      "log_bytes": 1866
+    },
+    {
+      "argv": [
+        "ffmpeg",
+        "-hide_banner",
+        "-h",
+        "encoder=libmp3lame"
+      ],
+      "exit": 0,
+      "log": "ffmpeg-lame-help.log",
+      "log_sha256": "dcfe8a6e3417354c873d838688e010e4d8d48f67d8e3b088b83e5b6cd925c288",
+      "log_bytes": 747
+    },
+    {
+      "argv": [
+        "ffmpeg",
+        "-hide_banner",
+        "-h",
+        "muxer=mp3"
+      ],
+      "exit": 0,
+      "log": "ffmpeg-mp3-help.log",
+      "log_sha256": "7d942065c19aca51a4a96803ff50a21029441b86e95ed5594fdab3a14d461298",
+      "log_bytes": 607
+    },
+    {
+      "argv": [
+        "ffmpeg",
+        "-hide_banner",
+        "-h",
+        "full"
+      ],
+      "exit": 0,
+      "log": "ffmpeg-full-help.log",
+      "log_sha256": "e2c3f19d4fb713ed8c71a083433e416174a3c331254739889d27367b2f4e735e",
+      "log_bytes": 1213717
+    },
+    {
+      "argv": [
+        "uv",
+        "--version"
+      ],
+      "exit": 0,
+      "log": "uv-version.log",
+      "log_sha256": "d27c5539d426b7ed041c1d392e585a95dc9090b740d43a659fc38e4e48adadf6",
+      "log_bytes": 38
+    },
+    {
+      "argv": [
+        "dpkg-query",
+        "-W",
+        "libmp3lame0"
+      ],
+      "exit": 0,
+      "log": "libmp3lame-package.log",
+      "log_sha256": "80ea866c82dcec5011194cebe535a1b3b616e2b4cc8419c3238271d9d3afd2aa",
+      "log_bytes": 39
+    },
+    {
+      "argv": [
+        "ffmpeg",
+        "-nostdin",
+        "-v",
+        "error",
+        "-f",
+        "s16le",
+        "-ar",
+        "48000",
+        "-ac",
+        "2",
+        "-i",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-fidelity-reference/delay-nonperiodic.s16le",
+        "-c:a",
+        "libmp3lame",
+        "-b:a",
+        "320k",
+        "-write_xing",
+        "0",
+        "-id3v2_version",
+        "0",
+        "-y",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-fidelity-reference/delay-nonperiodic.mp3"
+      ],
+      "exit": 0,
+      "log": "delay-nonperiodic-encode.log",
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "log_bytes": 0
+    },
+    {
+      "argv": [
+        "ffmpeg",
+        "-nostdin",
+        "-v",
+        "error",
+        "-c:a",
+        "mp3float",
+        "-i",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-fidelity-reference/delay-nonperiodic.mp3",
+        "-f",
+        "f32le",
+        "-c:a",
+        "pcm_f32le",
+        "-y",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-fidelity-reference/delay-nonperiodic.f32le"
+      ],
+      "exit": 0,
+      "log": "delay-nonperiodic-decode.log",
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "log_bytes": 0
+    },
+    {
+      "argv": [
+        "ffmpeg",
+        "-nostdin",
+        "-v",
+        "error",
+        "-f",
+        "s16le",
+        "-ar",
+        "48000",
+        "-ac",
+        "2",
+        "-i",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-fidelity-reference/delay-impulses.s16le",
+        "-c:a",
+        "libmp3lame",
+        "-b:a",
+        "320k",
+        "-write_xing",
+        "0",
+        "-id3v2_version",
+        "0",
+        "-y",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-fidelity-reference/delay-impulses.mp3"
+      ],
+      "exit": 0,
+      "log": "delay-impulses-encode.log",
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "log_bytes": 0
+    },
+    {
+      "argv": [
+        "ffmpeg",
+        "-nostdin",
+        "-v",
+        "error",
+        "-c:a",
+        "mp3float",
+        "-i",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-fidelity-reference/delay-impulses.mp3",
+        "-f",
+        "f32le",
+        "-c:a",
+        "pcm_f32le",
+        "-y",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-fidelity-reference/delay-impulses.f32le"
+      ],
+      "exit": 0,
+      "log": "delay-impulses-decode.log",
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "log_bytes": 0
+    },
+    {
+      "argv": [
+        "ffmpeg",
+        "-nostdin",
+        "-v",
+        "error",
+        "-f",
+        "s16le",
+        "-ar",
+        "48000",
+        "-ac",
+        "2",
+        "-i",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-fidelity-reference/noise_independent_half.s16le",
+        "-c:a",
+        "libmp3lame",
+        "-b:a",
+        "320k",
+        "-write_xing",
+        "0",
+        "-id3v2_version",
+        "0",
+        "-y",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-fidelity-reference/noise_independent_half-lame.mp3"
+      ],
+      "exit": 0,
+      "log": "noise_independent_half-lame-encode.log",
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "log_bytes": 0
+    },
+    {
+      "argv": [
+        "ffmpeg",
+        "-nostdin",
+        "-v",
+        "error",
+        "-c:a",
+        "mp3float",
+        "-i",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-fidelity-reference/noise_independent_half-shine.mp3",
+        "-f",
+        "f32le",
+        "-c:a",
+        "pcm_f32le",
+        "-y",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-fidelity-reference/noise_independent_half-shine.f32le"
+      ],
+      "exit": 0,
+      "log": "noise_independent_half-shine-decode.log",
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "log_bytes": 0
+    },
+    {
+      "argv": [
+        "ffmpeg",
+        "-nostdin",
+        "-v",
+        "error",
+        "-c:a",
+        "mp3float",
+        "-i",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-fidelity-reference/noise_independent_half-lame.mp3",
+        "-f",
+        "f32le",
+        "-c:a",
+        "pcm_f32le",
+        "-y",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-fidelity-reference/noise_independent_half-lame.f32le"
+      ],
+      "exit": 0,
+      "log": "noise_independent_half-lame-decode.log",
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "log_bytes": 0
+    },
+    {
+      "argv": [
+        "ffmpeg",
+        "-nostdin",
+        "-v",
+        "error",
+        "-f",
+        "s16le",
+        "-ar",
+        "48000",
+        "-ac",
+        "2",
+        "-i",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-fidelity-reference/noise_independent_nearfull.s16le",
+        "-c:a",
+        "libmp3lame",
+        "-b:a",
+        "320k",
+        "-write_xing",
+        "0",
+        "-id3v2_version",
+        "0",
+        "-y",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-fidelity-reference/noise_independent_nearfull-lame.mp3"
+      ],
+      "exit": 0,
+      "log": "noise_independent_nearfull-lame-encode.log",
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "log_bytes": 0
+    },
+    {
+      "argv": [
+        "ffmpeg",
+        "-nostdin",
+        "-v",
+        "error",
+        "-c:a",
+        "mp3float",
+        "-i",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-fidelity-reference/noise_independent_nearfull-shine.mp3",
+        "-f",
+        "f32le",
+        "-c:a",
+        "pcm_f32le",
+        "-y",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-fidelity-reference/noise_independent_nearfull-shine.f32le"
+      ],
+      "exit": 0,
+      "log": "noise_independent_nearfull-shine-decode.log",
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "log_bytes": 0
+    },
+    {
+      "argv": [
+        "ffmpeg",
+        "-nostdin",
+        "-v",
+        "error",
+        "-c:a",
+        "mp3float",
+        "-i",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-fidelity-reference/noise_independent_nearfull-lame.mp3",
+        "-f",
+        "f32le",
+        "-c:a",
+        "pcm_f32le",
+        "-y",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-fidelity-reference/noise_independent_nearfull-lame.f32le"
+      ],
+      "exit": 0,
+      "log": "noise_independent_nearfull-lame-decode.log",
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "log_bytes": 0
+    },
+    {
+      "argv": [
+        "ffmpeg",
+        "-nostdin",
+        "-v",
+        "error",
+        "-f",
+        "s16le",
+        "-ar",
+        "48000",
+        "-ac",
+        "2",
+        "-i",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-fidelity-reference/tones_independent_half.s16le",
+        "-c:a",
+        "libmp3lame",
+        "-b:a",
+        "320k",
+        "-write_xing",
+        "0",
+        "-id3v2_version",
+        "0",
+        "-y",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-fidelity-reference/tones_independent_half-lame.mp3"
+      ],
+      "exit": 0,
+      "log": "tones_independent_half-lame-encode.log",
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "log_bytes": 0
+    },
+    {
+      "argv": [
+        "ffmpeg",
+        "-nostdin",
+        "-v",
+        "error",
+        "-c:a",
+        "mp3float",
+        "-i",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-fidelity-reference/tones_independent_half-shine.mp3",
+        "-f",
+        "f32le",
+        "-c:a",
+        "pcm_f32le",
+        "-y",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-fidelity-reference/tones_independent_half-shine.f32le"
+      ],
+      "exit": 0,
+      "log": "tones_independent_half-shine-decode.log",
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "log_bytes": 0
+    },
+    {
+      "argv": [
+        "ffmpeg",
+        "-nostdin",
+        "-v",
+        "error",
+        "-c:a",
+        "mp3float",
+        "-i",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-fidelity-reference/tones_independent_half-lame.mp3",
+        "-f",
+        "f32le",
+        "-c:a",
+        "pcm_f32le",
+        "-y",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-fidelity-reference/tones_independent_half-lame.f32le"
+      ],
+      "exit": 0,
+      "log": "tones_independent_half-lame-decode.log",
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "log_bytes": 0
+    },
+    {
+      "argv": [
+        "ffmpeg",
+        "-nostdin",
+        "-v",
+        "error",
+        "-f",
+        "s16le",
+        "-ar",
+        "48000",
+        "-ac",
+        "2",
+        "-i",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-fidelity-reference/tones_independent_nearfull.s16le",
+        "-c:a",
+        "libmp3lame",
+        "-b:a",
+        "320k",
+        "-write_xing",
+        "0",
+        "-id3v2_version",
+        "0",
+        "-y",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-fidelity-reference/tones_independent_nearfull-lame.mp3"
+      ],
+      "exit": 0,
+      "log": "tones_independent_nearfull-lame-encode.log",
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "log_bytes": 0
+    },
+    {
+      "argv": [
+        "ffmpeg",
+        "-nostdin",
+        "-v",
+        "error",
+        "-c:a",
+        "mp3float",
+        "-i",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-fidelity-reference/tones_independent_nearfull-shine.mp3",
+        "-f",
+        "f32le",
+        "-c:a",
+        "pcm_f32le",
+        "-y",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-fidelity-reference/tones_independent_nearfull-shine.f32le"
+      ],
+      "exit": 0,
+      "log": "tones_independent_nearfull-shine-decode.log",
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "log_bytes": 0
+    },
+    {
+      "argv": [
+        "ffmpeg",
+        "-nostdin",
+        "-v",
+        "error",
+        "-c:a",
+        "mp3float",
+        "-i",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-fidelity-reference/tones_independent_nearfull-lame.mp3",
+        "-f",
+        "f32le",
+        "-c:a",
+        "pcm_f32le",
+        "-y",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-fidelity-reference/tones_independent_nearfull-lame.f32le"
+      ],
+      "exit": 0,
+      "log": "tones_independent_nearfull-lame-decode.log",
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "log_bytes": 0
+    },
+    {
+      "argv": [
+        "ffmpeg",
+        "-nostdin",
+        "-v",
+        "error",
+        "-f",
+        "s16le",
+        "-ar",
+        "48000",
+        "-ac",
+        "2",
+        "-i",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-fidelity-reference/impulse_and_gated_tones_half.s16le",
+        "-c:a",
+        "libmp3lame",
+        "-b:a",
+        "320k",
+        "-write_xing",
+        "0",
+        "-id3v2_version",
+        "0",
+        "-y",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-fidelity-reference/impulse_and_gated_tones_half-lame.mp3"
+      ],
+      "exit": 0,
+      "log": "impulse_and_gated_tones_half-lame-encode.log",
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "log_bytes": 0
+    },
+    {
+      "argv": [
+        "ffmpeg",
+        "-nostdin",
+        "-v",
+        "error",
+        "-c:a",
+        "mp3float",
+        "-i",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-fidelity-reference/impulse_and_gated_tones_half-shine.mp3",
+        "-f",
+        "f32le",
+        "-c:a",
+        "pcm_f32le",
+        "-y",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-fidelity-reference/impulse_and_gated_tones_half-shine.f32le"
+      ],
+      "exit": 0,
+      "log": "impulse_and_gated_tones_half-shine-decode.log",
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "log_bytes": 0
+    },
+    {
+      "argv": [
+        "ffmpeg",
+        "-nostdin",
+        "-v",
+        "error",
+        "-c:a",
+        "mp3float",
+        "-i",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-fidelity-reference/impulse_and_gated_tones_half-lame.mp3",
+        "-f",
+        "f32le",
+        "-c:a",
+        "pcm_f32le",
+        "-y",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-fidelity-reference/impulse_and_gated_tones_half-lame.f32le"
+      ],
+      "exit": 0,
+      "log": "impulse_and_gated_tones_half-lame-decode.log",
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "log_bytes": 0
+    },
+    {
+      "argv": [
+        "ffmpeg",
+        "-nostdin",
+        "-v",
+        "error",
+        "-f",
+        "s16le",
+        "-ar",
+        "48000",
+        "-ac",
+        "2",
+        "-i",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-fidelity-reference/impulse_and_gated_tones_nearfull.s16le",
+        "-c:a",
+        "libmp3lame",
+        "-b:a",
+        "320k",
+        "-write_xing",
+        "0",
+        "-id3v2_version",
+        "0",
+        "-y",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-fidelity-reference/impulse_and_gated_tones_nearfull-lame.mp3"
+      ],
+      "exit": 0,
+      "log": "impulse_and_gated_tones_nearfull-lame-encode.log",
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "log_bytes": 0
+    },
+    {
+      "argv": [
+        "ffmpeg",
+        "-nostdin",
+        "-v",
+        "error",
+        "-c:a",
+        "mp3float",
+        "-i",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-fidelity-reference/impulse_and_gated_tones_nearfull-shine.mp3",
+        "-f",
+        "f32le",
+        "-c:a",
+        "pcm_f32le",
+        "-y",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-fidelity-reference/impulse_and_gated_tones_nearfull-shine.f32le"
+      ],
+      "exit": 0,
+      "log": "impulse_and_gated_tones_nearfull-shine-decode.log",
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "log_bytes": 0
+    },
+    {
+      "argv": [
+        "ffmpeg",
+        "-nostdin",
+        "-v",
+        "error",
+        "-c:a",
+        "mp3float",
+        "-i",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-fidelity-reference/impulse_and_gated_tones_nearfull-lame.mp3",
+        "-f",
+        "f32le",
+        "-c:a",
+        "pcm_f32le",
+        "-y",
+        "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-mp3-fidelity-reference/impulse_and_gated_tones_nearfull-lame.f32le"
+      ],
+      "exit": 0,
+      "log": "impulse_and_gated_tones_nearfull-lame-decode.log",
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "log_bytes": 0
+    }
+  ],
+  "publication_receipt": {
+    "kind": "derived compact publication receipt; not a byte-identical copy of the local acquisition JSON",
+    "local_original": "comparison.json",
+    "local_original_sha256": "24444ef5eb4bbbde5865fdd4263f8df5fbaf6b24a8f116105f67c8388a948518",
+    "local_original_bytes": 1378672,
+    "generator": "prepare-publication.py",
+    "generator_sha256": "9f0d88beaa3c806234fd6142ca9c496cde732445e9b8c43886a5d219f93aa4ad",
+    "changes": "Only full FFmpeg help bodies are replaced with hashed log metadata and exact extracted relevant lines. All acquisition measurements, alignment, source hashes, command receipts and other tool versions are preserved.",
+    "raw_media": "No raw source PCM, MP3 or decoded float contents are embedded. Synthetic artifact hashes remain for provenance."
+  },
+  "alignment_provenance": {
+    "shine": "1057 samples inherited from October9 independent delay study, freshly confirmed by isolated_impulse_peak_offset on both channels at both levels in cases; no periodic-tone fitting.",
+    "lame": "1105 samples measured independently here by nonperiodic linear FFT correlation and two separated impulse peak offsets, both channels."
+  }
+}

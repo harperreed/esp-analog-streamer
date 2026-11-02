@@ -1,0 +1,57 @@
+#!/usr/bin/env bash
+# ABOUTME: Promotes the three host E2E fixtures only while their local validation command succeeds.
+# ABOUTME: Preserves original bytes or missing paths on failure without resetting unrelated fixture edits.
+set -euo pipefail
+
+if [ $# -lt 3 ]; then
+  echo "usage: scripts/e2e-fixtures <fixture-dir> <candidate-dir> <validation-command> [args...]" >&2
+  exit 2
+fi
+fixtures=$1
+candidates=$2
+shift 2
+names=(match.json match.expected.json miss.json)
+for name in "${names[@]}"; do
+  [ -f "$candidates/$name" ] || { echo "FAIL: missing candidate fixture: $name" >&2; exit 1; }
+done
+mkdir -p "$fixtures"
+backup=$(mktemp -d "$fixtures/.e2e-backup.XXXXXX")
+snapshot_ready=0
+
+finish() {
+  local status=$?
+  trap - EXIT
+  trap '' INT TERM # finish rollback before accepting another interruption
+  if [ "$status" -ne 0 ] && [ "$snapshot_ready" -eq 1 ]; then
+    local restored=1
+    for name in "${names[@]}"; do
+      if [ -f "$backup/$name" ]; then
+        mv -f "$backup/$name" "$fixtures/$name" || restored=0
+      else
+        rm -f "$fixtures/$name" || restored=0
+      fi
+    done
+    if [ "$restored" -ne 1 ]; then
+      echo "FAIL: fixture rollback incomplete; remaining originals: $backup" >&2
+      exit 1
+    fi
+  fi
+  rm -rf "$backup"
+  exit "$status"
+}
+trap finish EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
+
+for name in "${names[@]}"; do
+  if [ -e "$fixtures/$name" ]; then
+    cp -p "$fixtures/$name" "$backup/$name"
+  fi
+done
+snapshot_ready=1
+for name in "${names[@]}"; do
+  # Copy completely before replacing a destination; a failed copy must not leave a partial JSON.
+  cp "$candidates/$name" "$backup/candidate-$name"
+  mv -f "$backup/candidate-$name" "$fixtures/$name"
+done
+"$@"

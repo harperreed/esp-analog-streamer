@@ -1,0 +1,101 @@
+--- original/stream_http.rs
++++ no-counter/stream_http.rs
+@@ -8,7 +7,0 @@
+-
+-#[cfg(not(target_os = "espidf"))]
+-const POLL_INVALID: libc::c_short = libc::POLLNVAL;
+-// IDF 5.5.5 components/newlib/platform_include/sys/poll.h defines this bit;
+-// libc 0.2.190's ESP-IDF bindings omit it. The generated IDF bindings agree.
+-#[cfg(target_os = "espidf")]
+-const POLL_INVALID: libc::c_short = 1 << 7;
+@@ -72,4 +65,2 @@
+-// Include the pending readiness timestamp in the per-writer diagnostic budget.
+-const _: () = assert!(
+-    std::mem::size_of::<WriterDiagnostics>() + std::mem::size_of::<Option<Instant>>() <= 160
+-);
++// THROWAWAY no-new-counter control: the diagnostics API returns no data.
++const _: () = assert!(std::mem::size_of::<WriterDiagnostics>() <= 160);
+@@ -90,2 +80,0 @@
+-    diagnostics: WriterDiagnostics,
+-    ready_at: Option<Instant>,
+@@ -96,5 +85 @@
+-        Self {
+-            sock,
+-            diagnostics: WriterDiagnostics::default(),
+-            ready_at: None,
+-        }
++        Self { sock }
+@@ -104 +89 @@
+-        self.diagnostics
++        WriterDiagnostics::default()
+@@ -109,2 +94 @@
+-        self.diagnostics = WriterDiagnostics::default();
+-        self.ready_at = None;
++        // THROWAWAY no-new-counter control: diagnostics contain no data.
+@@ -142,2 +125,0 @@
+-            let after_ready = self.ready_at.take();
+-            let started = Instant::now();
+@@ -154,35 +135,0 @@
+-            let elapsed = started.elapsed().as_micros() as u64;
+-            let metrics = &mut self.diagnostics;
+-            if let Some(ready_at) = after_ready {
+-                metrics.ready_to_send_wall_max_us = metrics
+-                    .ready_to_send_wall_max_us
+-                    .max(started.duration_since(ready_at).as_micros() as u64);
+-            }
+-            metrics.send_calls = metrics.send_calls.saturating_add(1);
+-            metrics.send_wall_total_us = metrics.send_wall_total_us.saturating_add(elapsed);
+-            metrics.send_wall_max_us = metrics.send_wall_max_us.max(elapsed);
+-            if elapsed > 10_000 {
+-                metrics.send_over_10ms = metrics.send_over_10ms.saturating_add(1);
+-            }
+-            match sent {
+-                0 => metrics.send_errors = metrics.send_errors.saturating_add(1),
+-                n if n > 0 => {
+-                    metrics.accepted_bytes = metrics.accepted_bytes.saturating_add(n as u64);
+-                    if (n as usize) < buf.len() {
+-                        metrics.short_sends = metrics.short_sends.saturating_add(1);
+-                    }
+-                }
+-                _ => match error.as_ref().expect("negative send has errno").kind() {
+-                    io::ErrorKind::Interrupted => {
+-                        metrics.send_interrupted = metrics.send_interrupted.saturating_add(1);
+-                    }
+-                    io::ErrorKind::WouldBlock => {
+-                        metrics.send_would_block = metrics.send_would_block.saturating_add(1);
+-                        if after_ready.is_some() {
+-                            metrics.ready_then_would_block =
+-                                metrics.ready_then_would_block.saturating_add(1);
+-                        }
+-                    }
+-                    _ => metrics.send_errors = metrics.send_errors.saturating_add(1),
+-                },
+-            }
+@@ -203 +149,0 @@
+-        let started = Instant::now();
+@@ -206,9 +151,0 @@
+-        let finished = Instant::now();
+-        let elapsed = finished.duration_since(started).as_micros() as u64;
+-        let metrics = &mut self.diagnostics;
+-        metrics.poll_calls = metrics.poll_calls.saturating_add(1);
+-        metrics.poll_wall_total_us = metrics.poll_wall_total_us.saturating_add(elapsed);
+-        metrics.poll_wall_max_us = metrics.poll_wall_max_us.max(elapsed);
+-        if elapsed > 10_000 {
+-            metrics.poll_over_10ms = metrics.poll_over_10ms.saturating_add(1);
+-        }
+@@ -216,6 +152,0 @@
+-            if fd.revents & (libc::POLLERR | libc::POLLHUP | POLL_INVALID) != 0 {
+-                metrics.poll_error_ready = metrics.poll_error_ready.saturating_add(1);
+-            } else if fd.revents & libc::POLLOUT != 0 {
+-                metrics.poll_ready = metrics.poll_ready.saturating_add(1);
+-                self.ready_at = Some(finished);
+-            }
+@@ -227,5 +157,0 @@
+-            if error.kind() != io::ErrorKind::Interrupted {
+-                metrics.poll_errors = metrics.poll_errors.saturating_add(1);
+-                return Err(error);
+-            }
+-            metrics.poll_interrupted = metrics.poll_interrupted.saturating_add(1);
+@@ -233,2 +158,0 @@
+-        } else {
+-            metrics.poll_timeouts = metrics.poll_timeouts.saturating_add(1);

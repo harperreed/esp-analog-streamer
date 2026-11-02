@@ -1,0 +1,221 @@
+{
+  "implementation_commit": "ed5e26a",
+  "scope": "First-three-lane benchmark/soak plus separate final Sonos startup verification; distinct firmware hashes retained",
+  "elf_sha256": {
+    "flac-cost.elf": "280468cb4dc3d5e97a8a00fc10d92bbf89bfb219be65e73285732e5275f3b247",
+    "production.elf": "7d6c9356a03412f41d54fc948ef82f262992d819e988a3bc160cb7f94a1c367e"
+  },
+  "board": "ESP32 v3.1 A1S",
+  "idf": "v5.5.5",
+  "boot_identity": "20261008T022608.655380Z: one scripted reset, rst:0x1 POWERON_RESET",
+  "network": {
+    "interface": "enp5s0",
+    "protocol_bitmap": 7,
+    "power_save": 0,
+    "channel": 6,
+    "rssi_dbm": -48,
+    "negotiated_phy": 4,
+    "negotiated_phy_meaning": "HT20 per pinned IDF enum"
+  },
+  "benchmark": {
+    "passed": true,
+    "cases": [
+      {
+        "kind": "zero",
+        "phase": "warmup",
+        "blocks": 1,
+        "bytes": 14,
+        "max_frame_bytes": 14,
+        "encoding_us": 6636,
+        "wall_us": 19996,
+        "task_runtime_us": 6692,
+        "runtime_valid": "true"
+      },
+      {
+        "kind": "zero",
+        "phase": "measured",
+        "blocks": 128,
+        "bytes": 1792,
+        "max_frame_bytes": 14,
+        "encoding_us": 831525,
+        "wall_us": 2560000,
+        "task_runtime_us": 834863,
+        "runtime_valid": "true"
+      },
+      {
+        "kind": "dc",
+        "phase": "warmup",
+        "blocks": 1,
+        "bytes": 14,
+        "max_frame_bytes": 14,
+        "encoding_us": 6467,
+        "wall_us": 20000,
+        "task_runtime_us": 6503,
+        "runtime_valid": "true"
+      },
+      {
+        "kind": "dc",
+        "phase": "measured",
+        "blocks": 128,
+        "bytes": 1792,
+        "max_frame_bytes": 14,
+        "encoding_us": 831527,
+        "wall_us": 2560000,
+        "task_runtime_us": 834865,
+        "runtime_valid": "true"
+      },
+      {
+        "kind": "mixed",
+        "phase": "warmup",
+        "blocks": 1,
+        "bytes": 8204,
+        "max_frame_bytes": 8204,
+        "encoding_us": 8886,
+        "wall_us": 20000,
+        "task_runtime_us": 8921,
+        "runtime_valid": "true"
+      },
+      {
+        "kind": "mixed",
+        "phase": "measured",
+        "blocks": 128,
+        "bytes": 1050112,
+        "max_frame_bytes": 8204,
+        "encoding_us": 1113039,
+        "wall_us": 2560000,
+        "task_runtime_us": 1116250,
+        "runtime_valid": "true"
+      },
+      {
+        "kind": "noise",
+        "phase": "warmup",
+        "blocks": 1,
+        "bytes": 16394,
+        "max_frame_bytes": 16394,
+        "encoding_us": 12014,
+        "wall_us": 30000,
+        "task_runtime_us": 12049,
+        "runtime_valid": "true"
+      },
+      {
+        "kind": "noise",
+        "phase": "measured",
+        "blocks": 128,
+        "bytes": 2098432,
+        "max_frame_bytes": 16394,
+        "encoding_us": 1534926,
+        "wall_us": 3840000,
+        "task_runtime_us": 1538136,
+        "runtime_valid": "true"
+      }
+    ],
+    "private_uart": "target/kata-hardware/benchmark-uart.log",
+    "seed": "0x12345678 per input kind"
+  },
+  "soak": {
+    "passed": true,
+    "requested_seconds": 30.0,
+    "listeners": 2,
+    "decoded_seconds": [
+      30.0,
+      30.0
+    ],
+    "decoder_accounting": [
+      {
+        "timeline_seconds": 30.0,
+        "decoded_audio_frames": 1440000,
+        "decoded_seconds": 30.0,
+        "decoded_packets": 352,
+        "skipped_source_audio_frames": 0,
+        "duplicate_audio_frames": 0,
+        "decoded_discontinuities": 0,
+        "sample_hashes": "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardware/soak/20261008T022608.655380Z/listener-1.framehash",
+        "sample_hash_format": "SHA256, stereo pcm_s32le, packet boundaries"
+      },
+      {
+        "timeline_seconds": 30.0,
+        "decoded_audio_frames": 1440000,
+        "decoded_seconds": 30.0,
+        "decoded_packets": 352,
+        "skipped_source_audio_frames": 0,
+        "duplicate_audio_frames": 0,
+        "decoded_discontinuities": 0,
+        "sample_hashes": "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardware/soak/20261008T022608.655380Z/listener-2.framehash",
+        "sample_hash_format": "SHA256, stereo pcm_s32le, packet boundaries"
+      }
+    ],
+    "captured_frames_observed": 1929120,
+    "counter_deltas": {
+      "queue_overflows": 0,
+      "software_dropped_frames": 0,
+      "read_errors": 0,
+      "restarts": 0,
+      "discontinuities": 0
+    },
+    "minimums": {
+      "internal_min_sum": 73327,
+      "psram_min_sum": 762096
+    },
+    "input_fixture": "Existing live LINE IN; source and analog voltage were not controlled",
+    "test_seed": null
+  },
+  "prebaseline_capture": {
+    "queue_overflows": 15,
+    "software_dropped_frames": 480,
+    "read_errors": 0,
+    "restarts": 2,
+    "discontinuities": 2
+  },
+  "private_soak_directory": "target/kata-hardware/soak/20261008T022608.655380Z",
+  "speaker_state_after": {
+    "state": "stopped",
+    "autoplay": false
+  },
+  "limits": [
+    "Thirty seconds after a stable baseline is not a long soak or startup-continuity pass.",
+    "Boot capture faults remain; no causal attribution to this patch or TLS.",
+    "No forced Wi-Fi reconnect, prior diagnostic-mode persistence test, or correlated AP trace.",
+    "Analog source and voltage were not controlled; sample hashes do not establish analog fidelity.",
+    "The final Sonos image passed normal real-device startup/discovery. Failed creation/retry was exercised with real host threads; IDF memory-pressure failure was not injected."
+  ],
+  "host_validation": {
+    "command": "scripts/check",
+    "stages_passed": 15,
+    "rust_passed": 279,
+    "rust_failed": 0,
+    "rust_ignored": 2,
+    "decoder_tests": 12,
+    "fixture_transaction_tests": 6,
+    "review": "Independent Sol cross-review plus parent combined check",
+    "reference_pcm_sha256": {
+      "reference.s16le": "335f744905beff2898b5b06b1606afc56b97283953266e97b811fe8296257bed",
+      "reference24.s32le": "5d28f60c01f66fdaa1722af7bb3b80388fb6e51bba097ca53c9440e79b3c7a45"
+    },
+    "source_commit": "350e497"
+  },
+  "sonos_startup": {
+    "passed": true,
+    "implementation_commit": "350e497",
+    "final_elf_sha256": "ab48273fb3c5f1b9c21bfcd8f6f4087acbee26688cb4fb63aa212facfdabffbc",
+    "commands": [
+      {
+        "request": 1,
+        "http_status": 202,
+        "observed_discovery": true,
+        "groups_found": 1,
+        "final_state": "stopped"
+      },
+      {
+        "request": 2,
+        "http_status": 202,
+        "observed_discovery": true,
+        "groups_found": 1,
+        "final_state": "stopped"
+      }
+    ],
+    "saved_config_unchanged": true,
+    "autoplay": false,
+    "playing": false,
+    "idf_launch_failure_injected": false
+  }
+}

@@ -1,0 +1,167 @@
+{
+  "date": "2026-10-11",
+  "kata": "amqe",
+  "status": "partial_original_acceptance_remains_open",
+  "canonical": {
+    "run": "target/check-logs/run.9Glqmfvm",
+    "stages_passed": 27,
+    "exit_code": 0
+  },
+  "firmware_elf_sha256": "589e1dcf9c58655960765ad332ebe0f753c2d64bd41e030ed85b9bff916c285e",
+  "fixture_sha256": "027accd2d3a6b52bb7a80587c7e567ce85509aa02e7cff0f0ae7a447216959b6",
+  "settings": {
+    "format": "mp3",
+    "buffer": "med",
+    "playback": "stopped",
+    "autoplay": false,
+    "recognition_enabled": false
+  },
+  "boot_identity": {
+    "two_distinct_boot_tokens": true,
+    "both_build_digests_match_elf": true
+  },
+  "bounds": {
+    "host_response_bytes": 736,
+    "host_cache_bytes": 664,
+    "host_snapshot_bytes": 656,
+    "maximal_json_bytes": 3735,
+    "live_json_bytes": 2715,
+    "json_limit": 4096,
+    "prometheus_limit": 8192,
+    "target_compile_assertions_passed": true
+  },
+  "comparison": {
+    "phases": [
+      {
+        "phase": "off-before",
+        "samples": 4,
+        "sampled_duration_seconds": 30.547276,
+        "capture_read_pcm_frames": 1466160,
+        "fault_deltas": {
+          "queue_overflows": 0,
+          "software_dropped_frames": 0,
+          "read_errors": 0,
+          "restarts": 0,
+          "discontinuities": 0,
+          "supervisor_restarts": 0,
+          "overflow_restarts": 0,
+          "settling_discarded_frames": 0,
+          "health_restart_requests": 0
+        },
+        "internal_free_min": 48407,
+        "internal_largest_min": 47104,
+        "sampled_service_delay_max_us": 75183
+      },
+      {
+        "phase": "on",
+        "samples": 4,
+        "sampled_duration_seconds": 30.510851,
+        "capture_read_pcm_frames": 1464480,
+        "fault_deltas": {
+          "queue_overflows": 0,
+          "software_dropped_frames": 0,
+          "read_errors": 0,
+          "restarts": 0,
+          "discontinuities": 0,
+          "supervisor_restarts": 0,
+          "overflow_restarts": 0,
+          "settling_discarded_frames": 0,
+          "health_restart_requests": 0
+        },
+        "internal_free_min": 48407,
+        "internal_largest_min": 47104,
+        "sampled_service_delay_max_us": 4650
+      },
+      {
+        "phase": "off-after",
+        "samples": 4,
+        "sampled_duration_seconds": 30.627821,
+        "capture_read_pcm_frames": 1470240,
+        "fault_deltas": {
+          "queue_overflows": 0,
+          "software_dropped_frames": 0,
+          "read_errors": 0,
+          "restarts": 0,
+          "discontinuities": 0,
+          "supervisor_restarts": 0,
+          "overflow_restarts": 0,
+          "settling_discarded_frames": 0,
+          "health_restart_requests": 0
+        },
+        "internal_free_min": 48407,
+        "internal_largest_min": 47104,
+        "sampled_service_delay_max_us": 3166
+      }
+    ],
+    "capture_fault_counters_first_sample": {
+      "queue_overflows": 16,
+      "software_dropped_frames": 480,
+      "read_errors": 0,
+      "restarts": 2,
+      "discontinuities": 2,
+      "supervisor_restarts": 0,
+      "overflow_restarts": 2,
+      "settling_discarded_frames": 26400,
+      "health_restart_requests": 0
+    },
+    "metrics_owner_stack_free_min_bytes": 824,
+    "limitations": [
+      "Source stamps mapped to host phases using one response clock anchor, with 0.2s boundary margin.",
+      "Counter deltas cover interior sample spans only; not every phase boundary.",
+      "Heap statistics are samples, not an allocation trace; no causal overhead estimate from this short run.",
+      "Input is recorded mono-correlated noise, not independent stereo noise."
+    ]
+  },
+  "controlled_event": {
+    "kind": "planned_listener_departure",
+    "device_bytes_sent": 4855680,
+    "prometheus_value_matches": true,
+    "grafana_datasource_query_matches": true,
+    "rendered_browser_verified": false
+  },
+  "staleness": {
+    "response_available": true,
+    "completed_listener_expired": true,
+    "expired_values_absent": true
+  },
+  "listeners": [
+    {
+      "index": 0,
+      "bytes": 4844160,
+      "error": null,
+      "admitted": true,
+      "elapsed": 129.7264492479153
+    },
+    {
+      "index": 1,
+      "bytes": 4844160,
+      "error": null,
+      "admitted": true,
+      "elapsed": 129.72636397508904
+    }
+  ],
+  "cleanup": {
+    "children_reaped": true,
+    "threads_reaped": true,
+    "errors": []
+  },
+  "limits": [
+    "Live per-listener lag/write duration remains unimplemented; completed receipts are not a substitute.",
+    "HTTP task runtime stack watermark and saturation acceptance remain unmeasured.",
+    "Browser rendering is not verified; sandboxed Chromium could not start.",
+    "Startup capture faults remain; short stable streaming spans do not clear startup or soak gates.",
+    "No source revision overhead comparison or sample-exact audio verdict."
+  ],
+  "private_artifacts": {
+    "live-run/receipt.json": "763ad6518cce8fb0af8ab1b7005bd43cd930e919cf46816e7f3fe3b679ec7fee",
+    "live-run/uart.log": "0c6569694f70d5a73ab74aefbccf502586e164251780f22c66dffbb108549772",
+    "live-run/comparison.json": "bece1b788d42b5dc657c4f8e4c66c23d8bea4345640797da6167d43d5d329eba",
+    "live-run/controlled-event-device.json": "943b1e2213a46d143555cff732953cd61a603865935eed46a88eb4e2ef758215",
+    "live-run/controlled-event-prometheus.json": "628e6c1b8f2fd43dace1a63e16ecf708f97396dd5e2a71a70f4d780463a1aeb2",
+    "live-run/controlled-event-grafana.json": "6c599e2a77c14dd4a76fa7adcb8d50dd32c3e8763872b9472c938aeb6c50e64c",
+    "live-run/stale-family.prom": "f878be78b92dd50937007e84f29b5db58c3b19636e04eec4f98db27a6a3d9629",
+    "stack-inspection.json": "7c8db499f18f6fa906450a6b196852ca2c70a7ef2e96002bc033d49533acf1a0",
+    "lab-live/dashboard-final-api.json": "1f450cc99702b0b40497a452c7d790ed11df0ba32c1d05d7e29270b721c0958d",
+    "lab-live/receipt.json": "7d2e409b23fe3179b01cac9b23961fc8d1ca13020ff2961ef3fcf7df964da4ef"
+  }
+}

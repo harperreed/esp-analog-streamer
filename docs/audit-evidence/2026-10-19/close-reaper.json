@@ -1,0 +1,385 @@
+{
+  "schema": "1",
+  "plan": "docs/superpowers/plans/2026-10-18-recovery-endurance.md",
+  "tickets": [
+    "ttms",
+    "7fe1",
+    "b814"
+  ],
+  "product_commit": "f5f0bb6",
+  "harness_commit": "ea39416",
+  "harness_sha256": {
+    "scripts/network_fault.py": "c00cc7b4603fc6be44c5f60d7fa30d1a7a5d55ef41b4b01668ffcacd6b862ac2",
+    "scripts/client_zoo.py": "a1d54979a6c9642e8673789dbd15cb5c692253c59bb987dbdfd6b0ae9577f423"
+  },
+  "board": {
+    "host": "192.168.23.217",
+    "reaper_image": "2ed701de",
+    "pre_reaper_image": "613e7621",
+    "pre_reaper_commit": "3fb6667",
+    "path": "/stream.mp3"
+  },
+  "runs": {
+    "oct19-reaper-capture": {
+      "directory": "target/kata-hardening/oct19-reaper-capture",
+      "image": "2ed701de",
+      "boot_token": "3712449c",
+      "started_utc": "2026-10-19T19:02:34.623418+00:00",
+      "result_sha256": "14726d796550fdcd382462187815918390754259b48536afccd27b45f400a804",
+      "trials": {
+        "null-1": {
+          "passed": true,
+          "reason": "exact frames, no departures, counters flat",
+          "metrics_unavailable": 15,
+          "samples": 52,
+          "freeze_to_departure_s": null,
+          "departure_to_release_us": null,
+          "release_to_join_us": null,
+          "join_to_close_us": null,
+          "release_to_close_us": null,
+          "reaper_stack_free_bytes": null,
+          "survivor_skips": null,
+          "survivor_frames_skipped": null
+        }
+      },
+      "reverdict": null
+    },
+    "oct19-reaper-freeze": {
+      "directory": "target/kata-hardening/oct19-reaper-freeze",
+      "image": "2ed701de",
+      "boot_token": "05c2e489",
+      "started_utc": "2026-10-19T19:09:19.795185+00:00",
+      "result_sha256": "ce32563342140dc64b2110fbba2759980d530cc4be994c3227af282984b7856f",
+      "trials": {
+        "freeze-1": {
+          "passed": true,
+          "reason": "fresh join 1079656 us after the slot release and 1367576 us before the checked close; survivor exact",
+          "metrics_unavailable": 21,
+          "samples": 70,
+          "freeze_to_departure_s": 53.524,
+          "departure_to_release_us": 514,
+          "release_to_join_us": 1079656,
+          "join_to_close_us": 1367576,
+          "release_to_close_us": 2447232,
+          "reaper_stack_free_bytes": 2280,
+          "survivor_skips": null,
+          "survivor_frames_skipped": null
+        },
+        "freeze-2": {
+          "passed": true,
+          "reason": "fresh join 1284401 us after the slot release and 997848 us before the checked close; survivor exact",
+          "metrics_unavailable": 35,
+          "samples": 54,
+          "freeze_to_departure_s": 53.098,
+          "departure_to_release_us": 179,
+          "release_to_join_us": 1284401,
+          "join_to_close_us": 997848,
+          "release_to_close_us": 2282249,
+          "reaper_stack_free_bytes": 2280,
+          "survivor_skips": null,
+          "survivor_frames_skipped": null
+        }
+      },
+      "reverdict": null
+    },
+    "oct19-reaper-freeze-2": {
+      "directory": "target/kata-hardening/oct19-reaper-freeze-2",
+      "image": "2ed701de",
+      "boot_token": "6c07bbdb",
+      "started_utc": "2026-10-19T19:14:53.816813+00:00",
+      "result_sha256": "4e95f7f533ceb06b1ee2146c5b56a7b0d0de95fa698d27e0c1c3182c6b329f03",
+      "trials": {
+        "freeze-2": {
+          "passed": false,
+          "reason": "no fresh join after the frozen reader departed",
+          "metrics_unavailable": 27,
+          "samples": 57,
+          "freeze_to_departure_s": 58.701,
+          "departure_to_release_us": 178,
+          "release_to_join_us": null,
+          "join_to_close_us": null,
+          "release_to_close_us": 2113852,
+          "reaper_stack_free_bytes": 2272,
+          "survivor_skips": null,
+          "survivor_frames_skipped": null
+        }
+      },
+      "reverdict": {
+        "freeze-2": {
+          "passed": false,
+          "reason": "no fresh join after the frozen reader departed",
+          "survivor_skips": null
+        }
+      }
+    },
+    "oct19-reaper-freeze-3": {
+      "directory": "target/kata-hardening/oct19-reaper-freeze-3",
+      "image": "2ed701de",
+      "boot_token": "4820f92f",
+      "started_utc": "2026-10-19T19:16:40.147582+00:00",
+      "result_sha256": "beaf30ab682782d00f2e73ee7115446ccc53bd0e76701c944cb876171ce5f78f",
+      "trials": {
+        "freeze-2": {
+          "passed": false,
+          "reason": "unexpected departure",
+          "metrics_unavailable": 34,
+          "samples": 58,
+          "freeze_to_departure_s": null,
+          "departure_to_release_us": null,
+          "release_to_join_us": null,
+          "join_to_close_us": null,
+          "release_to_close_us": null,
+          "reaper_stack_free_bytes": null,
+          "survivor_skips": null,
+          "survivor_frames_skipped": null
+        }
+      },
+      "reverdict": {
+        "freeze-2": {
+          "passed": true,
+          "reason": "fresh join 1058868 us after the slot release and 1337692 us before the checked close; survivor exact with 1 skip(s)",
+          "survivor_skips": 1
+        }
+      }
+    },
+    "oct19-reaper-freeze-4": {
+      "directory": "target/kata-hardening/oct19-reaper-freeze-4",
+      "image": "2ed701de",
+      "boot_token": "d0f08844",
+      "started_utc": "2026-10-19T19:18:35.588532+00:00",
+      "result_sha256": "5f3e891012e45dee1a881fd4d189567c476cedba3a03a0ac3cb567431d11f3d1",
+      "trials": {
+        "freeze-2": {
+          "passed": false,
+          "reason": "0 frame_timeout departure(s) after the freeze; expected 1",
+          "metrics_unavailable": 33,
+          "samples": 52,
+          "freeze_to_departure_s": null,
+          "departure_to_release_us": null,
+          "release_to_join_us": null,
+          "join_to_close_us": null,
+          "release_to_close_us": null,
+          "reaper_stack_free_bytes": null,
+          "survivor_skips": null,
+          "survivor_frames_skipped": null
+        }
+      },
+      "reverdict": {
+        "freeze-2": {
+          "passed": false,
+          "reason": "0 frame_timeout departure(s) after the freeze; expected 1",
+          "survivor_skips": null
+        }
+      }
+    },
+    "oct19-reaper-freeze-5": {
+      "directory": "target/kata-hardening/oct19-reaper-freeze-5",
+      "image": "2ed701de",
+      "boot_token": "fbfb717b",
+      "started_utc": "2026-10-19T19:23:23.987492+00:00",
+      "result_sha256": "80185ab62f1af26bf43ac90b259c8ef8649c4769736e390719f755367ec64e86",
+      "trials": {
+        "freeze-1": {
+          "passed": true,
+          "reason": "fresh join 1058796 us after the slot release and 1319049 us before the checked close; survivor exact with 0 skip(s)",
+          "metrics_unavailable": 14,
+          "samples": 89,
+          "freeze_to_departure_s": 66.035,
+          "departure_to_release_us": 172,
+          "release_to_join_us": 1058796,
+          "join_to_close_us": 1319049,
+          "release_to_close_us": 2377845,
+          "reaper_stack_free_bytes": 2272,
+          "survivor_skips": 0,
+          "survivor_frames_skipped": 0
+        },
+        "freeze-2": {
+          "passed": true,
+          "reason": "fresh join 1925376 us after the slot release and 458859 us before the checked close; survivor exact with 5 skip(s)",
+          "metrics_unavailable": 65,
+          "samples": 93,
+          "freeze_to_departure_s": 53.088,
+          "departure_to_release_us": 201,
+          "release_to_join_us": 1925376,
+          "join_to_close_us": 458859,
+          "release_to_close_us": 2384235,
+          "reaper_stack_free_bytes": 2272,
+          "survivor_skips": 5,
+          "survivor_frames_skipped": 1279
+        }
+      },
+      "reverdict": null
+    },
+    "oct19-reaper-null2": {
+      "directory": "target/kata-hardening/oct19-reaper-null2",
+      "image": "2ed701de",
+      "boot_token": "290bccfd",
+      "started_utc": "2026-10-19T19:32:12.626843+00:00",
+      "result_sha256": "93a9d56b8471073b98cc4240f0921bf283dd96801f3166406d4585626241e242",
+      "trials": {
+        "null-2": {
+          "passed": true,
+          "reason": "exact frames, no departures, counters flat",
+          "metrics_unavailable": 0,
+          "samples": 65,
+          "freeze_to_departure_s": null,
+          "departure_to_release_us": null,
+          "release_to_join_us": null,
+          "join_to_close_us": null,
+          "release_to_close_us": null,
+          "reaper_stack_free_bytes": null,
+          "survivor_skips": null,
+          "survivor_frames_skipped": null
+        }
+      },
+      "reverdict": null
+    },
+    "oct19-prereaper-freeze-a": {
+      "directory": "target/kata-hardening/oct19-prereaper-freeze-a",
+      "image": "613e7621",
+      "boot_token": "fa55dd65",
+      "started_utc": "2026-10-19T19:36:42.997773+00:00",
+      "result_sha256": "3e5a1bfa36ab7028b36352a7571fc392273ce890c35d36740e908f33abe67fdd",
+      "trials": {
+        "freeze-2": {
+          "passed": false,
+          "reason": "close line carries no released_us; the close reaper image is required",
+          "metrics_unavailable": 0,
+          "samples": 125,
+          "freeze_to_departure_s": null,
+          "departure_to_release_us": null,
+          "release_to_join_us": null,
+          "join_to_close_us": null,
+          "release_to_close_us": null,
+          "reaper_stack_free_bytes": null,
+          "survivor_skips": null,
+          "survivor_frames_skipped": null
+        }
+      },
+      "reverdict": null
+    },
+    "oct19-prereaper-freeze-b": {
+      "directory": "target/kata-hardening/oct19-prereaper-freeze-b",
+      "image": "613e7621",
+      "boot_token": "6ea919cb",
+      "started_utc": "2026-10-19T19:39:11.260117+00:00",
+      "result_sha256": "e3bfc26b2672605cd19577370488e0360e24e23402f1b51e4efc0db54f0ac09a",
+      "trials": {
+        "freeze-2": {
+          "passed": false,
+          "reason": "close line carries no released_us; the close reaper image is required",
+          "metrics_unavailable": 44,
+          "samples": 83,
+          "freeze_to_departure_s": null,
+          "departure_to_release_us": null,
+          "release_to_join_us": null,
+          "join_to_close_us": null,
+          "release_to_close_us": null,
+          "reaper_stack_free_bytes": null,
+          "survivor_skips": null,
+          "survivor_frames_skipped": null
+        }
+      },
+      "reverdict": null
+    }
+  },
+  "client_zoo": {
+    "directory": "target/kata-hardening/oct19-zoo-1",
+    "image": "2ed701de",
+    "boot_token": "573b6af9",
+    "started_utc": "2026-10-19T19:49:04.129205+00:00",
+    "passed_mp3": true,
+    "runs": {
+      "ffmpeg-mp3": {
+        "passed": true,
+        "reason": "no reconnect, still receiving at the end",
+        "reconnects": 0,
+        "skips_during": 0,
+        "exit_codes": [
+          255
+        ]
+      },
+      "ffmpeg-flac": {
+        "passed": false,
+        "reason": "player ended before the run did (exit codes [8])",
+        "reconnects": 0,
+        "skips_during": null,
+        "exit_codes": [
+          8
+        ]
+      },
+      "mpv-mp3": {
+        "passed": true,
+        "reason": "no reconnect, still receiving at the end",
+        "reconnects": 0,
+        "skips_during": 1,
+        "exit_codes": [
+          4
+        ]
+      },
+      "mpv-flac": {
+        "passed": false,
+        "reason": "player ended before the run did (exit codes [2])",
+        "reconnects": 0,
+        "skips_during": null,
+        "exit_codes": [
+          2
+        ]
+      },
+      "mpg123-mp3": {
+        "passed": true,
+        "reason": "no reconnect, still receiving at the end",
+        "reconnects": 0,
+        "skips_during": 1,
+        "exit_codes": [
+          0
+        ]
+      },
+      "sox-mp3": {
+        "passed": true,
+        "reason": "no reconnect, still receiving at the end",
+        "reconnects": 0,
+        "skips_during": 1,
+        "exit_codes": [
+          -15,
+          0
+        ]
+      },
+      "sox-flac": {
+        "passed": false,
+        "reason": "player ended before the run did (exit codes [0, 2])",
+        "reconnects": 0,
+        "skips_during": null,
+        "exit_codes": [
+          0,
+          2
+        ]
+      },
+      "curl-mp3": {
+        "passed": true,
+        "reason": "no reconnect, still receiving at the end",
+        "reconnects": 0,
+        "skips_during": 1,
+        "exit_codes": [
+          -15
+        ]
+      },
+      "curl-flac": {
+        "passed": false,
+        "reason": "player ended before the run did (exit codes [0])",
+        "reconnects": 0,
+        "skips_during": null,
+        "exit_codes": [
+          0
+        ]
+      }
+    },
+    "flac_note": "404 Not Found: the board serves the active format only (MP3); the 2026-10-18 zoo ran MP3 only",
+    "result_sha256": "c592fac68d4c45807fbd39406a159fb64915cdc148ce982b0de591ef0af77ac8"
+  },
+  "limits": [
+    "six passing freeze trials in all",
+    "b814 open on both images",
+    "MP3 only, quiet LINE IN, one board, office network"
+  ]
+}

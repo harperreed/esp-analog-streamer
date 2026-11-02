@@ -1,0 +1,6 @@
+{
+  "status": "pass",
+  "build_elf_sha256": "0ff2a7ccb677fb8045f6faa1d040b930f8adaaf38913946c1847e1f3eb14faf2",
+  "canonical_run": "target/check-logs/run.ldXR4onj",
+  "stages": "stage\texit_code\tlog\nfirmware-fmt\t0\tfirmware-fmt.log\nfirmware-build\t0\tfirmware-build.log\ni2s-iram-tests\t0\ti2s-iram-tests.log\ni2s-iram\t0\ti2s-iram.log\nfirmware-warnings\t0\tfirmware-warnings.log\n"
+}

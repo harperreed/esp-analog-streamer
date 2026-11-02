@@ -1,10 +1,17 @@
 // ABOUTME: HTTP for the stream server on port 8000: reading a request's head, routing its request line, the responses.
-// ABOUTME: Only GET /stream.flac and GET /stream.wav stream; anything else gets a short, complete response and the connection closes.
+// ABOUTME: Only GET for the selected compressed codec and /stream.wav stream; anything else gets a short, complete response and the connection closes.
 
 use std::io::{self, BufRead, Read};
 use std::net::TcpStream;
 use std::os::fd::AsRawFd;
 use std::time::{Duration, Instant};
+
+#[cfg(not(target_os = "espidf"))]
+const POLL_INVALID: libc::c_short = libc::POLLNVAL;
+// IDF 5.5.5 components/newlib/platform_include/sys/poll.h defines this bit;
+// libc 0.2.190's ESP-IDF bindings omit it. The generated IDF bindings agree.
+#[cfg(target_os = "espidf")]
+const POLL_INVALID: libc::c_short = 1 << 7;
 
 /// Reads a socket with one deadline for all its reads, so a client that sends a request head a
 /// byte at a time can't hold the server past it. A plain read timeout restarts with every read.
@@ -37,16 +44,70 @@ impl Read for DeadlineReader<'_> {
     }
 }
 
+/// Actual socket-call outcomes and wall time; accepted bytes do not imply delivery.
+#[derive(Clone, Copy, Debug, Default)]
+pub struct WriterDiagnostics {
+    pub accepted_bytes: u64,
+    pub send_wall_total_us: u64,
+    pub send_wall_max_us: u64,
+    pub poll_wall_total_us: u64,
+    pub poll_wall_max_us: u64,
+    pub ready_to_send_wall_max_us: u64,
+    pub send_calls: u32,
+    pub short_sends: u32,
+    pub send_would_block: u32,
+    pub send_interrupted: u32,
+    pub send_errors: u32,
+    pub send_over_10ms: u32,
+    pub poll_calls: u32,
+    pub poll_ready: u32,
+    pub poll_timeouts: u32,
+    pub poll_interrupted: u32,
+    pub poll_errors: u32,
+    pub poll_error_ready: u32,
+    pub poll_over_10ms: u32,
+    pub ready_then_would_block: u32,
+}
+
+// Include the pending readiness timestamp in the per-writer diagnostic budget.
+const _: () = assert!(
+    std::mem::size_of::<WriterDiagnostics>() + std::mem::size_of::<Option<Instant>>() <= 160
+);
+
+/// Writes a response with one elapsed-time budget for all sends and writable waits.
+/// The caller retains ownership and must exclusively use the socket, including clones,
+/// while this operation temporarily changes its blocking mode.
+pub fn write_response(sock: &TcpStream, response: &[u8], timeout: Duration) -> io::Result<()> {
+    let deadline = Instant::now() + timeout;
+    DeadlineWriter::new(sock).write_all_before(response, deadline)
+}
+
 /// Writes to a socket with one deadline for each whole write, so a peer that reads a trickle can't
 /// hold a stream listener past it. Nonblocking sends and readiness waits share that deadline;
 /// socket timeouts can restart inside a blocking send when the peer makes progress.
 pub struct DeadlineWriter<'a> {
     sock: &'a TcpStream,
+    diagnostics: WriterDiagnostics,
+    ready_at: Option<Instant>,
 }
 
 impl<'a> DeadlineWriter<'a> {
     pub fn new(sock: &'a TcpStream) -> Self {
-        Self { sock }
+        Self {
+            sock,
+            diagnostics: WriterDiagnostics::default(),
+            ready_at: None,
+        }
+    }
+
+    pub fn diagnostics(&self) -> WriterDiagnostics {
+        self.diagnostics
+    }
+
+    /// Starts a fresh payload interval after the media header succeeds.
+    pub fn reset_diagnostics(&mut self) {
+        self.diagnostics = WriterDiagnostics::default();
+        self.ready_at = None;
     }
 
     /// Writes all of `buf` before `deadline`, restoring the socket's original flags afterward.
@@ -60,17 +121,26 @@ impl<'a> DeadlineWriter<'a> {
         result
     }
 
-    fn write_nonblocking(&self, mut buf: &[u8], deadline: Instant) -> io::Result<()> {
-        while !buf.is_empty() {
-            let left = deadline.saturating_duration_since(Instant::now());
-            if left.is_zero() {
-                return Err(io::Error::new(
-                    io::ErrorKind::TimedOut,
-                    "write deadline passed",
-                ));
-            }
+    fn write_nonblocking(&mut self, bytes: &[u8], deadline: Instant) -> io::Result<()> {
+        use crate::stream_write::{Action, WriteProgress};
+        let origin = Instant::now();
+        let mut progress =
+            WriteProgress::new(bytes.len(), deadline.saturating_duration_since(origin));
+        loop {
+            let offset = match progress.next(origin.elapsed())? {
+                Action::Complete => return Ok(()),
+                Action::Poll { timeout_ms } => {
+                    let result = self.poll_writable(timeout_ms);
+                    progress.polled(result)?;
+                    continue;
+                }
+                Action::Send { offset } => offset,
+            };
+            let buf = &bytes[offset..];
             // SAFETY: the borrowed socket stays open, and buf is readable for its full length.
             // O_NONBLOCK prevents waiting for buffer space; MSG_NOSIGNAL suppresses SIGPIPE.
+            let after_ready = self.ready_at.take();
+            let started = Instant::now();
             let sent = unsafe {
                 libc::send(
                     self.sock.as_raw_fd(),
@@ -79,55 +149,91 @@ impl<'a> DeadlineWriter<'a> {
                     libc::MSG_NOSIGNAL,
                 )
             };
+            // Capture errno before clock reads, which may themselves call platform APIs.
+            let error = (sent < 0).then(io::Error::last_os_error);
+            let elapsed = started.elapsed().as_micros() as u64;
+            let metrics = &mut self.diagnostics;
+            if let Some(ready_at) = after_ready {
+                metrics.ready_to_send_wall_max_us = metrics
+                    .ready_to_send_wall_max_us
+                    .max(started.duration_since(ready_at).as_micros() as u64);
+            }
+            metrics.send_calls = metrics.send_calls.saturating_add(1);
+            metrics.send_wall_total_us = metrics.send_wall_total_us.saturating_add(elapsed);
+            metrics.send_wall_max_us = metrics.send_wall_max_us.max(elapsed);
+            if elapsed > 10_000 {
+                metrics.send_over_10ms = metrics.send_over_10ms.saturating_add(1);
+            }
             match sent {
-                0 => {
-                    return Err(io::Error::new(
-                        io::ErrorKind::WriteZero,
-                        "failed to write whole buffer",
-                    ))
-                }
-                n if n > 0 => buf = &buf[n as usize..],
-                _ => {
-                    let error = io::Error::last_os_error();
-                    match error.kind() {
-                        io::ErrorKind::Interrupted => continue,
-                        io::ErrorKind::WouldBlock => self.wait_writable(deadline)?,
-                        _ => return Err(error),
+                0 => metrics.send_errors = metrics.send_errors.saturating_add(1),
+                n if n > 0 => {
+                    metrics.accepted_bytes = metrics.accepted_bytes.saturating_add(n as u64);
+                    if (n as usize) < buf.len() {
+                        metrics.short_sends = metrics.short_sends.saturating_add(1);
                     }
                 }
+                _ => match error.as_ref().expect("negative send has errno").kind() {
+                    io::ErrorKind::Interrupted => {
+                        metrics.send_interrupted = metrics.send_interrupted.saturating_add(1);
+                    }
+                    io::ErrorKind::WouldBlock => {
+                        metrics.send_would_block = metrics.send_would_block.saturating_add(1);
+                        if after_ready.is_some() {
+                            metrics.ready_then_would_block =
+                                metrics.ready_then_would_block.saturating_add(1);
+                        }
+                    }
+                    _ => metrics.send_errors = metrics.send_errors.saturating_add(1),
+                },
             }
+            progress.sent(match error {
+                Some(error) => Err(error),
+                None => Ok(sent as usize),
+            })?;
         }
-        Ok(())
     }
 
-    fn wait_writable(&self, deadline: Instant) -> io::Result<()> {
+    fn poll_writable(&mut self, timeout: i32) -> io::Result<bool> {
         let mut fd = libc::pollfd {
             fd: self.sock.as_raw_fd(),
             events: libc::POLLOUT,
             revents: 0,
         };
-        loop {
-            let left = deadline.saturating_duration_since(Instant::now());
-            if left.is_zero() {
-                return Err(io::Error::new(
-                    io::ErrorKind::TimedOut,
-                    "write deadline passed",
-                ));
-            }
-            let timeout = i32::try_from(left.as_nanos().div_ceil(1_000_000)).unwrap_or(i32::MAX);
-            // SAFETY: fd is one initialized pollfd, and the borrowed socket remains open.
-            let ready = unsafe { libc::poll(&mut fd, 1, timeout) };
-            if ready > 0 {
-                // Retry send to report a closed peer or socket error through its normal errno.
-                return Ok(());
-            }
-            if ready < 0 {
-                let error = io::Error::last_os_error();
-                if error.kind() != io::ErrorKind::Interrupted {
-                    return Err(error);
-                }
-            }
+        // SAFETY: fd is one initialized pollfd, and the borrowed socket remains open.
+        let started = Instant::now();
+        let ready = unsafe { libc::poll(&mut fd, 1, timeout) };
+        let error = (ready < 0).then(io::Error::last_os_error);
+        let finished = Instant::now();
+        let elapsed = finished.duration_since(started).as_micros() as u64;
+        let metrics = &mut self.diagnostics;
+        metrics.poll_calls = metrics.poll_calls.saturating_add(1);
+        metrics.poll_wall_total_us = metrics.poll_wall_total_us.saturating_add(elapsed);
+        metrics.poll_wall_max_us = metrics.poll_wall_max_us.max(elapsed);
+        if elapsed > 10_000 {
+            metrics.poll_over_10ms = metrics.poll_over_10ms.saturating_add(1);
         }
+        if ready > 0 {
+            if fd.revents & (libc::POLLERR | libc::POLLHUP | POLL_INVALID) != 0 {
+                metrics.poll_error_ready = metrics.poll_error_ready.saturating_add(1);
+            } else if fd.revents & libc::POLLOUT != 0 {
+                metrics.poll_ready = metrics.poll_ready.saturating_add(1);
+                self.ready_at = Some(finished);
+            }
+            // Retry send to report a closed peer or socket error through its normal errno.
+            return Ok(true);
+        }
+        if ready < 0 {
+            let error = error.expect("negative poll has errno");
+            if error.kind() != io::ErrorKind::Interrupted {
+                metrics.poll_errors = metrics.poll_errors.saturating_add(1);
+                return Err(error);
+            }
+            metrics.poll_interrupted = metrics.poll_interrupted.saturating_add(1);
+            return Err(error);
+        } else {
+            metrics.poll_timeouts = metrics.poll_timeouts.saturating_add(1);
+        }
+        Ok(false)
     }
 }
 
@@ -192,48 +298,125 @@ impl Drop for SocketMode<'_> {
     }
 }
 
+/// Checks definitive peer failure without waiting. FIN alone remains a valid request half-close.
+pub fn peer_connected(sock: &TcpStream) -> io::Result<bool> {
+    let mut error: libc::c_int = 0;
+    let mut len = std::mem::size_of_val(&error) as libc::socklen_t;
+    // SAFETY: socket remains open; error and len are correctly sized writable storage.
+    let status = unsafe {
+        libc::getsockopt(
+            sock.as_raw_fd(),
+            libc::SOL_SOCKET,
+            libc::SO_ERROR,
+            (&mut error as *mut libc::c_int).cast(),
+            &mut len,
+        )
+    };
+    if status < 0 {
+        return Err(io::Error::last_os_error());
+    }
+    if error != 0 {
+        return Ok(false);
+    }
+    let mut mode = SocketMode::nonblocking(sock)?;
+    let mut byte = 0u8;
+    // SAFETY: socket remains open and byte provides one writable byte. A bounded peek
+    // never drains request data. EOF cannot distinguish close from shutdown(Write).
+    let received = unsafe {
+        libc::recv(
+            sock.as_raw_fd(),
+            (&mut byte as *mut u8).cast(),
+            1,
+            libc::MSG_PEEK,
+        )
+    };
+    let result = if received >= 0 {
+        Ok(true)
+    } else {
+        let error = io::Error::last_os_error();
+        match error.kind() {
+            io::ErrorKind::WouldBlock | io::ErrorKind::Interrupted => Ok(true),
+            io::ErrorKind::ConnectionReset
+            | io::ErrorKind::ConnectionAborted
+            | io::ErrorKind::NotConnected => Ok(false),
+            _ => Err(error),
+        }
+    };
+    mode.restore()?;
+    result
+}
+
 /// The socket timeout for `left` time left: whole milliseconds, rounded up. lwIP truncates a timeout
 /// to milliseconds, and to lwIP 0 ms means no timeout at all, so nothing above zero may round to 0.
 fn socket_timeout(left: Duration) -> Duration {
     Duration::from_millis(u64::try_from(left.as_nanos().div_ceil(1_000_000)).unwrap_or(u64::MAX))
 }
 
-/// The two forms of the stream: the same 48 kHz, 24-bit stereo frames, each with a path of its own.
+/// Stream formats; this build serves WAV and one selected compressed codec.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Format {
     /// An endless WAV of 24-bit PCM, 2.3 Mbit/s: the debug and fallback stream.
     Wav,
     /// FLAC: lossless, in fewer bytes.
     Flac,
+    /// MPEG-1 Layer III at 320 kbps for the codec-exclusive prototype.
+    Mp3,
 }
 
 impl Format {
-    /// Every form, for routing by path.
-    pub const ALL: [Format; 2] = [Format::Flac, Format::Wav];
+    pub const ALL: [Format; 3] = [Self::Flac, Self::Mp3, Self::Wav];
 
     /// The path this form is served at.
     pub fn path(self) -> &'static str {
         match self {
             Format::Wav => "/stream.wav",
             Format::Flac => "/stream.flac",
+            Format::Mp3 => "/stream.mp3",
         }
     }
 
-    /// The head of the 200 response. It has no Content-Length: the body ends when the connection does.
+    /// Shares the response header's media type with Sonos queue metadata.
+    pub fn content_type(self) -> &'static str {
+        self.response_head()
+            .split("\r\n")
+            .find_map(|line| line.strip_prefix("Content-Type: "))
+            .expect("every stream response has a content type")
+    }
+
+    /// The head of the 200 response, the shape Icecast serves: no Content-Length, the body ends
+    /// when the connection does; `Accept-Ranges: none` so players never seek; `icy-name` and
+    /// `icy-description` as plain station tags, with no metadata interleaving (`Icy-MetaData`
+    /// requests are ignored, so there is never an `icy-metaint`).
     pub fn response_head(self) -> &'static str {
         match self {
             Format::Wav => {
                 "HTTP/1.1 200 OK\r\n\
                  Content-Type: audio/wav\r\n\
-                 Cache-Control: no-store\r\n\
+                 Cache-Control: no-cache, no-store\r\n\
                  Connection: close\r\n\
+                 Accept-Ranges: none\r\n\
+                 icy-name: esp-shazam\r\n\
+                 icy-description: live line-in\r\n\
                  \r\n"
             }
             Format::Flac => {
                 "HTTP/1.1 200 OK\r\n\
                  Content-Type: audio/flac\r\n\
-                 Cache-Control: no-store\r\n\
+                 Cache-Control: no-cache, no-store\r\n\
                  Connection: close\r\n\
+                 Accept-Ranges: none\r\n\
+                 icy-name: esp-shazam\r\n\
+                 icy-description: live line-in\r\n\
+                 \r\n"
+            }
+            Format::Mp3 => {
+                "HTTP/1.1 200 OK\r\n\
+                 Content-Type: audio/mpeg\r\n\
+                 Cache-Control: no-cache, no-store\r\n\
+                 Connection: close\r\n\
+                 Accept-Ranges: none\r\n\
+                 icy-name: esp-shazam\r\n\
+                 icy-description: live line-in\r\n\
                  \r\n"
             }
         }
@@ -245,8 +428,35 @@ impl Format {
 pub enum Route {
     /// `GET` of a format's path: stream it, if a listener slot is free.
     Stream(Format),
+    /// Whole-frame retained startup history, available only in the streaming profile.
+    Buffered(crate::stream_buffer::BufferPreset),
+    /// `HEAD` of a stream or buffered path: send that stream's head, no body, and close. It
+    /// describes the path, never admission: no slot, lease, reservation or capacity is touched,
+    /// so it says 200 where a GET might still be refused for a full board. A stale
+    /// `network_generation` tag is still refused 503 before routing, as for GET
+    /// (`firmware/src/stream.rs` `answer`).
+    Head(Format),
     /// Answer with this status and close.
     Refuse(Status),
+}
+
+impl Route {
+    /// Rejects unavailable buffer profiles while preserving every existing live route.
+    pub fn with_buffer_availability(self, available: bool) -> Self {
+        match self {
+            Self::Buffered(_) if !available => Self::Refuse(Status::ServiceUnavailable),
+            route => route,
+        }
+    }
+}
+
+/// How a compressed listener treats lag. A live reader skips forward to the newest frame and
+/// keeps its socket; an exact reader (`?exact=1`, and WAV by construction) ends instead, so its
+/// sample accounting stays whole.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ListenerPolicy {
+    Live,
+    Exact,
 }
 
 /// The statuses the server refuses a request with.
@@ -256,10 +466,19 @@ pub enum Status {
     BadRequest,
     /// 404: a GET for a path the server doesn't have.
     NotFound,
-    /// 405: a method other than GET.
+    /// 405: a method other than GET or HEAD.
     MethodNotAllowed,
     /// 503: every listener slot is taken.
     ServiceUnavailable,
+}
+
+/// Maps reservation route availability failures while retaining HTTP refusal policy.
+pub fn reservation_refusal(status: Status, tagged: bool) -> Status {
+    if tagged && status == Status::NotFound {
+        Status::ServiceUnavailable
+    } else {
+        status
+    }
 }
 
 impl Status {
@@ -271,15 +490,16 @@ impl Status {
                 "404 Not Found",
                 "",
                 format!(
-                    "Not found. The streams are {} and {}.\n",
+                    "Not found. Use the active compressed route ({} or {}) or {}.\n",
                     Format::Flac.path(),
+                    Format::Mp3.path(),
                     Format::Wav.path()
                 ),
             ),
             Status::MethodNotAllowed => (
                 "405 Method Not Allowed",
-                "Allow: GET\r\n",
-                "Only GET is allowed.\n".to_owned(),
+                "Allow: GET, HEAD\r\n",
+                "Only GET and HEAD are allowed.\n".to_owned(),
             ),
             Status::ServiceUnavailable => (
                 "503 Service Unavailable",
@@ -331,31 +551,257 @@ pub fn read_request_line(reader: impl BufRead, max_bytes: u64) -> io::Result<Str
     }
 }
 
-/// Where a request goes, from its request line. Only the method and the path count: a query
-/// string is ignored, so players that add one to defeat caches still get the stream.
-pub fn route(request_line: &str) -> Route {
-    let mut parts = request_line.split_whitespace();
-    let (Some(method), Some(target), Some(version), None) =
-        (parts.next(), parts.next(), parts.next(), parts.next())
-    else {
-        return Route::Refuse(Status::BadRequest);
-    };
-    if !target.starts_with('/') || !version.starts_with("HTTP/1.") {
-        return Route::Refuse(Status::BadRequest);
+/// The methods a stream request may use; anything else is refused 405 when parsed.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Method {
+    Get,
+    Head,
+}
+
+/// One stream request line, parsed once: the method, the path and every query field the server
+/// recognises. Fields it does not recognise are cache busters and ride along unread, except
+/// beside `buffer=`, where the query may hold nothing but the buffer and the tags.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct StreamRequest<'a> {
+    pub method: Method,
+    pub path: &'a str,
+    pub generation: Option<u32>,
+    pub sonos_intent: Option<u64>,
+    pub policy: ListenerPolicy,
+    pub buffer: Option<crate::stream_buffer::BufferPreset>,
+}
+
+impl<'a> StreamRequest<'a> {
+    /// Parses `METHOD /path[?query] HTTP/1.x`. A malformed line, a malformed or repeated tag,
+    /// a bad buffer value or an unrecognised field beside `buffer=` is 400, whatever codec is
+    /// active; a method other than GET or HEAD is 405.
+    pub fn parse(line: &'a str) -> Result<Self, Status> {
+        use crate::stream_buffer::BufferPreset;
+        let mut parts = line.split_whitespace();
+        let (Some(method), Some(target), Some(version), None) =
+            (parts.next(), parts.next(), parts.next(), parts.next())
+        else {
+            return Err(Status::BadRequest);
+        };
+        if !target.starts_with('/') || !version.starts_with("HTTP/1.") {
+            return Err(Status::BadRequest);
+        }
+        let method = match method {
+            "GET" => Method::Get,
+            "HEAD" => Method::Head,
+            _ => return Err(Status::MethodNotAllowed),
+        };
+        let (path, query) = target
+            .split_once('?')
+            .map_or((target, None), |(path, query)| (path, Some(query)));
+        let mut request = Self {
+            method,
+            path,
+            generation: None,
+            sonos_intent: None,
+            policy: ListenerPolicy::Live,
+            buffer: None,
+        };
+        let Some(query) = query else {
+            return Ok(request);
+        };
+        let mut unrecognised = 0;
+        for field in query.split('&') {
+            let (key, value) = field.split_once('=').unwrap_or((field, ""));
+            // The one list of recognised keys: a key parsed here is a key tolerated beside
+            // `buffer=`; everything else is a cache buster.
+            match key {
+                "network_generation" => tag_once(&mut request.generation, value)?,
+                "sonos_intent" => tag_once(&mut request.sonos_intent, value)?,
+                "exact" => {
+                    if request.policy == ListenerPolicy::Exact || value != "1" {
+                        return Err(Status::BadRequest);
+                    }
+                    request.policy = ListenerPolicy::Exact;
+                }
+                "buffer" => {
+                    let preset = match value {
+                        "low" => BufferPreset::Low,
+                        "med" => BufferPreset::Medium,
+                        "high" => BufferPreset::High,
+                        _ => return Err(Status::BadRequest),
+                    };
+                    if request.buffer.replace(preset).is_some() {
+                        return Err(Status::BadRequest);
+                    }
+                }
+                _ => unrecognised += 1,
+            }
+        }
+        if request.buffer.is_some() && unrecognised != 0 {
+            return Err(Status::BadRequest);
+        }
+        Ok(request)
     }
-    if method != "GET" {
-        return Route::Refuse(Status::MethodNotAllowed);
+
+    /// Routes against the active codec. The inactive compressed path is 404 before the buffer
+    /// query is judged, so a player's stale URL is a plain not-found; a HEAD resolves exactly as
+    /// the GET would, then answers with that stream's head alone.
+    pub fn route(&self, active: crate::stream_buffer::OutputFormat) -> Route {
+        let route = self.get_route(active);
+        match (self.method, route) {
+            (Method::Get, route) => route,
+            (Method::Head, Route::Stream(format)) => Route::Head(format),
+            (Method::Head, Route::Buffered(_)) => Route::Head(active.format()),
+            (Method::Head, route) => route,
+        }
     }
-    let path = target.split_once('?').map_or(target, |(path, _query)| path);
-    match Format::ALL.into_iter().find(|format| format.path() == path) {
-        Some(format) => Route::Stream(format),
-        None => Route::Refuse(Status::NotFound),
+
+    fn get_route(&self, active: crate::stream_buffer::OutputFormat) -> Route {
+        if [Format::Flac, Format::Mp3]
+            .into_iter()
+            .any(|format| format != active.format() && format.path() == self.path)
+        {
+            return Route::Refuse(Status::NotFound);
+        }
+        if let Some(preset) = self.buffer {
+            // Buffering exists for the active compressed stream alone.
+            return if self.path == active.format().path() {
+                Route::Buffered(preset)
+            } else {
+                Route::Refuse(Status::BadRequest)
+            };
+        }
+        match Format::ALL
+            .into_iter()
+            .find(|format| format.path() == self.path)
+        {
+            Some(format) => Route::Stream(format),
+            None => Route::Refuse(Status::NotFound),
+        }
     }
+}
+
+/// Stores a decimal tag that may appear once; a repeat, a sign, an empty or overlong value is 400.
+fn tag_once<T: std::str::FromStr>(slot: &mut Option<T>, value: &str) -> Result<(), Status> {
+    if slot.is_some() || value.is_empty() || !value.bytes().all(|byte| byte.is_ascii_digit()) {
+        return Err(Status::BadRequest);
+    }
+    *slot = Some(value.parse().map_err(|_| Status::BadRequest)?);
+    Ok(())
+}
+
+/// Parses and routes one request line; the fuzz target and the host tests drive the whole path.
+pub fn route_for(request_line: &str, active: crate::stream_buffer::OutputFormat) -> Route {
+    StreamRequest::parse(request_line).map_or_else(Route::Refuse, |request| request.route(active))
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn tagged_head_gets_the_head_route_and_no_reservation_effects() {
+        // Tags ride along unread: a HEAD never reserves, admits or refuses on their account.
+        let line = "HEAD /stream.flac?buffer=med&network_generation=1&sonos_intent=41 HTTP/1.1";
+        assert_eq!(route(line), Route::Head(Format::Flac));
+        assert_eq!(
+            route("HEAD /stream.flac?sonos_intent=41&exact=1 HTTP/1.1"),
+            Route::Head(Format::Flac)
+        );
+        // A malformed tag is still a bad request, as it is for GET.
+        assert_eq!(
+            route("HEAD /stream.flac?sonos_intent=x HTTP/1.1"),
+            Route::Refuse(Status::BadRequest)
+        );
+    }
+
+    #[test]
+    fn head_answers_every_stream_path_and_the_buffered_route_with_the_active_format() {
+        use crate::stream_buffer::{BufferPreset, OutputFormat};
+        assert_eq!(route("HEAD /stream.wav HTTP/1.1"), Route::Head(Format::Wav));
+        assert_eq!(
+            route("HEAD /stream.flac HTTP/1.0"),
+            Route::Head(Format::Flac)
+        );
+        assert_eq!(
+            route("HEAD /stream.flac?buffer=low HTTP/1.1"),
+            Route::Head(Format::Flac)
+        );
+        assert_eq!(
+            route_for("HEAD /stream.mp3?buffer=high HTTP/1.1", OutputFormat::Mp3),
+            Route::Head(Format::Mp3)
+        );
+        // The inactive compressed path, an unknown path and a bad buffer refuse exactly as GET.
+        assert_eq!(
+            route("HEAD /stream.mp3 HTTP/1.1"),
+            Route::Refuse(Status::NotFound)
+        );
+        assert_eq!(
+            route("HEAD /missing HTTP/1.1"),
+            Route::Refuse(Status::NotFound)
+        );
+        assert_eq!(
+            route("HEAD /stream.flac?buffer=huge HTTP/1.1"),
+            Route::Refuse(Status::BadRequest)
+        );
+        assert_eq!(
+            route("GET /stream.flac?buffer=low HTTP/1.1"),
+            Route::Buffered(BufferPreset::Low)
+        );
+        // A HEAD describes the path, never admission: buffer availability leaves it alone.
+        assert_eq!(
+            Route::Head(Format::Flac).with_buffer_availability(false),
+            Route::Head(Format::Flac)
+        );
+    }
+
+    #[test]
+    fn reservation_refusals_preserve_protocol_errors_and_hide_unavailable_routes() {
+        for status in [
+            Status::BadRequest,
+            Status::MethodNotAllowed,
+            Status::NotFound,
+            Status::ServiceUnavailable,
+        ] {
+            assert_eq!(reservation_refusal(status, false), status);
+        }
+        assert_eq!(
+            reservation_refusal(Status::BadRequest, true),
+            Status::BadRequest
+        );
+        assert_eq!(
+            reservation_refusal(Status::NotFound, true),
+            Status::ServiceUnavailable
+        );
+        assert_eq!(
+            reservation_refusal(Status::ServiceUnavailable, true),
+            Status::ServiceUnavailable
+        );
+    }
+
+    #[test]
+    fn reserved_identity_is_strict_and_allowed_alongside_buffer() {
+        use crate::stream_buffer::{BufferPreset, OutputFormat};
+        assert_eq!(
+            route_for(
+                "GET /stream.flac?buffer=med&network_generation=1&sonos_intent=2 HTTP/1.1",
+                OutputFormat::Flac
+            ),
+            Route::Buffered(BufferPreset::Medium)
+        );
+        for query in [
+            "sonos_intent=",
+            "sonos_intent=-1",
+            "sonos_intent=18446744073709551616",
+            "sonos_intent=2&sonos_intent=2",
+        ] {
+            assert_eq!(
+                route_for(
+                    &format!("GET /stream.flac?{query} HTTP/1.1"),
+                    OutputFormat::Flac
+                ),
+                Route::Refuse(Status::BadRequest)
+            );
+        }
+    }
+    fn route(line: &str) -> Route {
+        route_for(line, crate::stream_buffer::OutputFormat::Flac)
+    }
     use std::io::{Read, Write};
     use std::net::TcpListener;
     use std::thread;
@@ -584,6 +1030,10 @@ mod tests {
                 .write_all_before(half, Instant::now() + Duration::from_secs(5))
                 .unwrap();
         }
+        let metrics = writer.diagnostics();
+        assert_eq!(metrics.accepted_bytes, 1_000_000);
+        assert!(metrics.send_calls > 0);
+        assert_eq!(metrics.send_errors, 0);
         drop(server);
         assert_eq!(reader.join().unwrap(), data);
     }
@@ -601,6 +1051,23 @@ mod tests {
         let mut got = Vec::new();
         client.read_to_end(&mut got).unwrap();
         assert!(got.is_empty(), "sent {got:?}");
+    }
+
+    #[test]
+    fn an_empty_write_past_its_deadline_preserves_flags_and_sends_nothing() {
+        let (server, mut client) = connected_pair();
+        server.set_nonblocking(true).unwrap();
+        let flags = socket_flags(&server);
+        let mut writer = DeadlineWriter::new(&server);
+        writer
+            .write_all_before(&[], Instant::now() - Duration::from_secs(1))
+            .unwrap();
+        assert_eq!(writer.diagnostics().send_calls, 0);
+        assert_eq!(socket_flags(&server), flags);
+        drop(server);
+        let mut received = Vec::new();
+        client.read_to_end(&mut received).unwrap();
+        assert!(received.is_empty());
     }
 
     fn socket_flags(sock: &TcpStream) -> libc::c_int {
@@ -629,17 +1096,32 @@ mod tests {
     #[test]
     fn a_timed_out_write_preserves_blocking_and_nonblocking_socket_flags() {
         for nonblocking in [false, true] {
-            let (server, _client) = small_buffered_pair();
+            let (server, mut client) = small_buffered_pair();
             server.set_nonblocking(nonblocking).unwrap();
             let flags = socket_flags(&server);
-            let error = DeadlineWriter::new(&server)
+            let mut writer = DeadlineWriter::new(&server);
+            writer
+                .write_all_before(b"header", Instant::now() + Duration::from_secs(1))
+                .unwrap();
+            writer.reset_diagnostics();
+            let error = writer
                 .write_all_before(
                     &vec![0; 8 << 20],
                     Instant::now() + Duration::from_millis(50),
                 )
                 .unwrap_err();
             assert_eq!(error.kind(), io::ErrorKind::TimedOut);
+            let metrics = writer.diagnostics();
+            assert!(metrics.accepted_bytes > 0 && metrics.accepted_bytes < 8 << 20);
+            assert!(metrics.send_would_block > 0);
+            assert!(metrics.poll_calls > 0);
+            assert!(metrics.poll_timeouts > 0);
             assert_eq!(socket_flags(&server), flags);
+            drop(server);
+            let mut received = Vec::new();
+            client.read_to_end(&mut received).unwrap();
+            assert_eq!(&received[..6], b"header");
+            assert_eq!(received.len() as u64, metrics.accepted_bytes + 6);
         }
     }
 
@@ -650,10 +1132,14 @@ mod tests {
             server.set_nonblocking(nonblocking).unwrap();
             server.shutdown(std::net::Shutdown::Write).unwrap();
             let flags = socket_flags(&server);
-            let error = DeadlineWriter::new(&server)
+            let mut writer = DeadlineWriter::new(&server);
+            let error = writer
                 .write_all_before(b"closed", Instant::now() + Duration::from_secs(1))
                 .unwrap_err();
             assert_eq!(error.kind(), io::ErrorKind::BrokenPipe);
+            assert_eq!(error.raw_os_error(), Some(libc::EPIPE));
+            assert_eq!(writer.diagnostics().send_errors, 1);
+            assert_eq!(writer.diagnostics().accepted_bytes, 0);
             assert_eq!(socket_flags(&server), flags);
         }
     }
@@ -662,23 +1148,36 @@ mod tests {
     fn a_later_write_gets_its_own_deadline() {
         // The first write fills the socket against a peer that isn't reading and times out.
         // The second write must wait for the peer using its own, longer deadline.
-        let (server, mut client) = connected_pair();
+        let (server, mut client) = small_buffered_pair();
         let mut writer = DeadlineWriter::new(&server);
         let started = Instant::now();
         writer
             .write_all_before(&vec![0u8; 8 << 20], started + Duration::from_millis(200))
             .expect_err("nobody reads");
+        let accepted_prefix = writer.diagnostics().accepted_bytes;
+        writer.reset_diagnostics();
         let reader = thread::spawn(move || {
             thread::sleep(Duration::from_millis(500));
             let mut got = Vec::new();
             client.read_to_end(&mut got).unwrap();
-            got.len()
+            got
         });
         writer
-            .write_all_before(b"later", Instant::now() + Duration::from_secs(10))
+            .write_all_before(&vec![1; 1 << 20], Instant::now() + Duration::from_secs(10))
             .expect("the peer reads after 500 ms, inside the second deadline");
+        let metrics = writer.diagnostics();
         drop(server);
-        assert!(reader.join().unwrap() >= b"later".len());
+        assert_eq!(metrics.accepted_bytes, 1 << 20);
+        assert!(metrics.poll_ready > 0);
+        assert!(metrics.send_would_block > 0);
+        let received = reader.join().unwrap();
+        assert_eq!(received.len() as u64, accepted_prefix + (1 << 20));
+        assert!(received[..accepted_prefix as usize]
+            .iter()
+            .all(|&byte| byte == 0));
+        assert!(received[accepted_prefix as usize..]
+            .iter()
+            .all(|&byte| byte == 1));
     }
 
     #[test]
@@ -747,9 +1246,9 @@ mod tests {
     }
 
     #[test]
-    fn methods_other_than_get_are_not_allowed() {
+    fn methods_other_than_get_and_head_are_not_allowed() {
         for path in ["/stream.wav", "/stream.flac"] {
-            for method in ["HEAD", "POST", "PUT", "OPTIONS"] {
+            for method in ["POST", "PUT", "OPTIONS", "DELETE"] {
                 assert_eq!(
                     route(&format!("{method} {path} HTTP/1.1")),
                     Route::Refuse(Status::MethodNotAllowed),
@@ -804,28 +1303,50 @@ mod tests {
     }
 
     #[test]
-    fn method_not_allowed_says_which_method_is() {
+    fn method_not_allowed_says_which_methods_are() {
         assert!(Status::MethodNotAllowed
             .response()
-            .contains("\r\nAllow: GET\r\n"));
+            .contains("\r\nAllow: GET, HEAD\r\n"));
     }
 
     #[test]
-    fn each_stream_head_has_its_type_and_no_length() {
+    fn each_stream_head_has_its_type_no_length_and_the_icecast_shape() {
+        // Contract point 4: the head Icecast serves and every player and browser accepts.
         for (format, content_type) in [
             (Format::Wav, "Content-Type: audio/wav"),
             (Format::Flac, "Content-Type: audio/flac"),
+            (Format::Mp3, "Content-Type: audio/mpeg"),
         ] {
-            let (head, body) = format.response_head().split_once("\r\n\r\n").unwrap();
+            let response_head = format.response_head();
+            assert!(response_head.is_ascii(), "{format:?}: plain ASCII only");
+            let (head, body) = response_head.split_once("\r\n\r\n").unwrap();
             assert_eq!(body, "", "{format:?}: the head ends with its blank line");
             let mut lines = head.split("\r\n");
             assert_eq!(lines.next(), Some("HTTP/1.1 200 OK"), "{format:?}");
             let headers: Vec<&str> = lines.collect();
-            assert!(headers.contains(&content_type), "{format:?}: {headers:?}");
-            assert!(headers.contains(&"Connection: close"), "{format:?}");
-            assert!(
-                !headers.iter().any(|h| h.starts_with("Content-Length")),
-                "{format:?}: an endless body has no length"
+            for header in [
+                content_type,
+                "Cache-Control: no-cache, no-store",
+                "Connection: close",
+                "Accept-Ranges: none",
+                "icy-name: esp-shazam",
+                "icy-description: live line-in",
+            ] {
+                assert!(
+                    headers.contains(&header),
+                    "{format:?}: {header} in {headers:?}"
+                );
+            }
+            for forbidden in ["Content-Length", "Transfer-Encoding", "icy-metaint"] {
+                assert!(
+                    !headers.iter().any(|h| h.starts_with(forbidden)),
+                    "{format:?}: {forbidden} on a close-delimited body without metadata"
+                );
+            }
+            assert_eq!(
+                format!("Content-Type: {}", format.content_type()),
+                content_type,
+                "{format:?}: content_type reads the head back"
             );
         }
     }

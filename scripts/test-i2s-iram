@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+# ABOUTME: Runs host regression checks for the I2S cache-disabled build requirements.
+# ABOUTME: Uses an existing ELF when present; never builds firmware or contacts a board.
+set -euo pipefail
+cd "$(dirname "$0")/.."
+exec uv run --quiet --no-project python3 scripts/test_i2s_iram.py "$@"

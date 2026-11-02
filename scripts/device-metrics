@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+# ABOUTME: Runs the stdlib numeric device collector in the existing locked uv project.
+# ABOUTME: Exports Prometheus on loopback only; use --help for target and polling options.
+set -euo pipefail
+repo="$(cd "$(dirname "$0")/.." && pwd)"
+exec uv run --quiet --project "$repo" --locked python3 "$repo/scripts/device_metrics.py" "$@"

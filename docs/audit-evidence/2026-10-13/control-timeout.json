@@ -1,0 +1,225 @@
+{
+  "schema": 1,
+  "base_commit": "71f643a",
+  "kata": [
+    "pqqq",
+    "wmsy"
+  ],
+  "kata_closed": false,
+  "diagnostic_elf_sha256": "34e03a714a99ee013785cefd9a4ed5ebfe5949dbb7f047dbeade962249c5b7f1",
+  "diagnostic_canonical_check": {
+    "run": "run.YiikcIHL",
+    "stages": 27,
+    "exit_code": 0
+  },
+  "restoration_firmware_check": {
+    "run": "run.M3NzhK5v",
+    "stages": 5,
+    "exit_code": 0
+  },
+  "host_regressions": {
+    "passed": 27,
+    "scope": "actual driver parsers, acceptance rules, and localhost HTTP with retained fixtures"
+  },
+  "acquisitions": {
+    "retention": {
+      "passed": false,
+      "error": "TypeError(\"'NoneType' object is not subscriptable\")",
+      "cleanup_complete": true,
+      "cleanup_errors": [],
+      "observation_errors": [
+        {
+          "since_play": 17.703650858005858,
+          "error": "TypeError(\"'NoneType' object is not subscriptable\")"
+        }
+      ],
+      "snapshots": 13,
+      "metadata_gaps": 0
+    },
+    "retention-two": {
+      "passed": false,
+      "error": null,
+      "cleanup_complete": true,
+      "cleanup_errors": [
+        "ValueError('no post-fault telemetry export')"
+      ],
+      "observation_errors": [],
+      "snapshots": 41,
+      "metadata_gaps": 1
+    },
+    "cancel": {
+      "passed": false,
+      "error": null,
+      "cleanup_complete": true,
+      "cleanup_errors": [
+        "ValueError('matching checked-close payload and post-fault telemetry receipts did not drain within 3s')"
+      ],
+      "observation_errors": [],
+      "snapshots": 17,
+      "metadata_gaps": 1
+    }
+  },
+  "offline_evaluations": {
+    "retention-two": {
+      "offline_evaluation_passed": true,
+      "original_acquisition_passed": false,
+      "actual_stall_duration_us": 4600698,
+      "observation_end_us": 61211144,
+      "observations": 41,
+      "stop_receipt": {
+        "before_device_us": 61338749,
+        "after_device_us": 61719751,
+        "response": {
+          "accepted": true
+        },
+        "during_stall": false
+      },
+      "payload": {
+        "event_us": 25310095,
+        "departure_us": 61450680,
+        "close_us": 61452166,
+        "frames_sent": 1647,
+        "bytes_sent": 1581120
+      }
+    },
+    "cancel": {
+      "offline_evaluation_passed": true,
+      "original_acquisition_passed": false,
+      "actual_stall_duration_us": 4957760,
+      "observation_end_us": 68685964,
+      "observations": 17,
+      "stop_receipt": {
+        "before_device_us": 49010736,
+        "after_device_us": 49378583,
+        "response": {
+          "accepted": true
+        },
+        "during_stall": true
+      },
+      "payload": {
+        "event_us": 28650174,
+        "departure_us": 49307623,
+        "close_us": 49310738,
+        "frames_sent": 1025,
+        "bytes_sent": 984000
+      }
+    }
+  },
+  "full_uart_checks": {
+    "retention": {
+      "clean_startup_and_steady": true,
+      "samples": 9,
+      "first_frames": 482640,
+      "last_frames": 4345200,
+      "queue_overflows": 8,
+      "mqtt_connect_failures": 5,
+      "http_recv_error_128": 3
+    },
+    "retention-two": {
+      "clean_startup_and_steady": true,
+      "samples": 9,
+      "first_frames": 484800,
+      "last_frames": 4522560,
+      "queue_overflows": 8,
+      "mqtt_connect_failures": 5,
+      "http_recv_error_128": 3
+    },
+    "cancel": {
+      "clean_startup_and_steady": true,
+      "samples": 9,
+      "first_frames": 483120,
+      "last_frames": 4382640,
+      "queue_overflows": 8,
+      "mqtt_connect_failures": 5,
+      "http_recv_error_128": 3
+    },
+    "restore": {
+      "clean_startup_and_steady": true,
+      "samples": 3,
+      "first_frames": 482640,
+      "last_frames": 1447920,
+      "queue_overflows": 8,
+      "mqtt_connect_failures": 2,
+      "http_recv_error_128": 1
+    }
+  },
+  "final_state": {
+    "elf_sha256": "1d2105b115ca0423097ff742193890d8329c0e366d6f52076d6655f2c25c9eb3",
+    "boot": "a217c3442545de892c0ce8d7b061428e",
+    "stopped": true,
+    "remote_stopped_ok": true,
+    "listeners_idle": true,
+    "settings_preserved": true,
+    "source_restored_exactly": true,
+    "rebuilt_image_matches_saved": true,
+    "active_format": "mp3",
+    "buffer": "med",
+    "autoplay": false,
+    "recognition_enabled": false
+  },
+  "private_artifact_root": "target/kata-hardening/oct13-control-fault",
+  "artifact_sha256": {
+    "diagnostic.elf": "34e03a714a99ee013785cefd9a4ed5ebfe5949dbb7f047dbeade962249c5b7f1",
+    "ordinary.elf": "1d2105b115ca0423097ff742193890d8329c0e366d6f52076d6655f2c25c9eb3",
+    "control-fault.patch": "54a57e72e5d65e05291fb0cce78705a9dc77989befb0793bf8e149f52497c894",
+    "removed-control-fault.patch": "54a57e72e5d65e05291fb0cce78705a9dc77989befb0793bf8e149f52497c894",
+    "sonos.original.rs": "fd1357534d9ddc3598c0413de7dd80b6d43496ea4cc8b239d99d57cc017d7bfa",
+    "sonos_upnp.original.rs": "8ceef3b55a725606200764b1a8d065df0a739f5d3c8422b7bace92ced0ae67f1",
+    "control-check.py": "0ee343348fe1f1f6768ee55ea9d34502f5b206710ca33de5833328c36a7cf3ce",
+    "test_control_check.py": "5641dc23ac7a5902e16b09ed76688a8ef68d6c28721f72ee21b4be18af21b84b",
+    "driver-trial-one.py": "2027af67418cf68c4e371d03779bec74036e944c90931c8158f938042939a423",
+    "driver-trial-two.py": "e6cc581710ae8cfcfa21ae890a09980dc8138b1349a9b71b84c7da864045e4fe",
+    "driver-cancel.py": "297113d78cd43095cdcb661f64ce2d4c2e4000d1d5e1509d29083f77155ffe08",
+    "retention-two-evaluator.py": "e6cc581710ae8cfcfa21ae890a09980dc8138b1349a9b71b84c7da864045e4fe",
+    "metadata-red.log": "2678b9c9b870d879e559de9fde38870446a74d202a37baef0536188057ac2d24",
+    "metadata-green.log": "ec1fe1ac65341a4c6f981850fa09193d8c3ed5c07bd27e11a3c3387192b42391",
+    "drain-before.log": "1b49cc44b2db7bf0fa1c0b04b284c44af3a4c278f736209c9a4fe0fe47d468bb",
+    "drain-after.log": "39ca2cbe9a28c6e9222cbd37bde5175229a67b140033ebdd7fe19c6326e6045a",
+    "close-batch-before.log": "e0ff07a09dac8f9623c60cb32502d6cd0e212e6757585d05f12363d0e72116c6",
+    "close-batch-after.log": "684b510fc5f0ea81072805440ea2a9b7fd3342cbdd87f015f1e20ac4fde62b42",
+    "probe-review.md": "9cda6904b29ac6f125114831517c185ba3952b7b2d887c9270bc01300d32ab82",
+    "driver-review.md": "dd5330fae6080f21790ffc067c3d145a1e7e899ed7da4fd2c2a3ac422f9fba84",
+    "metadata-review.md": "bc2ae1432900f82cd77b3da669179f84e83aeb5f093c032b4a4f7814ad0beaa5",
+    "retention-two-review.md": "8d80cacef117fed9e91e1e9119180749d139d839b95ac7186ac350c5e73f62a4",
+    "cancellation-review.md": "9fcfaca1ccbba1f86be0ad4824d51074763af2817011b47b09b65ec1399c4b5c",
+    "replay-retention.py": "c1550887bb7184c2395e1a0a522e8aef29f27aa92eae15ec3fc8b4ff3320a9ed",
+    "retention-two-offline.json": "0ab4a6472b4045f4c84f8e1b9e3244a60801ee5887bbca59f7f61075d09456b0",
+    "replay-controls.py": "53a3eb8cea08eb313abea83a8fc2fa4d9fb6d04ab656bf9739689b9b839a9b45",
+    "offline-evaluations.json": "b1cff77a3b817c7882a785b097afe8658e0cb77a5fbcfe6c8d607179c81a8048",
+    "restore-flash.log": "50c4cbca23f10a9e6d5f582122138b7b84074ad7ffc9f88bd7ed299eeb586830",
+    "restore-check-receipt.txt": "adbed3beb177cf92d8925ddc6f1cb2f3ff627a80f85ebeaa66b0f55ce8715e75",
+    "preflight/verified.json": "a9c28bc5bcc3ed00c28c730c82f7cc67b639abca5194a9b90756bc4c534908c0",
+    "restored/verified.json": "0220f8c820d1d817cbcae9ff6b04637a1ee7f48b43b4e07164299746b6a4dd9f",
+    "retention/result.json": "f5208cbb254a2b02cb3dd91a61306f0a4632b4703f56892df3c240fd7524a0f5",
+    "retention/events.jsonl": "8420b68fa737a14cb38e2ca3050de516f62178a52c7a963d50c6eec70235da9d",
+    "retention/uart-observed.log": "b305bb8d091027ffc0b1d7631d5f7dbb15e4740fa311242938375811f52b5474",
+    "retention-two/result.json": "bba65b6be8e29bda98f07ecd6450830adccbaba29745ec43bbb89aae0f41e387",
+    "retention-two/events.jsonl": "00c4cdd7c8c1da2846976e0ed8a51b8e8d5dc6cdc51f3377e0790f8f898b5e75",
+    "retention-two/uart-observed.log": "52e73063354d7c47bb2a6b2681b178c71f9b227531fbf21b5455c95989429cef",
+    "cancel/result.json": "1dc45f251d27efc9b42bac6e4bdc0fb22fb5e32cac3f54df377b727424cd3e1c",
+    "cancel/events.jsonl": "e130057a5e7dc7c8e356b8b1de73180bcd9fd2b46ece684f98c20ea33e53a93f",
+    "cancel/uart-observed.log": "bc4c467bf27fb5a906bc3d639c7bea5d4748a38170dbdb3a54bfd2240c1fcb38",
+    "retention-uart.log": "9be745326f64a4081b94c2afbe9ec26aff16797ae3c4ec5cf495e0c97bd862ff",
+    "retention-two-uart.log": "7eef715d4dd3fe233466e4a68712ca8fdc679d956081e44c5fac81c9bc76db86",
+    "cancel-uart.log": "38b351b153bd022a4e93700572c58789461ad99b05d93ca698f1f8c2a460c657",
+    "restore-uart.log": "bf56e8b0091c29b167747c3d9564ae642f2563fcf8deb6c4aa95e71e0f7f2cbc"
+  },
+  "limits": [
+    "All three live acquisition verdicts remain failed; offline checks are separate.",
+    "One Sonos MP3/Medium listener with quiet uncontrolled ADC input; no decoded/source-exact fidelity claim.",
+    "Control-thread scheduling stall, not packet loss, AP outage or the original duration/listener matrix.",
+    "Read-only recovery does not establish automatic media restart or takeover/Stop authority.",
+    "Observed MQTT and HTTP warnings remain unresolved; no causal link to injection established.",
+    "Explicit checked Stop retains its non-atomic race against another controller.",
+    "Final corrected driver has fixture/offline verification but no new live acquisition."
+  ],
+  "public_probe_patch": {
+    "path": "docs/audit-evidence/2026-10-13/control-fault.patch",
+    "sha256": "46f30a4e7378e1677e88ce29c9069c0541bc0c3df1399f1daaa89aae2f189007",
+    "format": "zero-context unified diff; apply with git apply --unidiff-zero",
+    "verified_diagnostic_source_sha256": {
+      "core/src/sonos_upnp.rs": "8ef8d8a9961b782c806d88d37e3ec629f019100729e1cd4c75d21aa688781f04",
+      "firmware/src/sonos.rs": "af2b1014c159913a98f5819a9ed06b34069ef10feee8a6cc533bf1bee7b3fd2f"
+    }
+  }
+}

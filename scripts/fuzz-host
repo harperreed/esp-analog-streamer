@@ -1,0 +1,75 @@
+#!/usr/bin/env bash
+# ABOUTME: Builds, replays and runs three resource-bounded ASan host fuzz targets.
+# ABOUTME: Keeps commands, versions, corpus and failure artifacts under ignored target output.
+set -euo pipefail
+seconds=60
+while (($#)); do
+  case "$1" in
+    --help) echo 'Usage: scripts/fuzz-host [--seconds 60|600] (default 60 per target)'; exit 0 ;;
+    --seconds) [[ $# -ge 2 && "$2" =~ ^(60|600)$ ]] || { echo 'seconds must be 60 or 600' >&2; exit 2; }; seconds=$2; shift 2 ;;
+    *) echo "unknown option: $1" >&2; exit 2 ;;
+  esac
+done
+cd "$(dirname "$0")/.."
+root=$PWD
+[[ -z $(git status --porcelain --untracked-files=no) ]] || { echo 'tracked source must be clean; commit before acceptance' >&2; exit 2; }
+revision=$(git rev-parse HEAD)
+for required in fuzz/supervise fuzz/Cargo.toml fuzz/Cargo.lock fuzz/mise.toml fuzz/src/lib.rs fuzz/fuzz_targets/flac_frames.rs fuzz/fuzz_targets/http_head.rs fuzz/fuzz_targets/stream_ops.rs scripts/fuzz-host core/Cargo.toml; do
+  git cat-file -e "$revision:$required" 2>/dev/null || { echo "required committed file missing: $required" >&2; exit 2; }
+done
+for variable in RUSTFLAGS CARGO_ENCODED_RUSTFLAGS RUSTC_WRAPPER RUSTC_WORKSPACE_WRAPPER RUSTC CARGO_BUILD_TARGET; do
+  [[ -z ${!variable-} ]] || { echo "conflicting build environment: $variable" >&2; exit 2; }
+done
+[[ $(uname -s) == Linux && $(uname -m) == x86_64 ]] || { echo 'supported host: Linux x86_64' >&2; exit 2; }
+for tool in mise c++ timeout sha256sum tar tee rg git mktemp setsid; do command -v "$tool" >/dev/null || { echo "missing dependency: $tool" >&2; exit 2; }; done
+mkdir -p "$root/target/fuzz-host"
+run=$(mktemp -d "$root/target/fuzz-host/run.XXXXXXXX")
+echo "Doctor Biz: fuzz evidence $run"
+exec > >(tee "$run/runner.log") 2>&1
+trap 'status=$?; printf "%s\n" "$status" > "$run/status.txt"' EXIT
+printf '%s\n' "$0 --seconds $seconds" > "$run/argv.txt"
+run_fuzz() {
+local root=$1 run=$2 seconds=$3 revision=$4
+cd "$root"
+printf '%s\n' "$revision" > "$run/revision.txt"
+git status --short --untracked-files=no > "$run/worktree.txt"
+echo 'Only committed HEAD files are inputs; untracked and ignored files are excluded.' > "$run/source-policy.txt"
+git archive --format=tar "$revision" > "$run/source.tar"
+sha256sum "$run/source.tar" > "$run/source-sha256.txt"
+mkdir "$run/source"
+tar -xf "$run/source.tar" -C "$run/source"
+[[ -z $(find "$run/source" -type l -print -quit) ]] || { echo 'source archive must not contain symlinks' >&2; exit 2; }
+# The archive freezes all relative path dependencies while the checkout may change.
+cd "$run/source"
+[[ ! -f mise.toml ]] || mise trust "$PWD/mise.toml"
+uname -a > "$run/host.txt"
+c++ --version >> "$run/host.txt"
+cd fuzz
+mise trust "$PWD/mise.toml"
+mise exec -- rustc -Vv > "$run/rustc.txt"
+mise exec -- cargo fuzz --version > "$run/cargo-fuzz.txt"
+mise exec -- bash -c 'command -v cargo; printf "RUSTUP_TOOLCHAIN=%s\n" "$RUSTUP_TOOLCHAIN"' > "$run/activation.txt"
+mise exec -- rustc -V | rg -q '^rustc 1\.95\.0-nightly \(905b92696 2026-01-31\)' || { echo 'unexpected nightly' >&2; exit 2; }
+mise exec -- cargo fuzz --version | rg -q '^cargo-fuzz 0\.13\.2$' || { echo 'unexpected cargo-fuzz' >&2; exit 2; }
+cp mise.toml "$run/mise.toml"
+cp Cargo.lock "$run/Cargo.lock"
+sha256sum corpus/*/* > "$run/seed-sha256.txt"
+export CARGO_TARGET_DIR="$run/build"
+for target in flac_frames http_head stream_ops; do
+  mkdir -p "$run/$target/corpus" "$run/$target/artifacts"
+  cp "corpus/$target/"* "$run/$target/corpus/"
+  mise exec -- rustc -Vv > "$run/$target/rustc.txt"
+  printf '%q ' cargo fuzz build --target x86_64-unknown-linux-gnu --sanitizer address "$target" > "$run/$target/build-argv.txt"
+  timeout --foreground --kill-after=2s 600 mise exec -- cargo fuzz build --target x86_64-unknown-linux-gnu --sanitizer address "$target" > "$run/$target/build.log" 2>&1
+  case "$target" in flac_frames) max_len=32784 ;; http_head) max_len=4098 ;; stream_ops) max_len=2048 ;; esac
+  common=(-timeout=5 -rss_limit_mb=1024 -malloc_limit_mb=64 "-max_len=$max_len" "-artifact_prefix=$run/$target/artifacts/")
+  printf '%q ' cargo fuzz run --target x86_64-unknown-linux-gnu --sanitizer address "$target" "$run/$target/corpus" -- "${common[@]}" -runs=1000000 "-max_total_time=$seconds" -seed=154791 > "$run/$target/argv.txt"
+  printf '%q ' cargo fuzz run --target x86_64-unknown-linux-gnu --sanitizer address "$target" -- "${common[@]}" -runs=0 "$run/$target/corpus" > "$run/$target/replay-argv.txt"
+  timeout --foreground --kill-after=2s 120 mise exec -- cargo fuzz run --target x86_64-unknown-linux-gnu --sanitizer address "$target" -- "${common[@]}" -runs=0 "$run/$target/corpus" > "$run/$target/replay.log" 2>&1
+  timeout --foreground --kill-after=2s "$((seconds + 30))" mise exec -- cargo fuzz run --target x86_64-unknown-linux-gnu --sanitizer address "$target" "$run/$target/corpus" -- "${common[@]}" -runs=1000000 "-max_total_time=$seconds" -seed=154791 > "$run/$target/fuzz.log" 2>&1
+done
+echo "Doctor Biz: bounded host fuzz passed; receipts $run"
+}
+export -f run_fuzz
+# Supervision starts before archiving, tool activation and every build/replay/run.
+exec bash "$root/fuzz/supervise" --seconds 2400 --status "$run/status.txt" bash -euo pipefail -c 'run_fuzz "$@"' -- "$root" "$run" "$seconds" "$revision"

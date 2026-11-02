@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+# ABOUTME: Checks packet capture CLI validation without privilege or network capture.
+# ABOUTME: Exercises the real dry-run path and rejects invalid capture scope.
+set -euo pipefail
+cd "$(dirname "$0")/.."
+scripts/capture-stream-packets --help >/dev/null
+preview="$(scripts/capture-stream-packets --dry-run 192.0.2.1 lo 30)"
+[[ "$preview" == *'host 192.0.2.1'* && "$preview" == *'port 8000'* && "$preview" == *'30'* ]]
+[[ "$preview" == *'arp or (tcp'* ]]
+for args in '999.0.0.1 lo 30' '192.0.2.1 lo 0' '192.0.2.1 lo 3601' '192.0.2.1 missing-interface 30'; do
+    read -r -a values <<<"$args"
+    if scripts/capture-stream-packets --dry-run "${values[@]}" >/dev/null 2>&1; then
+        echo "FAIL: accepted $args" >&2
+        exit 1
+    fi
+done
+echo 'PASS packet capture scope, duration bounds, and dry-run'

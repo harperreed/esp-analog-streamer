@@ -7,7 +7,7 @@
 
 ## What this is
 
-An always-listening Shazam box: Rust firmware for the Ai-Thinker ESP32-A1S Audio Kit (classic ESP32, ES8388 codec). It fingerprints the 3.5 mm LINE IN on the board with SongRec's algorithm, asks Shazam, and publishes the result to a web page, `GET /api/state` JSON, and MQTT.
+An always-listening Shazam box: Rust firmware for the Ai-Thinker ESP32-A1S Audio Kit (classic ESP32, ES8388 codec). It fingerprints the 3.5 mm LINE IN on the board with SongRec's algorithm, asks Shazam, and publishes the result to a web page and `GET /api/state` JSON.
 
 ## Read first
 

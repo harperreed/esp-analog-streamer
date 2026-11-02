@@ -1,0 +1,62 @@
+{
+  "music-probe.py": {
+    "sha256": "2ea130ecde137ea7437a5d775ffae0f88ebda7ba211cc844efa93841eee22653",
+    "local_source": "target/kata-hardening/oct13-mp3-fidelity-music/probe.py"
+  },
+  "music-summarize.py": {
+    "sha256": "39001978211784830beb4be0a7765e5a98061e46678e0fd37fb0b86125bc2440",
+    "local_source": "target/kata-hardening/oct13-mp3-fidelity-music/summarize.py"
+  },
+  "music-supplement.py": {
+    "sha256": "493c7fcedd5b79c81fe4edd9e0f3528189e39583daee50d8e5dc5278f55e2c9e",
+    "local_source": "target/kata-hardening/oct13-mp3-fidelity-music/supplement.py"
+  },
+  "music.json": {
+    "sha256": "15c2344f556957e7f7aa5de82885040493dcbe04a7402dbf6ea399045bdc7e50",
+    "local_source": "target/kata-hardening/oct13-mp3-fidelity-music/run-02/report.json"
+  },
+  "music-notes.json": {
+    "sha256": "6f30cfd1451dc3133691502c8ccd89c388aa999d36c434283c1c1c22cab1400c",
+    "local_source": "target/kata-hardening/oct13-mp3-fidelity-music/run-02/measurement-notes.json"
+  },
+  "music-constrained.json": {
+    "sha256": "70b610aacef0f44fa0b33173f6f32b7e3bc3bc38d12c844df9b11228df818be0",
+    "local_source": "target/kata-hardening/oct13-mp3-fidelity-music/constrained-reference/report.json"
+  },
+  "music-report.md": {
+    "sha256": "30d4252e34f9fb8702bbe4d701cd2b87f0f3c2454bb0fb458eac17d00a607f73",
+    "local_source": "target/kata-hardening/oct13-mp3-fidelity-music/report.md"
+  },
+  "reference-compare.py": {
+    "sha256": "daa5be0ec9d1de6e3f4a876ef48a005ae8cbdba56c22c1106c54e268fd31a1cc",
+    "local_source": "target/kata-hardening/oct13-mp3-fidelity-reference/compare.py"
+  },
+  "reference-publication.py": {
+    "sha256": "9f0d88beaa3c806234fd6142ca9c496cde732445e9b8c43886a5d219f93aa4ad",
+    "local_source": "target/kata-hardening/oct13-mp3-fidelity-reference/prepare-publication.py"
+  },
+  "reference.json": {
+    "sha256": "7395659ca30c3877c60d4ad2873edf9dd16c5aeac4beaebddfa5b18705dccd2c",
+    "local_source": "target/kata-hardening/oct13-mp3-fidelity-reference/publication.json"
+  },
+  "reference-verification.json": {
+    "sha256": "9eff7a3cdefc35af571f8ecee5f2c950f20a5d19d75add93ec3f129180353860",
+    "local_source": "target/kata-hardening/oct13-mp3-fidelity-reference/verification.json"
+  },
+  "reference-report.md": {
+    "sha256": "48bf9c6470de98e28e17cf88428b1070674b72b56a584206fd7fdfad5a0b0c71",
+    "local_source": "target/kata-hardening/oct13-mp3-fidelity-reference/README.md"
+  },
+  "review.json": {
+    "sha256": "8c86fb1fc6346254af7f34e73a1fda9d5af4c2833a9e9bd9712dd41c2350d833",
+    "local_source": "target/kata-hardening/oct13-mp3-fidelity-review/review.json"
+  },
+  "verify-music.py": {
+    "sha256": "38c3b567398b4bc4f1aeab59ac2d66304ab3b12f8da24ab3b05d10fe8bfe1bad",
+    "local_source": "target/kata-hardening/oct13-mp3-fidelity-parent/verify.py"
+  },
+  "parent-verification.json": {
+    "sha256": "382f912c38086352856c6e52899cae43dfdd2938ca5df09ea77dc2db1c7b9775",
+    "local_source": "target/kata-hardening/oct13-mp3-fidelity-parent/verification.json"
+  }
+}

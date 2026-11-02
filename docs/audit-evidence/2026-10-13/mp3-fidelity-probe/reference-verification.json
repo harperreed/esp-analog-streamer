@@ -1,0 +1,15 @@
+{
+  "status": "pass",
+  "source_comparison_sha256": "24444ef5eb4bbbde5865fdd4263f8df5fbaf6b24a8f116105f67c8388a948518",
+  "checks": [
+    "Known double-amplitude controls: gain2 and uncorrectedSNR0dB on both channels.",
+    "Identity controls: gain1 and zero error on both channels.",
+    "All six Shine f32le re-decodes match archived candidate SHA256 byte-for-byte.",
+    "All three spectral bands sum to direct input/output/error mean-square on both channels for both codecs, all six cases (rtol1e-12,atol1e-15)."
+  ],
+  "source_dtype": "signed16 /32768",
+  "source_frames_per_case": 110592,
+  "common_frames": 109535,
+  "steady_frames": 100319,
+  "acquisition_error_logs_empty": true
+}

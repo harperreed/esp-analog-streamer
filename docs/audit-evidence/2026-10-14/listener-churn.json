@@ -1,0 +1,1550 @@
+{
+ "schema": 1,
+ "kata": "gcq8",
+ "plan": "docs/superpowers/plans/2026-10-14-recovery-followups.md",
+ "harness_commit": "cef749cf620c1a9270eb05a54eb1ad34e319a207",
+ "harness_sha256": {
+  "scripts/listener_churn.py": "be6be514947d5f6aae7417a723a7d894b34d4f9527c984539212f87d908057be",
+  "scripts/listener-churn": "30f2488d3e67c2b68b69d05620df4793baa5e304ec59116354c713fc7d5953d4"
+ },
+ "board": "192.168.23.217",
+ "run": {
+  "directory": "target/kata-hardening/oct14-churn-1",
+  "started_utc": null,
+  "elapsed_seconds": 372.74,
+  "cycles": 30,
+  "seconds_per_cycle": 10.0,
+  "boot_token": "586c4386dd0ebfb732bcc31f59dbcf1f",
+  "build_elf_sha256": "0ff2a7ccb677fb8045f6faa1d040b930f8adaaf38913946c1847e1f3eb14faf2",
+  "final_boot_token": "586c4386dd0ebfb732bcc31f59dbcf1f",
+  "settings": {
+   "active_format": "mp3",
+   "next_play_format": "mp3",
+   "next_play_buffer": "med",
+   "buffer_available": true,
+   "autoplay": false,
+   "recognition_enabled": false,
+   "pga_gain": 0
+  },
+  "injection": "none; no qdisc tree installed",
+  "idle_proxy": "both /api/metrics listener slots idle, standing in for UART checked closes"
+ },
+ "original_verdict": {
+  "passed": false,
+  "error": null,
+  "reasons": [
+   "cycle 6: cycle-06-listener-1 decoded 210816 of 480000 frames (ffmpeg integrity failure: [http @ 0x5e16504cd900] [error] Stream ends prematurely at 175200, should be 18446744073709551615)",
+   "cycle 6: cycle-06-listener-2 decoded 213120 of 480000 frames (ffmpeg integrity failure: [http @ 0x631e35761900] [error] Stream ends prematurely at 177600, should be 18446744073709551615)",
+   "cycle 13: cycle-13-listener-2 decoded 321408 of 480000 frames (ffmpeg integrity failure: [http @ 0x646c3732a900] [error] Stream ends prematurely at 267360, should be 18446744073709551615)"
+  ]
+ },
+ "rejudge": {
+  "harness_dirty": false,
+  "harness_sha256": "be6be514947d5f6aae7417a723a7d894b34d4f9527c984539212f87d908057be",
+  "source_result_sha256": "c7fefedba147b5b9af0a6ce6b8aee1347568c3febeae4f713b8273c4aecbcd87",
+  "verdict": {
+   "passed": true,
+   "heap_passed": true,
+   "listeners_clean": false,
+   "reasons": [],
+   "observations": [
+    {
+     "cycle": 6,
+     "label": "cycle-06-listener-1",
+     "frames": 210816,
+     "expected_frames": 480000,
+     "exit_code": 251,
+     "discontinuities": 0,
+     "ended": "ffmpeg integrity failure: [http @ 0x5e16504cd900] [error] Stream ends prematurely at 175200, should be 18446744073709551615"
+    },
+    {
+     "cycle": 6,
+     "label": "cycle-06-listener-2",
+     "frames": 213120,
+     "expected_frames": 480000,
+     "exit_code": 251,
+     "discontinuities": 0,
+     "ended": "ffmpeg integrity failure: [http @ 0x631e35761900] [error] Stream ends prematurely at 177600, should be 18446744073709551615"
+    },
+    {
+     "cycle": 13,
+     "label": "cycle-13-listener-2",
+     "frames": 321408,
+     "expected_frames": 480000,
+     "exit_code": 251,
+     "discontinuities": 0,
+     "ended": "ffmpeg integrity failure: [http @ 0x646c3732a900] [error] Stream ends prematurely at 267360, should be 18446744073709551615"
+    }
+   ],
+   "slope_bytes_per_cycle": -10.934816462736373,
+   "first_move_cycle": 21,
+   "baseline_internal_largest": 47104,
+   "cycle_1_internal_largest": 47104,
+   "last_internal_largest": 47104,
+   "step_bytes": 2048,
+   "trend_cycles": 5
+  }
+ },
+ "per_cycle": [
+  {
+   "cycle": 1,
+   "internal_largest": 47104,
+   "internal_free": 47379,
+   "psram_largest": 2359296,
+   "idle_wait_s": 0.15,
+   "idle": true,
+   "listeners": [
+    {
+     "frames": 480000,
+     "expected": 480000,
+     "exit_code": 0,
+     "discontinuities": 0,
+     "ended": "completed"
+    },
+    {
+     "frames": 480000,
+     "expected": 480000,
+     "exit_code": 0,
+     "discontinuities": 0,
+     "ended": "completed"
+    }
+   ]
+  },
+  {
+   "cycle": 2,
+   "internal_largest": 47104,
+   "internal_free": 47379,
+   "psram_largest": 2359296,
+   "idle_wait_s": 0.58,
+   "idle": true,
+   "listeners": [
+    {
+     "frames": 480000,
+     "expected": 480000,
+     "exit_code": 0,
+     "discontinuities": 0,
+     "ended": "completed"
+    },
+    {
+     "frames": 480000,
+     "expected": 480000,
+     "exit_code": 0,
+     "discontinuities": 0,
+     "ended": "completed"
+    }
+   ]
+  },
+  {
+   "cycle": 3,
+   "internal_largest": 47104,
+   "internal_free": 47379,
+   "psram_largest": 2359296,
+   "idle_wait_s": 0.47,
+   "idle": true,
+   "listeners": [
+    {
+     "frames": 480000,
+     "expected": 480000,
+     "exit_code": 0,
+     "discontinuities": 0,
+     "ended": "completed"
+    },
+    {
+     "frames": 480000,
+     "expected": 480000,
+     "exit_code": 0,
+     "discontinuities": 0,
+     "ended": "completed"
+    }
+   ]
+  },
+  {
+   "cycle": 4,
+   "internal_largest": 47104,
+   "internal_free": 47499,
+   "psram_largest": 2359296,
+   "idle_wait_s": 1.25,
+   "idle": true,
+   "listeners": [
+    {
+     "frames": 480000,
+     "expected": 480000,
+     "exit_code": 0,
+     "discontinuities": 0,
+     "ended": "completed"
+    },
+    {
+     "frames": 480000,
+     "expected": 480000,
+     "exit_code": 0,
+     "discontinuities": 0,
+     "ended": "completed"
+    }
+   ]
+  },
+  {
+   "cycle": 5,
+   "internal_largest": 47104,
+   "internal_free": 47931,
+   "psram_largest": 2359296,
+   "idle_wait_s": 0.35,
+   "idle": true,
+   "listeners": [
+    {
+     "frames": 480000,
+     "expected": 480000,
+     "exit_code": 0,
+     "discontinuities": 0,
+     "ended": "completed"
+    },
+    {
+     "frames": 480000,
+     "expected": 480000,
+     "exit_code": 0,
+     "discontinuities": 0,
+     "ended": "completed"
+    }
+   ]
+  },
+  {
+   "cycle": 6,
+   "internal_largest": 47104,
+   "internal_free": 47811,
+   "psram_largest": 2359296,
+   "idle_wait_s": 0.42,
+   "idle": true,
+   "listeners": [
+    {
+     "frames": 210816,
+     "expected": 480000,
+     "exit_code": 251,
+     "discontinuities": 0,
+     "ended": "cut: Stream ends prematurely at 175200, should be 184467440737095"
+    },
+    {
+     "frames": 213120,
+     "expected": 480000,
+     "exit_code": 251,
+     "discontinuities": 0,
+     "ended": "cut: Stream ends prematurely at 177600, should be 184467440737095"
+    }
+   ]
+  },
+  {
+   "cycle": 7,
+   "internal_largest": 47104,
+   "internal_free": 47375,
+   "psram_largest": 2359296,
+   "idle_wait_s": 0.42,
+   "idle": true,
+   "listeners": [
+    {
+     "frames": 480000,
+     "expected": 480000,
+     "exit_code": 0,
+     "discontinuities": 0,
+     "ended": "completed"
+    },
+    {
+     "frames": 480000,
+     "expected": 480000,
+     "exit_code": 0,
+     "discontinuities": 0,
+     "ended": "completed"
+    }
+   ]
+  },
+  {
+   "cycle": 8,
+   "internal_largest": 47104,
+   "internal_free": 47495,
+   "psram_largest": 2359296,
+   "idle_wait_s": 0.38,
+   "idle": true,
+   "listeners": [
+    {
+     "frames": 480000,
+     "expected": 480000,
+     "exit_code": 0,
+     "discontinuities": 0,
+     "ended": "completed"
+    },
+    {
+     "frames": 480000,
+     "expected": 480000,
+     "exit_code": 0,
+     "discontinuities": 0,
+     "ended": "completed"
+    }
+   ]
+  },
+  {
+   "cycle": 9,
+   "internal_largest": 47104,
+   "internal_free": 47379,
+   "psram_largest": 2359296,
+   "idle_wait_s": 0.44,
+   "idle": true,
+   "listeners": [
+    {
+     "frames": 480000,
+     "expected": 480000,
+     "exit_code": 0,
+     "discontinuities": 0,
+     "ended": "completed"
+    },
+    {
+     "frames": 480000,
+     "expected": 480000,
+     "exit_code": 0,
+     "discontinuities": 0,
+     "ended": "completed"
+    }
+   ]
+  },
+  {
+   "cycle": 10,
+   "internal_largest": 47104,
+   "internal_free": 47811,
+   "psram_largest": 2359296,
+   "idle_wait_s": 0.27,
+   "idle": true,
+   "listeners": [
+    {
+     "frames": 480000,
+     "expected": 480000,
+     "exit_code": 0,
+     "discontinuities": 0,
+     "ended": "completed"
+    },
+    {
+     "frames": 480000,
+     "expected": 480000,
+     "exit_code": 0,
+     "discontinuities": 0,
+     "ended": "completed"
+    }
+   ]
+  },
+  {
+   "cycle": 11,
+   "internal_largest": 47104,
+   "internal_free": 47379,
+   "psram_largest": 2359296,
+   "idle_wait_s": 0.35,
+   "idle": true,
+   "listeners": [
+    {
+     "frames": 480000,
+     "expected": 480000,
+     "exit_code": 0,
+     "discontinuities": 0,
+     "ended": "completed"
+    },
+    {
+     "frames": 480000,
+     "expected": 480000,
+     "exit_code": 0,
+     "discontinuities": 0,
+     "ended": "completed"
+    }
+   ]
+  },
+  {
+   "cycle": 12,
+   "internal_largest": 47104,
+   "internal_free": 47499,
+   "psram_largest": 2359296,
+   "idle_wait_s": 0.35,
+   "idle": true,
+   "listeners": [
+    {
+     "frames": 480000,
+     "expected": 480000,
+     "exit_code": 0,
+     "discontinuities": 0,
+     "ended": "completed"
+    },
+    {
+     "frames": 480000,
+     "expected": 480000,
+     "exit_code": 0,
+     "discontinuities": 0,
+     "ended": "completed"
+    }
+   ]
+  },
+  {
+   "cycle": 13,
+   "internal_largest": 47104,
+   "internal_free": 47379,
+   "psram_largest": 2359296,
+   "idle_wait_s": 0.48,
+   "idle": true,
+   "listeners": [
+    {
+     "frames": 480000,
+     "expected": 480000,
+     "exit_code": 0,
+     "discontinuities": 0,
+     "ended": "completed"
+    },
+    {
+     "frames": 321408,
+     "expected": 480000,
+     "exit_code": 251,
+     "discontinuities": 0,
+     "ended": "cut: Stream ends prematurely at 267360, should be 184467440737095"
+    }
+   ]
+  },
+  {
+   "cycle": 14,
+   "internal_largest": 47104,
+   "internal_free": 47811,
+   "psram_largest": 2359296,
+   "idle_wait_s": 1.02,
+   "idle": true,
+   "listeners": [
+    {
+     "frames": 480000,
+     "expected": 480000,
+     "exit_code": 0,
+     "discontinuities": 0,
+     "ended": "completed"
+    },
+    {
+     "frames": 480000,
+     "expected": 480000,
+     "exit_code": 0,
+     "discontinuities": 0,
+     "ended": "completed"
+    }
+   ]
+  },
+  {
+   "cycle": 15,
+   "internal_largest": 47104,
+   "internal_free": 47499,
+   "psram_largest": 2359296,
+   "idle_wait_s": 0.16,
+   "idle": true,
+   "listeners": [
+    {
+     "frames": 480000,
+     "expected": 480000,
+     "exit_code": 0,
+     "discontinuities": 0,
+     "ended": "completed"
+    },
+    {
+     "frames": 480000,
+     "expected": 480000,
+     "exit_code": 0,
+     "discontinuities": 0,
+     "ended": "completed"
+    }
+   ]
+  },
+  {
+   "cycle": 16,
+   "internal_largest": 47104,
+   "internal_free": 47379,
+   "psram_largest": 2359296,
+   "idle_wait_s": 0.43,
+   "idle": true,
+   "listeners": [
+    {
+     "frames": 480000,
+     "expected": 480000,
+     "exit_code": 0,
+     "discontinuities": 0,
+     "ended": "completed"
+    },
+    {
+     "frames": 480000,
+     "expected": 480000,
+     "exit_code": 0,
+     "discontinuities": 0,
+     "ended": "completed"
+    }
+   ]
+  },
+  {
+   "cycle": 17,
+   "internal_largest": 47104,
+   "internal_free": 47379,
+   "psram_largest": 2359296,
+   "idle_wait_s": 0.15,
+   "idle": true,
+   "listeners": [
+    {
+     "frames": 480000,
+     "expected": 480000,
+     "exit_code": 0,
+     "discontinuities": 0,
+     "ended": "completed"
+    },
+    {
+     "frames": 480000,
+     "expected": 480000,
+     "exit_code": 0,
+     "discontinuities": 0,
+     "ended": "completed"
+    }
+   ]
+  },
+  {
+   "cycle": 18,
+   "internal_largest": 47104,
+   "internal_free": 47499,
+   "psram_largest": 2359296,
+   "idle_wait_s": 0.39,
+   "idle": true,
+   "listeners": [
+    {
+     "frames": 480000,
+     "expected": 480000,
+     "exit_code": 0,
+     "discontinuities": 0,
+     "ended": "completed"
+    },
+    {
+     "frames": 480000,
+     "expected": 480000,
+     "exit_code": 0,
+     "discontinuities": 0,
+     "ended": "completed"
+    }
+   ]
+  },
+  {
+   "cycle": 19,
+   "internal_largest": 47104,
+   "internal_free": 47715,
+   "psram_largest": 2359296,
+   "idle_wait_s": 0.24,
+   "idle": true,
+   "listeners": [
+    {
+     "frames": 480000,
+     "expected": 480000,
+     "exit_code": 0,
+     "discontinuities": 0,
+     "ended": "completed"
+    },
+    {
+     "frames": 480000,
+     "expected": 480000,
+     "exit_code": 0,
+     "discontinuities": 0,
+     "ended": "completed"
+    }
+   ]
+  },
+  {
+   "cycle": 20,
+   "internal_largest": 47104,
+   "internal_free": 47375,
+   "psram_largest": 2359296,
+   "idle_wait_s": 0.28,
+   "idle": true,
+   "listeners": [
+    {
+     "frames": 480000,
+     "expected": 480000,
+     "exit_code": 0,
+     "discontinuities": 0,
+     "ended": "completed"
+    },
+    {
+     "frames": 480000,
+     "expected": 480000,
+     "exit_code": 0,
+     "discontinuities": 0,
+     "ended": "completed"
+    }
+   ]
+  },
+  {
+   "cycle": 21,
+   "internal_largest": 45056,
+   "internal_free": 47499,
+   "psram_largest": 2359296,
+   "idle_wait_s": 0.38,
+   "idle": true,
+   "listeners": [
+    {
+     "frames": 480000,
+     "expected": 480000,
+     "exit_code": 0,
+     "discontinuities": 0,
+     "ended": "completed"
+    },
+    {
+     "frames": 480000,
+     "expected": 480000,
+     "exit_code": 0,
+     "discontinuities": 0,
+     "ended": "completed"
+    }
+   ]
+  },
+  {
+   "cycle": 22,
+   "internal_largest": 45056,
+   "internal_free": 47379,
+   "psram_largest": 2359296,
+   "idle_wait_s": 0.67,
+   "idle": true,
+   "listeners": [
+    {
+     "frames": 480000,
+     "expected": 480000,
+     "exit_code": 0,
+     "discontinuities": 0,
+     "ended": "completed"
+    },
+    {
+     "frames": 480000,
+     "expected": 480000,
+     "exit_code": 0,
+     "discontinuities": 0,
+     "ended": "completed"
+    }
+   ]
+  },
+  {
+   "cycle": 23,
+   "internal_largest": 47104,
+   "internal_free": 47375,
+   "psram_largest": 2359296,
+   "idle_wait_s": 0.26,
+   "idle": true,
+   "listeners": [
+    {
+     "frames": 480000,
+     "expected": 480000,
+     "exit_code": 0,
+     "discontinuities": 0,
+     "ended": "completed"
+    },
+    {
+     "frames": 480000,
+     "expected": 480000,
+     "exit_code": 0,
+     "discontinuities": 0,
+     "ended": "completed"
+    }
+   ]
+  },
+  {
+   "cycle": 24,
+   "internal_largest": 47104,
+   "internal_free": 47375,
+   "psram_largest": 2359296,
+   "idle_wait_s": 0.37,
+   "idle": true,
+   "listeners": [
+    {
+     "frames": 480000,
+     "expected": 480000,
+     "exit_code": 0,
+     "discontinuities": 0,
+     "ended": "completed"
+    },
+    {
+     "frames": 480000,
+     "expected": 480000,
+     "exit_code": 0,
+     "discontinuities": 0,
+     "ended": "completed"
+    }
+   ]
+  },
+  {
+   "cycle": 25,
+   "internal_largest": 47104,
+   "internal_free": 47495,
+   "psram_largest": 2359296,
+   "idle_wait_s": 0.55,
+   "idle": true,
+   "listeners": [
+    {
+     "frames": 480000,
+     "expected": 480000,
+     "exit_code": 0,
+     "discontinuities": 0,
+     "ended": "completed"
+    },
+    {
+     "frames": 480000,
+     "expected": 480000,
+     "exit_code": 0,
+     "discontinuities": 0,
+     "ended": "completed"
+    }
+   ]
+  },
+  {
+   "cycle": 26,
+   "internal_largest": 47104,
+   "internal_free": 47375,
+   "psram_largest": 2359296,
+   "idle_wait_s": 0.26,
+   "idle": true,
+   "listeners": [
+    {
+     "frames": 480000,
+     "expected": 480000,
+     "exit_code": 0,
+     "discontinuities": 0,
+     "ended": "completed"
+    },
+    {
+     "frames": 480000,
+     "expected": 480000,
+     "exit_code": 0,
+     "discontinuities": 0,
+     "ended": "completed"
+    }
+   ]
+  },
+  {
+   "cycle": 27,
+   "internal_largest": 47104,
+   "internal_free": 47375,
+   "psram_largest": 2359296,
+   "idle_wait_s": 0.32,
+   "idle": true,
+   "listeners": [
+    {
+     "frames": 480000,
+     "expected": 480000,
+     "exit_code": 0,
+     "discontinuities": 0,
+     "ended": "completed"
+    },
+    {
+     "frames": 480000,
+     "expected": 480000,
+     "exit_code": 0,
+     "discontinuities": 0,
+     "ended": "completed"
+    }
+   ]
+  },
+  {
+   "cycle": 28,
+   "internal_largest": 47104,
+   "internal_free": 47375,
+   "psram_largest": 2359296,
+   "idle_wait_s": 0.19,
+   "idle": true,
+   "listeners": [
+    {
+     "frames": 480000,
+     "expected": 480000,
+     "exit_code": 0,
+     "discontinuities": 0,
+     "ended": "completed"
+    },
+    {
+     "frames": 480000,
+     "expected": 480000,
+     "exit_code": 0,
+     "discontinuities": 0,
+     "ended": "completed"
+    }
+   ]
+  },
+  {
+   "cycle": 29,
+   "internal_largest": 47104,
+   "internal_free": 47495,
+   "psram_largest": 2359296,
+   "idle_wait_s": 0.41,
+   "idle": true,
+   "listeners": [
+    {
+     "frames": 480000,
+     "expected": 480000,
+     "exit_code": 0,
+     "discontinuities": 0,
+     "ended": "completed"
+    },
+    {
+     "frames": 480000,
+     "expected": 480000,
+     "exit_code": 0,
+     "discontinuities": 0,
+     "ended": "completed"
+    }
+   ]
+  },
+  {
+   "cycle": 30,
+   "internal_largest": 47104,
+   "internal_free": 47379,
+   "psram_largest": 2359296,
+   "idle_wait_s": 0.2,
+   "idle": true,
+   "listeners": [
+    {
+     "frames": 480000,
+     "expected": 480000,
+     "exit_code": 0,
+     "discontinuities": 0,
+     "ended": "completed"
+    },
+    {
+     "frames": 480000,
+     "expected": 480000,
+     "exit_code": 0,
+     "discontinuities": 0,
+     "ended": "completed"
+    }
+   ]
+  }
+ ],
+ "raw_artifacts": {
+  "cycle-01-listener-1.ffmpeg.log": {
+   "sha256": "f5d8ebc07df11ffaf1a1f32b75a4aad9949375921b675aa3adbd93abd4e584c1",
+   "bytes": 2829
+  },
+  "cycle-01-listener-1.framehash": {
+   "sha256": "38800d3d87e9997451f50447bc53f0c3a61b1f97c8a5e4f054f4be81ee8ec088",
+   "bytes": 46943
+  },
+  "cycle-01-listener-1.progress": {
+   "sha256": "eef3b18e55922ee2d45aeb33c8258837b216703582c7362d9a01983f4af73644",
+   "bytes": 1446
+  },
+  "cycle-01-listener-2.ffmpeg.log": {
+   "sha256": "e678a3f6121a06fbc1abc1352c7cd71d8c0679888326e8f8a001dbf606439464",
+   "bytes": 2829
+  },
+  "cycle-01-listener-2.framehash": {
+   "sha256": "38800d3d87e9997451f50447bc53f0c3a61b1f97c8a5e4f054f4be81ee8ec088",
+   "bytes": 46943
+  },
+  "cycle-01-listener-2.progress": {
+   "sha256": "9d956fc480494870c638899f35fc814c41fb8e2268213e5a0188b623191ded51",
+   "bytes": 1445
+  },
+  "cycle-02-listener-1.ffmpeg.log": {
+   "sha256": "441d9d6452442c0f42f68106121309cb6a23f379b748ccda8d3c36d6bdcb40bb",
+   "bytes": 2829
+  },
+  "cycle-02-listener-1.framehash": {
+   "sha256": "a2547284d46e7d6df16b3c18db1725f36a3dab11bd76589424b7c31c3cf6bccf",
+   "bytes": 46943
+  },
+  "cycle-02-listener-1.progress": {
+   "sha256": "7810ef6cc375af2bc303afdfb784528a7106677491d5b350ecca837c28b4db94",
+   "bytes": 1446
+  },
+  "cycle-02-listener-2.ffmpeg.log": {
+   "sha256": "329da35c193890f43b19d3417b8c28c017cd1cc64f1c44a0b3fea446e3b4f187",
+   "bytes": 2829
+  },
+  "cycle-02-listener-2.framehash": {
+   "sha256": "a2547284d46e7d6df16b3c18db1725f36a3dab11bd76589424b7c31c3cf6bccf",
+   "bytes": 46943
+  },
+  "cycle-02-listener-2.progress": {
+   "sha256": "e7e26e47f4c0b9ef076f2b6d9b2966b53bd32bca5f8222e5d95a1b78fba141df",
+   "bytes": 1446
+  },
+  "cycle-03-listener-1.ffmpeg.log": {
+   "sha256": "6a11fedae5ac0bd75a7e0adc0465a336425020b8335c1d35e0e58e12a81a7d21",
+   "bytes": 2829
+  },
+  "cycle-03-listener-1.framehash": {
+   "sha256": "6b1f7f45932e81bf1b99dde6457376dcaae0570f03e51f3e4f3c1f348a629709",
+   "bytes": 46943
+  },
+  "cycle-03-listener-1.progress": {
+   "sha256": "cf2126e3d08f588b16fe28c16f4d2c074d173547159456915632e3b68bd9e7b0",
+   "bytes": 1445
+  },
+  "cycle-03-listener-2.ffmpeg.log": {
+   "sha256": "e1bba31eba26a65031c0e387c19041386cd87252b6754d2d4e1b8cf34148297f",
+   "bytes": 2829
+  },
+  "cycle-03-listener-2.framehash": {
+   "sha256": "6cf37d42e454bb96daa6a10707fffc19da6e5f6a8300f05a38cce1a05061e54c",
+   "bytes": 46943
+  },
+  "cycle-03-listener-2.progress": {
+   "sha256": "3686695a752be594dc8c3c88821e1690dde6827b6e694a7f4fd32cbbd8207e7c",
+   "bytes": 1446
+  },
+  "cycle-04-listener-1.ffmpeg.log": {
+   "sha256": "7064dbd1181484e0a70fba6e148a8982eb7705b81748f564a6ec4a4a5f9d6d77",
+   "bytes": 2829
+  },
+  "cycle-04-listener-1.framehash": {
+   "sha256": "47771d6836a02446372fee9889b6cb26b1e37198e1d1376388125fb5c145092d",
+   "bytes": 46943
+  },
+  "cycle-04-listener-1.progress": {
+   "sha256": "0cb1c65ce0db86e475ae5a64c14127d662b6b6c697735a0339d757227e0154c7",
+   "bytes": 1448
+  },
+  "cycle-04-listener-2.ffmpeg.log": {
+   "sha256": "4cea730dc5a4a34749b40cf415eb7795adc1bd8f9f886cdf93e7c2d59892587c",
+   "bytes": 2829
+  },
+  "cycle-04-listener-2.framehash": {
+   "sha256": "a75a339f7a05f29173558b3e578973f19a8de3086ddbf60e87b5f3662aaaffb1",
+   "bytes": 46943
+  },
+  "cycle-04-listener-2.progress": {
+   "sha256": "8291526572ab1c0e64a1095614090d4e21dd70201d7b22edcc701daacb4520c8",
+   "bytes": 1285
+  },
+  "cycle-05-listener-1.ffmpeg.log": {
+   "sha256": "ce114dd085cb81258e071b2a7c2d18d3b59c3fb63336b3a0b073c7fafbef2e8d",
+   "bytes": 2829
+  },
+  "cycle-05-listener-1.framehash": {
+   "sha256": "f79988bc9e65f6a44ed994aa0601da06ac4ab2bc6e6bf1b1daf9631a074714e5",
+   "bytes": 46943
+  },
+  "cycle-05-listener-1.progress": {
+   "sha256": "2794aa7522632b08d2affcc57ca4ce89aea84224597b2aa6d69a0c089083bb22",
+   "bytes": 1607
+  },
+  "cycle-05-listener-2.ffmpeg.log": {
+   "sha256": "f60c29e0ccf5f462e4983443965a4e9d8e115f764ef53d0c6724750f590ca976",
+   "bytes": 2829
+  },
+  "cycle-05-listener-2.framehash": {
+   "sha256": "de9a8b30cffd7d293510dc2dd9004612f944993ede84a87f75ad8ce6f8fa4ed2",
+   "bytes": 46943
+  },
+  "cycle-05-listener-2.progress": {
+   "sha256": "ccd8ce7733463bfcd17a465a4c81ebc6304202ad4224d410ef037ec57c987d5a",
+   "bytes": 1607
+  },
+  "cycle-06-listener-1.ffmpeg.log": {
+   "sha256": "79763a4fe02c3d0b7b1076914f16f1d896782f60eeb22b6ae6d800e17c89d520",
+   "bytes": 3279
+  },
+  "cycle-06-listener-1.framehash": {
+   "sha256": "f556d58c1d8eeb9e02b02ec6c83c4bf39a7a176a96fd05f23393f185c970b1cf",
+   "bytes": 20735
+  },
+  "cycle-06-listener-1.progress": {
+   "sha256": "37e69791dd2a257abdb129e354a5b767e9b51f1823c8f8f9dafbadcb16fec03f",
+   "bytes": 1450
+  },
+  "cycle-06-listener-2.ffmpeg.log": {
+   "sha256": "06642dd057488682380f6966f83d17ef1766d6984a6a2e2c97059a7fa4fdf66d",
+   "bytes": 3219
+  },
+  "cycle-06-listener-2.framehash": {
+   "sha256": "fb0a117039db48b16778297410e1b5fed07a10f89ae272784d94eecae0c667dc",
+   "bytes": 20959
+  },
+  "cycle-06-listener-2.progress": {
+   "sha256": "dec27448300a568a19a613b21d3dfcd9bd281001b50f9783f14d0632abdb5baf",
+   "bytes": 1450
+  },
+  "cycle-07-listener-1.ffmpeg.log": {
+   "sha256": "29d286d2b43592234e454e925131c508a31244831c16b77796f7b9cb41ad4252",
+   "bytes": 2829
+  },
+  "cycle-07-listener-1.framehash": {
+   "sha256": "1f638dbee716938893848a2ea018b77bbc3576ac673579e1943d4f8f442b377d",
+   "bytes": 46943
+  },
+  "cycle-07-listener-1.progress": {
+   "sha256": "e6e5c9030f544783a260f9441f4f04f1f782c2972468b71f5e885f03f3bf2dcf",
+   "bytes": 1446
+  },
+  "cycle-07-listener-2.ffmpeg.log": {
+   "sha256": "05150000b4865e82c81a593c2017ea7c757096f3ec774ae0de7bdaf421f876c3",
+   "bytes": 2829
+  },
+  "cycle-07-listener-2.framehash": {
+   "sha256": "e8fb2a29e3969011d91ceb37785b520de36d1b5e95fb53c54e46243133c902be",
+   "bytes": 46943
+  },
+  "cycle-07-listener-2.progress": {
+   "sha256": "6e2fa9dca17d229ce8a0159ae0d0d3b5d7e2f6ad6a4058f677d12b83f278e710",
+   "bytes": 1445
+  },
+  "cycle-08-listener-1.ffmpeg.log": {
+   "sha256": "5b6778cb9e8a15470525227e7af1cb7383c715223ddcdcded82a4cf8cef9edbd",
+   "bytes": 2829
+  },
+  "cycle-08-listener-1.framehash": {
+   "sha256": "faec85aba5cdabc16004dafc0f2b02e34ec18336f0105f8d86b584100d5b9b96",
+   "bytes": 46943
+  },
+  "cycle-08-listener-1.progress": {
+   "sha256": "d89a8200e94cf9c41bb00b5507eb3d5c1f461dda61dc0af14825adae143aea51",
+   "bytes": 1610
+  },
+  "cycle-08-listener-2.ffmpeg.log": {
+   "sha256": "f58bbd2f40ce41751e6dc7d1e6d6b3bb4d2ddbe2fca01dc8095f4f29eb89ac79",
+   "bytes": 2829
+  },
+  "cycle-08-listener-2.framehash": {
+   "sha256": "faec85aba5cdabc16004dafc0f2b02e34ec18336f0105f8d86b584100d5b9b96",
+   "bytes": 46943
+  },
+  "cycle-08-listener-2.progress": {
+   "sha256": "18e0e3d03abdc5e232e29b39c516e4d3fb11f387e0c14f48056977ba46509bce",
+   "bytes": 1446
+  },
+  "cycle-09-listener-1.ffmpeg.log": {
+   "sha256": "297b82deced0899625912990ae3f8444f9980040fe988ca120a3010682f32a86",
+   "bytes": 2829
+  },
+  "cycle-09-listener-1.framehash": {
+   "sha256": "772f51f3742efb736a1b8fb14c6a94dd24ec47516017f68ef349033732e0afb9",
+   "bytes": 46943
+  },
+  "cycle-09-listener-1.progress": {
+   "sha256": "9ff6b1dc0070a006a0b9bc0ca95249a24012073453163eff5806e8d4bcb91da5",
+   "bytes": 1446
+  },
+  "cycle-09-listener-2.ffmpeg.log": {
+   "sha256": "f54ed5275ec6f5f82b44c9cf4a167aa9e660cd1b9679d388f05a45822257f6c1",
+   "bytes": 2829
+  },
+  "cycle-09-listener-2.framehash": {
+   "sha256": "772f51f3742efb736a1b8fb14c6a94dd24ec47516017f68ef349033732e0afb9",
+   "bytes": 46943
+  },
+  "cycle-09-listener-2.progress": {
+   "sha256": "ca8118eb5deba98110b1e3d43dafc1f9021714a425c48db7321c21d43d7eebd6",
+   "bytes": 1446
+  },
+  "cycle-10-listener-1.ffmpeg.log": {
+   "sha256": "252fb3d86bda23de0c0cf6e1d4c4902c9dfb5f0c13c7f8c58b405e9fdda43eb8",
+   "bytes": 2829
+  },
+  "cycle-10-listener-1.framehash": {
+   "sha256": "c8943e38c3610dd49bd0889b6eafed5ddab19ff83fb6f2ff9f723ca42e0638a5",
+   "bytes": 46943
+  },
+  "cycle-10-listener-1.progress": {
+   "sha256": "d2b992ea36075f1f622d824c6db4301e44fd1968805b586f5cdffe8b1d64c13f",
+   "bytes": 1448
+  },
+  "cycle-10-listener-2.ffmpeg.log": {
+   "sha256": "9ebd364a602d5bf2e55b6172c40cd2f7380953ce153cb816094047348b1e3f62",
+   "bytes": 2829
+  },
+  "cycle-10-listener-2.framehash": {
+   "sha256": "c8943e38c3610dd49bd0889b6eafed5ddab19ff83fb6f2ff9f723ca42e0638a5",
+   "bytes": 46943
+  },
+  "cycle-10-listener-2.progress": {
+   "sha256": "5a0c8fc0a371b8faa6f94b901e0d91ad9838bfe3eaa6f9eb4962c56041c5fd72",
+   "bytes": 1447
+  },
+  "cycle-11-listener-1.ffmpeg.log": {
+   "sha256": "f4aaa00a39d075eb2798d9e2959b3a9db93138cc94a5e460f7a53c5fde31f2af",
+   "bytes": 2829
+  },
+  "cycle-11-listener-1.framehash": {
+   "sha256": "69a4e603b04d152b1b8f64cb6056e7d784bd434aaeef6ca3b634aa9a9a515fb0",
+   "bytes": 46943
+  },
+  "cycle-11-listener-1.progress": {
+   "sha256": "92485cb92fae42c19e2dc9af243c65ebce869e3548a850a9504b6d9c13729094",
+   "bytes": 1607
+  },
+  "cycle-11-listener-2.ffmpeg.log": {
+   "sha256": "5c2e967e7b8d7d15dbe5060887498994b6bc8ceb493ff0e80bfa91325eb5d066",
+   "bytes": 2829
+  },
+  "cycle-11-listener-2.framehash": {
+   "sha256": "3722b2e3058ef8972beb062c7d720b3ff7d5e9bb0b4e64fa149a193b54dccfd9",
+   "bytes": 46943
+  },
+  "cycle-11-listener-2.progress": {
+   "sha256": "63459819f9be8e163a27f0d9b32d4756b1bfab49ca88bf27b30f8bf06663c95f",
+   "bytes": 1607
+  },
+  "cycle-12-listener-1.ffmpeg.log": {
+   "sha256": "7a818fe84de806cb0a24483323bc15f3dd58ff41dabcc28ed5e7998c7e33c2eb",
+   "bytes": 2829
+  },
+  "cycle-12-listener-1.framehash": {
+   "sha256": "e0e2728eb3195b69fe7d73291aa9a9a0cf21b3c7eced23cb28de48d0cc2fb44d",
+   "bytes": 46943
+  },
+  "cycle-12-listener-1.progress": {
+   "sha256": "ef719ba3a330c30d96e6935d6c27ffb5c010af4b7692c3af34654ba86976e3bb",
+   "bytes": 1446
+  },
+  "cycle-12-listener-2.ffmpeg.log": {
+   "sha256": "3438a313a4e72add73e9cb58928906d4ebd71db5bf988a45ba2bddcfbae0bb00",
+   "bytes": 2829
+  },
+  "cycle-12-listener-2.framehash": {
+   "sha256": "e0e2728eb3195b69fe7d73291aa9a9a0cf21b3c7eced23cb28de48d0cc2fb44d",
+   "bytes": 46943
+  },
+  "cycle-12-listener-2.progress": {
+   "sha256": "79915cc19291e64c6aaba48bd31ed9c22c80961910f840fa671a3ac6f79b54dc",
+   "bytes": 1446
+  },
+  "cycle-13-listener-1.ffmpeg.log": {
+   "sha256": "a26cf8a0266a6de5e0a332bf0d1169502bf9ae931690b8cf76fb2ebbe0c2d334",
+   "bytes": 2829
+  },
+  "cycle-13-listener-1.framehash": {
+   "sha256": "1d81e0763a636af08b9210d8e210640e14b7d74c284d0a2f30a32a7a5b9cdf15",
+   "bytes": 46943
+  },
+  "cycle-13-listener-1.progress": {
+   "sha256": "651e7839a5b09e8bf19efdadc8841f7b7a38a4746a32dc1de93c094a2f8e90d2",
+   "bytes": 1449
+  },
+  "cycle-13-listener-2.ffmpeg.log": {
+   "sha256": "9cb23eea7bd960098ad30dc181f9063e8cd6c04ebb85efe62e75c2c72caccb3b",
+   "bytes": 3279
+  },
+  "cycle-13-listener-2.framehash": {
+   "sha256": "873617277850519ca57557e76ceaa66bc03da7c35bc8bd6657612eb72fc10e5c",
+   "bytes": 31487
+  },
+  "cycle-13-listener-2.progress": {
+   "sha256": "0340085ae7e617b28bff8a2a68538ff257175f5e4c0de7e8c3db4568e7be9eb6",
+   "bytes": 1611
+  },
+  "cycle-14-listener-1.ffmpeg.log": {
+   "sha256": "faee7c6fe6ebf6143d701224731f8c7ad39e242c8ed99883e9e01c5125d7fea6",
+   "bytes": 2829
+  },
+  "cycle-14-listener-1.framehash": {
+   "sha256": "10fd54b2fbba5b81cc46df7597210e5a1fa1d9e43c2d201110a4e2294ccd07ed",
+   "bytes": 46943
+  },
+  "cycle-14-listener-1.progress": {
+   "sha256": "992b271908428a81c814177e074bc9aeee1fd22f07e7bcf10671d5c8b8c2ccc7",
+   "bytes": 1445
+  },
+  "cycle-14-listener-2.ffmpeg.log": {
+   "sha256": "ef05bc143b8830384c7bebbee75f3f98aa322b909cc408046b045b358e9a1e56",
+   "bytes": 2829
+  },
+  "cycle-14-listener-2.framehash": {
+   "sha256": "10fd54b2fbba5b81cc46df7597210e5a1fa1d9e43c2d201110a4e2294ccd07ed",
+   "bytes": 46943
+  },
+  "cycle-14-listener-2.progress": {
+   "sha256": "79de20aa6a6c4bf1bf34e29a8f8a0a74a6b1cfca361581cae24f9ddaecd25e5d",
+   "bytes": 1446
+  },
+  "cycle-15-listener-1.ffmpeg.log": {
+   "sha256": "2d959206fcac0a7c81a4c1e241c007bf49cbb7ea6c9df0843f2eeca52ce2f0db",
+   "bytes": 2829
+  },
+  "cycle-15-listener-1.framehash": {
+   "sha256": "c2831ca1e8696bc47c511045a5a8e7b018c984bc79de2c7943ce70a49897d33f",
+   "bytes": 46943
+  },
+  "cycle-15-listener-1.progress": {
+   "sha256": "7220817be7d55b140ad076b688858bf25ac9865dac76932950fbd1908cae4a35",
+   "bytes": 1446
+  },
+  "cycle-15-listener-2.ffmpeg.log": {
+   "sha256": "c2699fbc4ecd72479732604c4b4f67e10b51cbf4e91a592260daafabf412990a",
+   "bytes": 2829
+  },
+  "cycle-15-listener-2.framehash": {
+   "sha256": "c2831ca1e8696bc47c511045a5a8e7b018c984bc79de2c7943ce70a49897d33f",
+   "bytes": 46943
+  },
+  "cycle-15-listener-2.progress": {
+   "sha256": "8a840b1d6ce3a29e8e3d3733b9783c83507d8d4f0585839a2861084fdb223e0b",
+   "bytes": 1446
+  },
+  "cycle-16-listener-1.ffmpeg.log": {
+   "sha256": "c04d1ad29d280922372d239232746757ff31b82aa4320ec8509983adb1e5765f",
+   "bytes": 2829
+  },
+  "cycle-16-listener-1.framehash": {
+   "sha256": "87bc0d7845332bb7fbfca0fbc49ad647fea4e6bc9e048c7d2928acc70445a986",
+   "bytes": 46943
+  },
+  "cycle-16-listener-1.progress": {
+   "sha256": "f245cfe3ecc3c35c52e28130de7ac357435eebd6e5755c86b3e67cfd1b4cb520",
+   "bytes": 1446
+  },
+  "cycle-16-listener-2.ffmpeg.log": {
+   "sha256": "0adc79c3d630ce5f4369a31ef6eb50c492981275d0049bac81a586faec1b33d0",
+   "bytes": 2829
+  },
+  "cycle-16-listener-2.framehash": {
+   "sha256": "87bc0d7845332bb7fbfca0fbc49ad647fea4e6bc9e048c7d2928acc70445a986",
+   "bytes": 46943
+  },
+  "cycle-16-listener-2.progress": {
+   "sha256": "efb5f390e28e443f5775b983fce5aa14f6c8c177c1f2a37533ec5bbfe9ba2864",
+   "bytes": 1446
+  },
+  "cycle-17-listener-1.ffmpeg.log": {
+   "sha256": "ef9551610ec6cf79d30e0d5856f23a5e6a7d8459524488ce4e09a07e974ff3b3",
+   "bytes": 2829
+  },
+  "cycle-17-listener-1.framehash": {
+   "sha256": "52ed196eb4ba3df83cebee85c7288b6e6fe1d63d99e5e758f5860bd776f2b4e6",
+   "bytes": 46943
+  },
+  "cycle-17-listener-1.progress": {
+   "sha256": "4bddd1151e0cdcb84382ad9818508c625ecd899be66c2c01f9befb1090ec7bce",
+   "bytes": 1609
+  },
+  "cycle-17-listener-2.ffmpeg.log": {
+   "sha256": "b33c9453b3d317dd4b9a0c902b8f4158f9ba291e749d80f5eb8f4d639039ae26",
+   "bytes": 2829
+  },
+  "cycle-17-listener-2.framehash": {
+   "sha256": "52ed196eb4ba3df83cebee85c7288b6e6fe1d63d99e5e758f5860bd776f2b4e6",
+   "bytes": 46943
+  },
+  "cycle-17-listener-2.progress": {
+   "sha256": "8403c9ba674efd2502811fe4550cb85c75faa60b4965a4fc1e12091311fd169a",
+   "bytes": 1607
+  },
+  "cycle-18-listener-1.ffmpeg.log": {
+   "sha256": "36d7786be867d72e287891bc97d43acc85fcb2927f13aebb7f825fb1f3872a5d",
+   "bytes": 2829
+  },
+  "cycle-18-listener-1.framehash": {
+   "sha256": "2cbc172d938baeeb517d0f08ef58a595a1c8bcd67c38e7d926b648570b4ea4a1",
+   "bytes": 46943
+  },
+  "cycle-18-listener-1.progress": {
+   "sha256": "15ac5df7e2953d0e2626c92e093e1525c27b9d6cabc33decd8a517c93e8aa911",
+   "bytes": 1446
+  },
+  "cycle-18-listener-2.ffmpeg.log": {
+   "sha256": "b5949bbce9d01d76398396d1502b5ea18d8ab77305c1f1ddda1a59d592118770",
+   "bytes": 2829
+  },
+  "cycle-18-listener-2.framehash": {
+   "sha256": "e63d7146272c95bb9c9da4afd43afb179a40e39c6345a9dcb2b51927a46ee993",
+   "bytes": 46943
+  },
+  "cycle-18-listener-2.progress": {
+   "sha256": "2900cf60df00650e3c2aef46982fa17d1b05ef754536ba75428a5b62a7f9f218",
+   "bytes": 1610
+  },
+  "cycle-19-listener-1.ffmpeg.log": {
+   "sha256": "f2cfde894d333f0282ada0d54a9252862c0e1960bbd5157954859ce49f1efb26",
+   "bytes": 2829
+  },
+  "cycle-19-listener-1.framehash": {
+   "sha256": "84d5da736085c8879e0b4b709c437598da22a935c307978b4a08b3119a6fe9a0",
+   "bytes": 46943
+  },
+  "cycle-19-listener-1.progress": {
+   "sha256": "769d6de0dbac2d42e4ae3645867b2b50593f71acdbfb4f8bac0168fa9b58b3dc",
+   "bytes": 1446
+  },
+  "cycle-19-listener-2.ffmpeg.log": {
+   "sha256": "0703227e4f03bb219657dcda9129be2f14b4fd6bb6fcfc294a875bb30bd0ecae",
+   "bytes": 2829
+  },
+  "cycle-19-listener-2.framehash": {
+   "sha256": "84d5da736085c8879e0b4b709c437598da22a935c307978b4a08b3119a6fe9a0",
+   "bytes": 46943
+  },
+  "cycle-19-listener-2.progress": {
+   "sha256": "e9b282cb2d22ea202742f02c34d190610b7eb958ec18f0867e5f392aeda7d23a",
+   "bytes": 1446
+  },
+  "cycle-20-listener-1.ffmpeg.log": {
+   "sha256": "cd6d7ac27e8dbcdbb130f6691923ee2d3f63a962cff0d5fa23d060f78dccf30c",
+   "bytes": 2829
+  },
+  "cycle-20-listener-1.framehash": {
+   "sha256": "534cb265ec8ed93b00eea4bf3e27ec8ef537e3967a6f3c248115c6c501fe3b7f",
+   "bytes": 46943
+  },
+  "cycle-20-listener-1.progress": {
+   "sha256": "d738c11212e61343d65126391fa16130b69e600ef3169fb173daca894cd76b7e",
+   "bytes": 1446
+  },
+  "cycle-20-listener-2.ffmpeg.log": {
+   "sha256": "4e4cc072e4a1fb44fbc8dd9b456b43f4af78b6ef8608ae0a53d2fe63919d9cfb",
+   "bytes": 2829
+  },
+  "cycle-20-listener-2.framehash": {
+   "sha256": "bce11d0817edb5ca29d20df56bce1f349b590dff2bea49f0bb09e831d7559867",
+   "bytes": 46943
+  },
+  "cycle-20-listener-2.progress": {
+   "sha256": "0eb4d6de5bbb663267fc60bbe774f2ccaa74ec8ab11d6ad9e77c0c72d669ce39",
+   "bytes": 1445
+  },
+  "cycle-21-listener-1.ffmpeg.log": {
+   "sha256": "7031995dba636695ce0c555422307342bc966a856b776c1c0b4d7ad5c9cfa77e",
+   "bytes": 2829
+  },
+  "cycle-21-listener-1.framehash": {
+   "sha256": "662b57173daf775040c3a277ae3ee813e8b630d81cb71933a1895703015b7f9c",
+   "bytes": 46943
+  },
+  "cycle-21-listener-1.progress": {
+   "sha256": "36b617cab5285a23c5337017823c74d2432bcdce5ebc51d8f8e9591f2e0eb26d",
+   "bytes": 1446
+  },
+  "cycle-21-listener-2.ffmpeg.log": {
+   "sha256": "1e21e05521a7c4bef047e516008338d2a95b508c4087233a43c5b4253df87464",
+   "bytes": 2829
+  },
+  "cycle-21-listener-2.framehash": {
+   "sha256": "662b57173daf775040c3a277ae3ee813e8b630d81cb71933a1895703015b7f9c",
+   "bytes": 46943
+  },
+  "cycle-21-listener-2.progress": {
+   "sha256": "f96c126db1e010c2a8a69e02513f5da5053ed65002cc7452f5524306602d5e4f",
+   "bytes": 1446
+  },
+  "cycle-22-listener-1.ffmpeg.log": {
+   "sha256": "e942cc1ca21449ed0573f985ac68b0c69719674ce98291b1fdb9ef059ecbf4b4",
+   "bytes": 2829
+  },
+  "cycle-22-listener-1.framehash": {
+   "sha256": "e266a3d90b37d58fb13c7ecefba341741a55d02eb6eb758d75d8f87800e80edf",
+   "bytes": 46943
+  },
+  "cycle-22-listener-1.progress": {
+   "sha256": "08a54f60b3889f70ad0fc479de96b72f2600f8d1d62b2aab4296c5477e219783",
+   "bytes": 1445
+  },
+  "cycle-22-listener-2.ffmpeg.log": {
+   "sha256": "65dd6087939ad76bb76d28434e4b2ed1c84ab3c81d2fa34c748f8b28585c2250",
+   "bytes": 2829
+  },
+  "cycle-22-listener-2.framehash": {
+   "sha256": "4c939c5d1b287a8eca2a907c4b6490017e51abf51b51e5e1fa315b1133fe6f01",
+   "bytes": 46943
+  },
+  "cycle-22-listener-2.progress": {
+   "sha256": "82ce2623c34a2e5cbaa1a0a8e4767e36797ff3feab960203371acf5f8a28f5b2",
+   "bytes": 1445
+  },
+  "cycle-23-listener-1.ffmpeg.log": {
+   "sha256": "936d37bc1e3d36910ecbc44ac1f84395bb52a1e03c811094b314ef4d2c157295",
+   "bytes": 2829
+  },
+  "cycle-23-listener-1.framehash": {
+   "sha256": "e761b7f9a49e7cab5c00a802ed30530c886d9fd62fc1322521819f6e9672a36b",
+   "bytes": 46943
+  },
+  "cycle-23-listener-1.progress": {
+   "sha256": "9615c07269b347e4ad6332130807f8bfb9f5d12285ecca8aa6805955c1274c97",
+   "bytes": 1446
+  },
+  "cycle-23-listener-2.ffmpeg.log": {
+   "sha256": "46740da041ae4890ce0e942ab1e189ea55fc5919f675de9a165f7685d548d2af",
+   "bytes": 2829
+  },
+  "cycle-23-listener-2.framehash": {
+   "sha256": "ed9cc0c2d3f0c2e0634ebf702e5bba6e5eabb6edcb8bf4b57ba01e9257af58ee",
+   "bytes": 46943
+  },
+  "cycle-23-listener-2.progress": {
+   "sha256": "6b0d924f7341e1bdba890c890307381baea4f67d55e36cfca83a8b0e26d420c7",
+   "bytes": 1446
+  },
+  "cycle-24-listener-1.ffmpeg.log": {
+   "sha256": "606c36edaeed4c9e68926fe071c3251d0162a41af40cf5267686f8d546eb7796",
+   "bytes": 2829
+  },
+  "cycle-24-listener-1.framehash": {
+   "sha256": "5ddc19c5cfd7d39e23b7c1ec4d48a05cf3615e1aed5d80a3f67b63566529aa8e",
+   "bytes": 46943
+  },
+  "cycle-24-listener-1.progress": {
+   "sha256": "1dbd31f9a9740f442439c26151725c58668024cb1f934cb81e653a7a2c15009f",
+   "bytes": 1930
+  },
+  "cycle-24-listener-2.ffmpeg.log": {
+   "sha256": "52c1ae26ce63f48ca69fd41b5f85325d0a23fb0b4d6e1875caca172315c1dcef",
+   "bytes": 2830
+  },
+  "cycle-24-listener-2.framehash": {
+   "sha256": "b1432cc05cee8b67e626c94934f7c8dc788440738053b0b8ed809145e8bcb04c",
+   "bytes": 46943
+  },
+  "cycle-24-listener-2.progress": {
+   "sha256": "77b2898aaa533d2662c0fbeb6b54bf0fb8243918e7f205485d089eb72c06afde",
+   "bytes": 1934
+  },
+  "cycle-25-listener-1.ffmpeg.log": {
+   "sha256": "8703b9794173c33f4e42bace8ba761c19ebd7ece6f10805b621e41b8c4ee8c11",
+   "bytes": 2829
+  },
+  "cycle-25-listener-1.framehash": {
+   "sha256": "52b69b50109067dc6ee9b1451c9de43ed3bfe91176ba528cfdce5c0d0ffb8d33",
+   "bytes": 46943
+  },
+  "cycle-25-listener-1.progress": {
+   "sha256": "9d180535772bdf46067cdff261d7ccdb66acc77ccddcb6295bc8f23147938a4a",
+   "bytes": 1445
+  },
+  "cycle-25-listener-2.ffmpeg.log": {
+   "sha256": "a8f1a0351e341817a93e5a31e51259f9361978ddaf69dcd7fd13ad89b4617c40",
+   "bytes": 2829
+  },
+  "cycle-25-listener-2.framehash": {
+   "sha256": "52b69b50109067dc6ee9b1451c9de43ed3bfe91176ba528cfdce5c0d0ffb8d33",
+   "bytes": 46943
+  },
+  "cycle-25-listener-2.progress": {
+   "sha256": "87eb56375aeb9c61eafaaf447a05cd2084f86eaa01e36b77bb7ce33da05840e1",
+   "bytes": 1446
+  },
+  "cycle-26-listener-1.ffmpeg.log": {
+   "sha256": "e25c415872f89e7fbde0df182977e088313f3247d080c34573acd2c64b3a10d3",
+   "bytes": 2829
+  },
+  "cycle-26-listener-1.framehash": {
+   "sha256": "280c192ef26ccedad02c182b42e850d80fae617d234681338cb034a7123c13ed",
+   "bytes": 46943
+  },
+  "cycle-26-listener-1.progress": {
+   "sha256": "8139221bebfe7d243fc0ee66029ccd5f09d81583616f78747911b6f3c6f34fd6",
+   "bytes": 1445
+  },
+  "cycle-26-listener-2.ffmpeg.log": {
+   "sha256": "029fe4c89d73afb84ec0ba023c17d012325c699397c384d56cd0beb6914a3cae",
+   "bytes": 2829
+  },
+  "cycle-26-listener-2.framehash": {
+   "sha256": "ef301279e73840db0fd57ffd40ada8cec02be91f8c7ddd3cb7696d74e64c2d06",
+   "bytes": 46943
+  },
+  "cycle-26-listener-2.progress": {
+   "sha256": "5afe4e29b754cef12b82f01c39b489106cc3cb6238db4669c909966a2096014b",
+   "bytes": 1445
+  },
+  "cycle-27-listener-1.ffmpeg.log": {
+   "sha256": "92ce3c69a1a93d292b5385dd4b85c0d5556934fe42ebe83754394c8157947400",
+   "bytes": 2830
+  },
+  "cycle-27-listener-1.framehash": {
+   "sha256": "01b89d3e89a6f4b04a62a5d6c31a7d2f285e2e90dc4448699b66ae2e629b2a2f",
+   "bytes": 46943
+  },
+  "cycle-27-listener-1.progress": {
+   "sha256": "1764e6d9e5c2cb958c7ae4c5532fcf495f968ad304cac2502fe612e425f3d368",
+   "bytes": 1771
+  },
+  "cycle-27-listener-2.ffmpeg.log": {
+   "sha256": "d78062db913c1015f891ddc5ceb2431942fddd8663ef9c15e3ff0ffa6dae2322",
+   "bytes": 2829
+  },
+  "cycle-27-listener-2.framehash": {
+   "sha256": "01b89d3e89a6f4b04a62a5d6c31a7d2f285e2e90dc4448699b66ae2e629b2a2f",
+   "bytes": 46943
+  },
+  "cycle-27-listener-2.progress": {
+   "sha256": "0815496907ed8301bfdc9706851f52da67e3948ec7e341736c0367bceb1ab7be",
+   "bytes": 1607
+  },
+  "cycle-28-listener-1.ffmpeg.log": {
+   "sha256": "3994ddc7c4466bc83b4215ab84fcad21e662a5fd097eeedb11eb659d8331540f",
+   "bytes": 2829
+  },
+  "cycle-28-listener-1.framehash": {
+   "sha256": "2ec69205eba8c8b8befeee9766dd449681ef833cc0506fba9a9585117b7d8a3a",
+   "bytes": 46943
+  },
+  "cycle-28-listener-1.progress": {
+   "sha256": "7bd734ec302d2ceba9dc1182e17c3500afe2cd38c22372eeb4e9185a151f726b",
+   "bytes": 1446
+  },
+  "cycle-28-listener-2.ffmpeg.log": {
+   "sha256": "0713d950bef07400fd12a6361617af5752547d2aeb3d956dd1b3a98c65f527b9",
+   "bytes": 2829
+  },
+  "cycle-28-listener-2.framehash": {
+   "sha256": "2ec69205eba8c8b8befeee9766dd449681ef833cc0506fba9a9585117b7d8a3a",
+   "bytes": 46943
+  },
+  "cycle-28-listener-2.progress": {
+   "sha256": "94d6c188b0b91b0e9e999fa30de6e633b1859b2d5f888001eb14a7aec6b1105f",
+   "bytes": 1446
+  },
+  "cycle-29-listener-1.ffmpeg.log": {
+   "sha256": "d049e9f0d35336ea8548bd89d1f1d53bce1b4d41757c15ce57d6765ad063f4f7",
+   "bytes": 2829
+  },
+  "cycle-29-listener-1.framehash": {
+   "sha256": "5680918dcfc030e672e7663a8521c7e8f754ff8ee47cd6cc7e9f4f686016b498",
+   "bytes": 46943
+  },
+  "cycle-29-listener-1.progress": {
+   "sha256": "d1bd0793ad076c2f091ac0023aa48c830701543aa788ab6831ec66198c1f2850",
+   "bytes": 1446
+  },
+  "cycle-29-listener-2.ffmpeg.log": {
+   "sha256": "21bc556aaef4c24eb9dc07f2368bf895ba9d5159c8adb8fd0c9cfd0a6fd452dd",
+   "bytes": 2829
+  },
+  "cycle-29-listener-2.framehash": {
+   "sha256": "94c311c2ebf53a4b7c38fc3610b5ded5fee77f9ddffe73de60e9a13436836aca",
+   "bytes": 46943
+  },
+  "cycle-29-listener-2.progress": {
+   "sha256": "950180660750ff42a7275d49eaac5f461c80e34dc9040ac2bdd9034fe41cc0fd",
+   "bytes": 1445
+  },
+  "cycle-30-listener-1.ffmpeg.log": {
+   "sha256": "fe76099e7d7b86d795c61073a7ab861b4a39acdca1a64463fcd28049b3801b20",
+   "bytes": 2829
+  },
+  "cycle-30-listener-1.framehash": {
+   "sha256": "c5df1b3e246ec78d39a78aaf32b1147f62b4151c6f88745e9c82d02941584473",
+   "bytes": 46943
+  },
+  "cycle-30-listener-1.progress": {
+   "sha256": "6fa530815881bf60e9d0914e7290f8196b89b47231c3e5e60f8632ce12d19187",
+   "bytes": 1446
+  },
+  "cycle-30-listener-2.ffmpeg.log": {
+   "sha256": "2a39c89b5db4976ae1ccc1b9e1035bcfbdfdab0970718bfc1d4cff7d541d0ea4",
+   "bytes": 2829
+  },
+  "cycle-30-listener-2.framehash": {
+   "sha256": "c5df1b3e246ec78d39a78aaf32b1147f62b4151c6f88745e9c82d02941584473",
+   "bytes": 46943
+  },
+  "cycle-30-listener-2.progress": {
+   "sha256": "0a4dbe7db6d11c1c139aa1e03853c5ee0b583f9dc91b32fc9a02e348c5a9cf2e",
+   "bytes": 1446
+  },
+  "events.jsonl": {
+   "sha256": "c9949f6ace17f5376a6b55a3b1b7e1cd4eeb81eec62dbff3683902a4b67a4e59",
+   "bytes": 46517
+  },
+  "rejudge.json": {
+   "sha256": "e48e1dd7b5bc66fa8610455fdc118d0e77e49e294f574fedce86cfcdaf5a0686",
+   "bytes": 49207
+  },
+  "result.json": {
+   "sha256": "c7fefedba147b5b9af0a6ce6b8aee1347568c3febeae4f713b8273c4aecbcd87",
+   "bytes": 45237
+  }
+ },
+ "limits": [
+  "One run of thirty cycles on one image with quiet LINE IN and a wired receiver; nothing about hours of churn.",
+  "Idle slots in /api/metrics substitute for UART checked closes; no serial port was open.",
+  "Three listener cuts by the board in cycles 6 and 13 are reported as observations and on ek5b; their reason is not recorded here (no UART).",
+  "No allocator or heap change was made or proposed. PSRAM observed only as unchanged."
+ ]
+}

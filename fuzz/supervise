@@ -1,0 +1,40 @@
+#!/usr/bin/env bash
+# ABOUTME: Bounds a command's dedicated process group and records its final status.
+# ABOUTME: Terminates descendants on timeout or interruption, escalating after two seconds.
+set -euo pipefail
+[[ $# -ge 5 && $1 == --seconds && $3 == --status ]] || { echo 'Usage: supervise --seconds SECONDS --status FILE COMMAND [ARG...]' >&2; exit 2; }
+budget=$2
+receipt=$4
+shift 4
+[[ $budget =~ ^[0-9]+([.][0-9]+)?$ ]] || exit 2
+supervisor=$$
+setsid "$@" &
+group=$!
+(
+  sleep "$budget" & sleeper=$!
+  trap 'kill "$sleeper" 2>/dev/null || true; exit 0' TERM
+  wait "$sleeper"
+  kill -USR1 "$supervisor" 2>/dev/null || true
+) &
+alarm=$!
+finish() {
+  local status=$1
+  trap '' TERM INT USR1
+  kill "$alarm" 2>/dev/null || true
+  if kill -TERM -- "-$group" 2>/dev/null; then
+    sleep 2
+    kill -KILL -- "-$group" 2>/dev/null || true
+  fi
+  wait "$group" 2>/dev/null || true
+  wait "$alarm" 2>/dev/null || true
+  printf '%s\n' "$status" > "$receipt"
+  exit "$status"
+}
+trap 'finish 124' USR1
+trap 'finish 143' TERM
+trap 'finish 130' INT
+set +e
+wait "$group"
+status=$?
+set -e
+finish "$status"

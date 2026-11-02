@@ -1,0 +1,1443 @@
+{
+  "files": [
+    {
+      "mode": "0644",
+      "path": ".github/workflows/check.yml",
+      "sha256": "f2c8a6b4649680c266e6ceed4b9f961e0dcb348e436dbde09b1a41d8b3d283e5",
+      "size": 3255
+    },
+    {
+      "mode": "0644",
+      "path": ".gitignore",
+      "sha256": "3c80a00f4885a2075d50d3b365f3a0ae6d19f9448cab4706a6a2f445e50f4c25",
+      "size": 534
+    },
+    {
+      "mode": "0644",
+      "path": "Cargo.lock",
+      "sha256": "46d09b9cf8b6302b66bc96d7be2618930ae646e585e70d31b3ca07e20aa89be5",
+      "size": 92026
+    },
+    {
+      "mode": "0644",
+      "path": "Cargo.toml",
+      "sha256": "a3ee2772f1ec8e43cac058eaa46ba00d048eb2e8414814b657411dac8a886c99",
+      "size": 85
+    },
+    {
+      "mode": "0644",
+      "path": "LICENSE",
+      "sha256": "e57f1c320b8cf8798a7d2ff83a6f9e06a33a03585f6e065fea97f1d86db84052",
+      "size": 35150
+    },
+    {
+      "mode": "0644",
+      "path": "RECIPIENT-BUILD.md",
+      "sha256": "835010a62e1f83067c7efd9cfd1a92704cc19f6e7e6d2d71e7deb0d75ef0670f",
+      "size": 2625
+    },
+    {
+      "mode": "0644",
+      "path": "core/Cargo.toml",
+      "sha256": "d0d0e059ad2517848bce930f5db2781d8dc5a86035b13a7a79eb410b5760eefc",
+      "size": 991
+    },
+    {
+      "mode": "0644",
+      "path": "core/src/audio.rs",
+      "sha256": "264fbc7372167a28a3e1ecbd863da7a62b78bb9477e4208edd84bb5792d2d820",
+      "size": 29963
+    },
+    {
+      "mode": "0644",
+      "path": "core/src/capture_buffer.rs",
+      "sha256": "365f5639995b7d6fb196bb87e07d4fbddba1fa3f9357929cec974ff9fcb9528e",
+      "size": 19731
+    },
+    {
+      "mode": "0644",
+      "path": "core/src/capture_health.rs",
+      "sha256": "0a7fa7946b7cf9aa21ea37c4132c0277fee95aa9d1a1e8913853ccb341a2cfd1",
+      "size": 4155
+    },
+    {
+      "mode": "0644",
+      "path": "core/src/decimate.rs",
+      "sha256": "df011d8884e740e6e20d3abe5e63d2bd66458e9210002072c2f479bb6257ad49",
+      "size": 17633
+    },
+    {
+      "mode": "0644",
+      "path": "core/src/encoder_health.rs",
+      "sha256": "6a2882c5021067894f6c2fc9279525411fe905c18a888bd15d546c732b34581a",
+      "size": 13172
+    },
+    {
+      "mode": "0644",
+      "path": "core/src/fingerprinting/UPSTREAM.md",
+      "sha256": "fa41222292c225de8a974d31b39424d7da5bc775c3948b528b62c7c4058f5d89",
+      "size": 891
+    },
+    {
+      "mode": "0644",
+      "path": "core/src/fingerprinting/algorithm.rs",
+      "sha256": "b1b11509fb923d215f79f238c8ec8e510c19cc98be1e366e80e6d73c9f3b7968",
+      "size": 11471
+    },
+    {
+      "mode": "0644",
+      "path": "core/src/fingerprinting/hanning.rs",
+      "sha256": "9c87d08fed2cbe780b0f7d4fbe18b387b4dbeda28d11485fb65f4631699bc3e4",
+      "size": 25311
+    },
+    {
+      "mode": "0644",
+      "path": "core/src/fingerprinting/signature_format.rs",
+      "sha256": "df92fee1fd1071a455233c2a48fa2b9d96df1504dc36a258f4e3a7e735b03adb",
+      "size": 11629
+    },
+    {
+      "mode": "0644",
+      "path": "core/src/fingerprinting/user_agent.rs",
+      "sha256": "ac7e4eb9056f827ed3f6a8fc3d0f62829fca3adda7e15aabf1fd6006704faadc",
+      "size": 7391
+    },
+    {
+      "mode": "0644",
+      "path": "core/src/flac.rs",
+      "sha256": "01f0efabe7b759d4e09ef3ab66c5d5b75a12737713bf1664b29242134d472d46",
+      "size": 51371
+    },
+    {
+      "mode": "0644",
+      "path": "core/src/flac_ring.rs",
+      "sha256": "2c998210abdaf3d57c446a7668b6993e25a0e20995b3753d6ae734cc73675452",
+      "size": 20872
+    },
+    {
+      "mode": "0644",
+      "path": "core/src/lib.rs",
+      "sha256": "ad84a1d6e8817f9345686615e7dc777bc12a15ab3e230a9b2020a09a85563938",
+      "size": 1091
+    },
+    {
+      "mode": "0644",
+      "path": "core/src/media_age.rs",
+      "sha256": "6ad10f28feeeb7327327c116d2b3862deff8f5473c93249352af0e0a384ebf32",
+      "size": 3289
+    },
+    {
+      "mode": "0644",
+      "path": "core/src/network_lifecycle.rs",
+      "sha256": "c0a0f327d351162b98cf5ae3e74f2f727929422a4335cb7ca51ae0e3abb4bbab",
+      "size": 6560
+    },
+    {
+      "mode": "0644",
+      "path": "core/src/policy.rs",
+      "sha256": "2ff595bcec4a17095abf25cf64fe7899f0dd8d2ff0c3dfd92e03c03eb47deafc",
+      "size": 18161
+    },
+    {
+      "mode": "0644",
+      "path": "core/src/shazam.rs",
+      "sha256": "6214246f427be10cdb546fde2d49b40505c4ea18b2f6a8df84bf8a531fcb15d7",
+      "size": 9258
+    },
+    {
+      "mode": "0644",
+      "path": "core/src/signal.rs",
+      "sha256": "152e278446bf5c5cb723fd77ce7a57bfe87be1b57a83b40c90a555ebba829044",
+      "size": 4203
+    },
+    {
+      "mode": "0644",
+      "path": "core/src/sonos.rs",
+      "sha256": "4e9d4cbc35ef9f23a6caa71e8a35f087057016d6114d3e460d2ed205fde48ee7",
+      "size": 48800
+    },
+    {
+      "mode": "0644",
+      "path": "core/src/sonos_queue.rs",
+      "sha256": "9f24247c185c9fbb2c276f26e7b356862477265f22557fb3873fb7165b7ef69b",
+      "size": 16919
+    },
+    {
+      "mode": "0644",
+      "path": "core/src/sonos_upnp.rs",
+      "sha256": "8ceef3b55a725606200764b1a8d065df0a739f5d3c8422b7bace92ced0ae67f1",
+      "size": 38996
+    },
+    {
+      "mode": "0644",
+      "path": "core/src/sonos_web.rs",
+      "sha256": "04487dfd0a7dbb05c3fb3766e7078fd45fae10933362ade4bddc080c795e0625",
+      "size": 3450
+    },
+    {
+      "mode": "0644",
+      "path": "core/src/store.rs",
+      "sha256": "62c939c66f9eeeebabaddfd1129fd8cb3eaa68d1580f9abbc2d4aa0e603c3dbb",
+      "size": 14713
+    },
+    {
+      "mode": "0644",
+      "path": "core/src/stream_buffer.rs",
+      "sha256": "7ce4ce63cb1b34038c3c05561d627f4cd329888c620dd4c3f6ec16dc3f8287d1",
+      "size": 2714
+    },
+    {
+      "mode": "0644",
+      "path": "core/src/stream_http.rs",
+      "sha256": "019009982ed667ef5da9c8a6e9966bac54db0c03773c697686e7ee3f2b3979fb",
+      "size": 48445
+    },
+    {
+      "mode": "0644",
+      "path": "core/src/stream_ring.rs",
+      "sha256": "d23b1b3701fa2f28de98ed1028221fc93686a4f0276c984677ae62b5fdfe7d0e",
+      "size": 29199
+    },
+    {
+      "mode": "0644",
+      "path": "core/src/stream_wait.rs",
+      "sha256": "bb88f018803c10288e1d18f946b03cc6bf6e0aed75449d3ceae4e27f78bb685b",
+      "size": 48373
+    },
+    {
+      "mode": "0644",
+      "path": "core/src/stream_write.rs",
+      "sha256": "beb925c79d066641507a6edd2894f3ac88233951e8ca2f7c6ab91988a7a22816",
+      "size": 3008
+    },
+    {
+      "mode": "0644",
+      "path": "core/src/task_observation.rs",
+      "sha256": "fd9a924860b326388278bf85a5c8425dc885693934b799190da3f449eaf57083",
+      "size": 7785
+    },
+    {
+      "mode": "0644",
+      "path": "core/src/time.rs",
+      "sha256": "67ab98e3e2fd7f3212200d4dbcba68b29d7c660429adc90f54ea9ff0d3babd56",
+      "size": 1742
+    },
+    {
+      "mode": "0644",
+      "path": "core/src/wav.rs",
+      "sha256": "9b081d8a6922d9924353b39c46452fea13b9db7b80baf2e62bb5f2a20d14b1ce",
+      "size": 6357
+    },
+    {
+      "mode": "0644",
+      "path": "core/tests/audio_diagnostics.rs",
+      "sha256": "fabe48d66e77b2d6908449e7312f4565d8b1fee81034db2b1d452f397778e4d2",
+      "size": 13395
+    },
+    {
+      "mode": "0644",
+      "path": "core/tests/buffer_presets.rs",
+      "sha256": "87c9adf026fdab114bb1781b522f089e7ddddba77a22525d88ba90e8a81bc273",
+      "size": 20479
+    },
+    {
+      "mode": "0644",
+      "path": "core/tests/capture_failure_telemetry.rs",
+      "sha256": "cd59cb41decaa14136ef019f14c3a92de0304b45b94e68b7515822f03749fef9",
+      "size": 4890
+    },
+    {
+      "mode": "0644",
+      "path": "core/tests/capture_publication.rs",
+      "sha256": "e96dbe12016c6d21837b0ac8ee9c973a039e55d42a60f3d832bc8564f49711b4",
+      "size": 6696
+    },
+    {
+      "mode": "0644",
+      "path": "core/tests/capture_publication_events.rs",
+      "sha256": "d418b7de30b0a381f6e5d81b74c9a70370318e7a3499e9bc39edfa7c2eb10a57",
+      "size": 244
+    },
+    {
+      "mode": "0644",
+      "path": "core/tests/capture_settling_stats.rs",
+      "sha256": "72e0ba6183b81b87b15bc199a2e3d22638afd1aa856b4d0303a42bb0b6cede51",
+      "size": 2068
+    },
+    {
+      "mode": "0644",
+      "path": "core/tests/capture_timing.rs",
+      "sha256": "a803eb5ac90e10842740a0b1d075dec2ef3721f5cb31a085aa40c626450abd80",
+      "size": 1288
+    },
+    {
+      "mode": "0644",
+      "path": "core/tests/device_metrics.rs",
+      "sha256": "ca4672a06630a810adc90737bcec21d85faab9e0a87b13db4dba60175c885a39",
+      "size": 28747
+    },
+    {
+      "mode": "0644",
+      "path": "core/tests/device_metrics_http.rs",
+      "sha256": "74d41a2b3dfb9cf5df0afab9bad083e95a55c17a606b728b359fbe51f854e337",
+      "size": 8903
+    },
+    {
+      "mode": "0644",
+      "path": "core/tests/device_metrics_identity.rs",
+      "sha256": "2d378bde3af865ad23933ebbe215129a45f48ddf84680713df5eea4865894bc4",
+      "size": 1613
+    },
+    {
+      "mode": "0644",
+      "path": "core/tests/encoder_probe.rs",
+      "sha256": "e675898656fea61077af535e11a468994196a7b52a122dbe1fb8056361ea7768",
+      "size": 3429
+    },
+    {
+      "mode": "0644",
+      "path": "core/tests/encoder_telemetry.rs",
+      "sha256": "25d759dacd10d0571dbe3fa3cc05a23414daeb2524ccc99b99c5052ebb96d4c7",
+      "size": 15277
+    },
+    {
+      "mode": "0644",
+      "path": "core/tests/fixtures/sonos/README.md",
+      "sha256": "69c4a5f249a6a746089672bd1c77b1b4a17b6e4e25718b593643f4b7878a7722",
+      "size": 1344
+    },
+    {
+      "mode": "0644",
+      "path": "core/tests/fixtures/sonos/device.xml",
+      "sha256": "81b98781ac1a36924b81e66682bced6f0a4d2a85e795c06158cb7d2ed9123672",
+      "size": 3460
+    },
+    {
+      "mode": "0644",
+      "path": "core/tests/fixtures/sonos/media.xml",
+      "sha256": "0b3ac02a1a582b9ef7051df21f4d087fe0c4621b7a2967131983898b80cc7d89",
+      "size": 612
+    },
+    {
+      "mode": "0644",
+      "path": "core/tests/fixtures/sonos/play.xml",
+      "sha256": "704823e50cac9faeeb50c568a02093dc2a2d333aaf6dc484c55ed69cc3c8d255",
+      "size": 240
+    },
+    {
+      "mode": "0644",
+      "path": "core/tests/fixtures/sonos/set.xml",
+      "sha256": "31ad00f74c9d83de9fa73cb78bd05e95af0f63ed77fd45d22585ff82dbf86d61",
+      "size": 266
+    },
+    {
+      "mode": "0644",
+      "path": "core/tests/fixtures/sonos/stop.xml",
+      "sha256": "79115a775abb8bd40c102dbe452339425e010bdc39c4d8a1a269d25cf1d5f9e6",
+      "size": 240
+    },
+    {
+      "mode": "0644",
+      "path": "core/tests/fixtures/sonos/topology.xml",
+      "sha256": "926f1cae7d5eb97fe9ad5ffe8f46fc580d24db7ef76842cb24ac3d0249ee73e4",
+      "size": 1029
+    },
+    {
+      "mode": "0644",
+      "path": "core/tests/fixtures/sonos/transport.xml",
+      "sha256": "601fe611fb4897d37030934e8397df9e635e8b8a64b05b8b1f43e3199120802a",
+      "size": 405
+    },
+    {
+      "mode": "0644",
+      "path": "core/tests/fixtures/stream-replay/absence.json",
+      "sha256": "6a4df635fed97d435e6a581c06489e01271c11a739583168fcb5fe1000e65f79",
+      "size": 1405
+    },
+    {
+      "mode": "0644",
+      "path": "core/tests/fixtures/stream-replay/delivery.json",
+      "sha256": "077c343277855c769e8f5c0bfcd221fe42ba476ed508ea73079b0cffaead7c20",
+      "size": 1894
+    },
+    {
+      "mode": "0644",
+      "path": "core/tests/fixtures/stream-replay/disconnect-stale.json",
+      "sha256": "e2d105f8e349bfe8b83e863d55fe623d98a9586cf227adc4a6722d5277b9c71b",
+      "size": 3322
+    },
+    {
+      "mode": "0644",
+      "path": "core/tests/fixtures/stream-replay/header-error.json",
+      "sha256": "3ca183c95a5dcd8b05cf4b835b2f2a260512e884bbfab10fb6f0fccd9459d77d",
+      "size": 1036
+    },
+    {
+      "mode": "0644",
+      "path": "core/tests/fixtures/stream-replay/overrun.json",
+      "sha256": "9d7d894af652bb929c746a0b6558c81a23522e79c00cfa3f0047adeab69ee45f",
+      "size": 4721
+    },
+    {
+      "mode": "0644",
+      "path": "core/tests/fixtures/stream-replay/ownership.json",
+      "sha256": "efa4f8f8050fcacb798da6fd1573c3da6c9fd1e1666a009fc9e2179dd94d1921",
+      "size": 1717
+    },
+    {
+      "mode": "0644",
+      "path": "core/tests/fixtures/stream-replay/partial-minimized.json",
+      "sha256": "cc632e3dd6747217ae9edec0b4d0a382b25c9010036e38a56226131d60745d7f",
+      "size": 1877
+    },
+    {
+      "mode": "0644",
+      "path": "core/tests/fixtures/stream-replay/partial.json",
+      "sha256": "24699f1ff816211eca94695156ff99c88a430bf24946a29b4cfa5c4149a339be",
+      "size": 2540
+    },
+    {
+      "mode": "0644",
+      "path": "core/tests/fixtures/stream-replay/production-pause.json",
+      "sha256": "da158458931cf8ef5253f30bfaf82d78e471c28d03724d5372c4ceeb9e3ea958",
+      "size": 2821
+    },
+    {
+      "mode": "0644",
+      "path": "core/tests/fixtures/stream-replay/reset.json",
+      "sha256": "184d55ac5e33c547545a962fadbcb251d838641edb405601647b1746908a2442",
+      "size": 2483
+    },
+    {
+      "mode": "0644",
+      "path": "core/tests/flac_cost.rs",
+      "sha256": "73c2af05ea21ab178bbb1322e43a5ca73cc303b86b36c9ec95a7242131830b50",
+      "size": 2874
+    },
+    {
+      "mode": "0644",
+      "path": "core/tests/flac_ffmpeg.rs",
+      "sha256": "dda186589a93dfcbd5286cef8f7f3ebe62e1c35bd14e1aaf2caac43507f72bc0",
+      "size": 3301
+    },
+    {
+      "mode": "0644",
+      "path": "core/tests/flac_join_numbering.rs",
+      "sha256": "0bdbdf5ee43c2f8fec911ff213998244147bd62784063e76f61660fdcd876cd3",
+      "size": 10189
+    },
+    {
+      "mode": "0644",
+      "path": "core/tests/flac_ring_ffmpeg.rs",
+      "sha256": "24f071aba8d3284613912badb927f282174d5a48fae00e5f9e83f8d360b96eed",
+      "size": 4228
+    },
+    {
+      "mode": "0644",
+      "path": "core/tests/flac_stereo.rs",
+      "sha256": "505f2c0f760fd1204aff6f8923ded6979a527e34e5264ac57e1ccda7f3f45eb3",
+      "size": 6035
+    },
+    {
+      "mode": "0644",
+      "path": "core/tests/golden.rs",
+      "sha256": "722b85c39b1cc4fec59534d02b530f019b72659ed30e4f95e3f1f21daaf16e44",
+      "size": 2373
+    },
+    {
+      "mode": "0644",
+      "path": "core/tests/listener_frame_state.rs",
+      "sha256": "88acbb956f076d10e262779ca6e91d377e9736457deb0441652bbfb630261ae1",
+      "size": 9450
+    },
+    {
+      "mode": "0644",
+      "path": "core/tests/listener_observation.rs",
+      "sha256": "08b09c8b6f53f80c597b3512017e8ab72b205b263b56d7b8d170680087d1ff0f",
+      "size": 4347
+    },
+    {
+      "mode": "0644",
+      "path": "core/tests/listener_runtime_loom.rs",
+      "sha256": "a64b8babdc1c63de7793e6f940fa58671091ec7d69cd954478fdfb1b5752003d",
+      "size": 7365
+    },
+    {
+      "mode": "0644",
+      "path": "core/tests/listener_telemetry.rs",
+      "sha256": "944a9c1282d229cf8d8f425c9693eec3153f286f8268e8cd4ace7d3709a5ae28",
+      "size": 35455
+    },
+    {
+      "mode": "0644",
+      "path": "core/tests/listener_workers.rs",
+      "sha256": "5144103a48036d675ef7a62c7035788cb7087b9c961c2325f1526a8d057d618b",
+      "size": 8799
+    },
+    {
+      "mode": "0644",
+      "path": "core/tests/metrics_state_crossover.rs",
+      "sha256": "5969a2252dc72af8cd0331c33ba50e5a2ae425167a0f8696eb15437dd5aa34ef",
+      "size": 2414
+    },
+    {
+      "mode": "0644",
+      "path": "core/tests/mp3_iram_linker.rs",
+      "sha256": "fd26ce7c5aae2d08b1a714e1f26de45105ff9cbe39377b0f04d9b743225dd6ce",
+      "size": 6538
+    },
+    {
+      "mode": "0644",
+      "path": "core/tests/net_policy.rs",
+      "sha256": "6e9c05a7f1236f5119458f62047b72b78b9303fc89fc6eadd327e257f4f4a9e5",
+      "size": 1709
+    },
+    {
+      "mode": "0644",
+      "path": "core/tests/network_observation.rs",
+      "sha256": "e58ef14523d9b3377b5a0460160f9d6aa6ebcdc9afedcac48b90fd4c45cdbaff",
+      "size": 224
+    },
+    {
+      "mode": "0644",
+      "path": "core/tests/poll_departure.rs",
+      "sha256": "9991582b3a7ab26c75d57b29b1d4b1c4165c5b8119446a572196b2250de5b106",
+      "size": 6555
+    },
+    {
+      "mode": "0644",
+      "path": "core/tests/recognition_admission.rs",
+      "sha256": "e2e7f5b220642b66876c94f04dd35adf698674600775a7b6f374c2e6fc3ecc44",
+      "size": 7065
+    },
+    {
+      "mode": "0644",
+      "path": "core/tests/recognition_feed.rs",
+      "sha256": "0baef757f3c34eedbf3d3726146ccc5b2dc022f4885cbf2fa1e4a2536f19e852",
+      "size": 5772
+    },
+    {
+      "mode": "0644",
+      "path": "core/tests/replay_pipeline.rs",
+      "sha256": "b6af4287d3e560a958c15523c2e7615a3aa795e79ebf0d5722e909f7676825e8",
+      "size": 33396
+    },
+    {
+      "mode": "0644",
+      "path": "core/tests/replay_wait.rs",
+      "sha256": "85b5b093c20515c8b4f2d12adfd36d0f910f54a1cf32114d5ef69bcfc530850e",
+      "size": 3608
+    },
+    {
+      "mode": "0644",
+      "path": "core/tests/runtime_format.rs",
+      "sha256": "c932a38ed2095b0e468895b8e54be145b88816329e6f587fff58847414013b51",
+      "size": 2510
+    },
+    {
+      "mode": "0644",
+      "path": "core/tests/runtime_switch.rs",
+      "sha256": "92ec449caa9e70ac70658abd31b1935c8d0e55e24026911d715675c4ddeacb75",
+      "size": 12328
+    },
+    {
+      "mode": "0644",
+      "path": "core/tests/shazam_fixtures.rs",
+      "sha256": "7a85cfb79185810289752fc3edf97f99ac1ca6ad1653cb3bb61e64c7e0911e74",
+      "size": 1498
+    },
+    {
+      "mode": "0644",
+      "path": "core/tests/sonos_adapter.rs",
+      "sha256": "f6a6ab2be8fff285334ddad486f065609144744aa39e1d7415722d0103169e26",
+      "size": 983
+    },
+    {
+      "mode": "0644",
+      "path": "core/tests/sonos_upnp_http.rs",
+      "sha256": "4295b7b631319951f967ba71bb3946351b61061d67f66b2450157783d69e46e5",
+      "size": 658
+    },
+    {
+      "mode": "0644",
+      "path": "core/tests/sonos_web_http.rs",
+      "sha256": "4954bdbf25ef208eb1fc04c8b9facc72afa32cf9714560673128123fae2af99d",
+      "size": 5247
+    },
+    {
+      "mode": "0644",
+      "path": "core/tests/startup_capture_trace.rs",
+      "sha256": "5b80ef99fe97b0aca7fad90df854641966f0be5d435711e04236885a7ed2eabe",
+      "size": 2171
+    },
+    {
+      "mode": "0644",
+      "path": "core/tests/stream_admission.rs",
+      "sha256": "1057d97106f326640b4898b6c53def67812b22b1f747fb43719b90bf65d798f1",
+      "size": 18165
+    },
+    {
+      "mode": "0644",
+      "path": "core/tests/stream_codec.rs",
+      "sha256": "ef90e0aa4e3fb60792fd3a4103c6e31bea98f0fc2c969dc1246332d82c5075a5",
+      "size": 7688
+    },
+    {
+      "mode": "0644",
+      "path": "core/tests/stream_codec_profile.rs",
+      "sha256": "b344b680ba52d2efe50a18e7eb574f8b5d75f79228e8946646c40da97cf7d7cd",
+      "size": 1726
+    },
+    {
+      "mode": "0644",
+      "path": "core/tests/stream_limits.rs",
+      "sha256": "d6cfe51e7116484230030376c26465579b249774c9c8f69bbcfe75a0a9fefbf2",
+      "size": 4611
+    },
+    {
+      "mode": "0644",
+      "path": "core/tests/stream_network_query.rs",
+      "sha256": "96a822cb5eea119250529017d0b60b231c246a18c726462f50ea4696bf6c011f",
+      "size": 1654
+    },
+    {
+      "mode": "0644",
+      "path": "core/tests/stream_properties.rs",
+      "sha256": "bc82e638fbd552396f6f80a9f23dbc53d6d9d210f7d681538528ebbb31edd104",
+      "size": 12933
+    },
+    {
+      "mode": "0644",
+      "path": "core/tests/stream_replay.rs",
+      "sha256": "ec40e3e25fa574b0b789f56f545ca478e8eb95ba1dd5cbf39a28b136d148fe0d",
+      "size": 13660
+    },
+    {
+      "mode": "0644",
+      "path": "core/tests/stream_write_replay.rs",
+      "sha256": "b7276aef4c0cbba396c6fe2433ae6ac0f243aabba0d4f2f530676913555c6067",
+      "size": 8689
+    },
+    {
+      "mode": "0644",
+      "path": "core/tests/support/listener_runtime_models.rs",
+      "sha256": "f79edd0eff614f6dd3d2ba7641f57e37a8add190d2322e10c4905f7e996055a2",
+      "size": 6566
+    },
+    {
+      "mode": "0644",
+      "path": "core/tests/support/replay.rs",
+      "sha256": "98fe59a09e02468eaf053251065d57206be8f803e4a8b193c536e3af49ef9c20",
+      "size": 41503
+    },
+    {
+      "mode": "0644",
+      "path": "core/tests/thread_spawn.rs",
+      "sha256": "57b33569c6e789ee83309106f2bc54c47b0c7b4a8ec2063181b57c58811b99d5",
+      "size": 2137
+    },
+    {
+      "mode": "0644",
+      "path": "core/tests/wait_characterization.rs",
+      "sha256": "f29ee39aaad77f56375fb866a4b85325ef7045000bafa226f6e0c00c416df8c6",
+      "size": 944
+    },
+    {
+      "mode": "0644",
+      "path": "docs/audit-evidence/2026-10-13/shine-review.json",
+      "sha256": "87dddf03c13e108891ef561163cabd83d9ac3e592492afde86bebaeb07a6d0d3",
+      "size": 10763
+    },
+    {
+      "mode": "0644",
+      "path": "docs/audit-evidence/2026-10-13/shine-review.md",
+      "sha256": "f760e10e5a85b092993908e033882828b0707b95294731094ba58831d8101d3a",
+      "size": 6173
+    },
+    {
+      "mode": "0644",
+      "path": "firmware/.cargo/config.toml",
+      "sha256": "a37f633f39e4250b7ed51af84c7fd17ae8cbfbfa511ce316ee1fab492928a477",
+      "size": 719
+    },
+    {
+      "mode": "0644",
+      "path": "firmware/Cargo.lock",
+      "sha256": "86e2f11a004f9f8e3bde47f83aa29dade4de27c18145acb5e405f8b048e3691c",
+      "size": 48889
+    },
+    {
+      "mode": "0644",
+      "path": "firmware/Cargo.toml",
+      "sha256": "5a7dc89a1a2d599dd375801bcfabd51db1168fc7ac1605cfda5eb959f8d18cb9",
+      "size": 2782
+    },
+    {
+      "mode": "0644",
+      "path": "firmware/assets/sonos-roots.PROVENANCE.md",
+      "sha256": "d0b4f0e633206b70d8aba3dd6333c4f900fe203d8120573617d80336c3688061",
+      "size": 3609
+    },
+    {
+      "mode": "0644",
+      "path": "firmware/assets/sonos-roots.pem",
+      "sha256": "7c57f74c70c9f91cb54225ef5ec5ef16c1da90a72a0ee6c1f1700760339f3ef8",
+      "size": 4289
+    },
+    {
+      "mode": "0644",
+      "path": "firmware/bindings/diagnostics.h",
+      "sha256": "c530ec1b811e786fdfb5cde761f07a1f299eb7725b9202a437a9d3ba6e59f2dd",
+      "size": 201
+    },
+    {
+      "mode": "0644",
+      "path": "firmware/bindings/tcp-retention.h",
+      "sha256": "ebd98cb69fb6357c3181c24497ed9a2d025b9808683bfc1e0b7c203e43bd1bbe",
+      "size": 247
+    },
+    {
+      "mode": "0644",
+      "path": "firmware/build.rs",
+      "sha256": "42084406f12222948c2e8dfcbcde0811cf1181e3146f09ff63ddc344f24cd4b8",
+      "size": 1192
+    },
+    {
+      "mode": "0644",
+      "path": "firmware/build_support/mp3_iram.rs",
+      "sha256": "42fcafad0a08f15ce104322577243020b3c9f2ee216acf04d859ed3ac40f5f0a",
+      "size": 3434
+    },
+    {
+      "mode": "0644",
+      "path": "firmware/cfg.toml.example",
+      "sha256": "7ae7fe6fef4f4bb47733a3f9fa40fbf624efe6d6aed507a3c7b193afb5b7f731",
+      "size": 720
+    },
+    {
+      "mode": "0644",
+      "path": "firmware/components_esp32.lock",
+      "sha256": "5d476d4bc00866df9137b0cc50ae6d3ce12a3a4845598b2e0cb434bf9a1a2945",
+      "size": 840
+    },
+    {
+      "mode": "0644",
+      "path": "firmware/examples/capture-faults.rs",
+      "sha256": "680d02dc7fdf74f6d56bf55a49bdb081b2fa5b6deaacc51548a666dcf728f4a8",
+      "size": 3704
+    },
+    {
+      "mode": "0644",
+      "path": "firmware/examples/capture-publication.rs",
+      "sha256": "f44cc072378d144d1beba6560e41e4ff576a13db169717ea51e3a4c412fed707",
+      "size": 453
+    },
+    {
+      "mode": "0644",
+      "path": "firmware/examples/capture-settling.rs",
+      "sha256": "e9ba1ce8ca11374078ca094c17a2e04f2e9cf757de6bcf1821760ce6123081ee",
+      "size": 10811
+    },
+    {
+      "mode": "0644",
+      "path": "firmware/examples/capture-settling/stats.rs",
+      "sha256": "a09e306803049a0ad9783e97a89fef155d2ef3c479082bfa2e4b6e7b97f03f61",
+      "size": 1275
+    },
+    {
+      "mode": "0644",
+      "path": "firmware/examples/encoder-faults.rs",
+      "sha256": "abc14de8a058a1860c6bf532bd8f501c1e820b879acb96e0e76fcc2f31562b52",
+      "size": 4121
+    },
+    {
+      "mode": "0644",
+      "path": "firmware/examples/flac-cost.rs",
+      "sha256": "d09293220cdbebc939081b6e879e43cf4534ca05a6c483d9de62d841e75df71a",
+      "size": 5723
+    },
+    {
+      "mode": "0644",
+      "path": "firmware/examples/flac-cost/contract.rs",
+      "sha256": "bd2a4743f8bfeec06bcacc036c3f24f0121e7eda27408a42e8ff91354f8dbe0a",
+      "size": 2404
+    },
+    {
+      "mode": "0644",
+      "path": "firmware/examples/heap-coredump.rs",
+      "sha256": "cee6c5e1ea79e8b3f2f16819ca7bd768f12c2b0f4feff1adad15259840a101bc",
+      "size": 9229
+    },
+    {
+      "mode": "0644",
+      "path": "firmware/examples/internal-pressure.rs",
+      "sha256": "95f51d5d9fa0aed094d432035d00556f8586011e09694fe888edd44243eae5f9",
+      "size": 12052
+    },
+    {
+      "mode": "0644",
+      "path": "firmware/examples/listener-pressure.rs",
+      "sha256": "36afcd65a596c7f09e7d25d9352677e5163676acd6c31f480b3df969b42a7f4e",
+      "size": 5202
+    },
+    {
+      "mode": "0644",
+      "path": "firmware/examples/network-faults.rs",
+      "sha256": "96f010e7707397200591e623f55cb1fb3c1bb3c74946eb672c86e038a5ef1210",
+      "size": 2085
+    },
+    {
+      "mode": "0644",
+      "path": "firmware/examples/nvs-capture.rs",
+      "sha256": "34144a2ce5ffe59197e76f7bd0672578cb789f518c0d3dec36764c698fcb9a84",
+      "size": 5356
+    },
+    {
+      "mode": "0644",
+      "path": "firmware/examples/psram-check.rs",
+      "sha256": "af7bb165c748bd95afa4d80c24c18abe8b0950a52db5b56856596051c420f72e",
+      "size": 5040
+    },
+    {
+      "mode": "0644",
+      "path": "firmware/examples/sonos-check.rs",
+      "sha256": "6eb094aca857ecdf5abf23781d6c8ddb56eb32f5980356febeb8a8c0e4f37ce4",
+      "size": 3078
+    },
+    {
+      "mode": "0644",
+      "path": "firmware/examples/tcp-retention.rs",
+      "sha256": "5c1451700048f168f2c772602258bf789f177f494cacd3e8c335b4d37ddb4e92",
+      "size": 17260
+    },
+    {
+      "mode": "0644",
+      "path": "firmware/examples/tls-capture.rs",
+      "sha256": "3f0ad21107ab0472797636aec8166b4adcec6292ac7c811bcf6ebb6f1a91cf1b",
+      "size": 12513
+    },
+    {
+      "mode": "0644",
+      "path": "firmware/examples/wav-freshness.rs",
+      "sha256": "585a3eddc43f8b18c88f0d3f2d9f0744d1be360cf7925c4765aa03144c1354ed",
+      "size": 9924
+    },
+    {
+      "mode": "0644",
+      "path": "firmware/examples/wifi-throughput.rs",
+      "sha256": "0064d49dab6877208b85ef9111a7e3672b701780b8b7af4ba7cfdcefdaeed4f6",
+      "size": 7550
+    },
+    {
+      "mode": "0644",
+      "path": "firmware/partitions.csv",
+      "sha256": "0f19e8c75a43382ce745837a73839f39fb3a12f5ed90c6278e086bd1238d7dde",
+      "size": 166
+    },
+    {
+      "mode": "0644",
+      "path": "firmware/rust-toolchain.toml",
+      "sha256": "6cf0a2df390965b31e8fb2ef2a15cdf5811ddc7f6dfa50f8ba0f749a618cc1ca",
+      "size": 28
+    },
+    {
+      "mode": "0644",
+      "path": "firmware/sdkconfig.defaults",
+      "sha256": "51eda39804790a2a66c33647ab788d08c040a6708ce243e114f9c5c23c315ad9",
+      "size": 4211
+    },
+    {
+      "mode": "0644",
+      "path": "firmware/sdkconfig.diagnostics.defaults",
+      "sha256": "97534b2a21dc59e955683776ee6c7a582e40dd0d1da02a9b2b439d81234cb593",
+      "size": 614
+    },
+    {
+      "mode": "0644",
+      "path": "firmware/src/app.js",
+      "sha256": "a3f6cf335442ef7c219dbd4987ef21acd1994544f85d502bcebbf2008f1c415a",
+      "size": 8440
+    },
+    {
+      "mode": "0644",
+      "path": "firmware/src/audio_in.rs",
+      "sha256": "b9cf78289780ef5f5f83e90b9b48324663613c20d37b9490d9d0ff43a5a1e607",
+      "size": 39984
+    },
+    {
+      "mode": "0644",
+      "path": "firmware/src/capture_failure_telemetry.rs",
+      "sha256": "f48ce279454b7e7cafce0edd8b4e0a1f660d53c802e9f1e5a1e078406008c519",
+      "size": 4233
+    },
+    {
+      "mode": "0644",
+      "path": "firmware/src/capture_fixture.rs",
+      "sha256": "00304270e8fd2081a70d4913724d472b497f0d3c54c512f0e3c6ecb3efb07b06",
+      "size": 11817
+    },
+    {
+      "mode": "0644",
+      "path": "firmware/src/capture_fixture/events.rs",
+      "sha256": "08d331731274f0d20ef8b64cd8ebc37afc812e02effbbcd4e588d3b700acdb27",
+      "size": 1907
+    },
+    {
+      "mode": "0644",
+      "path": "firmware/src/capture_timing.rs",
+      "sha256": "593019029ced215792ed042e570808ae936197ded4a751ac040682aaaf58cbf5",
+      "size": 989
+    },
+    {
+      "mode": "0644",
+      "path": "firmware/src/codec.rs",
+      "sha256": "c130abfaf178c7ba38e4da06910012288e355d81a66759bb81b64d5218b9aea2",
+      "size": 3163
+    },
+    {
+      "mode": "0644",
+      "path": "firmware/src/config.rs",
+      "sha256": "14dbe6e762041216bc4d9cd23878ea68dd1bff73ae8b740e9af9bf867c1f2709",
+      "size": 1890
+    },
+    {
+      "mode": "0644",
+      "path": "firmware/src/device_metrics.rs",
+      "sha256": "6e5a2f3c383d0885f0ee5236199c895a9419e01307c2110cdc15643c0ef74c5f",
+      "size": 28667
+    },
+    {
+      "mode": "0644",
+      "path": "firmware/src/device_metrics_identity.rs",
+      "sha256": "3e26b850125932599585ad66e3f8a5037d1be988587fe37f7470788a50176df6",
+      "size": 2063
+    },
+    {
+      "mode": "0644",
+      "path": "firmware/src/encoder_probe.rs",
+      "sha256": "59d515171a48808247fb7df09f43cbd3a9f0e0d14f84d50e0a207f85fa93387c",
+      "size": 4851
+    },
+    {
+      "mode": "0644",
+      "path": "firmware/src/encoder_telemetry.rs",
+      "sha256": "f1408a4227b0895c6d6356741111b02f6cf0285fac09527bfac4076d7670ad77",
+      "size": 15771
+    },
+    {
+      "mode": "0644",
+      "path": "firmware/src/i2s_capture.rs",
+      "sha256": "c1cd66dd5f5f85f9e73e44cfe9bd898a11ae68c98f255cf13593fd04442f59a8",
+      "size": 7311
+    },
+    {
+      "mode": "0644",
+      "path": "firmware/src/index.html",
+      "sha256": "5b1899cb92e074636b1097745ae222c1b2e83fac3543bd4c67d263344c578a66",
+      "size": 1870
+    },
+    {
+      "mode": "0644",
+      "path": "firmware/src/lib.rs",
+      "sha256": "0eabc0e96ecc19663ceb43f78fd0806b1e3d2aa50a7580542cd459f506a3a6de",
+      "size": 4765
+    },
+    {
+      "mode": "0644",
+      "path": "firmware/src/listener_frame_state.rs",
+      "sha256": "680a90fb07fa4b92bf944fab1c5f9a6a356a387a76d518978fd37d6932c53cc5",
+      "size": 18732
+    },
+    {
+      "mode": "0644",
+      "path": "firmware/src/listener_observation.rs",
+      "sha256": "9e642fceb91f50e27a3088c02c4676ab643a7fd98ce60697aa4c8fd57c95182c",
+      "size": 9302
+    },
+    {
+      "mode": "0644",
+      "path": "firmware/src/listener_telemetry.rs",
+      "sha256": "899c77ab536c65f886c44b5a2fb8069970bacf7d6b13eebc28b47f2923507195",
+      "size": 16299
+    },
+    {
+      "mode": "0644",
+      "path": "firmware/src/main.rs",
+      "sha256": "e56db5b0a856796f4b503f6074912c2d24c592b0ba728f0221a4ea8d11289d23",
+      "size": 231
+    },
+    {
+      "mode": "0644",
+      "path": "firmware/src/metrics_state_crossover.rs",
+      "sha256": "d3651ef6036540ad0115fc2e8dad6a30f1b6acefa4f039ce10ecfbd04c689f38",
+      "size": 1650
+    },
+    {
+      "mode": "0644",
+      "path": "firmware/src/mqtt_out.rs",
+      "sha256": "cd1efe0cf27635df599a8a1056435217cb527c4667b28a38190bfc69118de856",
+      "size": 3369
+    },
+    {
+      "mode": "0644",
+      "path": "firmware/src/net.rs",
+      "sha256": "353cf378747d982e2d6a578a7d889365c999bfb9bc6a6f8cac6430f411c42bc8",
+      "size": 11429
+    },
+    {
+      "mode": "0644",
+      "path": "firmware/src/net_policy.rs",
+      "sha256": "9f78aa8f8c887fc6d9cb3a36790d49197d58370007fd251c533bea53791cecf2",
+      "size": 724
+    },
+    {
+      "mode": "0644",
+      "path": "firmware/src/network_observation.rs",
+      "sha256": "2aaf5cc31d28122495dc01db02ccf20821733b35d0eb78f1a4c1973beca6237c",
+      "size": 1144
+    },
+    {
+      "mode": "0644",
+      "path": "firmware/src/psram.rs",
+      "sha256": "331235e712c2c21236b8af47b03f13522c86735d00b9eab1756d82ebe1bb8560",
+      "size": 3273
+    },
+    {
+      "mode": "0644",
+      "path": "firmware/src/recognition_admission.rs",
+      "sha256": "731c8c67f99cccb0847fc57a29c757409d7695baada52439dc6cc433de29cdde",
+      "size": 1091
+    },
+    {
+      "mode": "0644",
+      "path": "firmware/src/recognition_feed.rs",
+      "sha256": "445af184b249237b78aa77212168df8c99cf1ae56b886ba9d2b38bbf4e533aa0",
+      "size": 1736
+    },
+    {
+      "mode": "0644",
+      "path": "firmware/src/recognizer.rs",
+      "sha256": "17f6d27cc4fc68eaa4c3fec62a2173dbd76ca6a76ddf235b907b999ac527ce5e",
+      "size": 6848
+    },
+    {
+      "mode": "0644",
+      "path": "firmware/src/settings.html",
+      "sha256": "d3ff765acc1d8ad061d612c3707771412322ad84d54a84521c1d73abec02c60a",
+      "size": 1670
+    },
+    {
+      "mode": "0644",
+      "path": "firmware/src/shazam_http.rs",
+      "sha256": "820f56640e65f9836d37c71cdfe7c385a5a6e6f53e429cc16ab9135f82e53c53",
+      "size": 2937
+    },
+    {
+      "mode": "0644",
+      "path": "firmware/src/socket_close.rs",
+      "sha256": "342902ed53198301067e78c623a2208162e0236c12f1d71315879744edcc442b",
+      "size": 3531
+    },
+    {
+      "mode": "0644",
+      "path": "firmware/src/sonos.rs",
+      "sha256": "fd1357534d9ddc3598c0413de7dd80b6d43496ea4cc8b239d99d57cc017d7bfa",
+      "size": 144951
+    },
+    {
+      "mode": "0644",
+      "path": "firmware/src/startup_capture_trace.rs",
+      "sha256": "ec5e9a0dc0dad7668f9d71b76afa1a277c61f2575e07a8a302f97acec54aec0d",
+      "size": 6186
+    },
+    {
+      "mode": "0644",
+      "path": "firmware/src/stream.rs",
+      "sha256": "a26f24538299b9c6e74f64af6c00b380d4cab13269c1e026cf481813509c8f69",
+      "size": 71443
+    },
+    {
+      "mode": "0644",
+      "path": "firmware/src/stream_admission.rs",
+      "sha256": "55adee26be56e61312f7ee4ebe4748d2c080b621b8b687d9bd2a3e3531b42884",
+      "size": 3785
+    },
+    {
+      "mode": "0644",
+      "path": "firmware/src/stream_codec.rs",
+      "sha256": "b08276f2e5ec50e20a68b968ded9a4a8e7c4d3188e438f1e510e7d00fa96b650",
+      "size": 7674
+    },
+    {
+      "mode": "0644",
+      "path": "firmware/src/stream_health.rs",
+      "sha256": "4934107e223aa05347914c585fa814b7067632565693762a6f1fe09dd917fbb6",
+      "size": 11513
+    },
+    {
+      "mode": "0644",
+      "path": "firmware/src/stream_limits.rs",
+      "sha256": "1783be1a152ad36d4ccbd6e0fd4d1fdfa3e879f7650cee833f47c1cc8e2df8fc",
+      "size": 908
+    },
+    {
+      "mode": "0644",
+      "path": "firmware/src/stream_pipeline.rs",
+      "sha256": "dc7b9c8d5cd47b35b2a9a08300a76b6013a9ce25e27911e1104c6616af027120",
+      "size": 30476
+    },
+    {
+      "mode": "0644",
+      "path": "firmware/src/stream_runtime.rs",
+      "sha256": "012480105369ab04a172aad133ba891f5045f3627a8b17e1bc9859b214cc8928",
+      "size": 18187
+    },
+    {
+      "mode": "0644",
+      "path": "firmware/src/stream_workers.rs",
+      "sha256": "89ddaaef4b0e789df39e3dd3cb28e9e29326652ad3a06b99db4f61e38f32588c",
+      "size": 3996
+    },
+    {
+      "mode": "0644",
+      "path": "firmware/src/style.css",
+      "sha256": "57d3ffbeca023112af642d8fd2d2218c937841b951641192eefbd85d49193592",
+      "size": 1440
+    },
+    {
+      "mode": "0644",
+      "path": "firmware/src/threads.rs",
+      "sha256": "734594d603f60cef5927e312dcce2239e52cd5a88cf1ee0da45951f0f4bddfe0",
+      "size": 2260
+    },
+    {
+      "mode": "0644",
+      "path": "firmware/src/web.rs",
+      "sha256": "2dafce85cc03920219588e7a1f4f7df22acb245c975d21017daab629f65e0809",
+      "size": 22314
+    },
+    {
+      "mode": "0644",
+      "path": "mise.toml",
+      "sha256": "2571edb91cdd08f90bbf887cd8a6f9f6a87d572d29fef4dbfd9177cb3fa97af4",
+      "size": 1191
+    },
+    {
+      "mode": "0644",
+      "path": "mp3/Cargo.toml",
+      "sha256": "dac50da921c4bfa8a7658454e2e6336ae0e6bd0d37a6609e34bc87fe59591a96",
+      "size": 340
+    },
+    {
+      "mode": "0644",
+      "path": "mp3/build.rs",
+      "sha256": "3ae6ab4ca6527c43becb62a8a2d0ad5076a4f084b391e5fc433a41c3ad492d3a",
+      "size": 1729
+    },
+    {
+      "mode": "0644",
+      "path": "mp3/src/bridge.c",
+      "sha256": "abc352b6740f607e9fa22c7761e7e63d9963d0feca0a0f7bb0c2afed17524d6a",
+      "size": 2260
+    },
+    {
+      "mode": "0644",
+      "path": "mp3/src/lib.rs",
+      "sha256": "dd516d3766284a3c5ceed2ac4c129e55dcb5b6c400d32e35639917f4b27d1731",
+      "size": 6349
+    },
+    {
+      "mode": "0644",
+      "path": "mp3/tests/decode.rs",
+      "sha256": "dbbb225e7108a660add4e528f0a8994eb6b569f4e0ebaa088e61356cc35a8e71",
+      "size": 4959
+    },
+    {
+      "mode": "0644",
+      "path": "mp3/tests/encoder.rs",
+      "sha256": "b0229db2a05e5359fcd9e90fcdddcb5ac6d743c721e35dd87753f853eb0818cf",
+      "size": 5002
+    },
+    {
+      "mode": "0644",
+      "path": "mp3/vendor/shine/COPYING",
+      "sha256": "517c8bbea53e7257be86efaaba4c0b83effc386e4d84e0b6a33e025266ddb74e",
+      "size": 25767
+    },
+    {
+      "mode": "0644",
+      "path": "mp3/vendor/shine/UPSTREAM.md",
+      "sha256": "e33e789ee917fe5914235ff25bc3e349ab430b96ea687624d8236110f94dcd63",
+      "size": 4860
+    },
+    {
+      "mode": "0644",
+      "path": "mp3/vendor/shine/bitstream.c",
+      "sha256": "44665c9d1516e4a48ebb459064c81d7bd828fe84a522adb0d38fc1546cf8526e",
+      "size": 2191
+    },
+    {
+      "mode": "0644",
+      "path": "mp3/vendor/shine/bitstream.h",
+      "sha256": "041a4afa73d1d3be06ef0825dffcc3d7ce1140d480cba97ea2d23587bc3cbf57",
+      "size": 1213
+    },
+    {
+      "mode": "0644",
+      "path": "mp3/vendor/shine/huffman.c",
+      "sha256": "3cbd7f3a410870493b0bf68a42913b53c54eb8bbfc2e4c37f8a09c920b972df3",
+      "size": 15689
+    },
+    {
+      "mode": "0644",
+      "path": "mp3/vendor/shine/huffman.h",
+      "sha256": "5c0daa50a28c8ac836fd3e7be61df75d3e0506267e8e79b4f63b955c04a656d4",
+      "size": 880
+    },
+    {
+      "mode": "0644",
+      "path": "mp3/vendor/shine/l3bitstream.c",
+      "sha256": "6b8d01088f823b2d4c7d926bdb9e078faf3d0a93ef976df3da141f5a2e08fe60",
+      "size": 9327
+    },
+    {
+      "mode": "0644",
+      "path": "mp3/vendor/shine/l3bitstream.h",
+      "sha256": "7d09cbf7107191de7692e4d9d07d261a7f8ab9bcc40df2b887658c83642bb880",
+      "size": 147
+    },
+    {
+      "mode": "0644",
+      "path": "mp3/vendor/shine/l3loop.c",
+      "sha256": "a5677927bc4fbd8795f5de47b1c3fb3dbe5a7fc57df9b26fb00209911f8243dd",
+      "size": 23334
+    },
+    {
+      "mode": "0644",
+      "path": "mp3/vendor/shine/l3loop.h",
+      "sha256": "1e4cc8d8200b1e7ab7445dcb2c8ccdc41f55873f2bc921e2b281b66f18502716",
+      "size": 187
+    },
+    {
+      "mode": "0644",
+      "path": "mp3/vendor/shine/l3mdct.c",
+      "sha256": "dfc90eb9f3c31577d467d42abb8d2c2da40366e58b6cd02d707517f040874a43",
+      "size": 5959
+    },
+    {
+      "mode": "0644",
+      "path": "mp3/vendor/shine/l3mdct.h",
+      "sha256": "acf6ce1571ebee244044a68b24dd03777b789df7be733ea27e21a35d54530e6b",
+      "size": 199
+    },
+    {
+      "mode": "0644",
+      "path": "mp3/vendor/shine/l3subband.c",
+      "sha256": "fccfcc3c5b7b7d0bffb47c35df734bea42d291982730c5715fd8c4e7cc78d3a3",
+      "size": 4859
+    },
+    {
+      "mode": "0644",
+      "path": "mp3/vendor/shine/l3subband.h",
+      "sha256": "d25f8a66fdc2401eb6d6f571d69594fae6a8fb34728d4efddf1d0b1212de4251",
+      "size": 313
+    },
+    {
+      "mode": "0644",
+      "path": "mp3/vendor/shine/layer3.c",
+      "sha256": "6d41c15cf6a2d57ac2969f848c445004eea37727efa011007f19cce0e7c26c38",
+      "size": 6867
+    },
+    {
+      "mode": "0644",
+      "path": "mp3/vendor/shine/layer3.h",
+      "sha256": "80bf1187280edf4886ca24e27c62393023b5a7ed227f694ff3cf4138f00f3f90",
+      "size": 5501
+    },
+    {
+      "mode": "0644",
+      "path": "mp3/vendor/shine/mult_mips_gcc.h",
+      "sha256": "3b69725742c3303ed2e899e92670373ecbcbee33605cf590e84e6a5fa1f4b56b",
+      "size": 2552
+    },
+    {
+      "mode": "0644",
+      "path": "mp3/vendor/shine/mult_noarch_gcc.h",
+      "sha256": "f6094c3ab0ad58130a027867ed8d1a646d63dd4c83ecddd751adec07c6c4e60a",
+      "size": 1573
+    },
+    {
+      "mode": "0644",
+      "path": "mp3/vendor/shine/mult_sarm_gcc.h",
+      "sha256": "39b8c8166614b0b53bf8e63392ace988813dfe520149af5596a038f34af552e5",
+      "size": 5941
+    },
+    {
+      "mode": "0644",
+      "path": "mp3/vendor/shine/reservoir.c",
+      "sha256": "5754e370cc3dae68a02adf049fdf30a55628fe113191407d82ba32f8352c7770",
+      "size": 3759
+    },
+    {
+      "mode": "0644",
+      "path": "mp3/vendor/shine/reservoir.h",
+      "sha256": "6a24ddb678f635b1d97703468c91d7209a76d47b8d5265d195b95f3222734b92",
+      "size": 343
+    },
+    {
+      "mode": "0644",
+      "path": "mp3/vendor/shine/tables.c",
+      "sha256": "94af116b5aa89c21116a7874f2d66b893dc8ec8342a19e03711c3a38a9bdd261",
+      "size": 10122
+    },
+    {
+      "mode": "0644",
+      "path": "mp3/vendor/shine/tables.h",
+      "sha256": "c6e3872b6b480cea63989f6ddefe20409deb21b9207cde1e0616143981a3cd55",
+      "size": 315
+    },
+    {
+      "mode": "0644",
+      "path": "mp3/vendor/shine/types.h",
+      "sha256": "668de0f839dea6b6b994f5e78d89ca18a48b9da9fefdd30fb44cc33defacfe46",
+      "size": 5038
+    },
+    {
+      "mode": "0644",
+      "path": "mp3/vendor/shine/upstream-sha256.json",
+      "sha256": "2b4930e339d09f4b6cb64c0d5f93bb39a481e47382b3ff2b6cdb9df60d95b50b",
+      "size": 1940
+    },
+    {
+      "mode": "0644",
+      "path": "pyproject.toml",
+      "sha256": "4eff9af5becc7a51b2aca18d28c653ad52200dcce2a27be3e698c1f6179723ce",
+      "size": 181
+    },
+    {
+      "mode": "0755",
+      "path": "scripts/check",
+      "sha256": "59949fd8c733a6b07ccba8ad565d11388f65a6cc447c9ebc65bd8d4dee066a24",
+      "size": 8372
+    },
+    {
+      "mode": "0755",
+      "path": "scripts/check-i2s-iram",
+      "sha256": "74a6ab54efe04f0af704354c714a6ddb00ff51d0a74835e9723f7e6329f02935",
+      "size": 311
+    },
+    {
+      "mode": "0644",
+      "path": "scripts/i2s_iram.py",
+      "sha256": "d2d7d75712468a939e8e6eb6bae98a98d288787e382a84fe73e90fcb1dc9d9c4",
+      "size": 6697
+    },
+    {
+      "mode": "0755",
+      "path": "scripts/test-i2s-iram",
+      "sha256": "6fe33c1ef143770a547cb854c3b90a9788f80df9721f1a34c3b5d701b62c9f72",
+      "size": 308
+    },
+    {
+      "mode": "0644",
+      "path": "scripts/test_i2s_iram.py",
+      "sha256": "0e9a1334474c0e8804da783b42857cb04c31e07e4bc77f514d9a7d3fb900c77c",
+      "size": 6777
+    },
+    {
+      "mode": "0644",
+      "path": "test/fixtures/shazam/match.expected.json",
+      "sha256": "4e606135f7f5879eacec6eb860ccfb8d2c1ec3376a401d5df8c30b9f2e8addb6",
+      "size": 24
+    },
+    {
+      "mode": "0644",
+      "path": "test/fixtures/shazam/match.json",
+      "sha256": "d0fcfbef4db520f8121d46a99bc14d54fc8a602225712451a63ab388b4cfa016",
+      "size": 8837
+    },
+    {
+      "mode": "0644",
+      "path": "test/fixtures/shazam/miss.json",
+      "sha256": "44c7cf19fe13b207a253abf5793bd3fb6d4ac2a8e82488887ea490fd74460182",
+      "size": 186
+    },
+    {
+      "mode": "0644",
+      "path": "test/sonos-web.test.cjs",
+      "sha256": "fe5a4e6ddb19165dca6626987e5c51fd7cdcb7d5ba8829c528c06dc7153b6be3",
+      "size": 12222
+    },
+    {
+      "mode": "0644",
+      "path": "tools/Cargo.toml",
+      "sha256": "78436fa5a57a849e31681e296d397132a37c3e85aeacc7d1e107f40fbdca9980",
+      "size": 260
+    },
+    {
+      "mode": "0644",
+      "path": "tools/src/main.rs",
+      "sha256": "16cdd622cc9b918e2e50f9adf9b1ead3195bdf494376e8239a39b929357eb371",
+      "size": 4981
+    },
+    {
+      "mode": "0644",
+      "path": "uv.lock",
+      "sha256": "cf8b7fa16b4c9199527066f38b945d64fefe29fa45dd0cfbc16a19ae535ee09b",
+      "size": 18099
+    }
+  ],
+  "fixed_allowlist": [
+    ".github/workflows/check.yml",
+    ".gitignore",
+    "Cargo.lock",
+    "Cargo.toml",
+    "LICENSE",
+    "core/Cargo.toml",
+    "docs/audit-evidence/2026-10-13/shine-review.json",
+    "docs/audit-evidence/2026-10-13/shine-review.md",
+    "firmware/.cargo/config.toml",
+    "firmware/Cargo.lock",
+    "firmware/Cargo.toml",
+    "firmware/assets/sonos-roots.PROVENANCE.md",
+    "firmware/assets/sonos-roots.pem",
+    "firmware/bindings/diagnostics.h",
+    "firmware/bindings/tcp-retention.h",
+    "firmware/build.rs",
+    "firmware/build_support/mp3_iram.rs",
+    "firmware/cfg.toml.example",
+    "firmware/components_esp32.lock",
+    "firmware/partitions.csv",
+    "firmware/rust-toolchain.toml",
+    "firmware/sdkconfig.defaults",
+    "firmware/sdkconfig.diagnostics.defaults",
+    "mise.toml",
+    "mp3/Cargo.toml",
+    "mp3/build.rs",
+    "pyproject.toml",
+    "scripts/check",
+    "scripts/check-i2s-iram",
+    "scripts/i2s_iram.py",
+    "scripts/test-i2s-iram",
+    "scripts/test_i2s_iram.py",
+    "test/fixtures/shazam/match.expected.json",
+    "test/fixtures/shazam/match.json",
+    "test/fixtures/shazam/miss.json",
+    "test/sonos-web.test.cjs",
+    "tools/Cargo.toml",
+    "uv.lock"
+  ],
+  "manifest_limit": "manifest excludes its own bytes; archive.sha256 hashes full archive",
+  "scope": "first-party source engineering probe; external dependencies unbundled",
+  "source_prefixes": [
+    "core/src/",
+    "core/tests/",
+    "mp3/src/",
+    "mp3/tests/",
+    "mp3/vendor/shine/",
+    "tools/src/",
+    "firmware/src/",
+    "firmware/examples/"
+  ],
+  "source_revision": "bfea1d40adc401205ac67ec76d9ad411b9f78215"
+}

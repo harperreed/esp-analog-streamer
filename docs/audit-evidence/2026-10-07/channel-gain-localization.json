@@ -1,0 +1,44 @@
+{
+  "purpose": "Locate source-to-stream channel reversal relative to the codec ADC",
+  "source_tones_hz": {
+    "left": 440,
+    "right": 880
+  },
+  "control_pga_register": "0x00",
+  "diagnostic_pga_register": "0x40",
+  "expected_gain_db": {
+    "left": 12,
+    "right": 0
+  },
+  "measurements": [
+    {
+      "file": "target/line-in-validation/flac-stereo/stream.flac",
+      "dbfs": [
+        -45.986917515759764,
+        -46.1327150494526
+      ],
+      "peak_hz": [
+        880.0,
+        440.0
+      ]
+    },
+    {
+      "file": "target/channel-diagnostic/left-gain.flac",
+      "dbfs": [
+        -33.25138727320023,
+        -46.135557466488564
+      ],
+      "peak_hz": [
+        880.0,
+        440.0
+      ]
+    }
+  ],
+  "conclusion": "Codec left ADC maps to stream left. Reversal occurs before ADC; workstation analog output, cable and board input wiring are not yet independently verified.",
+  "production_restored": true,
+  "restored_elf_sha256": "82bb107be87811c66d02fc400315564476ddcf9ce5e151c2ff30df863bcf73fa",
+  "schematic_lead": {
+    "url": "https://gitea.sailf.in/kidwellj/multi-room-hifi/raw/branch/main/build1_esp32-audio-kit/esp32-audio-kit_v2.2_sch.pdf",
+    "observation": "Manufacturer drawing dated 2019-04-09 labels J1 input pin3 left/pin4 right and J2 headphone pin3 right/pin4 left. Matching this drawing to the physical board revision is unverified."
+  }
+}

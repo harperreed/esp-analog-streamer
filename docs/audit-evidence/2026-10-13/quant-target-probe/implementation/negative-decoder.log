@@ -1,0 +1,9 @@
+Traceback (most recent call last):
+  File "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-quant-target-impl/verify.py", line 78, in <module>
+    main()
+  File "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/oct13-quant-target-impl/verify.py", line 60, in main
+    decoded = subprocess.run(
+              ^^^^^^^^^^^^^^^
+  File "/home/harper/.local/share/uv/python/cpython-3.12.14-linux-x86_64-gnu/lib/python3.12/subprocess.py", line 571, in run
+    raise CalledProcessError(retcode, process.args,
+subprocess.CalledProcessError: Command '['ffmpeg', '-nostdin', '-v', 'error', '-xerror', '-f', 'flac', '-i', 'target/kata-hardening/oct13-quant-target-impl/negative-decoder/silence-trunc-warmup.flac', '-f', 's16le', '-acodec', 'pcm_s16le', 'pipe:1']' returned non-zero exit status 183.

@@ -1,0 +1,343 @@
+{
+  "date": "2026-10-07",
+  "scope": "Real TLS 1.2 / WebSocket transport boundary on ESP32 against a host adversarial peer; no Sonos discovery or playback commands.",
+  "execution": "Parent operated hardware and captured logs; independent reviewer inspected completed logs. This record does not certify the current flashed production image.",
+  "fixture": {
+    "server": "target/sonos/gate-fixture.py",
+    "host": "192.168.23.153:6455",
+    "path": "/websocket/api",
+    "trust": "Ephemeral private CA; hostname-verified leaf SAN matches host IP. Private keys excluded from this record.",
+    "baseline": "[{\"namespace\":\"fixture:1\",\"type\":\"fixture\"},{\"ok\":true}]",
+    "attack_interval_ms": 250
+  },
+  "timing_contract": {
+    "internal_receive_deadline_ms": 5000,
+    "internal_origin": "First gate_read after deadline reset; reads of the same frame share that deadline. Completed-frame callbacks reset it.",
+    "outer_origin": "Host monotonic time immediately before sending initial attack bytes; ends on observed peer EOF/reset or failed socket write.",
+    "original_outer_limit_seconds": 5,
+    "revised_outer_limit_seconds": 6,
+    "revision": "Review revised the experimental outer criterion; the production internal timeout is unchanged. original strict five-second failures remain failures. Existing oversized-control and trickle-frame runs are separately assessed against six seconds without rewriting their peer verdicts.",
+    "justification": "A five-second receive deadline starts on the device, later than host send. Delivery, task scheduling, timer granularity, shutdown, and return-path observation add latency. Six seconds is an outer acceptance limit for these runs, not a proven latency bound.",
+    "clock_limit": "Host monotonic and UART device-uptime clocks are not synchronized. Exact first gate_read timestamps were not logged; do not subtract host timestamps from UART timestamps.",
+    "uart_crosscheck": {
+      "case": "oversized-control",
+      "header_rejection_uptime_ms": 9587,
+      "read_failure_uptime_ms": 14597,
+      "interval_ms": 5010,
+      "interpretation": "Consistent with five-second receive timeout plus scheduling; header rejection is not the exact deadline origin."
+    },
+    "hard_real_time_guarantee": false,
+    "zero_ms_drop": "Reported integer-millisecond duration, not proof of literally zero execution time."
+  },
+  "automatic_runs": [
+    {
+      "id": "partial-tls",
+      "artifacts": [
+        {
+          "path": "target/sonos/gate-fixture/partial-tls-peer.log",
+          "sha256": "01881efa6ebfe12c009ec81a718d94b6a070ec46455b73aae9917a66ee05d6a4"
+        },
+        {
+          "path": "target/sonos/gate-fixture/partial-tls-uart.log",
+          "sha256": "1d9ff942e5ec13c2f346d8dc3bc8f2f537212ca68e3caf248f44cf5222dd4f3e"
+        }
+      ],
+      "peer_events": [
+        {
+          "event": "listening",
+          "address": [
+            "192.168.23.153",
+            6455
+          ],
+          "case": "partial-tls"
+        },
+        {
+          "event": "fixture_error",
+          "error": "TLS/upgrade deadline expired",
+          "openssl_log": "/home/harper/workspace/personal/esp-analog-streamer/target/sonos/gate-fixture/openssl.log"
+        }
+      ],
+      "uart_evidence": [
+        "I (10027) sonos_check::sonos::device: sonos: phase=before_connect internal_free=163447 internal_largest=77824",
+        "E (10067) esp-tls-mbedtls: mbedtls_ssl_handshake returned -0x004E"
+      ],
+      "baseline_parsed": false,
+      "continued_after_drop": false,
+      "original_5s_outer_verdict": "not_exercised",
+      "revised_6s_outer_verdict": "not_exercised",
+      "disposition": "Retain failed pre-baseline connection attempt; attack was never sent. Cause unresolved."
+    },
+    {
+      "id": "oversized-control",
+      "artifacts": [
+        {
+          "path": "target/sonos/gate-fixture/oversized-control-peer.log",
+          "sha256": "c18ae4f6751355e54ea5f01bdd2ec72a8b9105d01f8256e3bb1e95bd1c879107"
+        },
+        {
+          "path": "target/sonos/gate-fixture/oversized-control-uart.log",
+          "sha256": "2db27b0c321bfa807157b9b7faf23ca8c1be1483b430a352741c2e294c934905"
+        }
+      ],
+      "peer_events": [
+        {
+          "event": "listening",
+          "address": [
+            "192.168.23.153",
+            6455
+          ],
+          "case": "oversized-control"
+        },
+        {
+          "event": "upgraded",
+          "tls": "TLSv1.2"
+        },
+        {
+          "event": "baseline",
+          "expected_namespace": "fixture:1"
+        },
+        {
+          "event": "attack",
+          "case": "oversized-control",
+          "budget_seconds": 5,
+          "initial_bytes": 40
+        },
+        {
+          "event": "result",
+          "case": "oversized-control",
+          "passed": false,
+          "disconnect_seconds": 5.1613,
+          "bytes_sent": 640
+        }
+      ],
+      "uart_evidence": [
+        "I (8807) sonos_check::sonos::device: sonos: phase=before_connect internal_free=163447 internal_largest=77824",
+        "I (9197) sonos_check::sonos::device: sonos-fixture: connected",
+        "I (9317) sonos_check::sonos::device: sonos-fixture: complete protocol message",
+        "E (9587) transport_ws: Control frame with excessive payload detected (opcode=0x09, payload_len=1000000) - protocol violation",
+        "E (14597) websocket_client: esp_transport_read() failed with -1, errno=11",
+        "I (14597) sonos_check::sonos::device: sonos-fixture: receive_end after_ms=5399 reason=Sonos connection lost",
+        "I (14607) sonos_check::sonos::device: sonos-fixture: destroyed after_ms=0",
+        "I (14607) sonos_check::sonos::device: sonos: phase=fixture_destroyed internal_free=162239 internal_largest=77824",
+        "I (14617) sonos_check: sonos-fixture: finished; restore normal firmware before production use"
+      ],
+      "baseline_parsed": true,
+      "continued_after_drop": true,
+      "original_5s_outer_verdict": "fail",
+      "revised_6s_outer_verdict": "pass",
+      "drop_duration_reported_ms": 0
+    },
+    {
+      "id": "trickle-frame",
+      "artifacts": [
+        {
+          "path": "target/sonos/gate-fixture/trickle-frame-peer.log",
+          "sha256": "4f1599a72f0097f8287ab1dd33cf9c3e61716570748bbb5796d44a5f6b6a64f7"
+        },
+        {
+          "path": "target/sonos/gate-fixture/trickle-frame-uart.log",
+          "sha256": "4e68a3b68a9fdf2e09fd44f90c87109bf83093c71c52f8af93e706694834930c"
+        }
+      ],
+      "peer_events": [
+        {
+          "event": "listening",
+          "address": [
+            "192.168.23.153",
+            6455
+          ],
+          "case": "trickle-frame"
+        },
+        {
+          "event": "upgraded",
+          "tls": "TLSv1.2"
+        },
+        {
+          "event": "baseline",
+          "expected_namespace": "fixture:1"
+        },
+        {
+          "event": "attack",
+          "case": "trickle-frame",
+          "budget_seconds": 5,
+          "initial_bytes": 34
+        },
+        {
+          "event": "result",
+          "case": "trickle-frame",
+          "passed": false,
+          "disconnect_seconds": 5.2801,
+          "bytes_sent": 664
+        }
+      ],
+      "uart_evidence": [
+        "I (6437) sonos_check::sonos::device: sonos: phase=before_connect internal_free=163399 internal_largest=77824",
+        "I (7057) sonos_check::sonos::device: sonos-fixture: connected",
+        "I (7257) sonos_check::sonos::device: sonos-fixture: complete protocol message",
+        "E (12567) websocket_client: esp_transport_read() failed with -1, errno=11",
+        "I (12577) sonos_check::sonos::device: sonos-fixture: receive_end after_ms=5515 reason=Sonos connection lost",
+        "I (12587) sonos_check::sonos::device: sonos-fixture: destroyed after_ms=0",
+        "I (12587) sonos_check::sonos::device: sonos: phase=fixture_destroyed internal_free=162191 internal_largest=77824",
+        "I (12597) sonos_check: sonos-fixture: finished; restore normal firmware before production use"
+      ],
+      "baseline_parsed": true,
+      "continued_after_drop": true,
+      "original_5s_outer_verdict": "fail",
+      "revised_6s_outer_verdict": "pass",
+      "drop_duration_reported_ms": 0
+    },
+    {
+      "id": "partial-retry",
+      "artifacts": [
+        {
+          "path": "target/sonos/gate-fixture/partial-retry-peer.log",
+          "sha256": "8453b32eac7df6497c8c26ffee1d4a2a06d5d1179ec9b9de713ef2a2edc47a60"
+        },
+        {
+          "path": "target/sonos/gate-fixture/partial-retry-uart.log",
+          "sha256": "b938cb1b6d20348de44c63427a6d914db3fff592b295349231d6df0151248f5b"
+        }
+      ],
+      "peer_events": [
+        {
+          "event": "listening",
+          "address": [
+            "192.168.23.153",
+            6455
+          ],
+          "case": "partial-tls"
+        },
+        {
+          "event": "upgraded",
+          "tls": "TLSv1.2"
+        },
+        {
+          "event": "baseline",
+          "expected_namespace": "fixture:1"
+        },
+        {
+          "event": "attack",
+          "case": "partial-tls",
+          "budget_seconds": 6.0,
+          "initial_bytes": 6
+        },
+        {
+          "event": "result",
+          "case": "partial-tls",
+          "passed": true,
+          "disconnect_seconds": 5.2765,
+          "bytes_sent": 27
+        }
+      ],
+      "uart_evidence": [
+        "I (6667) sonos_check::sonos::device: sonos: phase=before_connect internal_free=163431 internal_largest=77824",
+        "I (7257) sonos_check::sonos::device: sonos-fixture: connected",
+        "I (7477) sonos_check::sonos::device: sonos-fixture: complete protocol message",
+        "E (12767) websocket_client: esp_transport_read() failed with -1, errno=11",
+        "I (12767) sonos_check::sonos::device: sonos-fixture: receive_end after_ms=5509 reason=Sonos connection lost",
+        "I (12777) sonos_check::sonos::device: sonos-fixture: destroyed after_ms=0",
+        "I (12787) sonos_check::sonos::device: sonos: phase=fixture_destroyed internal_free=162223 internal_largest=77824",
+        "I (12797) sonos_check: sonos-fixture: finished; restore normal firmware before production use"
+      ],
+      "baseline_parsed": true,
+      "continued_after_drop": true,
+      "original_5s_outer_verdict": "fail",
+      "revised_6s_outer_verdict": "pass",
+      "drop_duration_reported_ms": 0
+    }
+  ],
+  "automatic_summary": {
+    "revised_outer_passes": 3,
+    "retained_pre_baseline_failures": 1,
+    "original_peer_5s_failures": [
+      "oversized-control",
+      "trickle-frame"
+    ],
+    "partial_retry": "Ran with six-second peer budget and passed at 5.2765 seconds; would fail the original five-second outer threshold."
+  },
+  "explicit_cancellation": {
+    "status": "passed_observed_partial_tls_case",
+    "case": "partial-tls",
+    "requested_after_connected_ms": 2000,
+    "actual_cancel_requested_after_connected_ms": 2037,
+    "destroy_begin_after_connected_ms": 2037,
+    "drop_duration_reported_ms": 26,
+    "peer_disconnect_seconds_from_attack": 1.8377,
+    "original_5s_outer_verdict": "pass",
+    "revised_6s_outer_verdict": "pass",
+    "baseline_parsed": true,
+    "continued_after_drop": true,
+    "peer_events": [
+      {
+        "event": "listening",
+        "address": [
+          "192.168.23.153",
+          6455
+        ],
+        "case": "partial-tls"
+      },
+      {
+        "event": "upgraded",
+        "tls": "TLSv1.2"
+      },
+      {
+        "event": "baseline",
+        "expected_namespace": "fixture:1"
+      },
+      {
+        "event": "attack",
+        "case": "partial-tls",
+        "budget_seconds": 6.0,
+        "initial_bytes": 6
+      },
+      {
+        "event": "result",
+        "case": "partial-tls",
+        "passed": true,
+        "disconnect_seconds": 1.8377,
+        "bytes_sent": 13
+      }
+    ],
+    "uart_evidence": [
+      "I (10318) sonos_check::sonos::device: sonos: phase=before_connect internal_free=163427 internal_largest=77824",
+      "I (11108) sonos_check::sonos::device: sonos-fixture: connected",
+      "I (11348) sonos_check::sonos::device: sonos-fixture: complete protocol message",
+      "I (13148) sonos_check::sonos::device: sonos-fixture: cancel_requested after_ms=2037",
+      "I (13148) sonos_check::sonos::device: sonos-fixture: destroy_begin after_ms=2037",
+      "E (13158) websocket_client: esp_transport_read() failed with -1, errno=11",
+      "I (13168) sonos_check::sonos::device: sonos-fixture: destroyed after_ms=26",
+      "I (13178) sonos_check::sonos::device: sonos: phase=fixture_destroyed internal_free=162219 internal_largest=77824",
+      "I (13188) sonos_check: sonos-fixture: finished; restore normal firmware before production use"
+    ],
+    "artifacts": [
+      {
+        "path": "target/sonos/gate-fixture/cancel-peer.log",
+        "sha256": "00be7a9cca85bc1f449ab6b1c9ff4f57e29d112df83f0f377bdbd10b81adaa77"
+      },
+      {
+        "path": "target/sonos/gate-fixture/cancel-uart.log",
+        "sha256": "52a374515702c3f294971af7e071d4ddd208fc0452bbaacc9a7c30149b5697ff"
+      }
+    ],
+    "interpretation": "During an incomplete TLS record, the owning worker entered Socket Drop at its cancellation timer; cancellation released the receive task and destruction returned in a reported 26 ms. Host closure occurred 1.8377 seconds after attack start. The two time origins are distinct.",
+    "coverage_limit": "One explicit cancellation run with partial TLS; no explicit-cancel run for oversized-control or trickle-frame. No general real-time bound claimed."
+  },
+  "limitations": [
+    "Single completed automatic run per attack, not endurance or repeated-connect leak proof.",
+    "Each successful automatic run reports 1208 fewer internal free bytes after destruction than before connect; attribution and repeated-run stability were not established.",
+    "Partial TLS retry includes stock transport esp_tls_conn_read error logs during incomplete-record reads; retain them as evidence, not a clean-log claim.",
+    "Connect and write worst-case deadlines, stack margin, and normal playback are outside this fixture acceptance.",
+    "Raw logs and ELFs are ignored target artifacts; selected evidence and their hashes are retained here."
+  ],
+  "artifacts": [
+    {
+      "path": "target/sonos/gate-fixture/automatic-control.elf",
+      "sha256": "32f269ecb7bceecaec13aa1c5d489f7584f36a710f35c4f3d01a9ef1e43208eb"
+    },
+    {
+      "path": "target/sonos/gate-fixture/cancel-control.elf",
+      "sha256": "f2c80b107a31df19539dbeec5c3a68bf4003bf3b4328d0b5c77995679786db9a"
+    }
+  ],
+  "acceptance_summary": "Three automatic attack cases satisfy the revised six-second outer criterion after valid baselines; explicit cancellation during partial TLS returned from Drop in 26 ms and execution continued. Preserve the two original strict-five-second failures and initial partial-TLS pre-baseline connection failure."
+}

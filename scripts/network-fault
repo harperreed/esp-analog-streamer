@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+# ABOUTME: Injects receiver-side packet loss and rate limits with tc netem while real decoders listen to the board.
+# ABOUTME: Usage: scripts/network-fault HOST --interface IF --serial DEV --out DIR [--trials a,b] [--dry-run]; needs a cached sudo -v, never root.
+set -euo pipefail
+repo="$(cd "$(dirname "$0")/.." && pwd)"
+exec uv run --quiet --project "$repo" --locked python3 "$repo/scripts/network_fault.py" "$@"

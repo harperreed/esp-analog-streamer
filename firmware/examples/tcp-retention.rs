@@ -16,8 +16,7 @@ use std::time::{Duration, Instant};
 use esp_idf_svc::hal::cpu::Core;
 use esp_idf_svc::sys::{self, tcp_retention as lwip};
 
-#[path = "../src/threads.rs"]
-mod threads;
+use esp_shazam_firmware::threads;
 
 const LIST_LIMIT: usize = 256;
 const STATE_COUNT: usize = 11;

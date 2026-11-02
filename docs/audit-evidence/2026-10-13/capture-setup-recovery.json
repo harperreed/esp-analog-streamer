@@ -1,0 +1,266 @@
+{
+  "ticket": "93hm",
+  "status": "original scoped gates satisfied; recommend closing 93hm",
+  "capture_fix_commit": "2c9fec6",
+  "nvs": {
+    "passed": true,
+    "seconds": 180,
+    "writes": 120,
+    "bytes_per_write": 1024,
+    "decoded_audio_frames_each": [
+      8640000,
+      8640000
+    ],
+    "capture_rows": 20,
+    "encoder_windows": 19,
+    "recovery_wait_ms": 20520,
+    "marker_times_ms": {
+      "OPEN_BEGIN": 40184,
+      "CLEANUP_END": 145400,
+      "RECOVERED": 165920
+    },
+    "listener_join_us": [
+      20979515,
+      21026046
+    ],
+    "listener_departure_us": [
+      201283077,
+      201283713
+    ],
+    "observer_gap": {
+      "invalid_raw_us": 72181791,
+      "valid_raw_bracket_us": [
+        61664895,
+        82211077
+      ]
+    },
+    "counter_deltas": {
+      "queue_overflows": 0,
+      "software_dropped_frames": 0,
+      "read_errors": 0,
+      "restarts": 0,
+      "discontinuities": 0
+    },
+    "first_90_second_scope": {
+      "passed": false,
+      "decoder_passed": true,
+      "failures": [
+        "ordered marker sequence incomplete/invalid: observed 245, expected 246; missing [('RECOVERED', 120)]",
+        "listener departed before NVS cleanup completed",
+        "listener survival through recovery unproved: RECOVERED absent"
+      ]
+    },
+    "initial_analysis_error": "Invalid raw observation was wrongly treated as media failure; corrected parser excludes placeholder generation and retains observer gap.",
+    "input_sha256": {
+      "summary.json": "fd1f5b1f33bc386d8fd14e92101da6ada113361b3e55ab8016a1fa82249964f6",
+      "uart.log": "c80c961b8d702b8265030b0b10a5f7dc09cc727af9496eb29bc4d9fb52016055",
+      "events.jsonl": "04bdc52f423bdbc162949620ed11b593af5246a316b255a9c61181f48c5c512f"
+    },
+    "image_elf_sha256": "b9c190ab0bc728638816fd0f3135e4869061f427f7c8598c674f775cae267e35"
+  },
+  "http": {
+    "image_elf_sha256": "cb047dc5d08c1cc992bb2ea7a6c83028fe0916d402519155706718698a9b306a",
+    "cycles": [
+      {
+        "cycle": 1,
+        "begin_ms": 40053,
+        "connect_marker_span_ms": 1007,
+        "read_marker_span_ms": 4887,
+        "drop_ms": 46285
+      },
+      {
+        "cycle": 2,
+        "begin_ms": 51303,
+        "connect_marker_span_ms": 1093,
+        "read_marker_span_ms": 835,
+        "drop_ms": 53238
+      },
+      {
+        "cycle": 3,
+        "begin_ms": 58253,
+        "connect_marker_span_ms": 1007,
+        "read_marker_span_ms": 4284,
+        "drop_ms": 63553
+      }
+    ],
+    "recovery_after_drop_ms": 20020,
+    "decoded_frames_each": [
+      5760000,
+      5760000
+    ],
+    "capture_rows_strictly_parsed": 14,
+    "capture_counter_observed_values": {
+      "queue_overflows": [
+        8
+      ],
+      "software_dropped_frames": [
+        0
+      ],
+      "read_errors": [
+        0
+      ],
+      "restarts": [
+        0
+      ],
+      "supervisor_restarts": [
+        0
+      ],
+      "overflow_restarts": [
+        0
+      ],
+      "discontinuities": [
+        0
+      ],
+      "health_restart_requests": [
+        0
+      ],
+      "settling_discarded_frames": [
+        24000
+      ]
+    },
+    "observer_gap_rows": [
+      {
+        "event_us": "10397692",
+        "accepted_valid": "true",
+        "raw_valid": "false",
+        "encoded_valid": "true"
+      }
+    ],
+    "encoder_rows": 14,
+    "encoder_resets_observed_values": [
+      0
+    ],
+    "raw_overruns_observed_values": [
+      0
+    ],
+    "diagnostic_stack_free_min_bytes": 11940,
+    "marker_internal_free_min": 29571,
+    "marker_internal_largest_min": 13312,
+    "capture_internal_window_min_sum": 9039,
+    "input_sha256": {
+      "target/kata-hardening/oct13-capture-gates/http-mp3/20261013T052108.001051Z/summary.json": "9062ae79ef3e2e79e358dfa41c834ea23858884589b3146b1268193614dedcea",
+      "target/kata-hardening/oct13-capture-gates/http-mp3/20261013T052108.001051Z/uart.log": "89d36a3bbb0bd8bba6b0c46c5f5fb8133b5c38dc84b88a5b770d8dac5952e943",
+      "target/kata-hardening/oct13-capture-gates/http-mp3/20261013T052108.001051Z/listener-1.framehash": "69aca79561e83fcfed8e6abc2c3b674e50cbf886840c61a818f50ea8c5c41b3d",
+      "target/kata-hardening/oct13-capture-gates/http-mp3/20261013T052108.001051Z/listener-2.framehash": "69aca79561e83fcfed8e6abc2c3b674e50cbf886840c61a818f50ea8c5c41b3d"
+    }
+  },
+  "network": {
+    "passed": true,
+    "run": "20261013T052534.702110Z",
+    "capture_rows": 8,
+    "capture_counter_values": {
+      "queue_overflows": [
+        8
+      ],
+      "software_dropped_frames": [
+        0
+      ],
+      "read_errors": [
+        0
+      ],
+      "restarts": [
+        0
+      ],
+      "supervisor_restarts": [
+        0
+      ],
+      "overflow_restarts": [
+        0
+      ],
+      "discontinuities": [
+        0
+      ],
+      "health_restart_requests": [
+        0
+      ],
+      "settling_discarded_frames": [
+        24000
+      ]
+    },
+    "encoder_rows": 7,
+    "unavailable_raw_observation_us": [
+      20717380,
+      50837248
+    ],
+    "recovered_decoded_audio_frames_each": [
+      480000,
+      480000
+    ],
+    "baseline_summary_snapshot_frames_each": [
+      96768,
+      96768
+    ],
+    "baseline_full_file_frames_each": [
+      2608128,
+      2608128
+    ],
+    "baseline_interpretation": "Interrupted at injected fault; no complete-lifetime or disconnected-socket continuity claim",
+    "input_sha256": {
+      "target/kata-hardening/oct13-capture-gates/network-mp3/20261013T052534.702110Z/summary.json": "9d35ff503511886fe82343a66a2895317b6fbc7942e38c34e7c1c29819cc59ea",
+      "target/kata-hardening/oct13-capture-gates/network-mp3/20261013T052534.702110Z/uart.log": "ddc79f1bf3895dd479fdb5111d4b38e6269a01502a3078139a6494c0aa8e9a3e",
+      "scripts/stream_soak.py": "6b1d13b8fc568271af23bf6030f7b906d6a5834b8417dc27b8a31cebb202517a",
+      "scripts/decoder_integrity.py": "112b3c495d8bae657710e48414bdd9f2fbdc5670b3e66f4fde5aa80741497058",
+      "target/kata-hardening/oct13-capture-gates/check-final.log": "59b02700625e3dc6db6cb9df6841aa39ccb16b9ebbd21378b5276cde66c2bb60",
+      "target/kata-hardening/oct13-capture-gates/review-network-evidence.py": "6fbd6ecf1115d9316a95e26ad81f30bf928d32810367e585a85da86b16983e49",
+      "target/kata-hardening/oct13-capture-gates/network-mp3/20261013T052534.702110Z/network-recovered-2.framehash": "deaa84608aa2383fca9ec3b641a3dfcf0781c72c3c45b5c51b2b9f68e9e7f21a",
+      "target/kata-hardening/oct13-capture-gates/network-mp3/20261013T052534.702110Z/network-baseline-2.framehash": "857a1332cf646c56c979cfe910a2800f50adebb8aeb86d9863a6a7de19ba7696",
+      "target/kata-hardening/oct13-capture-gates/network-mp3/20261013T052534.702110Z/network-recovered-1.framehash": "deaa84608aa2383fca9ec3b641a3dfcf0781c72c3c45b5c51b2b9f68e9e7f21a",
+      "target/kata-hardening/oct13-capture-gates/network-mp3/20261013T052534.702110Z/network-baseline-1.framehash": "857a1332cf646c56c979cfe910a2800f50adebb8aeb86d9863a6a7de19ba7696"
+    },
+    "image_elf_sha256": "176255108cdbecb6e17868059bbf06771bdcad8c13512e89a9f169f1953591f7"
+  },
+  "canonical_check": {
+    "directory": "target/check-logs/run.YkqTJGio",
+    "status": "complete",
+    "exit_code": 0,
+    "passed_stages": 27
+  },
+  "ordinary_restore": {
+    "status": "passed",
+    "image_elf_sha256": "e93f8f72692c1630d082de42b3d1ae8d11d8c106c2ef6e978e96b74a83cb5eea",
+    "matches_oct12_ordinary_image": true,
+    "state": "stopped",
+    "remote": "STOPPED",
+    "format": "mp3",
+    "buffer": "med",
+    "autoplay": false,
+    "recognition": false
+  },
+  "sha256": {
+    "target/kata-hardening/oct13-capture-gates/nvs-full-scope-corrected.json": "29efbe96d441a8bb21a0b3f0b6ac08743565caa59e13872e6a8f4150a2305a24",
+    "target/kata-hardening/oct13-capture-gates/nvs-full-scope-initial.json": "d1787963f027b1a82bb845ed1f0caf171201f1d9934a976168c0df69e881dca4",
+    "target/kata-hardening/oct13-capture-gates/nvs-first-scope-corrected.json": "83d56015c615926ec51b1c663747ebc3f1f825a48d4e901ead6c5ed92fd1e509",
+    "target/kata-hardening/oct13-capture-gates/nvs-helper-regressions.json": "a89c51c3af9e69e60f235e7e55b2b0135a79655cd0fe2b201299f116780dc47c",
+    "target/kata-hardening/oct13-capture-gates/http-evidence.json": "96af97bee387c38df914757583facfe6019795db3966e44da69bf2842d289a23",
+    "target/kata-hardening/oct13-capture-gates/network-mp3/20261013T052534.702110Z/summary.json": "9d35ff503511886fe82343a66a2895317b6fbc7942e38c34e7c1c29819cc59ea",
+    "target/kata-hardening/oct13-capture-gates/check-final.log": "59b02700625e3dc6db6cb9df6841aa39ccb16b9ebbd21378b5276cde66c2bb60",
+    "target/check-logs/run.YkqTJGio/stages.tsv": "ae28018917bac10f24f103c201611e17e81e648a99a7a156d764c589c18d37ee",
+    "docs/audit-evidence/2026-10-13/http-capture.rs": "de366378d83f9f8016e56f883882fd12e9ca8669c1909d2812c2ad4074243205",
+    "target/kata-hardening/oct13-capture-gates/network-evidence.json": "e72c6ea253e97477bcaf929b2ef56e4c83506000deafe68bfed4bd33d12d0871",
+    "target/kata-hardening/oct13-capture-gates/production-final-check/verified.json": "d730c40e04c6f954ad13d3d8b4c25e02de3144f23c927b1f74ef1fdbf718ca87",
+    "target/kata-hardening/oct13-capture-gates/nvs-wrong-target-build.log": "cdb7626b773b13566a3736ce6f1e8f17a910012219bf8ccf46d4a58ee7465c8c"
+  },
+  "diagnostic_iram": {
+    "nvs": {
+      "passed": true,
+      "log_sha256": "32f3f38668d49fb0fc370e7ef02e1aa6e4f7351a7bd1c6fb2d6d3ca515a77b18"
+    },
+    "http": {
+      "passed": true,
+      "log_sha256": "95e71cdf991a21a33ecaf8440edafaee8049d7325694e665f0836b869ef2a504"
+    },
+    "network": {
+      "passed": true,
+      "log_sha256": "e72173295204de276e9b0c3f33353a42fe9b6a96064e155e2f8bf95b276116c5"
+    }
+  },
+  "harness_correction": {
+    "injection_after_reset_seconds": 60,
+    "injection_allowance_from_observed_reset_seconds": 70,
+    "network_collector_seconds": 200,
+    "aggregate_worst_case_bound_claimed": false,
+    "mp3_enabled_only_for_network_mode": true,
+    "focused_tests_passed": 31,
+    "red_green_and_review": "parent verified"
+  }
+}

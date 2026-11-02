@@ -1,0 +1,53 @@
+{
+  "golden": {
+    "input_sha256": "c6f048ed066614b109d9b2494488394854bd448c215407c697af98519a9956f0",
+    "mp3_sha256": "d0209ba118ab74e5bab381c0e8be7142da2e48a1cbb6ed44762248def867d554",
+    "bytes": 15360,
+    "normalized_upstream_byte_equal": true,
+    "fnv1a64": "3d8d37fffb18a62e"
+  },
+  "tones": {
+    "input_sha256": "5314d1ecdd3b556b3ddc55e126640d64c28de94fff566276fe7abcb0fba376b3",
+    "mp3_sha256": "f64423203a6d1b693460a11b88c74121635e6f79475fc9e49c42c7d7f2a0f7ea",
+    "bytes": 403200,
+    "normalized_upstream_byte_equal": true,
+    "decoded_sample_frames": 483840,
+    "decoded_sha256": "d8d5819bcf29f1dcef80469261c3e8bdfeb6d0ac6db2e1052ac39b1566d7eec6",
+    "gain": [
+      0.9998576313371791,
+      0.9998512265693296
+    ],
+    "snr_db": [
+      75.31919839103256,
+      74.9278494692716
+    ],
+    "peak": [
+      0.5000150799751282,
+      0.5000365972518921
+    ]
+  },
+  "noise": {
+    "input_sha256": "433357dd39e3d4a506399a26352f560cd039dea55e4ed99485f9c62a78bf57be",
+    "mp3_sha256": "40eee014ab6207d3952cd6d61b45e208363dd0d7171453dd378479add1548768",
+    "bytes": 403200,
+    "normalized_upstream_byte_equal": true,
+    "decoded_sample_frames": 483840,
+    "decoded_sha256": "426cadc22b86f8d7da2414eb3dde6b9b7825898ea174814dbdb8611983acebf7",
+    "gain": [
+      1.0267871343306831,
+      1.0273700343250032
+    ],
+    "snr_db": [
+      12.577449070092761,
+      12.57925333043757
+    ],
+    "peak": [
+      0.5476762652397156,
+      0.5472878217697144
+    ]
+  },
+  "production_mdct_sha256": "dfc90eb9f3c31577d467d42abb8d2c2da40366e58b6cd02d707517f040874a43",
+  "upstream_patch_sha256": "76875ab0ca3a5421db598515aea097dbac7343733d396a5f23557827d831b4aa",
+  "upstream_gain_patch_sha256": "71f4bcf242f28f07a2f5993b515fbb32a782812080218f263ccfde745c738e62",
+  "production_gain_sha256": "a5677927bc4fbd8795f5de47b1c3fb3dbe5a7fc57df9b26fb00209911f8243dd"
+}

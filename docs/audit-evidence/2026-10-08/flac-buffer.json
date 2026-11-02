@@ -1,0 +1,240 @@
+{
+  "source_commit": "53b7d67411be6ccfa9cd945cb7ce7bac112c39d8",
+  "production_elf_sha256": "cbd998fc43ed6feebeac113443f19b455b0105f2ab554a414a3c6da8d4dbfdf9",
+  "canonical_check": {
+    "passed_stages": 20,
+    "failed_stages": 0,
+    "log_sha256": "9a57fb18eb342d4a620dd83d3663edc9135646a353687eaf16887edba9c751a5"
+  },
+  "profiles": {
+    "recognition_off": {
+      "slots": 141,
+      "history_seconds": 12.032,
+      "write_deadline_ms": 8021
+    },
+    "recognition_on": {
+      "slots": 24,
+      "history_seconds": 2.048,
+      "write_deadline_ms": 2048,
+      "compile_verified": true,
+      "flashed": false
+    }
+  },
+  "max_frame_bytes": 16399,
+  "ring_storage_increase_bytes": 893,
+  "soaks": {
+    "music": {
+      "run_id": "20261008T234644.884950Z",
+      "passed": true,
+      "requested_seconds": 120.0,
+      "decoder_accounting": [
+        {
+          "timeline_seconds": 120.0,
+          "decoded_audio_frames": 5760000,
+          "decoded_seconds": 120.0,
+          "decoded_packets": 1407,
+          "skipped_source_audio_frames": 0,
+          "duplicate_audio_frames": 0,
+          "decoded_discontinuities": 0,
+          "sample_hash_format": "SHA256, stereo pcm_s32le, packet boundaries"
+        },
+        {
+          "timeline_seconds": 120.0,
+          "decoded_audio_frames": 5760000,
+          "decoded_seconds": 120.0,
+          "decoded_packets": 1407,
+          "skipped_source_audio_frames": 0,
+          "duplicate_audio_frames": 0,
+          "decoded_discontinuities": 0,
+          "sample_hash_format": "SHA256, stereo pcm_s32le, packet boundaries"
+        }
+      ],
+      "baseline_faults": {
+        "queue_overflows": 15,
+        "software_dropped_frames": 480,
+        "read_errors": 0,
+        "restarts": 2,
+        "discontinuities": 2
+      },
+      "counter_deltas": {
+        "queue_overflows": 0,
+        "software_dropped_frames": 0,
+        "read_errors": 0,
+        "restarts": 0,
+        "discontinuities": 0
+      },
+      "minimums": {
+        "internal_min_sum": 69003,
+        "psram_min_sum": 875872
+      },
+      "summary_sha256": "972deff00c26474f18bdc89f239d0850f49a08d62c17f4a6117c619651bacafd",
+      "uart_sha256": "014e472f58cf678437405bf68ba08392dd91f66c56a63576ba9eeec3799b0ba2"
+    },
+    "noise": {
+      "run_id": "20261008T234924.958925Z",
+      "passed": true,
+      "requested_seconds": 120.0,
+      "decoder_accounting": [
+        {
+          "timeline_seconds": 120.0,
+          "decoded_audio_frames": 5760000,
+          "decoded_seconds": 120.0,
+          "decoded_packets": 1407,
+          "skipped_source_audio_frames": 0,
+          "duplicate_audio_frames": 0,
+          "decoded_discontinuities": 0,
+          "sample_hash_format": "SHA256, stereo pcm_s32le, packet boundaries"
+        },
+        {
+          "timeline_seconds": 120.0,
+          "decoded_audio_frames": 5760000,
+          "decoded_seconds": 120.0,
+          "decoded_packets": 1407,
+          "skipped_source_audio_frames": 0,
+          "duplicate_audio_frames": 0,
+          "decoded_discontinuities": 0,
+          "sample_hash_format": "SHA256, stereo pcm_s32le, packet boundaries"
+        }
+      ],
+      "baseline_faults": {
+        "queue_overflows": 16,
+        "software_dropped_frames": 480,
+        "read_errors": 0,
+        "restarts": 2,
+        "discontinuities": 2
+      },
+      "counter_deltas": {
+        "queue_overflows": 0,
+        "software_dropped_frames": 0,
+        "read_errors": 0,
+        "restarts": 0,
+        "discontinuities": 0
+      },
+      "minimums": {
+        "internal_min_sum": 68559,
+        "psram_min_sum": 781780
+      },
+      "summary_sha256": "203f1433356fa3d600ef7447ca6429a3fbd2f228bece8983b7f61d74b9c3bf55",
+      "uart_sha256": "eba0807c539a777c297a734a0f545a10589583e42e1117ad92bcc5f0053eaa66"
+    },
+    "restored": {
+      "run_id": "20261008T235528.296178Z",
+      "passed": true,
+      "requested_seconds": 30.0,
+      "decoder_accounting": [
+        {
+          "timeline_seconds": 30.0,
+          "decoded_audio_frames": 1440000,
+          "decoded_seconds": 30.0,
+          "decoded_packets": 352,
+          "skipped_source_audio_frames": 0,
+          "duplicate_audio_frames": 0,
+          "decoded_discontinuities": 0,
+          "sample_hash_format": "SHA256, stereo pcm_s32le, packet boundaries"
+        },
+        {
+          "timeline_seconds": 30.0,
+          "decoded_audio_frames": 1440000,
+          "decoded_seconds": 30.0,
+          "decoded_packets": 352,
+          "skipped_source_audio_frames": 0,
+          "duplicate_audio_frames": 0,
+          "decoded_discontinuities": 0,
+          "sample_hash_format": "SHA256, stereo pcm_s32le, packet boundaries"
+        }
+      ],
+      "baseline_faults": {
+        "queue_overflows": 14,
+        "software_dropped_frames": 480,
+        "read_errors": 0,
+        "restarts": 2,
+        "discontinuities": 2
+      },
+      "counter_deltas": {
+        "queue_overflows": 0,
+        "software_dropped_frames": 0,
+        "read_errors": 0,
+        "restarts": 0,
+        "discontinuities": 0
+      },
+      "minimums": {
+        "internal_min_sum": 68891,
+        "psram_min_sum": 797208
+      },
+      "summary_sha256": "30f7a75eb8b9e8b8ef5f6e86473fc25858c7f25681e0bf1c303bc003c646b564",
+      "uart_sha256": "67826134d250bc3a1c47809ef4ab38e8de088b7f6813fa438ac55f89c6a83231"
+    }
+  },
+  "encoder_fault": {
+    "run_id": "20261008T235306.611753Z",
+    "passed": true,
+    "hold_seconds": 17,
+    "eof_seconds_after_estimated_suspend": [
+      1.7874383219750598,
+      1.7801129770232365
+    ],
+    "decoded_frames": [
+      480000,
+      480000
+    ],
+    "capture_observations": 4,
+    "capture_observations_during_suspension": 2,
+    "admission_cap_checked": true,
+    "summary_sha256": "31a08ac723eb1ce63de338d8b7886b8a04f4f4edc9174d282c4a4225d967483f",
+    "uart_sha256": "3cb98e9fe6b6fc3f10be451a8ba9aa5c14c9648af4e396f92d1c27f99135ad2b",
+    "phases": {
+      "fixture-flash": 0,
+      "fixture-check": 0,
+      "production-restore": 0
+    }
+  },
+  "restored": {
+    "configuration_file_unchanged": true,
+    "sonos_config_unchanged": true,
+    "sonos_state": "stopped",
+    "autoplay": false,
+    "elf_matches_tested": true,
+    "analog_output_closed": true
+  },
+  "input_verification": {
+    "route": "front headphone jack feeds ESP32 LINE IN; rear line out muted",
+    "source_tones_hz": [
+      997,
+      1703
+    ],
+    "observed": {
+      "frames": 96000,
+      "rate": 48000,
+      "peak_frequency_hz": [
+        1703.0,
+        997.0
+      ],
+      "rms_dbfs": [
+        -21.87231961948672,
+        -22.114298679934322
+      ],
+      "peak_dbfs": [
+        -18.688219723751015,
+        -18.89813990155641
+      ]
+    },
+    "channel_reversal_issue": "cn4m",
+    "noise": {
+      "sample_rate": 48000,
+      "amplitude": 0.1,
+      "seeds": [
+        42,
+        73
+      ],
+      "sha256": "925c86a822206316a942b27a569ba5dd1804095f2c41d8ffba7776dacedc4137"
+    }
+  },
+  "limitations": [
+    "Startup capture faults persist",
+    "Channel order is reversed somewhere in the analog-to-decoder path",
+    "No Sonos playback or automatic recovery tested",
+    "No controlled network fault or long soak tested",
+    "No causal throughput improvement established",
+    "MQTT/TLS connection attempts timed out during music test"
+  ]
+}

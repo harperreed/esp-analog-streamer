@@ -1,0 +1,94 @@
+#!/usr/bin/env bash
+# ABOUTME: Tests mutation-run isolation and fail-closed process handling without compiling mutants.
+# ABOUTME: Uses real git repositories, files and child processes rather than substituted cargo commands.
+set -euo pipefail
+cd "$(dirname "$0")/.."
+scratch="$(mktemp -d)"
+trap 'rm -rf "$scratch"' EXIT
+scripts/mutation-host --help >"$scratch/help"
+grep -q capture_health "$scratch/help"
+if scripts/mutation-host --file core/src/policy.rs >"$scratch/error" 2>&1; then
+    echo 'FAIL: broader mutation scope accepted' >&2; exit 1
+fi
+source scripts/mutation-host
+# A normal Cargo cache path must not block a run; compiler overrides must.
+(export CARGO_HOME="$scratch/cargo-cache"; mutation_environment)
+if (export RUSTFLAGS='--cfg altered'; mutation_environment) >"$scratch/error" 2>&1; then
+    echo 'FAIL: compiler override accepted' >&2; exit 1
+fi
+if (export RUSTUP_TOOLCHAIN=esp; mutation_environment) >"$scratch/error" 2>&1; then
+    echo 'FAIL: conflicting Rust toolchain accepted' >&2; exit 1
+fi
+first="$(mutation_run_dir "$scratch/runs")"
+second="$(mutation_run_dir "$scratch/runs")"
+[[ "$first" != "$second" && -d "$first" && -d "$second" ]]
+ln -s "$scratch/runs" "$scratch/link"
+if mutation_run_dir "$scratch/link/child" >"$scratch/error" 2>&1; then
+    echo 'FAIL: symlink output ancestor accepted' >&2; exit 1
+fi
+if mutation_run_dir "$scratch/runs/../escape" >"$scratch/error" 2>&1; then
+    echo 'FAIL: parent output component accepted' >&2; exit 1
+fi
+mkdir "$scratch/repo"
+git -C "$scratch/repo" init -q
+git -C "$scratch/repo" config user.email test@example.invalid
+git -C "$scratch/repo" config user.name 'Mutation isolation test'
+printf original >"$scratch/repo/source"
+printf 'secret\n' >"$scratch/repo/.gitignore"
+git -C "$scratch/repo" add source .gitignore
+git -C "$scratch/repo" commit -qm 'test: seed archive'
+printf private >"$scratch/repo/secret"
+mutation_snapshot "$scratch/repo" "$first"
+[[ "$(cat "$first/source/source")" == original ]]
+[[ ! -e "$first/source/secret" && ! -e "$first/source/.git" ]]
+printf mutated >"$first/source/source"
+[[ "$(cat "$scratch/repo/source")" == original ]]
+printf dirty >"$scratch/repo/source"
+if mutation_snapshot "$scratch/repo" "$second" >"$scratch/error" 2>&1; then
+    echo 'FAIL: dirty tracked input accepted' >&2; exit 1
+fi
+[[ ! -e "$second/source" ]]
+if mutation_version 'cargo-mutants 27.0.0' >"$scratch/error" 2>&1; then
+    echo 'FAIL: wrong tool version accepted' >&2; exit 1
+fi
+mutation_version 'cargo-mutants 27.1.0'
+printf '[{"file":"core/src/capture_health.rs","package":"esp-shazam-core"},{"file":"core/src/capture_health.rs","package":"esp-shazam-core"}]\n' >"$second/list.json"
+[[ "$(mutation_candidate_count "$second/list.json")" == 2 ]]
+printf '[{"file":"core/src/policy.rs","package":"esp-shazam-core"}]\n' >"$second/out-of-scope.json"
+if mutation_candidate_count "$second/out-of-scope.json" >"$scratch/error" 2>&1; then
+    echo 'FAIL: out-of-scope mutation inventory accepted' >&2; exit 1
+fi
+node -e 'console.log(JSON.stringify(Array.from({length:61},()=>({}))))' >"$second/oversize.json"
+if mutation_candidate_count "$second/oversize.json" >"$scratch/error" 2>&1; then
+    echo 'FAIL: candidate cap ignored' >&2; exit 1
+fi
+printf '[]\n' >"$second/empty.json"
+if mutation_candidate_count "$second/empty.json" >"$scratch/error" 2>&1; then
+    echo 'FAIL: empty mutation inventory accepted' >&2; exit 1
+fi
+if mutation_stage "$second" failing 5 bash -c 'echo retained-detail >&2; exit 7' >"$scratch/error" 2>&1; then
+    echo 'FAIL: failed command accepted' >&2; exit 1
+else
+    [[ $? == 7 ]]
+fi
+grep -q retained-detail "$second/failing.log"
+[[ "$(cat "$second/failing.exit")" == 7 ]]
+if mutation_stage "$second" deadline 1 bash -c 'sleep 10' >"$scratch/error" 2>&1; then
+    echo 'FAIL: command deadline ignored' >&2; exit 1
+else
+    [[ $? == 124 ]]
+fi
+[[ "$(cat "$second/deadline.exit")" == 124 ]]
+cat >"$second/outcomes.json" <<'JSON'
+{"cargo_mutants_version":"27.1.0","total_mutants":4,"caught":1,"missed":1,"unviable":1,"timeout":1,"success":0,"end_time":"2026-10-10T12:00:00Z","outcomes":[{"scenario":"Baseline","summary":"Success"},{"scenario":{"Mutant":{}},"summary":"CaughtMutant"},{"scenario":{"Mutant":{}},"summary":"MissedMutant"},{"scenario":{"Mutant":{}},"summary":"Unviable"},{"scenario":{"Mutant":{}},"summary":"Timeout"}]}
+JSON
+mutation_summary "$second/outcomes.json" 4 >"$second/summary"
+grep -q 'caught=1 missed=1 unviable=1 timeout=1 unattempted=0' "$second/summary"
+if mutation_summary "$second/outcomes.json" 5 >"$scratch/error" 2>&1; then
+    echo 'FAIL: incomplete execution accepted' >&2; exit 1
+fi
+node -e 'const fs=require("fs");let o=JSON.parse(fs.readFileSync(process.argv[1]));o.outcomes[0].summary="Failure";fs.writeFileSync(process.argv[1],JSON.stringify(o))' "$second/outcomes.json"
+if mutation_summary "$second/outcomes.json" 4 >"$scratch/error" 2>&1; then
+    echo 'FAIL: failed baseline accepted' >&2; exit 1
+fi
+echo 'PASS mutation CLI, archive isolation, clean input, pin, cap, bounds and outcome reconciliation'

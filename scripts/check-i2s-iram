@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+# ABOUTME: Checks the generated I2S IRAM option and pinned ESP32 ISR symbol placement.
+# ABOUTME: Reads build artifacts only; prints actionable failures without building or flashing.
+set -euo pipefail
+cd "$(dirname "$0")/.."
+exec uv run --quiet --no-project python3 scripts/i2s_iram.py "$@"

@@ -1,0 +1,1412 @@
+{
+  "verdict": "runtime acceptance failed; default/control delivery failures; probe canceled partial with raw loss",
+  "source_context": {
+    "default": "55d5416",
+    "control": "exact eb38c65 archived default",
+    "probe": "55d5416 image; acquisition selection fix 7891 replayed"
+  },
+  "trials": {
+    "default": {
+      "verdict": "FAILED: fast listener ended before reclamation probe; actual encoder overruns/resets observed",
+      "image_sha256": "ced962b2136d7c3fbe8dd97dd4de2d47f1c39e72bef6dee76d92fa5c59218d1c",
+      "image_device_attestation": false,
+      "generation": [
+        {
+          "window": 1,
+          "frames": 329,
+          "span_us": 10059091,
+          "audio_seconds": 7.896,
+          "ratio": 0.7849615835068994,
+          "baseline_frames": 0
+        },
+        {
+          "window": 2,
+          "frames": 328,
+          "span_us": 10000475,
+          "audio_seconds": 7.872,
+          "ratio": 0.7871626097760357,
+          "baseline_frames": 329
+        },
+        {
+          "window": 3,
+          "frames": 326,
+          "span_us": 10025257,
+          "audio_seconds": 7.824,
+          "ratio": 0.7804288708010179,
+          "baseline_frames": 657
+        },
+        {
+          "window": 4,
+          "frames": 329,
+          "span_us": 10009494,
+          "audio_seconds": 7.896,
+          "ratio": 0.7888510647990797,
+          "baseline_frames": 983
+        },
+        {
+          "window": 5,
+          "frames": 329,
+          "span_us": 10005102,
+          "audio_seconds": 7.896,
+          "ratio": 0.7891973515112589,
+          "baseline_frames": 1312
+        }
+      ],
+      "complete_windows": 5,
+      "stack_minima_bytes": {
+        "metrics_stack_free_bytes": 1132,
+        "listener_stack_free_bytes": 1664,
+        "supervisor_stack_min_bytes": 3108,
+        "encoder_stack_free_bytes": 5196
+      },
+      "uart": {
+        "bytes": 36488,
+        "complete_lines": 252,
+        "unterminated_tail_bytes": 181
+      },
+      "capture_fault_values": {
+        "queue_overflows": [
+          15
+        ],
+        "software_dropped_frames": [
+          480
+        ],
+        "read_errors": [
+          0
+        ],
+        "restarts": [
+          2
+        ],
+        "supervisor_restarts": [
+          0
+        ],
+        "overflow_restarts": [
+          2
+        ],
+        "settling_discarded_frames": [
+          26400
+        ],
+        "discontinuities": [
+          2
+        ],
+        "health_restart_requests": [
+          0
+        ]
+      },
+      "overrun_boundaries": [
+        {
+          "event_us": 14225261,
+          "resets": 1,
+          "raw_overruns": 1
+        },
+        {
+          "event_us": 24166852,
+          "resets": 2,
+          "raw_overruns": 1
+        },
+        {
+          "event_us": 33744117,
+          "resets": 3,
+          "raw_overruns": 1
+        },
+        {
+          "event_us": 43731600,
+          "resets": 4,
+          "raw_overruns": 1
+        },
+        {
+          "event_us": 53740806,
+          "resets": 5,
+          "raw_overruns": 1
+        },
+        {
+          "event_us": 63633198,
+          "resets": 6,
+          "raw_overruns": 1
+        }
+      ],
+      "passed": false,
+      "helper": {
+        "passed": false,
+        "error": "AssertionError('fast listener ended before reclamation probe')"
+      },
+      "cleanup": {
+        "slow-uart-cleanup.json": {
+          "cleaned": true,
+          "root_pid": 1606829,
+          "root_returncode": 143,
+          "errors": []
+        },
+        "slow-cleanup.json": {
+          "cleaned": true,
+          "root_pid": 1607617,
+          "root_returncode": 1,
+          "errors": []
+        }
+      },
+      "source_cleanup": [
+        {
+          "kind": "source_cleanup_begin",
+          "monotonic": 1128047.074541343,
+          "returncode": null,
+          "aplay_log_bytes": 0
+        },
+        {
+          "kind": "source_cleanup_end",
+          "monotonic": 1128047.188303638,
+          "returncode": 0,
+          "aplay_log_bytes": 0
+        }
+      ],
+      "decoded_artifacts": [],
+      "recorded_provenance_checks": [
+        {
+          "path": "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/listener-device-trial.py",
+          "recorded_sha256": "ce8a8aa61a162b764be8fec50932a703147aceb6c6d8899446e526828e86b201",
+          "current_sha256": "ce8a8aa61a162b764be8fec50932a703147aceb6c6d8899446e526828e86b201",
+          "matches_recorded": true
+        },
+        {
+          "path": "/home/harper/workspace/personal/esp-analog-streamer/scripts/stream-soak",
+          "recorded_sha256": "fc15a7978fc8dcf81f2b630e6cd1d55f6ac4ac3375a47cf0e07017ee77c105e5",
+          "current_sha256": "fc15a7978fc8dcf81f2b630e6cd1d55f6ac4ac3375a47cf0e07017ee77c105e5",
+          "matches_recorded": true
+        },
+        {
+          "path": "/home/harper/workspace/personal/esp-analog-streamer/scripts/stream_soak.py",
+          "recorded_sha256": "a6376fa859d5ae71787b1dd0001dfd9f0cd65575eb7eae808d09218becdcc408",
+          "current_sha256": "a6376fa859d5ae71787b1dd0001dfd9f0cd65575eb7eae808d09218becdcc408",
+          "matches_recorded": true
+        },
+        {
+          "path": "/home/harper/workspace/personal/esp-analog-streamer/scripts/serial-log",
+          "recorded_sha256": "d2e8961b9e2d2d3678d9b524c3ad8c1a40935023828dd7761b6fb1bbc76f0085",
+          "current_sha256": "d2e8961b9e2d2d3678d9b524c3ad8c1a40935023828dd7761b6fb1bbc76f0085",
+          "matches_recorded": true
+        },
+        {
+          "path": "/home/harper/workspace/personal/esp-analog-streamer/scripts/encoder_probe_check.py",
+          "recorded_sha256": "20f9722db3f545bb00e82561899f47fa8ae8ae2c26ba90cf3a484247750330d6",
+          "current_sha256": "20f9722db3f545bb00e82561899f47fa8ae8ae2c26ba90cf3a484247750330d6",
+          "matches_recorded": true
+        },
+        {
+          "path": "/home/harper/workspace/personal/esp-analog-streamer/docs/audit-evidence/2026-10-09/mp3-stream-probe/slow-acceptance.py",
+          "recorded_sha256": "2fca121cfe296b5f4e3243c168fe0fed1a1487b42234b85224eb4f44f0d1c737",
+          "current_sha256": "2fca121cfe296b5f4e3243c168fe0fed1a1487b42234b85224eb4f44f0d1c737",
+          "matches_recorded": true
+        },
+        {
+          "path": "/home/harper/workspace/personal/esp-analog-streamer/docs/audit-evidence/2026-10-09/mp3-stream-probe/acceptance.py",
+          "recorded_sha256": "7b40e52cab8607c21c229b6e6acb8c0c6ef36e6523faedc3cbb16c92da15c4c7",
+          "current_sha256": "7b40e52cab8607c21c229b6e6acb8c0c6ef36e6523faedc3cbb16c92da15c4c7",
+          "matches_recorded": true
+        },
+        {
+          "path": "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/metrics-state/v2/default.elf",
+          "recorded_sha256": "ced962b2136d7c3fbe8dd97dd4de2d47f1c39e72bef6dee76d92fa5c59218d1c",
+          "current_sha256": "ced962b2136d7c3fbe8dd97dd4de2d47f1c39e72bef6dee76d92fa5c59218d1c",
+          "matches_recorded": true
+        },
+        {
+          "path": "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/encoder-probe-device/stereo-noise-420s.wav",
+          "recorded_sha256": "9311d9ca5dfe1a5f9269631afe22647834207f2b3239571474acc8ac15f3228d",
+          "current_sha256": "9311d9ca5dfe1a5f9269631afe22647834207f2b3239571474acc8ac15f3228d",
+          "matches_recorded": true
+        }
+      ]
+    },
+    "control": {
+      "verdict": "FAILED: fast listener ended before reclamation probe; zero encoder overruns/resets in five complete retained windows",
+      "image_sha256": "d88a65965ff456c7500df1ae05d5ac548ef4290b35524215bf3e27175378b991",
+      "image_device_attestation": false,
+      "generation": [
+        {
+          "window": 1,
+          "frames": 416,
+          "span_us": 10022105,
+          "audio_seconds": 9.984,
+          "ratio": 0.9961979045320319,
+          "baseline_frames": 0
+        },
+        {
+          "window": 2,
+          "frames": 417,
+          "span_us": 10020935,
+          "audio_seconds": 10.008000000000001,
+          "ratio": 0.9987092022850165,
+          "baseline_frames": 416
+        },
+        {
+          "window": 3,
+          "frames": 415,
+          "span_us": 10015440,
+          "audio_seconds": 9.96,
+          "ratio": 0.9944645467398338,
+          "baseline_frames": 833
+        },
+        {
+          "window": 4,
+          "frames": 417,
+          "span_us": 10011335,
+          "audio_seconds": 10.008000000000001,
+          "ratio": 0.9996668775942469,
+          "baseline_frames": 1248
+        },
+        {
+          "window": 5,
+          "frames": 420,
+          "span_us": 10015740,
+          "audio_seconds": 10.08,
+          "ratio": 1.0064159013712417,
+          "baseline_frames": 1665
+        }
+      ],
+      "complete_windows": 5,
+      "stack_minima_bytes": {
+        "metrics_stack_free_bytes": 1164,
+        "listener_stack_free_bytes": 1668,
+        "supervisor_stack_min_bytes": null,
+        "encoder_stack_free_bytes": 5188
+      },
+      "uart": {
+        "bytes": 25705,
+        "complete_lines": 184,
+        "unterminated_tail_bytes": 645
+      },
+      "capture_fault_values": {
+        "queue_overflows": [
+          16
+        ],
+        "software_dropped_frames": [
+          480
+        ],
+        "read_errors": [
+          0
+        ],
+        "restarts": [
+          2
+        ],
+        "supervisor_restarts": [
+          0
+        ],
+        "overflow_restarts": [
+          2
+        ],
+        "settling_discarded_frames": [
+          26400
+        ],
+        "discontinuities": [
+          2
+        ],
+        "health_restart_requests": [
+          0
+        ]
+      },
+      "overrun_boundaries": [],
+      "passed": false,
+      "helper": {
+        "passed": false,
+        "error": "AssertionError('fast listener ended before reclamation probe')"
+      },
+      "cleanup": {
+        "slow-uart-cleanup.json": {
+          "cleaned": true,
+          "root_pid": 1612590,
+          "root_returncode": 143,
+          "errors": []
+        },
+        "slow-cleanup.json": {
+          "cleaned": true,
+          "root_pid": 1613598,
+          "root_returncode": 1,
+          "errors": []
+        }
+      },
+      "source_cleanup": [
+        {
+          "kind": "source_cleanup_begin",
+          "monotonic": 1128231.596226273,
+          "returncode": null,
+          "aplay_log_bytes": 0
+        },
+        {
+          "kind": "source_cleanup_end",
+          "monotonic": 1128231.709994847,
+          "returncode": 0,
+          "aplay_log_bytes": 0
+        }
+      ],
+      "decoded_artifacts": [],
+      "recorded_provenance_checks": [
+        {
+          "path": "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/listener-device-trial.py",
+          "recorded_sha256": "ce8a8aa61a162b764be8fec50932a703147aceb6c6d8899446e526828e86b201",
+          "current_sha256": "ce8a8aa61a162b764be8fec50932a703147aceb6c6d8899446e526828e86b201",
+          "matches_recorded": true
+        },
+        {
+          "path": "/home/harper/workspace/personal/esp-analog-streamer/scripts/stream-soak",
+          "recorded_sha256": "fc15a7978fc8dcf81f2b630e6cd1d55f6ac4ac3375a47cf0e07017ee77c105e5",
+          "current_sha256": "fc15a7978fc8dcf81f2b630e6cd1d55f6ac4ac3375a47cf0e07017ee77c105e5",
+          "matches_recorded": true
+        },
+        {
+          "path": "/home/harper/workspace/personal/esp-analog-streamer/scripts/stream_soak.py",
+          "recorded_sha256": "a6376fa859d5ae71787b1dd0001dfd9f0cd65575eb7eae808d09218becdcc408",
+          "current_sha256": "a6376fa859d5ae71787b1dd0001dfd9f0cd65575eb7eae808d09218becdcc408",
+          "matches_recorded": true
+        },
+        {
+          "path": "/home/harper/workspace/personal/esp-analog-streamer/scripts/serial-log",
+          "recorded_sha256": "d2e8961b9e2d2d3678d9b524c3ad8c1a40935023828dd7761b6fb1bbc76f0085",
+          "current_sha256": "d2e8961b9e2d2d3678d9b524c3ad8c1a40935023828dd7761b6fb1bbc76f0085",
+          "matches_recorded": true
+        },
+        {
+          "path": "/home/harper/workspace/personal/esp-analog-streamer/scripts/encoder_probe_check.py",
+          "recorded_sha256": "20f9722db3f545bb00e82561899f47fa8ae8ae2c26ba90cf3a484247750330d6",
+          "current_sha256": "20f9722db3f545bb00e82561899f47fa8ae8ae2c26ba90cf3a484247750330d6",
+          "matches_recorded": true
+        },
+        {
+          "path": "/home/harper/workspace/personal/esp-analog-streamer/docs/audit-evidence/2026-10-09/mp3-stream-probe/slow-acceptance.py",
+          "recorded_sha256": "2fca121cfe296b5f4e3243c168fe0fed1a1487b42234b85224eb4f44f0d1c737",
+          "current_sha256": "2fca121cfe296b5f4e3243c168fe0fed1a1487b42234b85224eb4f44f0d1c737",
+          "matches_recorded": true
+        },
+        {
+          "path": "/home/harper/workspace/personal/esp-analog-streamer/docs/audit-evidence/2026-10-09/mp3-stream-probe/acceptance.py",
+          "recorded_sha256": "7b40e52cab8607c21c229b6e6acb8c0c6ef36e6523faedc3cbb16c92da15c4c7",
+          "current_sha256": "7b40e52cab8607c21c229b6e6acb8c0c6ef36e6523faedc3cbb16c92da15c4c7",
+          "matches_recorded": true
+        },
+        {
+          "path": "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/encoder-export-stack/default.elf",
+          "recorded_sha256": "d88a65965ff456c7500df1ae05d5ac548ef4290b35524215bf3e27175378b991",
+          "current_sha256": "d88a65965ff456c7500df1ae05d5ac548ef4290b35524215bf3e27175378b991",
+          "matches_recorded": true
+        },
+        {
+          "path": "/home/harper/workspace/personal/esp-analog-streamer/target/kata-hardening/encoder-probe-device/stereo-noise-420s.wav",
+          "recorded_sha256": "9311d9ca5dfe1a5f9269631afe22647834207f2b3239571474acc8ac15f3228d",
+          "current_sha256": "9311d9ca5dfe1a5f9269631afe22647834207f2b3239571474acc8ac15f3228d",
+          "matches_recorded": true
+        }
+      ]
+    },
+    "probe": {
+      "verdict": "CANCELED PARTIAL: acquisition invalid; actual raw overruns; not completed",
+      "image_sha256": "409849952981fe7dec9c62b6d04bd558bdbc7bea915b4207666a55e9a6513c31",
+      "image_device_attestation": false,
+      "generation": [
+        {
+          "window": 1,
+          "sequence": 1,
+          "baseline_frames": 2,
+          "frames": 390,
+          "span_us": 10017962,
+          "ratio": 0.9343217712345084
+        },
+        {
+          "window": 2,
+          "sequence": 1,
+          "baseline_frames": 392,
+          "frames": 390,
+          "span_us": 10002926,
+          "ratio": 0.9357262065119745
+        },
+        {
+          "window": 3,
+          "sequence": 1,
+          "baseline_frames": 782,
+          "frames": 391,
+          "span_us": 10013107,
+          "ratio": 0.9371716491194991
+        },
+        {
+          "window": 4,
+          "sequence": 2,
+          "baseline_frames": 1233,
+          "frames": 387,
+          "span_us": 10004611,
+          "ratio": 0.9283719277041356
+        },
+        {
+          "window": 5,
+          "sequence": 2,
+          "baseline_frames": 1620,
+          "frames": 391,
+          "span_us": 10015067,
+          "ratio": 0.9369882398190646
+        },
+        {
+          "window": 6,
+          "sequence": 2,
+          "baseline_frames": 2011,
+          "frames": 392,
+          "span_us": 10020058,
+          "ratio": 0.9389167208413364
+        },
+        {
+          "window": 7,
+          "sequence": 3,
+          "baseline_frames": 2434,
+          "frames": 388,
+          "span_us": 10019270,
+          "ratio": 0.9294090288014994
+        },
+        {
+          "window": 8,
+          "sequence": 3,
+          "baseline_frames": 2822,
+          "frames": 388,
+          "span_us": 10000449,
+          "ratio": 0.9311581909972242
+        },
+        {
+          "window": 9,
+          "sequence": 3,
+          "baseline_frames": 3210,
+          "frames": 392,
+          "span_us": 10000360,
+          "ratio": 0.9407661324192328
+        },
+        {
+          "window": 10,
+          "sequence": 4,
+          "baseline_frames": 3618,
+          "frames": 391,
+          "span_us": 10004540,
+          "ratio": 0.9379741597314819
+        },
+        {
+          "window": 11,
+          "sequence": 4,
+          "baseline_frames": 4009,
+          "frames": 391,
+          "span_us": 10004106,
+          "ratio": 0.9380148511021374
+        },
+        {
+          "window": 12,
+          "sequence": 4,
+          "baseline_frames": 4400,
+          "frames": 389,
+          "span_us": 10015243,
+          "ratio": 0.9321790794292261
+        },
+        {
+          "window": 13,
+          "sequence": 5,
+          "baseline_frames": 4839,
+          "frames": 389,
+          "span_us": 10002669,
+          "ratio": 0.93335088864782
+        }
+      ],
+      "complete_windows": 13,
+      "stack_minima_bytes": {
+        "metrics_stack_free_bytes": 908,
+        "listener_stack_free_bytes": null,
+        "supervisor_stack_min_bytes": 3108,
+        "encoder_stack_free_bytes": 4932
+      },
+      "uart": {
+        "bytes": 73012,
+        "complete_lines": 396,
+        "selected_complete_lines": 375,
+        "excluded_complete_lines": 21,
+        "tail_bytes": 168
+      },
+      "capture_fault_values": {
+        "queue_overflows": [
+          15
+        ],
+        "software_dropped_frames": [
+          480
+        ],
+        "read_errors": [
+          0
+        ],
+        "restarts": [
+          2
+        ],
+        "supervisor_restarts": [
+          0
+        ],
+        "overflow_restarts": [
+          2
+        ],
+        "settling_discarded_frames": [
+          26400
+        ],
+        "discontinuities": [
+          2
+        ],
+        "health_restart_requests": [
+          0
+        ]
+      },
+      "overrun_boundaries": [
+        {
+          "event_us": 35898851,
+          "resets": 1,
+          "raw_overruns": 1
+        },
+        {
+          "event_us": 66834210,
+          "resets": 2,
+          "raw_overruns": 1
+        },
+        {
+          "event_us": 97364721,
+          "resets": 3,
+          "raw_overruns": 1
+        },
+        {
+          "event_us": 128780820,
+          "resets": 4,
+          "raw_overruns": 1
+        }
+      ],
+      "completed": false,
+      "acquisition_complete": false,
+      "errors": [
+        {
+          "error": "SystemExit(15)",
+          "host_monotonic": 1128498.506408153
+        }
+      ],
+      "boot_selection": {
+        "byte_offset": 4229,
+        "line": 22,
+        "host_monotonic": 1128356.559594639,
+        "reset_released": 1128356.450277389,
+        "arrival_offset": 4201,
+        "arrival_bytes": 1098,
+        "rom_reset": "rst:0x1 (POWERON_RESET),boot:0x1f (SPI_FAST_FLASH_BOOT)\r"
+      },
+      "strict_replay_matches_saved": true,
+      "parent_stop": {
+        "pid": 1618420,
+        "signal": "SIGTERM",
+        "host_monotonic": 1128498.506235602,
+        "reason": "Repeated actual raw overruns invalidate probe acquisition. A complete metrics dump starts after the third overrun; Storage/Window paths and stack minima exercised. Stop failed partial diagnostic through owned cleanup handler, not a completed OFF/ON/OFF. Initial ownership lookup also matched uv wrapper, rejected without signaling; this lookup requires the exact Python interpreter."
+      },
+      "source_cleanup": [
+        {
+          "kind": "final_before_source_cleanup",
+          "host_monotonic": 1128499.068239281,
+          "utc": "2026-10-10T22:23:55Z",
+          "sonos": {
+            "config": {
+              "player_id": "RINCON_38420B8F3F0C01400",
+              "autoplay": false,
+              "buffer_preset": "med",
+              "output_format": "mp3"
+            },
+            "buffer_available": true,
+            "active_format": "mp3",
+            "groups": [],
+            "active_player_id": null,
+            "state": "stopped",
+            "last_error": null
+          },
+          "app_state": {
+            "state": "quiet",
+            "shazam_enabled": false,
+            "level_dbfs": -23.6,
+            "rate_limited_until": null,
+            "now": null,
+            "history": []
+          },
+          "source_returncode": null
+        },
+        {
+          "kind": "source_cleanup_begin",
+          "host_monotonic": 1128499.068452956,
+          "utc": "2026-10-10T22:23:55Z",
+          "returncode": null,
+          "aplay_log_bytes": 0
+        },
+        {
+          "kind": "source_cleanup_end",
+          "host_monotonic": 1128499.07585655,
+          "utc": "2026-10-10T22:23:55Z",
+          "returncode": 0,
+          "aplay_log_bytes": 0
+        }
+      ]
+    }
+  },
+  "metrics_state_receipts": {
+    "default": {
+      "owned_complete_dumps": 5,
+      "dump_bounds_us": [
+        [
+          11446641,
+          12427275
+        ],
+        [
+          21456267,
+          22894615
+        ],
+        [
+          35552725,
+          36988187
+        ],
+        [
+          45769292,
+          47206203
+        ],
+        [
+          55975652,
+          57177283
+        ]
+      ],
+      "max_query_us": 8,
+      "last_totals": {
+        "schema": 1,
+        "start_us": 55975652,
+        "independent": true,
+        "attempted": 50,
+        "unavailable": 0,
+        "unassigned": 0,
+        "last_raw": 1,
+        "max_query_us": 8,
+        "saturated": false,
+        "invalidated": false
+      },
+      "last_phases": [
+        {
+          "schema": 1,
+          "start_us": 55975652,
+          "phase": 0,
+          "ready": 0,
+          "blocked": 0,
+          "other": 0,
+          "name": "Init"
+        },
+        {
+          "schema": 1,
+          "start_us": 55975652,
+          "phase": 1,
+          "ready": 0,
+          "blocked": 0,
+          "other": 0,
+          "name": "HealthWarning"
+        },
+        {
+          "schema": 1,
+          "start_us": 55975652,
+          "phase": 2,
+          "ready": 4,
+          "blocked": 0,
+          "other": 0,
+          "name": "Capture"
+        },
+        {
+          "schema": 1,
+          "start_us": 55975652,
+          "phase": 3,
+          "ready": 0,
+          "blocked": 0,
+          "other": 0,
+          "name": "RestartExport"
+        },
+        {
+          "schema": 1,
+          "start_us": 55975652,
+          "phase": 4,
+          "ready": 7,
+          "blocked": 0,
+          "other": 0,
+          "name": "ListenerExport"
+        },
+        {
+          "schema": 1,
+          "start_us": 55975652,
+          "phase": 5,
+          "ready": 12,
+          "blocked": 0,
+          "other": 0,
+          "name": "EncoderExport"
+        },
+        {
+          "schema": 1,
+          "start_us": 55975652,
+          "phase": 6,
+          "ready": 6,
+          "blocked": 0,
+          "other": 0,
+          "name": "DiagnosticExport"
+        },
+        {
+          "schema": 1,
+          "start_us": 55975652,
+          "phase": 7,
+          "ready": 16,
+          "blocked": 6,
+          "other": 0,
+          "name": "Sleep"
+        }
+      ],
+      "last_completion": {
+        "schema": 1,
+        "start_us": 55975652,
+        "end_us": 57177283,
+        "phases": 8,
+        "supervisor_stack_valid": true,
+        "supervisor_stack_min_bytes": 3108
+      },
+      "explicit_board_intervals": [
+        {
+          "kind": "producer_window",
+          "boot": 0,
+          "offset": 12496,
+          "line": 151,
+          "start_us": 4233165,
+          "end_us": 14292256,
+          "raw": "b'I (15967) esp_shazam_firmware::stream: stream-encode: elapsed_us=10059091 task_runtime_us=9595715 runtime_valid=true encoded_frames=329 resets=1 listeners_start=0 listeners_end=0 (slots include WAV and closing listeners) encode_max_us=30282 stack_free_bytes=5196 block_samples=1152 raw_read_calls=1843 raw_read_attempts=2183 raw_read_successes=1842 raw_read_frames=379008 raw_read_retries=336 raw_read_empty=4 raw_read_overruns=1 raw_wait_total_us=409604 raw_wait_max_us=20581 encode_wall_total_us=8981810 encoded_lock_wait_wall_total_us=19407 encoded_push_held_wall_total_us=22773 telemetry_epoch=1 telemetry_window=1 window_start_us=4233165 window_end_us=14292256 sequence=0\\r\\n'",
+          "covering_acquisition_starts_us": [
+            21456267,
+            35552725,
+            45769292,
+            55975652
+          ]
+        },
+        {
+          "kind": "producer_window",
+          "boot": 0,
+          "offset": 18117,
+          "line": 182,
+          "start_us": 14292256,
+          "end_us": 24292731,
+          "raw": "b'I (35337) esp_shazam_firmware::stream: stream-encode: elapsed_us=10000475 task_runtime_us=9565428 runtime_valid=true encoded_frames=657 resets=2 listeners_start=0 listeners_end=0 (slots include WAV and closing listeners) encode_max_us=39643 stack_free_bytes=5196 block_samples=1152 raw_read_calls=1838 raw_read_attempts=2222 raw_read_successes=1837 raw_read_frames=377856 raw_read_retries=382 raw_read_empty=2 raw_read_overruns=1 raw_wait_total_us=352640 raw_wait_max_us=19417 encode_wall_total_us=8968979 encoded_lock_wait_wall_total_us=19453 encoded_push_held_wall_total_us=22409 telemetry_epoch=1 telemetry_window=2 window_start_us=14292256 window_end_us=24292731 sequence=0\\r\\n'",
+          "covering_acquisition_starts_us": [
+            35552725,
+            45769292,
+            55975652
+          ]
+        },
+        {
+          "kind": "listener_departure",
+          "boot": 0,
+          "offset": 23041,
+          "line": 200,
+          "start_us": null,
+          "end_us": 33745541,
+          "raw": "b'I (41097) esp_shazam_firmware::stream: stream: 192.168.23.153:47840 left after 9.0 s: fell a ring behind listener_stack_free_bytes=1664 event_us=33745541\\r\\n'",
+          "covering_acquisition_starts_us": [
+            35552725,
+            45769292,
+            55975652
+          ]
+        },
+        {
+          "kind": "producer_window",
+          "boot": 0,
+          "offset": 23651,
+          "line": 203,
+          "start_us": 24292731,
+          "end_us": 34317988,
+          "raw": "b'I (41577) esp_shazam_firmware::stream: stream-encode: elapsed_us=10025257 task_runtime_us=9473059 runtime_valid=true encoded_frames=983 resets=3 listeners_start=0 listeners_end=1 (slots include WAV and closing listeners) encode_max_us=33644 stack_free_bytes=5196 block_samples=1152 raw_read_calls=1826 raw_read_attempts=2536 raw_read_successes=1825 raw_read_frames=375552 raw_read_retries=708 raw_read_empty=2 raw_read_overruns=1 raw_wait_total_us=475434 raw_wait_max_us=21576 encode_wall_total_us=8947658 encoded_lock_wait_wall_total_us=19118 encoded_push_held_wall_total_us=22799 telemetry_epoch=1 telemetry_window=3 window_start_us=24292731 window_end_us=34317988 sequence=0\\r\\n'",
+          "covering_acquisition_starts_us": [
+            35552725,
+            45769292,
+            55975652
+          ]
+        },
+        {
+          "kind": "listener_departure",
+          "boot": 0,
+          "offset": 25766,
+          "line": 209,
+          "start_us": null,
+          "end_us": 35067736,
+          "raw": "b'I (44217) esp_shazam_firmware::stream: stream: 192.168.23.153:47828 left after 10.5 s: stopped reading listener_stack_free_bytes=1672 event_us=35067736\\r\\n'",
+          "covering_acquisition_starts_us": [
+            35552725,
+            45769292,
+            55975652
+          ]
+        },
+        {
+          "kind": "producer_window",
+          "boot": 0,
+          "offset": 27431,
+          "line": 216,
+          "start_us": 34317988,
+          "end_us": 44327482,
+          "raw": "b'I (46037) esp_shazam_firmware::stream: stream-encode: elapsed_us=10009494 task_runtime_us=9648087 runtime_valid=true encoded_frames=1312 resets=4 listeners_start=1 listeners_end=0 (slots include WAV and closing listeners) encode_max_us=31776 stack_free_bytes=5196 block_samples=1152 raw_read_calls=1844 raw_read_attempts=2206 raw_read_successes=1843 raw_read_frames=379008 raw_read_retries=360 raw_read_empty=2 raw_read_overruns=1 raw_wait_total_us=357443 raw_wait_max_us=19535 encode_wall_total_us=8972228 encoded_lock_wait_wall_total_us=19119 encoded_push_held_wall_total_us=22515 telemetry_epoch=1 telemetry_window=4 window_start_us=34317988 window_end_us=44327482 sequence=0\\r\\n'",
+          "covering_acquisition_starts_us": [
+            45769292,
+            55975652
+          ]
+        },
+        {
+          "kind": "producer_window",
+          "boot": 0,
+          "offset": 32016,
+          "line": 237,
+          "start_us": 44327482,
+          "end_us": 54332584,
+          "raw": "b'I (55767) esp_shazam_firmware::stream: stream-encode: elapsed_us=10005102 task_runtime_us=9578371 runtime_valid=true encoded_frames=1641 resets=5 listeners_start=0 listeners_end=0 (slots include WAV and closing listeners) encode_max_us=30499 stack_free_bytes=5196 block_samples=1152 raw_read_calls=1844 raw_read_attempts=2208 raw_read_successes=1843 raw_read_frames=379008 raw_read_retries=362 raw_read_empty=2 raw_read_overruns=1 raw_wait_total_us=354945 raw_wait_max_us=19445 encode_wall_total_us=8975029 encoded_lock_wait_wall_total_us=19094 encoded_push_held_wall_total_us=22956 telemetry_epoch=1 telemetry_window=5 window_start_us=44327482 window_end_us=54332584 sequence=0\\r\\n'",
+          "covering_acquisition_starts_us": [
+            55975652
+          ]
+        }
+      ]
+    },
+    "probe": {
+      "owned_complete_dumps": 13,
+      "dump_bounds_us": [
+        [
+          11263986,
+          12701176
+        ],
+        [
+          21292991,
+          22523646
+        ],
+        [
+          31943124,
+          33375463
+        ],
+        [
+          42124178,
+          43165842
+        ],
+        [
+          52213530,
+          53644865
+        ],
+        [
+          62273401,
+          63894169
+        ],
+        [
+          72364342,
+          73555563
+        ],
+        [
+          82553147,
+          83982624
+        ],
+        [
+          92763443,
+          93804099
+        ],
+        [
+          102884216,
+          104513182
+        ],
+        [
+          112935157,
+          114173327
+        ],
+        [
+          122998094,
+          124443142
+        ],
+        [
+          133186757,
+          134613872
+        ]
+      ],
+      "max_query_us": 12,
+      "last_totals": {
+        "schema": 1,
+        "start_us": 133186757,
+        "independent": true,
+        "attempted": 121,
+        "unavailable": 0,
+        "unassigned": 0,
+        "last_raw": 1,
+        "max_query_us": 12,
+        "saturated": false,
+        "invalidated": false
+      },
+      "last_phases": [
+        {
+          "schema": 1,
+          "start_us": 133186757,
+          "phase": 0,
+          "ready": 0,
+          "blocked": 0,
+          "other": 0,
+          "name": "Init"
+        },
+        {
+          "schema": 1,
+          "start_us": 133186757,
+          "phase": 1,
+          "ready": 0,
+          "blocked": 0,
+          "other": 0,
+          "name": "HealthWarning"
+        },
+        {
+          "schema": 1,
+          "start_us": 133186757,
+          "phase": 2,
+          "ready": 15,
+          "blocked": 0,
+          "other": 0,
+          "name": "Capture"
+        },
+        {
+          "schema": 1,
+          "start_us": 133186757,
+          "phase": 3,
+          "ready": 0,
+          "blocked": 0,
+          "other": 0,
+          "name": "RestartExport"
+        },
+        {
+          "schema": 1,
+          "start_us": 133186757,
+          "phase": 4,
+          "ready": 0,
+          "blocked": 0,
+          "other": 0,
+          "name": "ListenerExport"
+        },
+        {
+          "schema": 1,
+          "start_us": 133186757,
+          "phase": 5,
+          "ready": 23,
+          "blocked": 0,
+          "other": 0,
+          "name": "EncoderExport"
+        },
+        {
+          "schema": 1,
+          "start_us": 133186757,
+          "phase": 6,
+          "ready": 18,
+          "blocked": 0,
+          "other": 0,
+          "name": "DiagnosticExport"
+        },
+        {
+          "schema": 1,
+          "start_us": 133186757,
+          "phase": 7,
+          "ready": 39,
+          "blocked": 27,
+          "other": 0,
+          "name": "Sleep"
+        }
+      ],
+      "last_completion": {
+        "schema": 1,
+        "start_us": 133186757,
+        "end_us": 134613872,
+        "phases": 8,
+        "supervisor_stack_valid": true,
+        "supervisor_stack_min_bytes": 3108
+      },
+      "explicit_board_intervals": [
+        {
+          "kind": "producer_window",
+          "boot": null,
+          "offset": 2558,
+          "line": 12,
+          "start_us": 34735901,
+          "end_us": 44750709,
+          "raw": "b'I (46058) esp_shazam_firmware::stream: stream-encode: elapsed_us=10014808 task_runtime_us=9645822 runtime_valid=true encoded_frames=1631 resets=0 listeners_start=0 listeners_end=0 (slots include WAV and closing listeners) encode_max_us=27842 stack_free_bytes=4936 block_samples=1152 raw_read_calls=2235 raw_read_attempts=2438 raw_read_successes=2235 raw_read_frames=459648 raw_read_retries=203 raw_read_empty=0 raw_read_overruns=0 raw_wait_total_us=376787 raw_wait_max_us=1023 encode_wall_total_us=9045346 encoded_lock_wait_wall_total_us=20788 encoded_push_held_wall_total_us=33101 telemetry_epoch=1 telemetry_window=4 window_start_us=34735901 window_end_us=44750709 sequence=1\\r\\n'",
+          "covering_acquisition_starts_us": [],
+          "owned_boot": false
+        },
+        {
+          "kind": "producer_window",
+          "boot": 0,
+          "offset": 17168,
+          "line": 170,
+          "start_us": 4245367,
+          "end_us": 14263329,
+          "raw": "b'I (15498) esp_shazam_firmware::stream: stream-encode: elapsed_us=10017962 task_runtime_us=9593369 runtime_valid=true encoded_frames=392 resets=0 listeners_start=0 listeners_end=0 (slots include WAV and closing listeners) encode_max_us=25692 stack_free_bytes=4932 block_samples=1152 raw_read_calls=2184 raw_read_attempts=2615 raw_read_successes=2184 raw_read_frames=449280 raw_read_retries=429 raw_read_empty=2 raw_read_overruns=0 raw_wait_total_us=421320 raw_wait_max_us=19506 encode_wall_total_us=9034784 encoded_lock_wait_wall_total_us=21288 encoded_push_held_wall_total_us=33551 telemetry_epoch=1 telemetry_window=1 window_start_us=4245367 window_end_us=14263329 sequence=1\\r\\n'",
+          "covering_acquisition_starts_us": [
+            21292991,
+            31943124,
+            42124178,
+            52213530,
+            62273401,
+            72364342,
+            82553147,
+            92763443,
+            102884216,
+            112935157,
+            122998094,
+            133186757
+          ],
+          "owned_boot": true
+        },
+        {
+          "kind": "producer_window",
+          "boot": 0,
+          "offset": 21365,
+          "line": 189,
+          "start_us": 14263329,
+          "end_us": 24266255,
+          "raw": "b'I (25608) esp_shazam_firmware::stream: stream-encode: elapsed_us=10002926 task_runtime_us=9759880 runtime_valid=true encoded_frames=782 resets=0 listeners_start=0 listeners_end=0 (slots include WAV and closing listeners) encode_max_us=33608 stack_free_bytes=4932 block_samples=1152 raw_read_calls=2184 raw_read_attempts=2586 raw_read_successes=2184 raw_read_frames=449280 raw_read_retries=402 raw_read_empty=0 raw_read_overruns=0 raw_wait_total_us=421809 raw_wait_max_us=20692 encode_wall_total_us=9052740 encoded_lock_wait_wall_total_us=21053 encoded_push_held_wall_total_us=34106 telemetry_epoch=1 telemetry_window=2 window_start_us=14263329 window_end_us=24266255 sequence=1\\r\\n'",
+          "covering_acquisition_starts_us": [
+            31943124,
+            42124178,
+            52213530,
+            62273401,
+            72364342,
+            82553147,
+            92763443,
+            102884216,
+            112935157,
+            122998094,
+            133186757
+          ],
+          "owned_boot": true
+        },
+        {
+          "kind": "producer_window",
+          "boot": 0,
+          "offset": 25567,
+          "line": 208,
+          "start_us": 24266255,
+          "end_us": 34279362,
+          "raw": "b'I (35828) esp_shazam_firmware::stream: stream-encode: elapsed_us=10013107 task_runtime_us=9664212 runtime_valid=true encoded_frames=1173 resets=0 listeners_start=0 listeners_end=0 (slots include WAV and closing listeners) encode_max_us=34536 stack_free_bytes=4932 block_samples=1152 raw_read_calls=2189 raw_read_attempts=2421 raw_read_successes=2189 raw_read_frames=450432 raw_read_retries=232 raw_read_empty=0 raw_read_overruns=0 raw_wait_total_us=381982 raw_wait_max_us=1252 encode_wall_total_us=9078747 encoded_lock_wait_wall_total_us=21084 encoded_push_held_wall_total_us=33803 telemetry_epoch=1 telemetry_window=3 window_start_us=24266255 window_end_us=34279362 sequence=1\\r\\n'",
+          "covering_acquisition_starts_us": [
+            42124178,
+            52213530,
+            62273401,
+            72364342,
+            82553147,
+            92763443,
+            102884216,
+            112935157,
+            122998094,
+            133186757
+          ],
+          "owned_boot": true
+        },
+        {
+          "kind": "producer_window",
+          "boot": 0,
+          "offset": 30692,
+          "line": 226,
+          "start_us": 35898851,
+          "end_us": 45903462,
+          "raw": "b'I (47488) esp_shazam_firmware::stream: stream-encode: elapsed_us=10004611 task_runtime_us=9580256 runtime_valid=true encoded_frames=1620 resets=1 listeners_start=0 listeners_end=0 (slots include WAV and closing listeners) encode_max_us=26113 stack_free_bytes=4932 block_samples=1152 raw_read_calls=2167 raw_read_attempts=2502 raw_read_successes=2167 raw_read_frames=445824 raw_read_retries=333 raw_read_empty=2 raw_read_overruns=0 raw_wait_total_us=405925 raw_wait_max_us=19614 encode_wall_total_us=8991517 encoded_lock_wait_wall_total_us=20667 encoded_push_held_wall_total_us=33421 telemetry_epoch=1 telemetry_window=4 window_start_us=35898851 window_end_us=45903462 sequence=2\\r\\n'",
+          "covering_acquisition_starts_us": [
+            52213530,
+            62273401,
+            72364342,
+            82553147,
+            92763443,
+            102884216,
+            112935157,
+            122998094,
+            133186757
+          ],
+          "owned_boot": true
+        },
+        {
+          "kind": "producer_window",
+          "boot": 0,
+          "offset": 34897,
+          "line": 245,
+          "start_us": 45903462,
+          "end_us": 55918529,
+          "raw": "b'I (57328) esp_shazam_firmware::stream: stream-encode: elapsed_us=10015067 task_runtime_us=9685531 runtime_valid=true encoded_frames=2011 resets=1 listeners_start=0 listeners_end=0 (slots include WAV and closing listeners) encode_max_us=26069 stack_free_bytes=4932 block_samples=1152 raw_read_calls=2190 raw_read_attempts=2659 raw_read_successes=2190 raw_read_frames=450432 raw_read_retries=469 raw_read_empty=0 raw_read_overruns=0 raw_wait_total_us=437277 raw_wait_max_us=20515 encode_wall_total_us=9054840 encoded_lock_wait_wall_total_us=21146 encoded_push_held_wall_total_us=33548 telemetry_epoch=1 telemetry_window=5 window_start_us=45903462 window_end_us=55918529 sequence=2\\r\\n'",
+          "covering_acquisition_starts_us": [
+            62273401,
+            72364342,
+            82553147,
+            92763443,
+            102884216,
+            112935157,
+            122998094,
+            133186757
+          ],
+          "owned_boot": true
+        },
+        {
+          "kind": "producer_window",
+          "boot": 0,
+          "offset": 39104,
+          "line": 264,
+          "start_us": 55918529,
+          "end_us": 65938587,
+          "raw": "b'I (67348) esp_shazam_firmware::stream: stream-encode: elapsed_us=10020058 task_runtime_us=9718138 runtime_valid=true encoded_frames=2403 resets=1 listeners_start=0 listeners_end=0 (slots include WAV and closing listeners) encode_max_us=27322 stack_free_bytes=4932 block_samples=1152 raw_read_calls=2195 raw_read_attempts=2573 raw_read_successes=2195 raw_read_frames=451584 raw_read_retries=378 raw_read_empty=0 raw_read_overruns=0 raw_wait_total_us=397417 raw_wait_max_us=15292 encode_wall_total_us=9083205 encoded_lock_wait_wall_total_us=21019 encoded_push_held_wall_total_us=33802 telemetry_epoch=1 telemetry_window=6 window_start_us=55918529 window_end_us=65938587 sequence=2\\r\\n'",
+          "covering_acquisition_starts_us": [
+            72364342,
+            82553147,
+            92763443,
+            102884216,
+            112935157,
+            122998094,
+            133186757
+          ],
+          "owned_boot": true
+        },
+        {
+          "kind": "producer_window",
+          "boot": 0,
+          "offset": 44233,
+          "line": 282,
+          "start_us": 66834210,
+          "end_us": 76853480,
+          "raw": "b'I (78188) esp_shazam_firmware::stream: stream-encode: elapsed_us=10019270 task_runtime_us=9655837 runtime_valid=true encoded_frames=2822 resets=2 listeners_start=0 listeners_end=0 (slots include WAV and closing listeners) encode_max_us=26549 stack_free_bytes=4932 block_samples=1152 raw_read_calls=2173 raw_read_attempts=2674 raw_read_successes=2173 raw_read_frames=446976 raw_read_retries=499 raw_read_empty=2 raw_read_overruns=0 raw_wait_total_us=473144 raw_wait_max_us=20779 encode_wall_total_us=8986348 encoded_lock_wait_wall_total_us=20556 encoded_push_held_wall_total_us=32803 telemetry_epoch=1 telemetry_window=7 window_start_us=66834210 window_end_us=76853480 sequence=3\\r\\n'",
+          "covering_acquisition_starts_us": [
+            82553147,
+            92763443,
+            102884216,
+            112935157,
+            122998094,
+            133186757
+          ],
+          "owned_boot": true
+        },
+        {
+          "kind": "producer_window",
+          "boot": 0,
+          "offset": 48440,
+          "line": 301,
+          "start_us": 76853480,
+          "end_us": 86853929,
+          "raw": "b'I (88278) esp_shazam_firmware::stream: stream-encode: elapsed_us=10000449 task_runtime_us=9625564 runtime_valid=true encoded_frames=3210 resets=2 listeners_start=0 listeners_end=0 (slots include WAV and closing listeners) encode_max_us=26596 stack_free_bytes=4932 block_samples=1152 raw_read_calls=2172 raw_read_attempts=2550 raw_read_successes=2172 raw_read_frames=446976 raw_read_retries=378 raw_read_empty=0 raw_read_overruns=0 raw_wait_total_us=387100 raw_wait_max_us=15742 encode_wall_total_us=9007466 encoded_lock_wait_wall_total_us=20879 encoded_push_held_wall_total_us=32839 telemetry_epoch=1 telemetry_window=8 window_start_us=76853480 window_end_us=86853929 sequence=3\\r\\n'",
+          "covering_acquisition_starts_us": [
+            92763443,
+            102884216,
+            112935157,
+            122998094,
+            133186757
+          ],
+          "owned_boot": true
+        },
+        {
+          "kind": "producer_window",
+          "boot": 0,
+          "offset": 52353,
+          "line": 315,
+          "start_us": 86853929,
+          "end_us": 96854289,
+          "raw": "b'I (98278) esp_shazam_firmware::stream: stream-encode: elapsed_us=10000360 task_runtime_us=9713622 runtime_valid=true encoded_frames=3602 resets=2 listeners_start=0 listeners_end=0 (slots include WAV and closing listeners) encode_max_us=28718 stack_free_bytes=4932 block_samples=1152 raw_read_calls=2196 raw_read_attempts=2548 raw_read_successes=2196 raw_read_frames=451584 raw_read_retries=352 raw_read_empty=0 raw_read_overruns=0 raw_wait_total_us=389272 raw_wait_max_us=1077 encode_wall_total_us=9069887 encoded_lock_wait_wall_total_us=21390 encoded_push_held_wall_total_us=34001 telemetry_epoch=1 telemetry_window=9 window_start_us=86853929 window_end_us=96854289 sequence=3\\r\\n'",
+          "covering_acquisition_starts_us": [
+            102884216,
+            112935157,
+            122998094,
+            133186757
+          ],
+          "owned_boot": true
+        },
+        {
+          "kind": "producer_window",
+          "boot": 0,
+          "offset": 57805,
+          "line": 338,
+          "start_us": 97364721,
+          "end_us": 107369261,
+          "raw": "b'I (108628) esp_shazam_firmware::stream: stream-encode: elapsed_us=10004540 task_runtime_us=9676594 runtime_valid=true encoded_frames=4009 resets=3 listeners_start=0 listeners_end=0 (slots include WAV and closing listeners) encode_max_us=26700 stack_free_bytes=4932 block_samples=1152 raw_read_calls=2189 raw_read_attempts=2737 raw_read_successes=2189 raw_read_frames=450432 raw_read_retries=546 raw_read_empty=2 raw_read_overruns=0 raw_wait_total_us=454332 raw_wait_max_us=21186 encode_wall_total_us=9047425 encoded_lock_wait_wall_total_us=20797 encoded_push_held_wall_total_us=33588 telemetry_epoch=1 telemetry_window=10 window_start_us=97364721 window_end_us=107369261 sequence=4\\r\\n'",
+          "covering_acquisition_starts_us": [
+            112935157,
+            122998094,
+            133186757
+          ],
+          "owned_boot": true
+        },
+        {
+          "kind": "producer_window",
+          "boot": 0,
+          "offset": 61752,
+          "line": 352,
+          "start_us": 107369261,
+          "end_us": 117373367,
+          "raw": "b'I (118658) esp_shazam_firmware::stream: stream-encode: elapsed_us=10004106 task_runtime_us=9639664 runtime_valid=true encoded_frames=4400 resets=3 listeners_start=0 listeners_end=0 (slots include WAV and closing listeners) encode_max_us=25485 stack_free_bytes=4932 block_samples=1152 raw_read_calls=2190 raw_read_attempts=2662 raw_read_successes=2190 raw_read_frames=450432 raw_read_retries=472 raw_read_empty=0 raw_read_overruns=0 raw_wait_total_us=393860 raw_wait_max_us=1082 encode_wall_total_us=9039785 encoded_lock_wait_wall_total_us=21471 encoded_push_held_wall_total_us=33683 telemetry_epoch=1 telemetry_window=11 window_start_us=107369261 window_end_us=117373367 sequence=4\\r\\n'",
+          "covering_acquisition_starts_us": [
+            122998094,
+            133186757
+          ],
+          "owned_boot": true
+        },
+        {
+          "kind": "producer_window",
+          "boot": 0,
+          "offset": 66001,
+          "line": 371,
+          "start_us": 117373367,
+          "end_us": 127388610,
+          "raw": "b'I (128748) esp_shazam_firmware::stream: stream-encode: elapsed_us=10015243 task_runtime_us=9631375 runtime_valid=true encoded_frames=4789 resets=3 listeners_start=0 listeners_end=0 (slots include WAV and closing listeners) encode_max_us=28866 stack_free_bytes=4932 block_samples=1152 raw_read_calls=2178 raw_read_attempts=2648 raw_read_successes=2178 raw_read_frames=448128 raw_read_retries=470 raw_read_empty=0 raw_read_overruns=0 raw_wait_total_us=436663 raw_wait_max_us=20561 encode_wall_total_us=9013103 encoded_lock_wait_wall_total_us=21167 encoded_push_held_wall_total_us=32769 telemetry_epoch=1 telemetry_window=12 window_start_us=117373367 window_end_us=127388610 sequence=4\\r\\n'",
+          "covering_acquisition_starts_us": [
+            133186757
+          ],
+          "owned_boot": true
+        },
+        {
+          "kind": "producer_window",
+          "boot": 0,
+          "offset": 71482,
+          "line": 394,
+          "start_us": 128780820,
+          "end_us": 138783489,
+          "raw": "b'I (140168) esp_shazam_firmware::stream: stream-encode: elapsed_us=10002669 task_runtime_us=9640647 runtime_valid=true encoded_frames=5228 resets=4 listeners_start=0 listeners_end=0 (slots include WAV and closing listeners) encode_max_us=27396 stack_free_bytes=4932 block_samples=1152 raw_read_calls=2179 raw_read_attempts=2698 raw_read_successes=2179 raw_read_frames=448128 raw_read_retries=517 raw_read_empty=2 raw_read_overruns=0 raw_wait_total_us=419701 raw_wait_max_us=19643 encode_wall_total_us=9013695 encoded_lock_wait_wall_total_us=20731 encoded_push_held_wall_total_us=33331 telemetry_epoch=1 telemetry_window=13 window_start_us=128780820 window_end_us=138783489 sequence=5\\r\\n'",
+          "covering_acquisition_starts_us": [],
+          "owned_boot": true
+        }
+      ]
+    }
+  },
+  "fixture_sha256": "9311d9ca5dfe1a5f9269631afe22647834207f2b3239571474acc8ac15f3228d",
+  "final_resting_state": {
+    "monotonic": 1128819.582919507,
+    "status": [
+      {
+        "path": "/api/sonos",
+        "http_status": 200,
+        "raw": "{\"config\":{\"player_id\":\"RINCON_38420B8F3F0C01400\",\"autoplay\":false,\"buffer_preset\":\"med\",\"output_format\":\"mp3\"},\"buffer_available\":true,\"active_format\":\"mp3\",\"groups\":[],\"active_player_id\":null,\"state\":\"stopped\",\"last_error\":null}",
+        "value": {
+          "config": {
+            "player_id": "RINCON_38420B8F3F0C01400",
+            "autoplay": false,
+            "buffer_preset": "med",
+            "output_format": "mp3"
+          },
+          "buffer_available": true,
+          "active_format": "mp3",
+          "groups": [],
+          "active_player_id": null,
+          "state": "stopped",
+          "last_error": null
+        }
+      },
+      {
+        "path": "/api/state",
+        "http_status": 200,
+        "raw": "{\"state\":\"quiet\",\"shazam_enabled\":false,\"level_dbfs\":-65.7,\"rate_limited_until\":null,\"now\":null,\"history\":[]}",
+        "value": {
+          "state": "quiet",
+          "shazam_enabled": false,
+          "level_dbfs": -65.7,
+          "rate_limited_until": null,
+          "now": null,
+          "history": []
+        }
+      }
+    ],
+    "routing": [
+      {
+        "control": "Headphone",
+        "stdout": "Simple mixer control 'Headphone',0\n  Capabilities: pvolume pswitch\n  Playback channels: Front Left - Front Right\n  Limits: Playback 0 - 87\n  Mono:\n  Front Left: Playback 87 [100%] [0.00dB] [on]\n  Front Right: Playback 87 [100%] [0.00dB] [on]\n",
+        "stderr": "",
+        "returncode": 0
+      },
+      {
+        "control": "Line Out",
+        "stdout": "Simple mixer control 'Line Out',0\n  Capabilities: pvolume pswitch\n  Playback channels: Front Left - Front Right\n  Limits: Playback 0 - 87\n  Mono:\n  Front Left: Playback 87 [100%] [0.00dB] [off]\n  Front Right: Playback 87 [100%] [0.00dB] [off]\n",
+        "stderr": "",
+        "returncode": 0
+      },
+      {
+        "control": "Master",
+        "stdout": "Simple mixer control 'Master',0\n  Capabilities: pvolume pvolume-joined pswitch pswitch-joined\n  Playback channels: Mono\n  Limits: Playback 0 - 87\n  Mono: Playback 87 [100%] [0.00dB] [on]\n",
+        "stderr": "",
+        "returncode": 0
+      },
+      {
+        "control": "PCM",
+        "stdout": "Simple mixer control 'PCM',0\n  Capabilities: pvolume\n  Playback channels: Front Left - Front Right\n  Limits: Playback 0 - 255\n  Mono:\n  Front Left: Playback 255 [100%] [0.00dB]\n  Front Right: Playback 255 [100%] [0.00dB]\n",
+        "stderr": "",
+        "returncode": 0
+      }
+    ],
+    "processes": [
+      {
+        "argv": [
+          "fuser",
+          "/dev/ttyUSB0"
+        ],
+        "stdout": "",
+        "stderr": "",
+        "returncode": 1
+      },
+      {
+        "argv": [
+          "pgrep",
+          "-a",
+          "-x",
+          "aplay"
+        ],
+        "stdout": "",
+        "stderr": "",
+        "returncode": 1
+      }
+    ]
+  },
+  "restored_image_sha256": "d88a65965ff456c7500df1ae05d5ac548ef4290b35524215bf3e27175378b991",
+  "flash_completion_logs": {
+    "target/kata-hardening/metrics-state/v2/default-flash.log": "2360a1917efa6a0ed63865e461d4ec188f06ec65a0d90c4f8b03fb3df8f83eb4",
+    "target/kata-hardening/metrics-state/v2/probe-flash.log": "577dd8f66e397d8f05b3c3bdaf9fbe7a48140109ae56a162cca0b02fb2f4fa1e",
+    "target/kata-hardening/metrics-state/control-flash.log": "096949e498292c8b588c8d7f34ce4f950b2a00bb3f7a2a848406b5a256094b4c",
+    "target/kata-hardening/metrics-state/default-restore.log": "c5e19b5850788cb968c57e8a4f4dae50addf5f5bfc41378edcd9cc5750f6e660"
+  },
+  "analysis_source_sha256": {
+    "target/kata-hardening/metrics-state/default-device-analysis.md": "75266def52587adaf66aef0d94f0f879fd589dd99794529874befb423c992152",
+    "target/kata-hardening/metrics-state/default-device-analysis.json": "1838b6f24fbd88d1c293870046f72b352d0ff5006cd996bd1b8ced8197c67f3b",
+    "target/kata-hardening/metrics-state/control-device-analysis.md": "c7aa86e08b59c883dd1398409631a4d7d3bfadf87af3cfd01c24e20979dab9a9",
+    "target/kata-hardening/metrics-state/control-device-analysis.json": "3541ddd7fb00307b4f87ff3592e7584a36365d865fcf2a9576042532f45ba012",
+    "target/kata-hardening/metrics-state/probe-device-analysis.md": "b8ad1376fcd44f9b4e050916a2ad31e3467acc5bfd61a08cf3ae6368330a30b0",
+    "target/kata-hardening/metrics-state/probe-device-analysis.json": "dddd1e37227c2e4e767f4107aa873037f1bea411e22550acc6dc83dc4c2bac48",
+    "target/kata-hardening/metrics-state/default-receipt-analysis.md": "0f2dd6d26042aaff6714e7eaad6a0f4a866644ed37f887cf0c6c38098af5d034",
+    "target/kata-hardening/metrics-state/default-receipt-analysis.json": "e0237c9b4ca11eec0530d9b2a8b95690c901dc50ce4f2395212db67d0a8a2124",
+    "target/kata-hardening/metrics-state/probe-receipt-analysis.md": "d080abdae5cb892ce3eb7064b99fe4215b3620e8ad48a0bc59bfc54f92457e69",
+    "target/kata-hardening/metrics-state/probe-receipt-analysis.json": "e2176f76fd4b6fdd2dd76f12588252ce0ee5151c3ce2bd368277f80bbffd5540",
+    "target/kata-hardening/metrics-state/paired-device-review.md": "68482781ce90c5a3a8768679ae7fe57c973d35db36350c5e52227b6e4ace6262",
+    "target/kata-hardening/metrics-state/final-resting-state.json": "44f9c88ee9e41afabf444d584de714431d2cb4c7ff0facf8785fa693d5978f59",
+    "target/kata-hardening/metrics-state/v2/default-flash.log": "2360a1917efa6a0ed63865e461d4ec188f06ec65a0d90c4f8b03fb3df8f83eb4",
+    "target/kata-hardening/metrics-state/v2/probe-flash.log": "577dd8f66e397d8f05b3c3bdaf9fbe7a48140109ae56a162cca0b02fb2f4fa1e",
+    "target/kata-hardening/metrics-state/control-flash.log": "096949e498292c8b588c8d7f34ce4f950b2a00bb3f7a2a848406b5a256094b4c",
+    "target/kata-hardening/metrics-state/default-restore.log": "c5e19b5850788cb968c57e8a4f4dae50addf5f5bfc41378edcd9cc5750f6e660"
+  },
+  "original_artifact_sha256": {
+    "target/kata-hardening/metrics-state/default-trial-1/aplay.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "target/kata-hardening/metrics-state/default-trial-1/events.jsonl": "83036208e5e65f626b5aa105f3761bca38d1e1ad1ab93ccb6a92e7d607cbb877",
+    "target/kata-hardening/metrics-state/default-trial-1/image.elf": "ced962b2136d7c3fbe8dd97dd4de2d47f1c39e72bef6dee76d92fa5c59218d1c",
+    "target/kata-hardening/metrics-state/default-trial-1/result.json": "37b6565f251e030bfd9f7d75870e2848bfdcc6f87766e61d3cc20cb1817fd986",
+    "target/kata-hardening/metrics-state/default-trial-1/slow/result.json": "424f9c4d81d9ce52d8b91daf54dc2ad5b2fde547bae6b11a98395a824c9802d0",
+    "target/kata-hardening/metrics-state/default-trial-1/slow-cleanup.json": "f8b86c204295fd30f0690f97721618efb9187fc2461944fd1b7aa2636fe54040",
+    "target/kata-hardening/metrics-state/default-trial-1/slow-uart-cleanup.json": "9d4fab2b10420177050557ee80c863fde39693621290f50fcfafa114451ca3f0",
+    "target/kata-hardening/metrics-state/default-trial-1/slow-uart.log": "8022236b59c25e828dc5980c58d5abc71b7116513f7f11482520846cd9156bf9",
+    "target/kata-hardening/metrics-state/default-trial-1/slow.log": "d64717e50e8297d698ee1bd2057390d039ab472ca5bef3c2156010129106431c",
+    "target/kata-hardening/metrics-state/default-trial-1/source-liveness.jsonl": "1252bc47d173ea3500f00fc8413f7e9dac5ebdd6a044b0481d625ba9f52777ae",
+    "target/kata-hardening/metrics-state/control-trial-1/aplay.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "target/kata-hardening/metrics-state/control-trial-1/events.jsonl": "f55bb5726495ebf45cfce28d2a70e65f04055c375b33bd18e1342b8dc1565f2e",
+    "target/kata-hardening/metrics-state/control-trial-1/image.elf": "d88a65965ff456c7500df1ae05d5ac548ef4290b35524215bf3e27175378b991",
+    "target/kata-hardening/metrics-state/control-trial-1/result.json": "bf0a5269912899291ec3f960cb68ed515c9a4f2556d148061b3a54b0b7088ddd",
+    "target/kata-hardening/metrics-state/control-trial-1/slow/result.json": "424f9c4d81d9ce52d8b91daf54dc2ad5b2fde547bae6b11a98395a824c9802d0",
+    "target/kata-hardening/metrics-state/control-trial-1/slow-cleanup.json": "a8aa0f7e0d4bf1253e90eb7e1c92c9e2a44baeb72edf4d648495bb5f8a93a29b",
+    "target/kata-hardening/metrics-state/control-trial-1/slow-uart-cleanup.json": "d113675f82aff7beb7873c5cf31ab439f334cbf125ce2b859ccba1870446ad18",
+    "target/kata-hardening/metrics-state/control-trial-1/slow-uart.log": "069e1c0d99c5b29a500fe1065fb36aecb0d03df0effbd7ed45f54d5b72b04c3b",
+    "target/kata-hardening/metrics-state/control-trial-1/slow.log": "d64717e50e8297d698ee1bd2057390d039ab472ca5bef3c2156010129106431c",
+    "target/kata-hardening/metrics-state/control-trial-1/source-liveness.jsonl": "027e69f3620a2a95fa708b7f26c5c67122e2ee48d349b3a945bd3b8a855cb654",
+    "target/kata-hardening/metrics-state/probe-trial-1/aplay.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "target/kata-hardening/metrics-state/probe-trial-1/errors.jsonl": "64e324810368f806e82c069848466a9143de9babbd6036b46664f4e3a92a9d97",
+    "target/kata-hardening/metrics-state/probe-trial-1/events.jsonl": "942ae083a2f7f8938060e880db53b5b071dab0bcdb9e6d3144e701540c4ff30a",
+    "target/kata-hardening/metrics-state/probe-trial-1/result.json": "859216565fbd7910f36f3af58d1a2bf15828a422a97804d404eefdd9dc929e6c",
+    "target/kata-hardening/metrics-state/probe-trial-1/source-liveness.jsonl": "c507cef9bba4da70718e369e17b4c208cea529f6a6f321e68e866263053fb573",
+    "target/kata-hardening/metrics-state/probe-trial-1/status.jsonl": "65ef5c260bcf8282492d6828e111e4b4f8784abf71e15d63392cb6388eda1953",
+    "target/kata-hardening/metrics-state/probe-trial-1/uart-arrival.jsonl": "21f515f25262b2ce43bce63e89e3a40827f233eb69f80cd32195eb1c39aabcf5",
+    "target/kata-hardening/metrics-state/probe-trial-1/uart.log": "d8e412e576d945a1a92aa2d8703cefbefa710ad002783c651054fe1487cf83af",
+    "target/kata-hardening/metrics-state/probe-trial-1/unified.elf": "409849952981fe7dec9c62b6d04bd558bdbc7bea915b4207666a55e9a6513c31",
+    "target/kata-hardening/metrics-state/probe-trial-1-parent-stop.json": "0d8e1115e3968f04fc41226e7647239f78a1d1b1a0c075a253e4fd20a80b7381"
+  },
+  "originals_verified_unchanged": true,
+  "limits": [
+    "Separate executions establish association, not root cause or observer overhead.",
+    "Independent phase samples cannot prove time in state, continuous occupancy, lock owner or exact producer-interval attribution.",
+    "Stack and query maxima are observed values, not safety/latency bounds.",
+    "Accepted and sent bytes are not decoded audio; terminal receipt coverage is incomplete.",
+    "Host arrival stamps are not device execution timestamps; image device attestation remains false."
+  ]
+}

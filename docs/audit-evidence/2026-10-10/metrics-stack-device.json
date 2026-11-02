@@ -1,0 +1,596 @@
+{
+  "scope": "Stack-only log_capture no-inline device comparison",
+  "baseline_elf_sha256": "479e0af815f7509b87f960afb2874530eaf110af0e2869959fab3cb441af636d",
+  "repeat_elf_sha256": "7d440f936a3e71bf7f4b78fd1680323a22c3120143e036e2ec2e632381d67453",
+  "source_sha256": "9311d9ca5dfe1a5f9269631afe22647834207f2b3239571474acc8ac15f3228d",
+  "baseline_metrics_stack_minima": {
+    "soak": 420,
+    "slow": 580
+  },
+  "configured_metrics_stack_bytes": 4096,
+  "device_attestation": false,
+  "trials": {
+    "1": {
+      "passed": false,
+      "scenario_returncodes": {
+        "soak": 1
+      },
+      "acquisition_error_count": 1,
+      "cleanup_errors": [],
+      "capture_report_count": 4,
+      "capture_first_frames": 475200,
+      "capture_last_frames": 2364480,
+      "trailing_incomplete_bytes": 0,
+      "capture_counter_ranges": {
+        "queue_overflows": {
+          "first": 17,
+          "last": 17,
+          "minimum": 17,
+          "maximum": 17,
+          "delta": 0
+        },
+        "software_dropped_frames": {
+          "first": 480,
+          "last": 480,
+          "minimum": 480,
+          "maximum": 480,
+          "delta": 0
+        },
+        "read_errors": {
+          "first": 0,
+          "last": 0,
+          "minimum": 0,
+          "maximum": 0,
+          "delta": 0
+        },
+        "restarts": {
+          "first": 2,
+          "last": 2,
+          "minimum": 2,
+          "maximum": 2,
+          "delta": 0
+        },
+        "supervisor_restarts": {
+          "first": 0,
+          "last": 0,
+          "minimum": 0,
+          "maximum": 0,
+          "delta": 0
+        },
+        "overflow_restarts": {
+          "first": 2,
+          "last": 2,
+          "minimum": 2,
+          "maximum": 2,
+          "delta": 0
+        },
+        "discontinuities": {
+          "first": 2,
+          "last": 2,
+          "minimum": 2,
+          "maximum": 2,
+          "delta": 0
+        },
+        "health_restart_requests": {
+          "first": 0,
+          "last": 0,
+          "minimum": 0,
+          "maximum": 0,
+          "delta": 0
+        },
+        "settling_discarded_frames": {
+          "first": 26400,
+          "last": 26400,
+          "minimum": 26400,
+          "maximum": 26400,
+          "delta": 0
+        }
+      },
+      "encoder_report_count": 4,
+      "encoder_progress_intervals": [
+        {
+          "from_line": 138,
+          "to_line": 147,
+          "encoded_frame_delta": 417,
+          "elapsed_us": 10009887,
+          "audio_seconds": 10.008,
+          "realtime_ratio": 0.9998114863834126,
+          "raw_read_overruns": 0,
+          "resets": 0
+        },
+        {
+          "from_line": 147,
+          "to_line": 149,
+          "encoded_frame_delta": 417,
+          "elapsed_us": 10011859,
+          "audio_seconds": 10.008,
+          "realtime_ratio": 0.999614557096739,
+          "raw_read_overruns": 0,
+          "resets": 0
+        },
+        {
+          "from_line": 149,
+          "to_line": 170,
+          "encoded_frame_delta": 417,
+          "elapsed_us": 10004278,
+          "audio_seconds": 10.008,
+          "realtime_ratio": 1.0003720408409282,
+          "raw_read_overruns": 0,
+          "resets": 0
+        }
+      ],
+      "export_validation": "no loss in present receipts",
+      "receipts": [
+        {
+          "line": 156,
+          "dropped": 0,
+          "observed_event_min_us": 21759235,
+          "observed_event_max_us": 21950915,
+          "record_bytes": 248,
+          "queue_bytes": 2008,
+          "metrics_stack_free_bytes": 1540,
+          "export_us": 39049286,
+          "loss_occurred": false,
+          "observed_event_range_valid": true
+        },
+        {
+          "line": 163,
+          "dropped": 0,
+          "observed_event_min_us": 38672640,
+          "observed_event_max_us": 38859519,
+          "record_bytes": 248,
+          "queue_bytes": 2008,
+          "metrics_stack_free_bytes": 1188,
+          "export_us": 41145486,
+          "loss_occurred": false,
+          "observed_event_range_valid": true
+        },
+        {
+          "line": 169,
+          "dropped": 0,
+          "observed_event_min_us": 38862004,
+          "observed_event_max_us": 39048793,
+          "record_bytes": 248,
+          "queue_bytes": 2008,
+          "metrics_stack_free_bytes": 1188,
+          "export_us": 42343959,
+          "loss_occurred": false,
+          "observed_event_range_valid": true
+        }
+      ],
+      "certified_close_count": 2,
+      "memory_observed_ranges": {
+        "internal_free": {
+          "minimum": 67011,
+          "maximum": 67723
+        },
+        "internal_largest": {
+          "minimum": 61440,
+          "maximum": 65536
+        },
+        "psram_free": {
+          "minimum": 2770392,
+          "maximum": 2771412
+        },
+        "psram_largest": {
+          "minimum": 2359296,
+          "maximum": 2359296
+        },
+        "internal_min_sum": {
+          "minimum": 56119,
+          "maximum": 67095
+        },
+        "psram_min_sum": {
+          "minimum": 362468,
+          "maximum": 2759268
+        }
+      },
+      "stack_observed_minima": {
+        "metrics_stack_free_bytes": 1188,
+        "listener_stack_free_bytes": 1668,
+        "stack_free_bytes": 5308
+      },
+      "retained_decoder_counts": [
+        {
+          "decoded_audio_frames": 228096,
+          "decoded_seconds": 4.752,
+          "decoded_packets": 198,
+          "skipped_source_audio_frames": 0,
+          "duplicate_audio_frames": 0,
+          "decoded_discontinuities": 0,
+          "sample_hash_format": "SHA256, stereo pcm_s32le, packet boundaries"
+        },
+        {
+          "decoded_audio_frames": 226944,
+          "decoded_seconds": 4.728,
+          "decoded_packets": 197,
+          "skipped_source_audio_frames": 0,
+          "duplicate_audio_frames": 0,
+          "decoded_discontinuities": 0,
+          "sample_hash_format": "SHA256, stereo pcm_s32le, packet boundaries"
+        }
+      ],
+      "listener_event_fields": [
+        {
+          "line": 148,
+          "kind": "joined",
+          "fields": {
+            "event_us": 21759235
+          }
+        },
+        {
+          "line": 155,
+          "kind": "joined",
+          "fields": {
+            "event_us": 21950915
+          }
+        },
+        {
+          "line": 158,
+          "kind": "departure_metrics",
+          "fields": {
+            "elapsed_us": 16912057,
+            "task_runtime_us": 126767,
+            "frames_sent": 197,
+            "bytes_sent": 189120,
+            "frame_write_wall_total_us": 15931440,
+            "frame_write_wall_max_us": 414195,
+            "frame_read_wait_wall_total_us": 965622,
+            "block_samples": 1152,
+            "listener_stack_free_bytes": 1668,
+            "event_us": 38672640
+          }
+        },
+        {
+          "line": 162,
+          "kind": "closed",
+          "fields": {
+            "event_us": 38859519
+          }
+        },
+        {
+          "line": 164,
+          "kind": "departure_metrics",
+          "fields": {
+            "elapsed_us": 16908365,
+            "task_runtime_us": 129147,
+            "frames_sent": 198,
+            "bytes_sent": 190080,
+            "frame_write_wall_total_us": 16083578,
+            "frame_write_wall_max_us": 564833,
+            "frame_read_wait_wall_total_us": 619874,
+            "block_samples": 1152,
+            "listener_stack_free_bytes": 1668,
+            "event_us": 38862004
+          }
+        },
+        {
+          "line": 168,
+          "kind": "closed",
+          "fields": {
+            "event_us": 39048793
+          }
+        }
+      ],
+      "helper_error": null,
+      "evidence_sha256": {
+        "aplay.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "events.jsonl": "b18f03f8145c2a84db4e3af505f0caf85ac5ffc90d85d031f1df65822f907205",
+        "image.elf": "7d440f936a3e71bf7f4b78fd1680323a22c3120143e036e2ec2e632381d67453",
+        "result.json": "418f66863e62c220054594704958e45aa3560ca7bcb8b78f5fbfbeb53dd316ed",
+        "soak/20261010T203818.378570Z/events.jsonl": "5737673566ddd1e14f8e39fd45b97704a30eada75d52dc87f5c748c4ccfd4fb8",
+        "soak/20261010T203818.378570Z/listener-1.ffmpeg.log": "0d1521a85347f0a555dc75c2c72fa153b04adad66ac01b85a2b0d1983568e90d",
+        "soak/20261010T203818.378570Z/listener-1.framehash": "6e7e0b12c79cdade35b268fffba4a414f02124a934d217f22bf80641911cfcf8",
+        "soak/20261010T203818.378570Z/listener-1.progress": "a22400a11fda2e4b2f5021fb61b8c3818bbe2f92e462f4424daedae782b9ee56",
+        "soak/20261010T203818.378570Z/listener-2.ffmpeg.log": "8d2a95856627ddf9fe5b0edfded8cc8a780a53e962b9abf095b2d0a9f893b72a",
+        "soak/20261010T203818.378570Z/listener-2.framehash": "5c9ccee68da0b7086519c1fcd0afff763e8ab455258b1d2a96376336be3cc78f",
+        "soak/20261010T203818.378570Z/listener-2.progress": "835b4da3cc234200e60e5afb1863fff02213603029cec7b359ee13444016424a",
+        "soak/20261010T203818.378570Z/serial.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "soak/20261010T203818.378570Z/summary.json": "88f305f09d1b50548bba2aa1ab939bd0cac8f1f0195f1c7088d4f0d4a232ce0a",
+        "soak/20261010T203818.378570Z/uart.log": "5f8fb6bb2f72b3a6074dc441b3b9732a0f8e6faac09a8e4653647dcd20b42988",
+        "soak-cleanup.json": "07201f9539ccacd765cde992db8e0647866c1d499eb17b214cc94e64950eb080",
+        "soak.log": "661a5ee32cbe3385ab669867620e051ac8011fb0083a1db335552276728a2826",
+        "source-liveness.jsonl": "cf9637984394c4513ef8b3e17ec8a0717a4b26cbe54cd9f7bea4bbd1263353d8"
+      }
+    },
+    "2": {
+      "passed": false,
+      "scenario_returncodes": {
+        "slow": 1
+      },
+      "acquisition_error_count": 0,
+      "cleanup_errors": [],
+      "capture_report_count": 4,
+      "capture_first_frames": 477600,
+      "capture_last_frames": 2700720,
+      "trailing_incomplete_bytes": 0,
+      "capture_counter_ranges": {
+        "queue_overflows": {
+          "first": 15,
+          "last": 15,
+          "minimum": 15,
+          "maximum": 15,
+          "delta": 0
+        },
+        "software_dropped_frames": {
+          "first": 480,
+          "last": 480,
+          "minimum": 480,
+          "maximum": 480,
+          "delta": 0
+        },
+        "read_errors": {
+          "first": 0,
+          "last": 0,
+          "minimum": 0,
+          "maximum": 0,
+          "delta": 0
+        },
+        "restarts": {
+          "first": 2,
+          "last": 2,
+          "minimum": 2,
+          "maximum": 2,
+          "delta": 0
+        },
+        "supervisor_restarts": {
+          "first": 0,
+          "last": 0,
+          "minimum": 0,
+          "maximum": 0,
+          "delta": 0
+        },
+        "overflow_restarts": {
+          "first": 2,
+          "last": 2,
+          "minimum": 2,
+          "maximum": 2,
+          "delta": 0
+        },
+        "discontinuities": {
+          "first": 2,
+          "last": 2,
+          "minimum": 2,
+          "maximum": 2,
+          "delta": 0
+        },
+        "health_restart_requests": {
+          "first": 0,
+          "last": 0,
+          "minimum": 0,
+          "maximum": 0,
+          "delta": 0
+        },
+        "settling_discarded_frames": {
+          "first": 26400,
+          "last": 26400,
+          "minimum": 26400,
+          "maximum": 26400,
+          "delta": 0
+        }
+      },
+      "encoder_report_count": 6,
+      "encoder_progress_intervals": [
+        {
+          "from_line": 134,
+          "to_line": 141,
+          "encoded_frame_delta": 416,
+          "elapsed_us": 10011874,
+          "audio_seconds": 9.984,
+          "realtime_ratio": 0.9972159058334134,
+          "raw_read_overruns": 0,
+          "resets": 0
+        },
+        {
+          "from_line": 141,
+          "to_line": 146,
+          "encoded_frame_delta": 417,
+          "elapsed_us": 10010982,
+          "audio_seconds": 10.008,
+          "realtime_ratio": 0.9997021271239923,
+          "raw_read_overruns": 0,
+          "resets": 0
+        },
+        {
+          "from_line": 146,
+          "to_line": 152,
+          "encoded_frame_delta": 418,
+          "elapsed_us": 10019336,
+          "audio_seconds": 10.032,
+          "realtime_ratio": 1.0012639560146501,
+          "raw_read_overruns": 0,
+          "resets": 0
+        },
+        {
+          "from_line": 152,
+          "to_line": 174,
+          "encoded_frame_delta": 418,
+          "elapsed_us": 10024098,
+          "audio_seconds": 10.032,
+          "realtime_ratio": 1.0007883003538074,
+          "raw_read_overruns": 0,
+          "resets": 0
+        },
+        {
+          "from_line": 174,
+          "to_line": 176,
+          "encoded_frame_delta": 418,
+          "elapsed_us": 10036761,
+          "audio_seconds": 10.032,
+          "realtime_ratio": 0.999525643780897,
+          "raw_read_overruns": 0,
+          "resets": 0
+        }
+      ],
+      "export_validation": "no loss in present receipts",
+      "receipts": [
+        {
+          "line": 153,
+          "dropped": 0,
+          "observed_event_min_us": 24492572,
+          "observed_event_max_us": 25253175,
+          "record_bytes": 248,
+          "queue_bytes": 2008,
+          "metrics_stack_free_bytes": 1540,
+          "export_us": 45965410,
+          "loss_occurred": false,
+          "observed_event_range_valid": true
+        },
+        {
+          "line": 160,
+          "dropped": 0,
+          "observed_event_min_us": 38101429,
+          "observed_event_max_us": 38101743,
+          "record_bytes": 248,
+          "queue_bytes": 2008,
+          "metrics_stack_free_bytes": 1188,
+          "export_us": 48446154,
+          "loss_occurred": false,
+          "observed_event_range_valid": true
+        },
+        {
+          "line": 166,
+          "dropped": 0,
+          "observed_event_min_us": 40571683,
+          "observed_event_max_us": 45773165,
+          "record_bytes": 248,
+          "queue_bytes": 2008,
+          "metrics_stack_free_bytes": 1188,
+          "export_us": 49788427,
+          "loss_occurred": false,
+          "observed_event_range_valid": true
+        },
+        {
+          "line": 168,
+          "dropped": 0,
+          "observed_event_min_us": 45964838,
+          "observed_event_max_us": 45964838,
+          "record_bytes": 248,
+          "queue_bytes": 2008,
+          "metrics_stack_free_bytes": 1188,
+          "export_us": 50168439,
+          "loss_occurred": false,
+          "observed_event_range_valid": true
+        }
+      ],
+      "certified_close_count": 2,
+      "memory_observed_ranges": {
+        "internal_free": {
+          "minimum": 67039,
+          "maximum": 67883
+        },
+        "internal_largest": {
+          "minimum": 61440,
+          "maximum": 65536
+        },
+        "psram_free": {
+          "minimum": 2770652,
+          "maximum": 2771448
+        },
+        "psram_largest": {
+          "minimum": 2359296,
+          "maximum": 2359296
+        },
+        "internal_min_sum": {
+          "minimum": 56315,
+          "maximum": 67211
+        },
+        "psram_min_sum": {
+          "minimum": 363468,
+          "maximum": 2761928
+        }
+      },
+      "stack_observed_minima": {
+        "metrics_stack_free_bytes": 1188,
+        "listener_stack_free_bytes": 1608,
+        "stack_free_bytes": 5300
+      },
+      "retained_decoder_counts": [],
+      "listener_event_fields": [
+        {
+          "line": 144,
+          "kind": "joined",
+          "fields": {
+            "event_us": 24492572
+          }
+        },
+        {
+          "line": 145,
+          "kind": "joined",
+          "fields": {
+            "event_us": 25253175
+          }
+        },
+        {
+          "line": 155,
+          "kind": "timeout",
+          "fields": {
+            "elapsed_ms": 8087,
+            "limit_ms": 8016,
+            "bytes": 960,
+            "event_us": 38101429
+          }
+        },
+        {
+          "line": 156,
+          "kind": "departure_metrics",
+          "fields": {
+            "elapsed_us": 13607946,
+            "task_runtime_us": 39517,
+            "frames_sent": 49,
+            "bytes_sent": 47040,
+            "frame_write_wall_total_us": 12471241,
+            "frame_write_wall_max_us": 8087893,
+            "frame_read_wait_wall_total_us": 942346,
+            "block_samples": 1152,
+            "listener_stack_free_bytes": 1608,
+            "event_us": 38101743
+          }
+        },
+        {
+          "line": 161,
+          "kind": "closed",
+          "fields": {
+            "event_us": 40571683
+          }
+        },
+        {
+          "line": 162,
+          "kind": "departure_metrics",
+          "fields": {
+            "elapsed_us": 20334129,
+            "task_runtime_us": 251357,
+            "frames_sent": 347,
+            "bytes_sent": 333120,
+            "frame_write_wall_total_us": 17437272,
+            "frame_write_wall_max_us": 376838,
+            "frame_read_wait_wall_total_us": 2865742,
+            "block_samples": 1152,
+            "listener_stack_free_bytes": 1664,
+            "event_us": 45773165
+          }
+        },
+        {
+          "line": 167,
+          "kind": "closed",
+          "fields": {
+            "event_us": 45964838
+          }
+        }
+      ],
+      "helper_error": "AssertionError('fast listener ended before reclamation probe')",
+      "evidence_sha256": {
+        "aplay.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "events.jsonl": "d95c5c2e5c486e18deb3ceab7e8a03e7f5918df92ce1fdbf32377c5542e18827",
+        "image.elf": "7d440f936a3e71bf7f4b78fd1680323a22c3120143e036e2ec2e632381d67453",
+        "result.json": "f72094c15b90326decbe10face797555be0c7529ae2f106d386f87723287da3d",
+        "slow/result.json": "424f9c4d81d9ce52d8b91daf54dc2ad5b2fde547bae6b11a98395a824c9802d0",
+        "slow-cleanup.json": "b7ba7dbe1280f38d75f7064eb9097f90caddb82e45c0c340faf8ff02072f6663",
+        "slow-uart-cleanup.json": "a04ebfc2382c1c42f267e2dc5f0f5edfbcaa67b435e598f8d2624d552fa8ea0d",
+        "slow-uart.log": "719aa4a5837855952a006119a44cbd0b423d4136756a11dbfbf10a20516e5d99",
+        "slow.log": "d64717e50e8297d698ee1bd2057390d039ab472ca5bef3c2156010129106431c",
+        "source-liveness.jsonl": "67f36ac189828fb87dc51cad7ca8df0a985cb724fc5359c987150cd17f76dc1a"
+      }
+    }
+  }
+}

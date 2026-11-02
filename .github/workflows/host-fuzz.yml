@@ -1,0 +1,63 @@
+# ABOUTME: Runs bounded host fuzz diagnostics independently of firmware and fast checks.
+# ABOUTME: Retains exact commands, seeds and sanitizer failure artifacts on every outcome.
+name: Host fuzz
+on:
+  pull_request:
+  workflow_dispatch:
+  schedule:
+    - cron: '17 4 * * 1'
+permissions:
+  contents: read
+jobs:
+  fuzz:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: jdx/mise-action@2d8d4cafcbd33be2ea37d2b6f5ad595363d1f1ca # v5.1.1
+        with:
+          version: '2026.9.15'
+          install: false
+          cache: false
+          env: false
+          export_path: false
+          add_shims_to_path: false
+          persist_github_token: false
+      - name: Install scoped fuzz tools
+        run: |
+          mise trust mise.toml
+          mise trust fuzz/mise.toml
+          mise install ripgrep
+          cd fuzz
+          mise install rust@nightly-2026-02-01 cargo:cargo-fuzz@0.13.2
+      # The bootstrap step exports nothing (env and export_path are off, and it runs before
+      # mise trust). scripts/test-fuzz-host and scripts/fuzz-host expect rg on PATH, so export
+      # the installed root tools the way mise-action does: variables through GITHUB_ENV, mise's
+      # PATH prefix through GITHUB_PATH (each line prepends, so the last line wins). mise env
+      # skips root tools that are not installed; it does not install them.
+      - name: Activate pinned tools for later steps
+        run: |
+          mise env --dotenv | sed '/^PATH=/d' >> "$GITHUB_ENV"
+          mise bin-paths | tac >> "$GITHUB_PATH"
+      - name: Check wrapper
+        run: scripts/test-fuzz-host
+      - name: Fuzz real host entry points
+        env:
+          FUZZ_EVENT: ${{ github.event_name }}
+        run: |
+          seconds=60
+          if [[ "$FUZZ_EVENT" == schedule || "$FUZZ_EVENT" == workflow_dispatch ]]; then seconds=600; fi
+          scripts/fuzz-host --seconds "$seconds"
+      - name: Retain evidence
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: host-fuzz-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            target/fuzz-host/run.*/
+            !target/fuzz-host/run.*/build/
+            !target/fuzz-host/run.*/source/
+          retention-days: 7
+          if-no-files-found: warn

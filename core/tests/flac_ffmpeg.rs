@@ -18,6 +18,12 @@ fn ffmpeg_decodes_the_stream_to_the_same_samples() {
             frames.extend_from_slice(&pair);
         }
     }
+    frames.extend(
+        [0, -1, 255, -255, 256, -256, 257, -257]
+            .into_iter()
+            .cycle()
+            .take(CHANNELS * BLOCK_FRAMES),
+    );
     let noise = full_scale_noise_stereo(BLOCK_FRAMES);
     for pair in noise.chunks_exact(CHANNELS) {
         frames.extend_from_slice(&[42, pair[1]]);
@@ -54,7 +60,7 @@ fn ffmpeg_decodes_the_stream_to_the_same_samples() {
     let errors = String::from_utf8_lossy(&ffmpeg.stderr);
     assert!(ffmpeg.status.success(), "ffmpeg failed: {errors}");
     assert!(errors.is_empty(), "ffmpeg reported: {errors}");
-    // ffmpeg decodes 24-bit FLAC into the top 24 bits of 32-bit samples.
+    // ffmpeg decodes 16-bit FLAC into the top 16 bits of 32-bit samples.
     let decoded: Vec<i32> = ffmpeg
         .stdout
         .chunks_exact(4)
@@ -62,7 +68,7 @@ fn ffmpeg_decodes_the_stream_to_the_same_samples() {
         .collect();
     let expected: Vec<i32> = frames
         .iter()
-        .map(|&sample| sample.clamp(-0x80_0000, 0x7F_FFFF) << 8)
+        .map(|&sample| (sample.clamp(-0x80_0000, 0x7F_FFFF) >> 8) << 16)
         .collect();
     assert_eq!(decoded.len(), expected.len(), "samples decoded");
     if let Some(i) = decoded.iter().zip(&expected).position(|(a, b)| a != b) {

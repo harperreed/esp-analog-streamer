@@ -1,7 +1,11 @@
 // ABOUTME: Captures LINE IN over I2S at 48 kHz, 24-bit stereo, on its own high-priority thread on core 0.
 // ABOUTME: Feeds the stream ring, the optional 12 s recognition ring, and the store's level.
 
-use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
+#[cfg(all(feature = "metrics-state-crossover", feature = "encoder-probe"))]
+compile_error!("metrics-state-crossover is incompatible with encoder-probe");
+
+use std::ffi::c_void;
+use std::sync::atomic::{AtomicBool, AtomicPtr, AtomicU32, Ordering};
 use std::sync::{Arc, Mutex, TryLockError};
 use std::time::Duration;
 
@@ -9,20 +13,31 @@ use anyhow::Result;
 use esp_idf_svc::hal::cpu::Core;
 use esp_idf_svc::hal::gpio::{InputPin, OutputPin};
 use esp_idf_svc::hal::i2s::I2s;
-use esp_shazam_core::audio::{samples_from_i2s_slots, LevelMeter, RecognitionBuffer, SampleRing};
+use esp_shazam_core::audio::{samples_from_i2s_slots, SampleRing, StereoLevelMeter};
 use esp_shazam_core::capture_buffer::CaptureBuffer;
 use esp_shazam_core::capture_health::{Action, CaptureHealth};
-use esp_shazam_core::decimate::Decimator;
 use esp_shazam_core::stream_ring::StreamRing;
+use esp_shazam_core::task_observation::{Counts, Gate, Phase, Receipt, PHASES};
 
+use crate::capture_failure_telemetry::{ExportState, FailureKind, Handoff, Summary};
 use crate::config::CONFIG;
 use crate::i2s_capture::{self, CaptureRx};
 use crate::recognizer::SharedStore;
 use crate::threads::ThreadSpec;
 
+#[path = "capture_timing.rs"]
+mod capture_timing;
+use capture_timing::ReadServiceTiming;
+#[path = "recognition_feed.rs"]
+mod recognition_feed;
+use recognition_feed::RecognitionFeed;
+#[cfg(feature = "metrics-state-crossover")]
+#[path = "metrics_state_crossover.rs"]
+mod metrics_state_crossover;
+
 /// LINE IN's sample rate, and the stream's.
 pub const CAPTURE_RATE_HZ: u32 = 48_000;
-/// The rate of the mono feed the Decimator makes for the fingerprint and the level meter.
+/// The rate of the mono feed the Decimator makes for the fingerprint.
 pub const FEED_RATE_HZ: u32 = 16_000;
 /// The fingerprint's window: the newest 12 s of the feed.
 pub const WINDOW_SAMPLES: usize = 12 * FEED_RATE_HZ as usize;
@@ -45,26 +60,37 @@ const DMA_BYTES: usize = DMA_FRAMES * 2 * 4;
 /// at most 2.2 ms late. DMA can't reach PSRAM: the buffers take 19,200 bytes of internal RAM.
 const READ_TIMEOUT_MS: u32 = 1_000;
 
-/// The level is the loudness of the feed's last second, measured every 250 ms.
-const METER_WINDOW: usize = FEED_RATE_HZ as usize;
-const METER_INTERVAL: usize = FEED_RATE_HZ as usize / 4;
 /// At most this many feed samples wait for the 12 s ring while the recognizer holds it. A hold lasts
 /// about 50 ms, so a second is never reached; past it, the oldest samples go.
 const WAITING_LIMIT: usize = FEED_RATE_HZ as usize;
 
-// Staging spans the existing 45 ms DMA budget (17,280 bytes), without allocating on contention.
-const STAGING_FRAMES: usize = 45 * CAPTURE_RATE_HZ as usize / 1_000;
 const STALL_MS: u64 = 3_000;
 const RECOVERY_MS: u64 = 3_000;
 static STARTED: AtomicBool = AtomicBool::new(false);
 static RESTART: AtomicBool = AtomicBool::new(false);
+static RESTART_FAILURES: Handoff = Handoff::new();
 static FRAMES: AtomicU32 = AtomicU32::new(0);
 static DROPPED: AtomicU32 = AtomicU32::new(0);
 static READ_ERRORS: AtomicU32 = AtomicU32::new(0);
 static RESTARTS: AtomicU32 = AtomicU32::new(0);
+static SUPERVISOR_RESTARTS: AtomicU32 = AtomicU32::new(0);
+static OVERFLOW_RESTARTS: AtomicU32 = AtomicU32::new(0);
+static SETTLING_DISCARDED_FRAMES: AtomicU32 = AtomicU32::new(0);
+static READ_SERVICE_DELAY_US: AtomicU32 = AtomicU32::new(0);
+// The capture owner never returns or deletes its task; metrics only reads its runtime counter.
+static CAPTURE_TASK: AtomicPtr<c_void> = AtomicPtr::new(std::ptr::null_mut());
+// Metrics never returns or deletes its task; revisit this observer before changing that lifetime.
+static METRICS_TASK: AtomicPtr<c_void> = AtomicPtr::new(std::ptr::null_mut());
+// Supervisor also never returns or deletes its task; metrics alone scans its stack.
+static SUPERVISOR_TASK: AtomicPtr<c_void> = AtomicPtr::new(std::ptr::null_mut());
+static METRICS_PHASE: AtomicU32 = AtomicU32::new(Phase::Init as u32);
+static METRICS_OBSERVATIONS: Receipt = Receipt::new();
+#[cfg(feature = "metrics-state-crossover")]
+static CROSSOVER_PHASE: AtomicU32 = AtomicU32::new(0);
 static HEALTH_RESTART_REQUESTS: AtomicU32 = AtomicU32::new(0);
 static GAPS: AtomicU32 = AtomicU32::new(0);
 static RAW_WORK_US: AtomicU32 = AtomicU32::new(0);
+static METER_WORK_US: AtomicU32 = AtomicU32::new(0);
 static STORE_WORK_US: AtomicU32 = AtomicU32::new(0);
 static STAGED_FRAMES: AtomicU32 = AtomicU32::new(0);
 static STAGED_MAX_FRAMES: AtomicU32 = AtomicU32::new(0);
@@ -74,7 +100,7 @@ static STAGING_PENDING_US: AtomicU32 = AtomicU32::new(0);
 static STAGING_PENDING_MAX_US: AtomicU32 = AtomicU32::new(0);
 
 pub type SharedRing = Arc<Mutex<SampleRing>>;
-pub type SharedStreamRing = Arc<Mutex<StreamRing>>;
+pub type SharedStreamRing = Arc<StreamRing>;
 
 /// I2S RX with clocks running. Start it before the codec setup.
 /// - MCLK on GPIO0 is 256 x 48 kHz = 12.288 MHz, from the APLL. ESP-IDF sets the APLL to twice that
@@ -94,101 +120,246 @@ pub fn start_i2s<'d>(
 
 /// Spawns the capture thread. When Shazam is enabled it returns the 12 s recognition ring;
 /// it always returns the stream ring of raw frames. Every 250 ms the thread writes
-/// the loudness of the feed's last second into `store`. The first 500 ms are dropped while the
+/// the stereo energy of the input's last second into `store`. The first 500 ms are dropped while the
 /// codec's reference voltage settles.
 pub fn spawn_capture(
     rx: CaptureRx<'static>,
     store: SharedStore,
 ) -> Result<(Option<SharedRing>, SharedStreamRing)> {
-    let recognition = RecognitionBuffer::new(
+    let recognition = RecognitionFeed::new(
         CONFIG.shazam_enabled,
         WINDOW_SAMPLES,
         WAITING_LIMIT,
-        DMA_FRAMES / 3 + 1,
+        DMA_FRAMES,
     );
-    let ring = recognition.as_ref().map(RecognitionBuffer::shared_ring);
-    let stream: SharedStreamRing = Arc::new(Mutex::new(StreamRing::new(STREAM_FRAMES)));
-    let stream_writer = stream.clone();
+    let ring = recognition.shared_ring();
+    let (publisher, stream) = CaptureBuffer::new(STREAM_FRAMES, DMA_FRAMES);
+    verify_stream_placement(&stream)?;
+    let supervisor_raw = stream.clone();
     ThreadSpec {
         name: c"audio-supervise",
         core: Core::Core1,
         priority: 11,
         stack_bytes: 4 * 1024,
     }
-    .spawn(supervise)?;
+    .spawn(move || supervise(supervisor_raw))?;
+    let metrics_raw = stream.clone();
     // Keep ordinary UART and heap work below the shared encoder's priority.
+    // 6 KiB: fat LTO (2026-10-20) grew this task's frames until a /api/metrics export overflowed a 4 KiB stack
+    // (56 bytes of headroom on the UART line that preceded it; 568 before LTO).
     ThreadSpec {
         name: c"audio-metrics",
         core: Core::Core1,
         priority: 3,
-        stack_bytes: 4 * 1024,
+        stack_bytes: 6 * 1024,
     }
-    .spawn(metrics)?;
+    .spawn(move || metrics(metrics_raw))?;
+    // Keep the DMA consumer above Wi-Fi setup work; it blocks while awaiting input.
     ThreadSpec {
         name: c"audio",
         core: Core::Core0,
-        priority: 10,
+        priority: 24,
         stack_bytes: 8 * 1024,
     }
-    .spawn(move || capture(rx, recognition, stream_writer, store))?;
+    .spawn(move || capture(rx, recognition, publisher, store))?;
     Ok((ring, stream))
+}
+
+// Checked identity exhaustion cannot safely continue publication. Logging can wait on a
+// task-owned lock, so fatal recovery goes straight to the existing restart path.
+fn publication_exhausted() -> ! {
+    // SAFETY: ESP-IDF restart is the existing nonreturning fatal recovery operation.
+    unsafe { esp_idf_svc::sys::esp_restart() }
+}
+
+fn internal_byte_ram(pointer: *const c_void) -> bool {
+    // Pinned ESP32 IDF esp_memory_utils.c:50-76 admits internal byte RAM and PSRAM;
+    // the external-RAM predicate removes PSRAM. Both functions have generated bindings.
+    // SAFETY: IDF predicates inspect only the pointer address and never dereference it.
+    unsafe {
+        esp_idf_svc::sys::esp_ptr_byte_accessible(pointer)
+            && !esp_idf_svc::sys::esp_ptr_external_ram(pointer)
+    }
+}
+
+fn verify_stream_placement(stream: &SharedStreamRing) -> Result<()> {
+    let (payload, payload_bytes) = stream.payload_range();
+    let (stamps, stamps_bytes) = stream.stamps_range();
+    let metadata = Arc::as_ptr(stream).cast::<u8>();
+    // SAFETY: these nonempty ranges belong to live fixed allocations. IDF heap allocations
+    // stay within one memory region, so the internal Arc object also keeps its counts internal.
+    let valid = unsafe {
+        esp_idf_svc::sys::esp_ptr_external_ram(payload.cast())
+            && esp_idf_svc::sys::esp_ptr_external_ram(
+                payload.cast::<u8>().add(payload_bytes - 1).cast(),
+            )
+            && internal_byte_ram(stamps.cast())
+            && internal_byte_ram(stamps.cast::<u8>().add(stamps_bytes - 1).cast())
+            && internal_byte_ram(metadata.cast())
+            && internal_byte_ram(metadata.add(std::mem::size_of::<StreamRing>() - 1).cast())
+    };
+    anyhow::ensure!(
+        valid,
+        "capture history requires PSRAM payload and internal metadata"
+    );
+    Ok(())
 }
 
 fn capture(
     mut rx: CaptureRx<'static>,
-    mut recognition: Option<RecognitionBuffer>,
-    stream: SharedStreamRing,
+    mut recognition: RecognitionFeed,
+    mut publisher: CaptureBuffer,
     store: SharedStore,
 ) -> ! {
+    #[cfg(feature = "startup-capture-trace")]
+    let mut trace = {
+        let mut r = crate::startup_capture_trace::observation(20, 0);
+        r.words[8] = esp_idf_svc::hal::cpu::core() as u32;
+        // SAFETY: The current task handle remains valid during these read-only queries.
+        unsafe {
+            let task = esp_idf_svc::sys::xTaskGetCurrentTaskHandle();
+            r.words[9] = esp_idf_svc::sys::xTaskGetCoreID(task) as u32;
+            r.words[10] = esp_idf_svc::sys::uxTaskPriorityGet(task) as u32;
+        }
+        crate::startup_capture_trace::CAPTURE.publish(r);
+        crate::startup_capture_trace::Observer::new()
+    };
+    #[cfg(feature = "startup-capture-trace")]
+    let mut trace_next_read = false;
+    #[cfg(feature = "startup-capture-trace")]
+    let mut trace_first_read = true;
     let mut bytes = vec![0u8; DMA_BYTES];
     let mut interleaved: Vec<i32> = Vec::with_capacity(2 * DMA_FRAMES);
-    let mut decimator = Decimator::new();
-    let mut feed: Vec<i16> = Vec::with_capacity(DMA_FRAMES / 3 + 1);
-    let mut meter = LevelMeter::new(METER_WINDOW, METER_INTERVAL);
+    let mut meter = StereoLevelMeter::new(CAPTURE_RATE_HZ as usize);
     let mut settle_frames = CAPTURE_RATE_HZ as usize / 2;
-    let mut staging = CaptureBuffer::new(STAGING_FRAMES);
     let mut pending_since = None;
     let mut pending_attempts = 0u32;
+    let mut read_timing = ReadServiceTiming::new(CAPTURE_RATE_HZ);
     // Clocks ran during codec setup; flush startup backlog before the overflow baseline.
-    if let Err(error) = rx.restart() {
-        log::warn!("audio: initial queue flush failed: {error}");
-    }
+    #[cfg(feature = "startup-capture-trace")]
+    crate::startup_capture_trace::CAPTURE.publish(crate::startup_capture_trace::observation(21, 0));
+    let initial = rx.restart().map_err(|error| error.code());
+    RESTART_FAILURES.observe_restart_result(FailureKind::InitialFlush, initial);
     let mut overflow_seen = i2s_capture::counters().queue_overflows;
+    #[cfg(feature = "startup-capture-trace")]
+    crate::startup_capture_trace::CAPTURE.publish(crate::startup_capture_trace::observation(
+        22,
+        initial.err().unwrap_or(0),
+    ));
+    #[cfg(feature = "startup-capture-trace")]
+    {
+        trace.baseline(overflow_seen);
+        let mut r = crate::startup_capture_trace::observation(23, 0);
+        r.words[8] = overflow_seen;
+        crate::startup_capture_trace::CAPTURE.publish(r);
+    }
     let mut pending_level = None;
+    // SAFETY: this is the live capture task, whose function never returns.
+    CAPTURE_TASK.store(
+        unsafe { esp_idf_svc::sys::xTaskGetCurrentTaskHandle().cast() },
+        Ordering::Release,
+    );
     STARTED.store(true, Ordering::Release);
     loop {
         // A snapshot may have held the recognition ring at the gap. Retry clearing it even
         // while I2S fails or the codec settles, rather than retaining a stale full window.
-        if let Some(recognition) = recognition.as_mut() {
-            recognition.push(&[]);
-        }
+        recognition.retry_reset();
+        #[cfg(feature = "startup-capture-trace")]
+        let trace_sample_begin = if !trace.complete() { micros() } else { 0 };
         let overflow = i2s_capture::counters().queue_overflows;
-        if RESTART.swap(false, Ordering::AcqRel) || overflow != overflow_seen {
+        let supervisor_restart = RESTART.swap(false, Ordering::AcqRel);
+        let overflow_restart = overflow != overflow_seen;
+        #[cfg(feature = "startup-capture-trace")]
+        let trace_fault = if overflow_restart {
+            trace
+                .fault(
+                    overflow,
+                    micros(),
+                    i2s_capture::counters().callbacks,
+                    settle_frames as u32,
+                )
+                .map(|mut r| {
+                    r.words[13] = publisher.staged_frames() as u32;
+                    let sampled_end = micros();
+                    r.words[14] = sampled_end as u32;
+                    r.words[15] = (sampled_end >> 32) as u32;
+                    r.words[16] = trace_sample_begin as u32;
+                    r.words[17] = (trace_sample_begin >> 32) as u32;
+                    crate::startup_capture_trace::CAPTURE.publish(r);
+                })
+                .is_some()
+        } else {
+            false
+        };
+        if supervisor_restart || overflow_restart {
+            SUPERVISOR_RESTARTS.fetch_add(u32::from(supervisor_restart), Ordering::Relaxed);
+            OVERFLOW_RESTARTS.fetch_add(u32::from(overflow_restart), Ordering::Relaxed);
+            read_timing.reset();
             overflow_seen = overflow;
-            DROPPED.fetch_add(staging.invalidate() as u32, Ordering::Relaxed);
-            staging.publish(&[], &stream);
+            let discarded = publisher
+                .invalidate()
+                .unwrap_or_else(|_| publication_exhausted());
+            DROPPED.fetch_add(discarded as u32, Ordering::Relaxed);
             record_staging(0, micros(), &mut pending_since, &mut pending_attempts);
             GAPS.fetch_add(1, Ordering::Relaxed);
-            if let Some(recognition) = recognition.as_mut() {
-                recognition.reset();
-            }
-            decimator = Decimator::new();
+            recognition.reset();
             meter.reset();
             pending_level = None;
             settle_frames = CAPTURE_RATE_HZ as usize / 2;
             RESTARTS.fetch_add(1, Ordering::Relaxed);
-            if let Err(error) = rx.restart() {
-                log::warn!("audio: restart failed: {error}");
+            #[cfg(feature = "startup-capture-trace")]
+            if trace_fault {
+                let mut r = crate::startup_capture_trace::observation(31, 0);
+                r.words[8] = discarded as u32;
+                r.words[9] = settle_frames as u32;
+                crate::startup_capture_trace::CAPTURE.publish(r);
+            }
+            let restarted = rx.restart().map_err(|error| error.code());
+            #[cfg(feature = "startup-capture-trace")]
+            if trace_fault {
+                crate::startup_capture_trace::CAPTURE.publish(
+                    crate::startup_capture_trace::observation(32, restarted.err().unwrap_or(0)),
+                );
+                trace.restarted();
+                trace_next_read = true;
+            }
+            RESTART_FAILURES.observe_restart_result(FailureKind::RecoveryRestart, restarted);
+        }
+        #[cfg(feature = "startup-capture-trace")]
+        let trace_read_begin = if !trace.complete() || trace_next_read {
+            micros()
+        } else {
+            0
+        };
+        #[cfg(feature = "startup-capture-trace")]
+        if trace_first_read {
+            crate::startup_capture_trace::CAPTURE
+                .publish(crate::startup_capture_trace::observation(24, 0));
+        }
+        let read_result = rx.read(&mut bytes, READ_TIMEOUT_MS);
+        #[cfg(feature = "startup-capture-trace")]
+        if trace_read_begin != 0 {
+            let end = micros();
+            let frames = read_result.as_ref().map_or(0, |n| (n / 8) as u32);
+            let code = read_result.as_ref().err().map_or(0, |e| e.code());
+            trace.read(trace_read_begin, end, frames, code);
+            if trace_first_read {
+                let mut r = crate::startup_capture_trace::observation(25, code);
+                r.words[8] = frames;
+                crate::startup_capture_trace::CAPTURE.publish(r);
+                trace_first_read = false;
             }
         }
-        let n = match rx.read(&mut bytes, READ_TIMEOUT_MS) {
+        let n = match read_result {
             Ok(n) => n - n % 8, // whole frames only
             Err(_) => {
+                read_timing.reset();
                 READ_ERRORS.fetch_add(1, Ordering::Relaxed);
                 std::thread::sleep(Duration::from_millis(100));
                 continue;
             }
         };
+        READ_SERVICE_DELAY_US.fetch_max(read_timing.complete(micros(), n / 8), Ordering::Relaxed);
         FRAMES.fetch_add((n / 8) as u32, Ordering::Relaxed);
         // The overflow may have occurred during this read. Its queued audio has an uncertain gap;
         // discard this chunk and flush/restart at the next iteration before publishing again.
@@ -196,42 +367,46 @@ fn capture(
             DROPPED.fetch_add((n / 8) as u32, Ordering::Relaxed);
             continue;
         }
+        #[cfg(feature = "startup-capture-trace")]
+        if trace_next_read {
+            let mut r = crate::startup_capture_trace::observation(33, 0);
+            r.words[8] = trace_read_begin as u32;
+            r.words[9] = (trace_read_begin >> 32) as u32;
+            r.words[10] = (n / 8) as u32;
+            crate::startup_capture_trace::CAPTURE.publish(r);
+            trace_next_read = false;
+            if trace.complete() {
+                crate::startup_capture_trace::COMPLETE.store(1, Ordering::Release);
+            }
+        }
         samples_from_i2s_slots(&bytes[..n], &mut interleaved);
         if settle_frames > 0 {
+            SETTLING_DISCARDED_FRAMES.fetch_add((interleaved.len() / 2) as u32, Ordering::Relaxed);
             settle_frames = settle_frames.saturating_sub(interleaved.len() / 2);
             continue;
         }
         let started = micros();
-        let dropped = staging.publish(&interleaved, &stream);
+        publisher
+            .publish(&interleaved, started, micros)
+            .unwrap_or_else(|_| publication_exhausted());
         RAW_WORK_US.fetch_max((micros() - started) as u32, Ordering::Relaxed);
         record_staging(
-            staging.staged_frames(),
+            publisher.staged_frames(),
             micros(),
             &mut pending_since,
             &mut pending_attempts,
         );
-        if dropped > 0 {
-            DROPPED.fetch_add(dropped as u32, Ordering::Relaxed);
-            GAPS.fetch_add(1, Ordering::Relaxed);
-            if let Some(recognition) = recognition.as_mut() {
-                recognition.reset();
-            }
-            decimator = Decimator::new();
-            meter.reset();
-            pending_level = None;
+        recognition.process(&interleaved);
+        let meter_started = micros();
+        if let Some(level) = meter.push(&interleaved) {
+            pending_level = Some((level, std::time::Instant::now()));
         }
-        decimator.process(&interleaved, &mut feed);
-        if let Some(recognition) = recognition.as_mut() {
-            recognition.push(&feed);
-        }
-        if let Some(level) = meter.push(&feed) {
-            pending_level = Some(level);
-        }
-        if let Some(level) = pending_level {
+        METER_WORK_US.fetch_max((micros() - meter_started) as u32, Ordering::Relaxed);
+        if let Some((level, measured_at)) = pending_level {
             let started = micros();
             match store.try_lock() {
                 Ok(mut store) => {
-                    store.set_level(level);
+                    store.set_measurement(level, measured_at);
                     pending_level = None;
                 }
                 Err(TryLockError::WouldBlock) => {}
@@ -247,8 +422,8 @@ fn micros() -> u64 {
     unsafe { esp_idf_svc::sys::esp_timer_get_time() as u64 }
 }
 
-// Sample after each publish/reset. A streak spans repeated pending publishes, including
-// read waits and preemption; it does not imply one reader held the mutex for that duration.
+// Staging fields track only unpublished partial-block assembly after each publish/reset.
+// Pending time includes I2S waits and preemption; readers cannot hold publication back.
 fn record_staging(frames: usize, now: u64, since: &mut Option<u64>, attempts: &mut u32) {
     if frames > 0 {
         let started = *since.get_or_insert(now);
@@ -270,8 +445,18 @@ fn record_staging(frames: usize, now: u64, since: &mut Option<u64>, attempts: &m
     STAGED_MAX_FRAMES.fetch_max(frames as u32, Ordering::Relaxed);
 }
 
-fn supervise() {
+fn supervise(raw: SharedStreamRing) -> ! {
+    let mut encoder_health = crate::stream_runtime::health::Supervisor::new();
+    // SAFETY: this diverging task stays live for the boot; pinned ESP-IDF panics abort.
+    let task = unsafe { esp_idf_svc::sys::xTaskGetCurrentTaskHandle() };
+    SUPERVISOR_TASK.store(task.cast(), Ordering::Release);
     let launched = micros();
+    #[cfg(feature = "listener-frame-state")]
+    let mut frame_sampler = crate::listener_frame_state::Sampler::new(launched as u32);
+    let mut sampling = Gate::new(launched);
+    let mut observations = Counts::new();
+    let mut metrics_task = std::ptr::null_mut();
+    let mut status = esp_idf_svc::sys::TaskStatus_t::default();
     // Startup shares the stall grace even if capture is blocked before STARTED.
     let mut health = CaptureHealth::new(
         STALL_MS,
@@ -280,6 +465,7 @@ fn supervise() {
         FRAMES.load(Ordering::Relaxed),
     );
     loop {
+        crate::stream::supervise_encoder(&mut encoder_health, &raw, micros());
         match health.observe(micros() / 1_000, FRAMES.load(Ordering::Relaxed)) {
             Action::None => {}
             Action::Restart => {
@@ -292,11 +478,23 @@ fn supervise() {
                 unsafe { esp_idf_svc::sys::esp_restart() }
             }
         }
+        #[cfg(feature = "listener-frame-state")]
+        crate::listener_frame_state::observe(&mut frame_sampler);
+        if sampling.due(micros(), 1_000_000) && metrics_observer_enabled() {
+            observe_metrics(&mut observations, &mut metrics_task, &mut status);
+            METRICS_OBSERVATIONS.publish(&observations);
+        }
         std::thread::sleep(Duration::from_millis(100));
     }
 }
 
-fn metrics() {
+fn metrics(raw: SharedStreamRing) -> ! {
+    #[cfg(feature = "listener-frame-state")]
+    let mut frame_exported = false;
+    record_metrics_phase(metrics_observer_enabled(), Phase::Init);
+    // SAFETY: this diverging task stays live for the boot; pinned ESP-IDF panics abort.
+    let task = unsafe { esp_idf_svc::sys::xTaskGetCurrentTaskHandle() };
+    METRICS_TASK.store(task.cast(), Ordering::Release);
     // Sole owner of IDF's process-global minimum-heap monitor. Allocate its small saved
     // minima array once at boot, before measuring rolling windows under listener load.
     let mut window_start_free = start_heap_window();
@@ -306,12 +504,33 @@ fn metrics() {
     let mut observed = 0u64;
     let mut requests_seen = 0;
     let mut next_log = launched + 10_000_000;
+    #[cfg(feature = "admission-resources")]
+    let mut admission_resource_sequence = 0;
+    let mut runtime_sample = None;
+    let mut failure_exports = ExportState::new();
+    #[cfg(feature = "startup-capture-trace")]
+    let mut startup_exports = [0; 2];
+    let mut diagnostic_exports = Gate::new(launched);
+    #[cfg(feature = "metrics-state-crossover")]
+    let mut crossover = metrics_state_crossover::Schedule::new();
     loop {
+        #[cfg(feature = "metrics-state-crossover")]
+        let observer_enabled = {
+            if let Some(transition) = crossover.advance(micros()) {
+                CROSSOVER_PHASE.store(transition.phase as u32, Ordering::Relaxed);
+                let changed_us = micros();
+                log_metrics_crossover(transition, changed_us);
+            }
+            crossover.enabled()
+        };
+        #[cfg(not(feature = "metrics-state-crossover"))]
+        let observer_enabled = true;
         let now = micros();
         let frames = FRAMES.load(Ordering::Relaxed);
         if epoch.is_none() && STARTED.load(Ordering::Acquire) {
             epoch = Some(now);
             observed = 0;
+            runtime_sample = capture_runtime();
         } else if epoch.is_some() {
             observed += u64::from(frames.wrapping_sub(previous));
         }
@@ -319,17 +538,206 @@ fn metrics() {
         let requests = HEALTH_RESTART_REQUESTS.load(Ordering::Relaxed);
         if requests != requests_seen {
             requests_seen = requests;
+            record_metrics_phase(observer_enabled, Phase::HealthWarning);
             // Event delivery is asynchronous and may lag the capture owner's restart.
             log::warn!("audio: no captured-frame progress for {STALL_MS} ms; requesting restart (asynchronously observed; health_restart_requests={requests})");
+            record_metrics_phase(observer_enabled, Phase::Init);
         }
         if now >= next_log {
             if let Some(epoch) = epoch {
-                log_capture(now - epoch, observed, &mut window_start_free);
+                record_metrics_phase(observer_enabled, Phase::Capture);
+                log_capture(
+                    now - epoch,
+                    observed,
+                    &mut window_start_free,
+                    &mut runtime_sample,
+                );
+                #[cfg(feature = "admission-resources")]
+                crate::stream::export_admission_resources(&mut admission_resource_sequence);
+                record_metrics_phase(observer_enabled, Phase::Init);
             }
+            record_metrics_phase(observer_enabled, Phase::RestartExport);
+            export_restart_failures(&mut failure_exports);
+            #[cfg(feature = "startup-capture-trace")]
+            crate::startup_capture_trace::export(&mut startup_exports);
+            record_metrics_phase(observer_enabled, Phase::Init);
+            crate::stream::export_media_progress(&raw);
             next_log = now + 10_000_000;
         }
+        #[cfg(feature = "listener-frame-state")]
+        if !frame_exported {
+            if let Some(receipt) = crate::listener_frame_state::DIAGNOSTIC.receipt() {
+                frame_exported = true;
+                record_metrics_phase(observer_enabled, Phase::DiagnosticExport);
+                crate::listener_frame_state::export(receipt);
+                record_metrics_phase(observer_enabled, Phase::Init);
+            }
+        }
+        record_metrics_phase(observer_enabled, Phase::ListenerExport);
+        crate::stream::export_listener_events();
+        record_metrics_phase(observer_enabled, Phase::Init);
+        record_metrics_phase(observer_enabled, Phase::EncoderExport);
+        crate::stream::export_encoder_events();
+        record_metrics_phase(observer_enabled, Phase::Init);
+        if diagnostic_exports.due(micros(), 10_000_000) && observer_enabled {
+            record_metrics_phase(observer_enabled, Phase::DiagnosticExport);
+            export_metrics_observations();
+            record_metrics_phase(observer_enabled, Phase::Init);
+        }
+        record_metrics_phase(observer_enabled, Phase::Sleep);
         std::thread::sleep(Duration::from_millis(100));
+        record_metrics_phase(observer_enabled, Phase::Init);
     }
+}
+
+// Keep rare transition formatting off the persistent metrics/export stack frame.
+#[cfg(feature = "metrics-state-crossover")]
+#[inline(never)]
+fn log_metrics_crossover(transition: metrics_state_crossover::Transition, changed_us: u64) {
+    let seq = transition.phase as u32;
+    let phase = transition.phase.name();
+    log::info!(
+        "metrics-crossover: transition schema=1 seq={} phase={} planned_us={} changed_us={} skipped={}",
+        seq, phase, transition.planned_us, changed_us, transition.skipped
+    );
+    let ready_us = micros();
+    log::info!(
+        "metrics-crossover: ready schema=1 seq={} phase={} ready_us={}",
+        seq,
+        phase,
+        ready_us
+    );
+}
+
+// Both tasks stay on core 1, with supervisor above metrics: a query/publication
+// finishes before metrics can change the gate. Metrics keeps one selection per loop.
+#[inline(always)]
+fn metrics_observer_enabled() -> bool {
+    #[cfg(feature = "metrics-state-crossover")]
+    {
+        CROSSOVER_PHASE.load(Ordering::Relaxed) == metrics_state_crossover::Phase::On as u32
+    }
+    #[cfg(not(feature = "metrics-state-crossover"))]
+    {
+        true
+    }
+}
+
+#[inline(always)]
+fn record_metrics_phase(enabled: bool, phase: Phase) {
+    if enabled {
+        METRICS_PHASE.store(phase as u32, Ordering::Relaxed);
+    }
+}
+
+// This query takes the kernel lock and has no hard latency bound. Health acts first.
+#[inline(never)]
+fn observe_metrics(
+    counts: &mut Counts,
+    seen: &mut *mut c_void,
+    status: &mut esp_idf_svc::sys::TaskStatus_t,
+) {
+    use esp_idf_svc::sys;
+    let task = METRICS_TASK.load(Ordering::Acquire);
+    if counts.invalidated || task.is_null() {
+        counts.unavailable();
+        return;
+    }
+    if !(*seen).is_null() && *seen != task {
+        counts.invalidated = true;
+        counts.unavailable();
+        return;
+    }
+    *seen = task;
+    let before = METRICS_PHASE.load(Ordering::Relaxed);
+    let started = micros();
+    // SAFETY: permanent metrics lifetime is required, not established by the later check.
+    // pdFALSE skips stack scanning; eInvalid requests the actual state.
+    unsafe { sys::vTaskGetInfo(task.cast(), status, 0, sys::eTaskState_eInvalid) };
+    let elapsed = micros().saturating_sub(started);
+    let after = METRICS_PHASE.load(Ordering::Relaxed);
+    let identity_matches =
+        status.xHandle.cast::<c_void>() == task && METRICS_TASK.load(Ordering::Acquire) == task;
+    counts.record(
+        before,
+        after,
+        status.eCurrentState,
+        elapsed,
+        identity_matches,
+    );
+}
+
+// Each leaf reads independent atomic values. Equal phases permit ABA; Ready includes
+// a metrics task preempted by supervisor. Counts are samples, never time in state.
+#[inline(never)]
+fn export_metrics_observations() {
+    let start_us = micros();
+    log_metrics_totals(start_us);
+    for phase in 0..PHASES {
+        log_metrics_phase(start_us, phase);
+    }
+    log_metrics_complete(start_us);
+}
+
+#[inline(never)]
+fn log_metrics_totals(start_us: u64) {
+    let receipt = &METRICS_OBSERVATIONS;
+    log::info!("metrics_state: schema=1 start_us={} independent=true attempted={} unavailable={} unassigned={} last_raw={} max_query_us={} saturated={} invalidated={}",
+        start_us, receipt.attempted.load(Ordering::Relaxed),
+        receipt.unavailable.load(Ordering::Relaxed), receipt.unassigned.load(Ordering::Relaxed),
+        receipt.last_raw.load(Ordering::Relaxed), receipt.max_query_us.load(Ordering::Relaxed),
+        receipt.saturated.load(Ordering::Relaxed), receipt.invalidated.load(Ordering::Relaxed));
+}
+
+#[inline(never)]
+fn log_metrics_phase(start_us: u64, phase: usize) {
+    log::info!(
+        "metrics_state_phase: schema=1 start_us={} phase={} ready={} blocked={} other={}",
+        start_us,
+        phase,
+        METRICS_OBSERVATIONS.counter(phase, 0),
+        METRICS_OBSERVATIONS.counter(phase, 1),
+        METRICS_OBSERVATIONS.counter(phase, 2)
+    );
+}
+
+#[inline(never)]
+fn log_metrics_complete(start_us: u64) {
+    let task = SUPERVISOR_TASK.load(Ordering::Acquire);
+    let stack_valid = !task.is_null();
+    let stack_min_bytes = if stack_valid {
+        // SAFETY: published supervisor is permanent. Pinned Xtensa StackType_t is u8,
+        // so this preemptible fill-byte scan reports bytes, not a coherent snapshot.
+        unsafe { esp_idf_svc::sys::uxTaskGetStackHighWaterMark(task.cast()) }
+    } else {
+        0
+    };
+    log::info!(
+        "metrics_state_complete: schema=1 start_us={} end_us={} phases=8 supervisor_stack_valid={} supervisor_stack_min_bytes={}",
+        start_us, micros(), stack_valid, stack_min_bytes
+    );
+}
+
+// Aggregate rare driver failures after capture reporting returns, outside the owner path.
+#[inline(never)]
+fn export_restart_failures(state: &mut ExportState) {
+    for summary in state
+        .select(RESTART_FAILURES.snapshot())
+        .into_iter()
+        .flatten()
+    {
+        log_restart_failure(&summary);
+    }
+}
+
+#[inline(never)]
+fn log_restart_failure(summary: &Summary) {
+    let operation = match summary.kind {
+        FailureKind::InitialFlush => "initial queue flush",
+        FailureKind::RecoveryRestart => "restart",
+    };
+    log::warn!("audio: {operation} failed: failures_total={} failures_delta={} sampled_error_code={} export_us={} aggregate=true count_code_coherent=false",
+        summary.failures_total, summary.failures_delta, summary.sampled_error_code, micros());
 }
 
 fn start_heap_window() -> [usize; 2] {
@@ -349,9 +757,60 @@ fn start_heap_window() -> [usize; 2] {
     }
 }
 
-fn log_capture(elapsed_us: u64, observed: u64, window_start_free: &mut [usize; 2]) {
+fn capture_runtime() -> Option<(u64, u32)> {
     use esp_idf_svc::sys;
+    let task = CAPTURE_TASK.load(Ordering::Acquire);
+    if task.is_null() {
+        return None;
+    }
+    let mut status = sys::TaskStatus_t::default();
+    // SAFETY: capture publishes its permanently live task. pdFALSE skips stack scanning;
+    // eRunning skips state lookup. Pinned IDF reads the counter without heap allocation.
+    unsafe {
+        sys::vTaskGetInfo(task.cast(), &mut status, 0, sys::eTaskState_eRunning);
+    }
+    Some((micros(), status.ulRunTimeCounter))
+}
+
+/// One metrics window of the capture path. Filling it loads every counter and performs every
+/// window reset in one pass, so `/api/metrics` and the UART `audio:` line describe the same
+/// window; `metrics` is the JSON's share of it, the rest is on the UART line only.
+struct CaptureWindow {
+    metrics: crate::device_metrics::Capture,
+    runtime_window_us: u64,
+    task_runtime_us: u32,
+    runtime_valid: bool,
+    staged_frames: u32,
+    staged_max_frames: u32,
+    staging_pending_attempts: u32,
+    staging_pending_max_attempts: u32,
+    staging_pending_us: u32,
+    staging_pending_max_us: u32,
+    timing_deficit_estimate_frames: i64,
+    window_start_free: [usize; 2],
+}
+
+// Keep capture formatting's stack frame separate from listener export in metrics.
+#[inline(never)]
+fn log_capture(
+    elapsed_us: u64,
+    observed: u64,
+    window_start_free: &mut [usize; 2],
+    runtime_sample: &mut Option<(u64, u32)>,
+) {
+    use esp_idf_svc::sys;
+    let capture_begin_us = micros();
     let counters = i2s_capture::counters();
+    let frames = FRAMES.load(Ordering::Relaxed);
+    let dropped = DROPPED.load(Ordering::Relaxed);
+    let read_errors = READ_ERRORS.load(Ordering::Relaxed);
+    let restarts = RESTARTS.load(Ordering::Relaxed);
+    let supervisor_restarts = SUPERVISOR_RESTARTS.load(Ordering::Relaxed);
+    let overflow_restarts = OVERFLOW_RESTARTS.load(Ordering::Relaxed);
+    let settling_discarded_frames = SETTLING_DISCARDED_FRAMES.load(Ordering::Relaxed);
+    let gaps = GAPS.load(Ordering::Relaxed);
+    let health_restart_requests = HEALTH_RESTART_REQUESTS.load(Ordering::Relaxed);
+    let capture_end_us = micros();
     let internal = sys::MALLOC_CAP_INTERNAL | sys::MALLOC_CAP_8BIT;
     let external = sys::MALLOC_CAP_SPIRAM | sys::MALLOC_CAP_8BIT;
     // Minimum sums combine per-region lows that may occur at different times: a conservative
@@ -368,19 +827,77 @@ fn log_capture(elapsed_us: u64, observed: u64, window_start_free: &mut [usize; 2
         )
     };
     let start_free = *window_start_free;
+    let current_runtime = capture_runtime();
+    let (runtime_window_us, task_runtime_us, runtime_valid) =
+        match (*runtime_sample, current_runtime) {
+            (Some((previous_us, previous_runtime)), Some((now_us, runtime))) => (
+                now_us - previous_us,
+                runtime.wrapping_sub(previous_runtime),
+                now_us <= u64::from(u32::MAX),
+            ),
+            _ => (0, 0, false),
+        };
+    *runtime_sample = current_runtime;
     // Logging overhead belongs to the next window. No stop/start allocation cycle.
     *window_start_free = start_heap_window();
-    let deficit = (elapsed_us * u64::from(CAPTURE_RATE_HZ) / 1_000_000) as i64 - observed as i64;
-    log::info!("audio: frames={} callbacks={} queue_overflows={} software_dropped_frames={} read_errors={} restarts={} discontinuities={} health_restart_requests={} raw_work_max_us={} store_work_max_us={} raw_read_max_us={} staged_frames={} staged_max_frames={} staging_pending_attempts={} staging_pending_max_attempts={} staging_pending_us={} staging_pending_max_us={} timing_deficit_estimate_frames={} (clock drift/scheduling; not proof of loss) internal_free={} internal_largest={} psram_free={} psram_largest={} internal_min_sum={} psram_min_sum={} internal_window_start_free={} psram_window_start_free={} (minima sum per-region lows; largest is a snapshot; staging current values sampled at publish/reset)",
-        FRAMES.load(Ordering::Relaxed), counters.callbacks, counters.queue_overflows,
-        DROPPED.load(Ordering::Relaxed), READ_ERRORS.load(Ordering::Relaxed),
-        RESTARTS.load(Ordering::Relaxed), GAPS.load(Ordering::Relaxed),
-        HEALTH_RESTART_REQUESTS.load(Ordering::Relaxed),
-        RAW_WORK_US.swap(0, Ordering::Relaxed), STORE_WORK_US.swap(0, Ordering::Relaxed),
-        crate::stream::take_raw_read_max_us(), STAGED_FRAMES.load(Ordering::Relaxed),
-        STAGED_MAX_FRAMES.swap(0, Ordering::Relaxed),
-        STAGING_PENDING_ATTEMPTS.load(Ordering::Relaxed), STAGING_PENDING_MAX_ATTEMPTS.swap(0, Ordering::Relaxed),
-        STAGING_PENDING_US.load(Ordering::Relaxed), STAGING_PENDING_MAX_US.swap(0, Ordering::Relaxed),
-        deficit, free, largest, psram_free, psram_largest, internal_min_sum, psram_min_sum,
-        start_free[0], start_free[1]);
+    let window = CaptureWindow {
+        metrics: crate::device_metrics::Capture {
+            capture_begin_us,
+            capture_end_us,
+            read_frames: frames,
+            callbacks: counters.callbacks,
+            queue_overflows: counters.queue_overflows,
+            software_dropped_frames: dropped,
+            read_errors,
+            restarts,
+            supervisor_restarts,
+            overflow_restarts,
+            settling_discarded_frames,
+            discontinuities: gaps,
+            health_restart_requests,
+            read_service_delay_estimate_max_us: READ_SERVICE_DELAY_US.swap(0, Ordering::Relaxed),
+            raw_work_max_us: RAW_WORK_US.swap(0, Ordering::Relaxed),
+            meter_work_max_us: METER_WORK_US.swap(0, Ordering::Relaxed),
+            store_work_max_us: STORE_WORK_US.swap(0, Ordering::Relaxed),
+            raw_read_max_us: crate::stream::take_raw_read_max_us(),
+            internal_free: free,
+            internal_largest: largest,
+            internal_min_sum,
+            psram_free,
+            psram_largest,
+            psram_min_sum,
+        },
+        runtime_window_us,
+        task_runtime_us,
+        runtime_valid,
+        staged_frames: STAGED_FRAMES.load(Ordering::Relaxed),
+        staged_max_frames: STAGED_MAX_FRAMES.swap(0, Ordering::Relaxed),
+        staging_pending_attempts: STAGING_PENDING_ATTEMPTS.load(Ordering::Relaxed),
+        staging_pending_max_attempts: STAGING_PENDING_MAX_ATTEMPTS.swap(0, Ordering::Relaxed),
+        staging_pending_us: STAGING_PENDING_US.load(Ordering::Relaxed),
+        staging_pending_max_us: STAGING_PENDING_MAX_US.swap(0, Ordering::Relaxed),
+        timing_deficit_estimate_frames: (elapsed_us * u64::from(CAPTURE_RATE_HZ) / 1_000_000)
+            as i64
+            - observed as i64,
+        window_start_free: start_free,
+    };
+    crate::device_metrics::CACHE.publish_capture(window.metrics);
+    let m = &window.metrics;
+    log::info!("audio: frames={} capture_begin_us={} capture_end_us={} callbacks={} queue_overflows={} software_dropped_frames={} read_errors={} restarts={} supervisor_restarts={} overflow_restarts={} settling_discarded_frames={} discontinuities={} health_restart_requests={} capture_runtime_window_us={} capture_task_runtime_us={} capture_runtime_valid={} read_service_delay_estimate_max_us={} raw_work_max_us={} meter_work_max_us={} store_work_max_us={} raw_read_max_us={} staged_frames={} staged_max_frames={} staging_pending_attempts={} staging_pending_max_attempts={} staging_pending_us={} staging_pending_max_us={} timing_deficit_estimate_frames={} (clock drift/scheduling; not proof of loss) internal_free={} internal_largest={} psram_free={} psram_largest={} internal_min_sum={} psram_min_sum={} internal_window_start_free={} psram_window_start_free={} (runtime includes charged interrupts and excludes unfinished slice; service delay includes work/preemption; minima sum per-region lows; largest is a snapshot; staging fields measure partial block assembly, sampled at publish/reset)",
+        m.read_frames, m.capture_begin_us, m.capture_end_us, m.callbacks, m.queue_overflows,
+        m.software_dropped_frames, m.read_errors,
+        m.restarts,
+        m.supervisor_restarts, m.overflow_restarts,
+        m.settling_discarded_frames,
+        m.discontinuities,
+        m.health_restart_requests,
+        window.runtime_window_us, window.task_runtime_us, window.runtime_valid,
+        m.read_service_delay_estimate_max_us,
+        m.raw_work_max_us, m.meter_work_max_us, m.store_work_max_us,
+        m.raw_read_max_us, window.staged_frames,
+        window.staged_max_frames,
+        window.staging_pending_attempts, window.staging_pending_max_attempts,
+        window.staging_pending_us, window.staging_pending_max_us,
+        window.timing_deficit_estimate_frames, m.internal_free, m.internal_largest, m.psram_free, m.psram_largest, m.internal_min_sum, m.psram_min_sum,
+        window.window_start_free[0], window.window_start_free[1]);
 }
