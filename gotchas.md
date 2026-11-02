@@ -1491,3 +1491,9 @@ Temporary private-config swaps need absolute restore paths and a successful
 restore comparison before deleting the backup. A changed working directory
 caused a failed restore on November 1; the saved office config matched the
 existing production firmware credentials and supplied the recovery copy.
+
+Fresh hosted installs cannot fetch espup 0.18.0: its Git tag remains, but the
+release and binary assets return 404. Mise reports its last tag-format fallback,
+which can look like a prefix error. Pin the available 0.19.0 installer; keep the
+explicit Rust toolchain 1.98.1.0 and ESP-IDF 5.5.5 unchanged. Existing local tool
+caches hid this failure, so verify installer changes with empty data/cache dirs.

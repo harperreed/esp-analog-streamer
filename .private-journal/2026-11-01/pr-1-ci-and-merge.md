@@ -25,3 +25,15 @@ recovered the saved office config, checking credentials against the existing
 production ELF. No firmware was flashed. Cleanup now uses an absolute path,
 compares the restored file, and removes its backup only after success. This
 was avoidable; safe cleanup must not depend on the current directory.
+
+The first published candidate passed all 28 local canonical stages, with 820
+workspace tests passing and two existing ignored tests. Hosted CI then failed
+all seven jobs before checking code: espup 0.18.0's tag exists, but its release
+and binary downloads return 404. Empty-cache installation reproduced the same
+failure. Pinning the available 0.19.0 installer passes a fresh download and
+matches the official asset digest. Its command accepts the existing ESP32,
+standard-library and explicit 1.98.1.0 toolchain options; no firmware compiler
+or SDK pin changes. Fresh espflash/ldproxy installs also pass. Mise's existing
+optional usage-tool release-cutoff warning remains visible in those probes.
+CodeRabbit skipped the PR because it exceeds its file limit; that green status
+is not a code review. The independent reviews are the review evidence.
