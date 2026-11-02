@@ -173,8 +173,55 @@ mod contract_tests {
     use super::*;
     use esp_shazam_core::{
         stream_buffer::OutputFormat,
-        stream_http::{Route, Status},
+        stream_http::{Format, Route, Status},
     };
+    #[test]
+    fn route_oracle_checks_head_streams_and_refusals() {
+        for (line, active, expected) in [
+            (
+                "HEAD /stream.wav HTTP/1.1",
+                OutputFormat::Flac,
+                Route::Head(Format::Wav),
+            ),
+            (
+                "HEAD /stream.flac HTTP/1.1",
+                OutputFormat::Flac,
+                Route::Head(Format::Flac),
+            ),
+            (
+                "HEAD /stream.mp3?buffer=high HTTP/1.1",
+                OutputFormat::Mp3,
+                Route::Head(Format::Mp3),
+            ),
+            (
+                "HEAD /stream.mp3 HTTP/1.1",
+                OutputFormat::Flac,
+                Route::Refuse(Status::NotFound),
+            ),
+            (
+                "HEAD /stream.flac?buffer=bad HTTP/1.1",
+                OutputFormat::Flac,
+                Route::Refuse(Status::BadRequest),
+            ),
+            (
+                "HEAD /missing HTTP/1.1",
+                OutputFormat::Mp3,
+                Route::Refuse(Status::NotFound),
+            ),
+        ] {
+            assert_eq!(
+                esp_shazam_core::stream_http::route_for(line, active),
+                expected
+            );
+            assert_route_contract(line, active, expected);
+            assert!(std::panic::catch_unwind(|| assert_route_contract(
+                line,
+                active,
+                Route::Refuse(Status::MethodNotAllowed)
+            ))
+            .is_err());
+        }
+    }
     #[test]
     fn route_oracle_checks_named_branches_and_rejects_wrong_status() {
         for active in [OutputFormat::Flac, OutputFormat::Mp3] {
@@ -205,6 +252,7 @@ mod contract_tests {
     fn committed_http_seeds_match_independent_contracts() {
         for seed in [
             &include_bytes!("../corpus/http_head/live")[..],
+            &include_bytes!("../corpus/http_head/head")[..],
             &include_bytes!("../corpus/http_head/buffered")[..],
             &include_bytes!("../corpus/http_head/duplicate-buffer")[..],
             &include_bytes!("../corpus/http_head/inactive")[..],
@@ -292,7 +340,7 @@ pub fn assert_route_contract(
         assert_eq!(route, Route::Refuse(Status::BadRequest));
         return;
     }
-    if tokens[0] != "GET" {
+    if !matches!(tokens[0], "GET" | "HEAD") {
         assert_eq!(route, Route::Refuse(Status::MethodNotAllowed));
         return;
     }
@@ -353,6 +401,11 @@ pub fn assert_route_contract(
         }
     };
     if let Some(expected) = expected {
+        let expected = match (tokens[0], expected) {
+            ("HEAD", Route::Stream(format)) => Route::Head(format),
+            ("HEAD", Route::Buffered(_)) => Route::Head(active.format()),
+            (_, route) => route,
+        };
         assert_eq!(route, expected);
     }
     if let Route::Refuse(status) = route {
