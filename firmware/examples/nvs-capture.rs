@@ -13,11 +13,6 @@ use esp_idf_svc::hal::cpu::Core;
 use esp_idf_svc::sys::{self, esp};
 use esp_shazam_firmware::{config, threads};
 
-const _: () = assert!(
-    !config::CONFIG.shazam_enabled,
-    "nvs-capture requires shazam_enabled=false"
-);
-
 const WRITES: u32 = 120;
 const BYTES: usize = 1024;
 
@@ -127,6 +122,10 @@ fn micros() -> u64 {
 }
 
 fn main() -> anyhow::Result<()> {
+    anyhow::ensure!(
+        !config::CONFIG.shazam_enabled,
+        "nvs-capture requires shazam_enabled=false"
+    );
     threads::ThreadSpec {
         name: c"nvs-capture",
         core: Core::Core1,
