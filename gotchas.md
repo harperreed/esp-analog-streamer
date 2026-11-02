@@ -1476,3 +1476,18 @@ remote Stop, so the harness's cleanup reports "board status did not settle". Pha
 (FLAC/Medium: Play, sustained positions, checked Stop, remote STOPPED) is the worker's
 proof. The harness also requires the workstation's Master and PCM at 0 dB and the
 speaker STOPPED before it starts; set the mixer for the run and restore it after.
+
+Queued Sonos commands must pass admission again when the worker takes them.
+A Play queued behind Disable can share its new cancellation generation while
+the old status still says enabled. Generation checks alone cannot enforce the
+completed Disable. Refuse it before dispatch without starting failure recovery.
+
+Firmware examples must build with the public recognition-enabled config.
+`nvs-capture` checks its recognition-off requirement at entry, before starting
+threads or accessing NVS. The fuzz routing oracle must accept HEAD wherever
+the production parser does; retain the HEAD seed so replay catches policy drift.
+
+Temporary private-config swaps need absolute restore paths and a successful
+restore comparison before deleting the backup. A changed working directory
+caused a failed restore on November 1; the saved office config matched the
+existing production firmware credentials and supplied the recovery copy.

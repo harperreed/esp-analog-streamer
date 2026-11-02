@@ -81,6 +81,12 @@ struct QueuedCommand {
 }
 
 impl QueuedCommand {
+    /// Queued commands must still satisfy admission when the worker takes ownership.
+    fn into_admitted(self, status: &Snapshot) -> Result<Command, Refusal> {
+        admit(&self.command, status)?;
+        Ok(self.command)
+    }
+
     fn network_current(&self, network: &Network) -> bool {
         !matches!(self.command, Command::Play | Command::Discover)
             || self.network.is_some_and(|lease| network.is_current(lease))
@@ -1164,10 +1170,19 @@ mod device {
                         }
                         self.cancel_local_if_stale();
                         self.generation = queued.generation;
-                        let command = queued.command;
+                        let lease = queued.network;
+                        let admitted = queued.into_admitted(&self.status.lock().unwrap());
+                        let command = match admitted {
+                            Ok(command) => command,
+                            Err(refusal) => {
+                                self.status.lock().unwrap().last_error =
+                                    Some(format!("Sonos command refused: {refusal:?}"));
+                                continue;
+                            }
+                        };
                         let controls_playback =
                             matches!(command, Command::Play | Command::Stop | Command::Select(_));
-                        if let Err(error) = self.command(command, queued.network) {
+                        if let Err(error) = self.command(command, lease) {
                             if controls_playback {
                                 self.fail(error);
                             } else {
@@ -1890,6 +1905,70 @@ mod tests {
             admit(&Command::Select("RINCON_TEST01400".into()), &status),
             Ok(())
         );
+    }
+
+    #[test]
+    fn completed_disable_refuses_previously_admitted_queued_commands() {
+        use esp_shazam_core::stream_buffer::{BufferPreset, OutputFormat};
+        for command in [
+            Command::Play,
+            Command::Discover,
+            Command::Select("RINCON_TEST01400".into()),
+            Command::SetAutoplay(true),
+            Command::SetFormat(OutputFormat::Mp3),
+            Command::SetBufferPreset(BufferPreset::High),
+        ] {
+            let status = std::sync::Mutex::new(Snapshot {
+                config: SonosConfig {
+                    enabled: true,
+                    autoplay: true,
+                    ..Default::default()
+                },
+                buffer_available: true,
+                active_format: OutputFormat::Flac,
+                groups: vec![],
+                active_player_id: None,
+                state: State::Stopped,
+                last_error: None,
+            });
+            let (commands, receiver) = Commands::new(network_tests::ready_network());
+            for command in [Command::SetEnabled(false), command] {
+                admit(&command, &status.lock().unwrap()).unwrap();
+                commands.submit(command).unwrap();
+            }
+            let disable = receiver.recv().unwrap();
+            let generation = disable.generation;
+            assert!(matches!(
+                disable.into_admitted(&status.lock().unwrap()).unwrap(),
+                Command::SetEnabled(false)
+            ));
+            let config = with_enabled(status.lock().unwrap().config.clone(), false);
+            save_config(&status, config, |_| Ok::<(), ()>(())).unwrap();
+            let queued = receiver.recv().unwrap();
+            if matches!(queued.command, Command::Play | Command::Discover) {
+                assert_eq!(queued.generation, generation);
+            }
+            assert!(commands.is_current(queued.generation));
+            assert!(queued.network_current(&commands.network));
+            assert!(matches!(
+                queued.into_admitted(&status.lock().unwrap()),
+                Err(Refusal::Disabled)
+            ));
+            assert_eq!(status.lock().unwrap().state, State::Stopped);
+            assert_eq!(status.lock().unwrap().last_error, None);
+            for command in [
+                Command::Stop,
+                Command::SetEnabled(true),
+                Command::SetEnabled(false),
+            ] {
+                commands.submit(command).unwrap();
+                receiver
+                    .recv()
+                    .unwrap()
+                    .into_admitted(&status.lock().unwrap())
+                    .unwrap();
+            }
+        }
     }
 
     #[test]
